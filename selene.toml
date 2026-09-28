@@ -1,0 +1,8 @@
+# selene (linter): https://kampfkarren.github.io/selene/
+std = "roblox"
+
+[rules]
+# style choices this codebase makes on purpose: several statements on one line,
+# and UDim2.new(0, x, 0, y) instead of UDim2.fromOffset
+multiple_statements = "allow"
+roblox_manual_fromscale_or_fromoffset = "allow"
