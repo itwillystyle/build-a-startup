@@ -67,54 +67,11 @@ if FurnitureKit then
 end
 
 -- ============ CONFIG ============
+local CFG = require(ServerScriptService:WaitForChild("CoreConfig"))   -- tuning constants (v4.2: moved out, the script was at 196/200 locals)
 
-local START_CASH = 0
-local CODE_REWARD = 5
-local CLICKS_TO_SHIP = 3
-local INTERN_RATE = 2
-local GARAGE_DESKS = 1
-
-local FLOOR = Color3.fromRGB(78, 76, 74)
-local WALL = Color3.fromRGB(196, 190, 180)
-local TRIM = Color3.fromRGB(52, 56, 66)
-local ACCENT = Color3.fromRGB(90, 170, 255)
-local GOOD = Color3.fromRGB(90, 210, 130)
-local GOLD = Color3.fromRGB(255, 208, 70)
-local BAD = Color3.fromRGB(255, 140, 140)
-
-local ROLE_ORDER = { "engineer", "engineer", "designer", "sales", "engineer",
-	"research", "designer", "recruiter" }
-
-local ROOMS = {
-	-- v2.8: blurbs say what the room does under the V3 economy (rooms come
-	-- furnished; the old "(B)" and "unlocks KITCHEN" lines described build mode)
-	{ id = "office", name = "OPEN OFFICE", cost = 100,
-	  blurb = "Seats 2 more people", desks = 2,
-	  color = Color3.fromRGB(206, 200, 190), accent = ACCENT },
-	{ id = "servers", name = "SERVER ROOM", cost = 350,
-	  blurb = "Bigger launch paydays", compute = 1,
-	  color = Color3.fromRGB(70, 74, 86), accent = Color3.fromRGB(120, 240, 200) },
-	{ id = "studio", name = "DESIGN STUDIO", cost = 800,
-	  blurb = "+25% money for your company", quality = 0.25,
-	  color = Color3.fromRGB(224, 196, 150), accent = Color3.fromRGB(255, 150, 190) },
-	{ id = "cafe", name = "CAFETERIA", cost = 1500,
-	  blurb = "+20% money, seats 4", morale = 0.20,
-	  color = Color3.fromRGB(196, 150, 110), accent = GOLD },
-}
-local ROOM_BY_ID = {}
-for _, r in ipairs(ROOMS) do ROOM_BY_ID[r.id] = r end
--- v2.7.0: HQ prices come from RoomEconomy when V3 is on (applied after the table below)
-
-local HQ_LEVELS = {
-	{ name = "GARAGE",         w = 36, d = 30, h = 14, cost = 0 },
-	-- v4.0: the lots moved out to +-92 in v3.2, so the HQ can grow wider as it
-	-- grows up (blender/hq2.py). Every level is a finished building.
-	{ name = "STARTUP OFFICE", w = 56, d = 44, h = 20, cost = 2500 },
-	{ name = "TECH HQ",        w = 72, d = 52, h = 28, cost = 25000 },
-	{ name = "GLASS TOWER",    w = 84, d = 56, h = 44, cost = 150000 },
-	{ name = "CAMPUS HQ",      w = 96, d = 56, h = 60, cost = 1000000 },
-}
-if Econ and Econ.V3 then for i, c in ipairs(Econ.HQ_COST) do if HQ_LEVELS[i] then HQ_LEVELS[i].cost = c end end end
+for _, r in ipairs(CFG.ROOMS) do CFG.ROOM_BY_ID[r.id] = r end
+-- v2.7.0: HQ prices come from RoomEconomy when V3 is on (overrides CoreConfig.HQ_LEVELS[i].cost)
+if Econ and Econ.V3 then for i, c in ipairs(Econ.HQ_COST) do if CFG.HQ_LEVELS[i] then CFG.HQ_LEVELS[i].cost = c end end end
 
 --[[
 	ECONOMY v1.0 -- economies of scale, both directions. His note: "$30 for
@@ -129,15 +86,9 @@ if Econ and Econ.V3 then for i, c in ipairs(Econ.HQ_COST) do if HQ_LEVELS[i] the
 	Launches also pay a cash PAYDAY (seconds of income x spike), so shipping
 	is a cash source, not just a valuation number.
 ]]
-local HQ_MULT = { 1, 1.6, 2.6, 4.2, 7 }   -- revenue AND price multiplier per HQ level
-local HIRE_BASE = 40
-local HIRE_GROWTH = 1.3                   -- was 1.6: hire 20 cost $487K, hire 25 $5M
-local WING_STEP = 0.5                     -- each wing already built raises the next by 50%
-local FURNITURE_INFLATION = 0.08          -- per item already placed
-local PAYDAY_SECONDS = 45                 -- a launch pays this many seconds of income, x spike
 
 local function hqMultOf(plot)
-	return HQ_MULT[plot and plot.hq and plot.hq.level or 1] or 1
+	return CFG.HQ_MULT[plot and plot.hq and plot.hq.level or 1] or 1
 end
 --[[
 	v2.4 SPIN-OFF (prestige) + MILESTONE LADDER -- the sink after HQ 5.
@@ -149,24 +100,17 @@ end
 	milestones is DERIVED from earned at load, never trusted from a save.
 ]]
 local SPINOFF_BASE = (Econ and Econ.V3) and Econ.SPINOFF_BASE or 5000000
-local SPINOFF_GROWTH = 2.5
-local SPINOFF_STEP = 0.5
-local SPINOFF_CAP = 20
-local MILESTONE_BASE = 10000
-local MILESTONE_STEP = 0.02
-local MILESTONE_MAX = 12
-local ROMAN = { "", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX", "XXI" }
-local function spinMultOf(s) return 1 + SPINOFF_STEP * (s and s.spinoffs or 0) end
-local function milestoneMultOf(s) return 1 + MILESTONE_STEP * (s and s.milestones or 0) end
-local function spinoffCostOf(s) return math.floor(SPINOFF_BASE * (SPINOFF_GROWTH ^ (s and s.spinoffs or 0))) end
+local function spinMultOf(s) return 1 + CFG.SPINOFF_STEP * (s and s.spinoffs or 0) end
+local function milestoneMultOf(s) return 1 + CFG.MILESTONE_STEP * (s and s.milestones or 0) end
+local function spinoffCostOf(s) return math.floor(SPINOFF_BASE * (CFG.SPINOFF_GROWTH ^ (s and s.spinoffs or 0))) end
 local function milestonesFromEarned(earned)
-	if (earned or 0) < MILESTONE_BASE then return 0 end
-	return math.min(MILESTONE_MAX, math.floor(math.log10(earned / MILESTONE_BASE)) + 1)
+	if (earned or 0) < CFG.MILESTONE_BASE then return 0 end
+	return math.min(CFG.MILESTONE_MAX, math.floor(math.log10(earned / CFG.MILESTONE_BASE)) + 1)
 end
 local function companyLabel(s)
 	local n = s and s.name or ""
 	local k = s and s.spinoffs or 0
-	return k > 0 and (n .. " " .. (ROMAN[k + 1] or tostring(k + 1))) or n
+	return k > 0 and (n .. " " .. (CFG.ROMAN[k + 1] or tostring(k + 1))) or n
 end
 local function fmt(n)
 	n = math.floor(n)
@@ -188,13 +132,13 @@ local function wingCostOf(room, plot, rate)
 	local built = 0
 	for _, slot in ipairs(plot.slots or {}) do if slot.built then built += 1 end end
 	if Econ and Econ.V3 then return math.floor(room.cost * (Econ.WING_GROWTH ^ built)) end
-	local base = math.floor(room.cost * hqMultOf(plot) * (1 + WING_STEP * built))
+	local base = math.floor(room.cost * hqMultOf(plot) * (1 + CFG.WING_STEP * built))
 	-- v2.6.4: never cheaper than N seconds of this company's income
 	local secs = Econ and Econ.WING_SECONDS and Econ.WING_SECONDS[room.id] or 0
 	return math.max(base, math.floor((rate or 0) * secs))
 end
 local function furniturePriceOf(item, s, plot)
-	local mult = hqMultOf(plot) * (1 + FURNITURE_INFLATION * #(s.placed or {}))
+	local mult = hqMultOf(plot) * (1 + CFG.FURNITURE_INFLATION * #(s.placed or {}))
 	if FurnitureKit and FurnitureKit.priceFor then
 		-- v2.6.3: rounded exactly like the PriceMult attribute the client reads
 		-- v2.7.0: no income floor -- furniture is decoration now
@@ -215,35 +159,26 @@ end
 	Hire cost tapers after 12 people (Restaurant Tycoon 2 grows worker cost
 	by a flat +$500 a head, never geometrically -- 1.3^n past 25 was a wall).
 ]]
-local WING_UP_BASE = 0.6               -- first level = 60% of the wing's build price
-local WING_UP_GROWTH = 1.35            -- per level
-local WING_LEVEL_AMOUNT = { office = 2, servers = 1, studio = 0.10, cafe = 0.08 }
-local WING_LEVEL_TEXT = { office = "+4 seats", servers = "+1 compute", studio = "+10% revenue, +2 seats", cafe = "+8% output, +4 seats" }
-local HIRE_GROWTH_LATE = 1.12          -- after HIRE_TAPER_AT people
-local QUALITY_CAP = 1.5                -- studio levels stop paying past +150% revenue
-local MORALE_CAP = 0.8                 -- cafeteria levels stop paying past +80% output
-local HIRE_TAPER_AT = 12
 -- v2.3: wing levels END. Five levels, each priced in seconds of your CURRENT
 -- income (the Sell Lemons shape: the ladder climbs with you, so "cheap and
 -- infinite" cannot happen at HQ 5). The old flat formula is only a floor for
 -- brand-new players whose rate is still tiny.
 local WING_MAX_LEVEL = (Econ and Econ.V3) and Econ.MAX_LEVEL or 5
-local WING_UP_SECONDS = { 45, 90, 180, 360 }   -- Lv1->2 ... Lv4->5
 
 local function wingUpgradeCostOf(room, level, plot, rate)
 	if Econ and Econ.V3 then return math.floor(room.cost * Econ.LEVEL_FIRST * (Econ.LEVEL_GROWTH ^ (level - 1))) end
-	local base = math.floor(room.cost * WING_UP_BASE * (WING_UP_GROWTH ^ (level - 1)) * hqMultOf(plot))
-	local secs = WING_UP_SECONDS[level] or WING_UP_SECONDS[#WING_UP_SECONDS]
+	local base = math.floor(room.cost * CFG.WING_UP_BASE * (CFG.WING_UP_GROWTH ^ (level - 1)) * hqMultOf(plot))
+	local secs = CFG.WING_UP_SECONDS[level] or CFG.WING_UP_SECONDS[#CFG.WING_UP_SECONDS]
 	return math.max(base, math.floor((rate or 0) * secs))
 end
 local function hireGrowthAt(staff)
 	if Econ and Econ.V3 then return Econ.HIRE_GROWTH end
-	return staff <= HIRE_TAPER_AT and HIRE_GROWTH or HIRE_GROWTH_LATE
+	return staff <= CFG.HIRE_TAPER_AT and CFG.HIRE_GROWTH or CFG.HIRE_GROWTH_LATE
 end
 
 -- one more level of a wing: the effect applied again, no charge here
 local function applyWingLevel(s, room)
-	local amt = WING_LEVEL_AMOUNT[room.id] or 0
+	local amt = CFG.WING_LEVEL_AMOUNT[room.id] or 0
 	if room.id == "office" then s.desks += amt
 	elseif room.id == "servers" then s.compute = (s.compute or 0) + amt
 	elseif room.id == "studio" then s.quality = (s.quality or 0) + amt
@@ -260,8 +195,8 @@ local function wingMaxed(s, slot)
 		if not Econ.levelUseful(slot) then return true end
 	end
 	local id = slot.room and slot.room.id
-	if id == "studio" and (s.quality or 0) >= QUALITY_CAP then return true end
-	if id == "cafe" and (s.morale or 0) >= MORALE_CAP then return true end
+	if id == "studio" and (s.quality or 0) >= CFG.QUALITY_CAP then return true end
+	if id == "cafe" and (s.morale or 0) >= CFG.MORALE_CAP then return true end
 	return false
 end
 
@@ -275,12 +210,11 @@ local function refreshWingPrompt(slot, plot, s)
 		slot.upPrompt.Enabled = false
 	else
 		local cost = wingUpgradeCostOf(slot.room, lv, plot, s and s.rate)
-		slot.upPrompt.ObjectText = ("%s Lv%d  ·  $%s  ·  %s"):format(slot.room.name, lv, fmt(cost), WING_LEVEL_TEXT[slot.room.id] or "")
+		slot.upPrompt.ObjectText = ("%s Lv%d  ·  $%s  ·  %s"):format(slot.room.name, lv, fmt(cost), CFG.WING_LEVEL_TEXT[slot.room.id] or "")
 		slot.upPrompt.Enabled = true
 	end
 	if slot.levelTag then slot.levelTag.Text = lv >= WING_MAX_LEVEL and "MAX" or ("LV %d"):format(lv) end
 end
-
 
 --[[
 	THE PRODUCT LOOP -- the "repetitive" fix. Every cycle your team finishes a
@@ -298,9 +232,6 @@ end
 	minutes; a floor of seniors takes seconds. The bar is on screen so the
 	cause is visible: hire, seat, build -> products faster.
 ]]
-local WORK_FIRST = 90                 -- work units for the first product
-local WORK_GROWTH = 1.35              -- each product needs this much more
-local LAUNCH_DURATION = 300           -- the spike decays to zero over this
 
 --[[
 	SENIORITY. An employee seated at a desk grows: Intern -> Junior -> Senior
@@ -308,9 +239,6 @@ local LAUNCH_DURATION = 300           -- the spike decays to zero over this
 	Standing in the waiting line does not count. This is the value a rival
 	pays for, and the value you cannot buy back.
 ]]
-local TIER_RATE = { 2, 4, 7, 12 }
-local TIER_TITLE = { "Intern", "Junior", "Senior", "Lead" }
-local PROMOTE_EVERY = 120
 
 --[[
 	v2.5 TALENT. Every hire rolls a talent tier ONCE, server-side, at the
@@ -319,25 +247,18 @@ local PROMOTE_EVERY = 120
 	promotes on top. This is the roll-to-chase loop: the person is the pull.
 	Draws run rarest -> commonest so a Unicorn is exactly 1 in 1491 per hire.
 ]]
-local TALENT = {
-	{ name = "Regular", odds = 1,    mult = 1.0,  color = nil },
-	{ name = "Skilled", odds = 5,    mult = 1.5,  color = Color3.fromRGB(90, 210, 130) },
-	{ name = "Star",    odds = 25,   mult = 2.5,  color = Color3.fromRGB(90, 170, 255) },
-	{ name = "Genius",  odds = 150,  mult = 5.0,  color = Color3.fromRGB(190, 120, 255) },
-	{ name = "Unicorn", odds = 1491, mult = 12.0, color = Color3.fromRGB(255, 208, 70) },
-}
 
 -- v3.2.1: luck multiplies every rare tier's chance (Office Vibe, x1.0..x2.0)
-TALENT.roll = function(luck)
+CFG.TALENT.roll = function(luck)
 	luck = math.clamp(tonumber(luck) or 1, 1, 3)
-	for t = #TALENT, 2, -1 do
-		if math.random() * TALENT[t].odds < luck then return t end
+	for t = #CFG.TALENT, 2, -1 do
+		if math.random() * CFG.TALENT[t].odds < luck then return t end
 	end
 	return 1
 end
 
 local function talentMultOf(r)
-	local t = TALENT[r and r.talent or 1] or TALENT[1]
+	local t = CFG.TALENT[r and r.talent or 1] or CFG.TALENT[1]
 	return t.mult
 end
 
@@ -348,8 +269,6 @@ end
 	next offer will not come for a while. You can rebuy the body, never the
 	seniority -- that is the whole anti-abuse.
 ]]
-local OFFER_EVERY = { 150, 240 }
-local OFFER_MIN_TIER = 2
 --[[
 	v1.5 OFFERS THAT PAY. Measured: a sale paid <= 180s of output while the
 	replacement Intern needed 6 min to become a Lead again (~4.6 min of Lead
@@ -359,40 +278,14 @@ local OFFER_MIN_TIER = 2
 	already understands) and every sale adds to ALUMNI: promotions run
 	ALUMNI_STEP faster per sale, capped. Selling is a ladder, not a leak.
 ]]
--- v2.3: an offer is INCOME TIME, nothing else. 2.5 minutes of the whole
--- company's rate, capped at a quarter of what you are worth (cash + valuation),
--- floored at 1 minute. The old tier x 480 s floor handed a garage player a
--- $5,760 offer against a $2,500 HQ; the same formula gave $40K against $12M.
-local OFFER_INCOME_SECONDS = 150
-local OFFER_MIN_SECONDS = 60
-local OFFER_WORTH_CAP = 0.25
-local ALUMNI_STEP = 0.05           -- +5% promotion speed per sale
 
 local function offerAmountOf(s, cashValue)
 	local rate = s.rate or 0
 	local worth = (cashValue or 0) + (s.valuation or 0)
-	local amount = math.min(rate * OFFER_INCOME_SECONDS, worth * OFFER_WORTH_CAP)
-	amount = math.max(amount, rate * OFFER_MIN_SECONDS, 25)
+	local amount = math.min(rate * CFG.OFFER_INCOME_SECONDS, worth * CFG.OFFER_WORTH_CAP)
+	amount = math.max(amount, rate * CFG.OFFER_MIN_SECONDS, 25)
 	return math.floor(amount)
 end
-local ALUMNI_CAP = 10              -- +50% max
-local RIVALS = { "Buzzly Corp", "Cortex Labs", "Vaultly", "Zoomeats", "Skyfall Games", "Pulse Health",
-	"Circlr", "Ledgerly", "Nudge AI", "Brainbox" }
-local MARKETS = {
-	-- v2.6.2: spike is 1.0 everywhere -- size is equal, SHAPE and FIT live in RoomEconomy.MARKET
-	{ id = "social",  name = "SOCIAL",  blurb = "everyone shares it",   spike = 1.0,
-	  names = { "Wavelength", "Buzzly", "Hangout", "Pingo", "Snapfeed", "Circlr" } },
-	{ id = "games",   name = "GAMES",   blurb = "big spike, fades fast", spike = 1.0,
-	  names = { "Blockquest", "Pocket Kart", "Dungeon Dash", "Skyfall", "Tiny Tycoon", "Brick Royale" } },
-	{ id = "ai",      name = "AI",      blurb = "slow burn, long tail",  spike = 1.0,
-	  names = { "Brainbox", "Autopilot", "Sage", "Cortex", "Whisper AI", "Nudge" } },
-	{ id = "fintech", name = "FINTECH", blurb = "steady money",          spike = 1.0,
-	  names = { "Coinjar", "Ledgerly", "Payflow", "Vaultly", "Splitwise Jr", "Tabby" } },
-	{ id = "health",  name = "HEALTH",  blurb = "does good, pays fair",  spike = 1.0,
-	  names = { "Stepcount", "Sleepwell", "Hydrate", "Pulse", "Mindful", "FitBuddy" } },
-	{ id = "delivery", name = "DELIVERY", blurb = "everyone orders once", spike = 1.0,
-	  names = { "Zoomeats", "Dropbox Jr", "Snackr", "Quickcart", "Doordrop", "Fetch" } },
-}
 
 --[[
 	IPO. Valuation is cumulative revenue plus a premium per launch. Cross the
@@ -400,7 +293,6 @@ local MARKETS = {
 	permanent seat on the global ticker board at the road (OrderedDataStore).
 	His ask: "a permanent leaderboard, like a stock ticker, shown globally."
 ]]
-local IPO_AT = 250000
 
 --[[
 	RIVALS + MARKET SHARE (v0.9). The "99 Nights" pressure, done the way
@@ -413,22 +305,8 @@ local IPO_AT = 250000
 	with server uptime, capped just above the best human, so there is always
 	someone to overtake and a toast when you do.
 ]]
-local RIVAL_EVERY = { 120, 200 }       -- seconds between rival launches
-local PRESSURE_SECONDS = 60            -- how long a rival launch keeps biting
-local SHARE_FLOOR = 0.5
-local SHARE_DECAY = 0.004              -- per second under pressure (60s = -24%)
-local PUBLIC_RIVALS = {
-	{ name = "Cortex Labs",   ticker = "CRTX", base = 260000 },
-	{ name = "Vaultly",       ticker = "VLTY", base = 330000 },
-	{ name = "Zoomeats",      ticker = "ZOOM", base = 410000 },
-	{ name = "Skyfall Games", ticker = "SKYF", base = 520000 },
-	{ name = "Brainbox",      ticker = "BRNX", base = 680000 },
-}
-local RIVAL_GROWTH = 1.02              -- per minute of server uptime
-local RIVAL_CAP_MULT = 1.2             -- never more than this x the best human
 local serverStart = os.clock()
 
-local SLOT_W, SLOT_D = 28, 24
 -- clear of the LARGEST HQ (68 wide): wings, not storage units glued to a box
 -- v2.6.1: rooms were 4 studs apart (28-stud rows for 24-stud rooms) and 4
 -- studs off a full-size HQ, so every back-row door opened into a wall. Now an
@@ -449,15 +327,6 @@ local SLOT_LOCAL = (CampusArch and CampusArch.LOTS) or {
 	Rotations are 0 or 180 ONLY: the placement engine's overlap math is an
 	axis-aligned box test in world space, and it stays exact under 180.
 ]]
-local ROAD_Z = 0
-local PLOT_DEFS = {
-	{ pivot = CFrame.new(-360, 0, -130) },
-	{ pivot = CFrame.new(0, 0, -130) },
-	{ pivot = CFrame.new(360, 0, -130) },
-	{ pivot = CFrame.new(-360, 0, 130) * CFrame.Angles(0, math.pi, 0) },
-	{ pivot = CFrame.new(0, 0, 130) * CFrame.Angles(0, math.pi, 0) },
-	{ pivot = CFrame.new(360, 0, 130) * CFrame.Angles(0, math.pi, 0) },
-}
 
 -- ============ HELPERS (above every caller, always) ============
 
@@ -504,7 +373,7 @@ local function popup(anchor, text, color)
 	if not anchor then return end
 	local fx = ReplicatedStorage:FindFirstChild("SVRemotes")
 	fx = fx and fx:FindFirstChild("Popup")
-	if fx then fx:FireAllClients(anchor, text, color or GOOD) return end
+	if fx then fx:FireAllClients(anchor, text, color or CFG.GOOD) return end
 	local bb = Instance.new("BillboardGui")
 	bb.Size = UDim2.new(0, 240, 0, 44)
 	bb.StudsOffset = Vector3.new(0, 3.5, 0)
@@ -515,7 +384,7 @@ local function popup(anchor, text, color)
 	t.Size = UDim2.new(1, 0, 1, 0)
 	t.BackgroundTransparency = 1
 	t.Text = text
-	t.TextColor3 = color or GOOD
+	t.TextColor3 = color or CFG.GOOD
 	t.TextStrokeTransparency = 0.15
 	t.TextSize = 28
 	t.Font = Enum.Font.FredokaOne
@@ -652,15 +521,15 @@ plotsFolder.Parent = world
 -- holds them at exactly 0 and blends the terrain out around them.
 do
 	local flat = {}
-	for _, def in ipairs(PLOT_DEFS) do
+	for _, def in ipairs(CFG.PLOT_DEFS) do
 		local c = def.pivot:PointToWorldSpace(Vector3.new(0, 0, -20))
 		table.insert(flat, { x = c.X, z = c.Z, w = 240, d = 220 })
 	end
-	table.insert(flat, { x = 190, z = ROAD_Z, w = 1520, d = 74 })    -- the road
-	table.insert(flat, { x = 780, z = ROAD_Z, w = 320, d = 200 })    -- downtown
+	table.insert(flat, { x = 190, z = CFG.ROAD_Z, w = 1520, d = 74 })    -- the road
+	table.insert(flat, { x = 780, z = CFG.ROAD_Z, w = 320, d = 200 })    -- downtown
 	-- v1.6: the two cross streets and their building blocks (CityKit.CROSS_X)
 	for _, cx in ipairs((CityKit and CityKit.CROSS_X) or { -185, 165 }) do
-		table.insert(flat, { x = cx, z = ROAD_Z, w = 120, d = 2 * ((CityKit and CityKit.CROSS_LEN) or 250) + 40 })
+		table.insert(flat, { x = cx, z = CFG.ROAD_Z, w = 120, d = 2 * ((CityKit and CityKit.CROSS_LEN) or 250) + 40 })
 	end
 	if ValleyGen then
 		-- v3.3 the Caltrain corridor behind the south campuses, from the Bay
@@ -703,10 +572,10 @@ if CityKit then
 	-- v4.0: the street ends at the downtown roundabout (x 700); Downtown.lua builds the city
 	local okD, Downtown = pcall(function() return require(ServerScriptService:WaitForChild("Downtown", 5)) end)
 	local roadEnd = (okD and Downtown and Downtown.ROAD_END) or 940
-	local _, made = CityKit.buildStreet(world, { groundY = 0, z = ROAD_Z, x1 = -560, x2 = roadEnd, towersX = 660, noTowers = okD and Downtown ~= nil })
+	local _, made = CityKit.buildStreet(world, { groundY = 0, z = CFG.ROAD_Z, x1 = -560, x2 = roadEnd, towersX = 660, noTowers = okD and Downtown ~= nil })
 	print(("[SV] street: %d buildings, %d props"):format(made.buildings, made.props))
 	if CityKit.buildKenneyCity then
-		local _, k = CityKit.buildKenneyCity(world, { groundY = 0, z = ROAD_Z, x1 = -560, x2 = roadEnd })
+		local _, k = CityKit.buildKenneyCity(world, { groundY = 0, z = CFG.ROAD_Z, x1 = -560, x2 = roadEnd })
 		if k then print(("[SV] kenney city: %d tiles, %d blocks, %d lamps, %d cars"):format(k.tiles, k.buildings, k.lamps, k.cars)) end
 	end
 	if okD and Downtown and Downtown.build then
@@ -714,7 +583,7 @@ if CityKit then
 		print(okB and "[SV] downtown built" or ("[SV] downtown failed: " .. tostring(err)))
 	end
 else
-	part({ Name = "Road", Size = Vector3.new(1500, 1, 26), Position = Vector3.new(190, 0.5, ROAD_Z),
+	part({ Name = "Road", Size = Vector3.new(1500, 1, 26), Position = Vector3.new(190, 0.5, CFG.ROAD_Z),
 		Color = Color3.fromRGB(58, 57, 58), Material = Enum.Material.Asphalt }, world)
 end
 
@@ -723,7 +592,7 @@ do
 	local sp = Instance.new("SpawnLocation")
 	sp.Name = "HubSpawn"
 	sp.Size = Vector3.new(6, 1, 6)
-	sp.CFrame = CFrame.new(0, 1.5, ROAD_Z)
+	sp.CFrame = CFrame.new(0, 1.5, CFG.ROAD_Z)
 	sp.Transparency = 1
 	sp.CanCollide = false
 	sp.Anchored = true
@@ -753,20 +622,20 @@ local function buildShell(plot, level, animate)
 	plot.hq.doorL, plot.hq.doorR = nil, nil
 	plot.hq.level = level
 	local g = plot.g
-	local L = HQ_LEVELS[level]
+	local L = CFG.HQ_LEVELS[level]
 	local w, d, h = L.w, L.d, L.h
 
 	shellPart(plot, { Name = "GarageFloor", Size = Vector3.new(w, 1, d), CFrame = g(0, 0.5, 0),
-		Color = FLOOR, Material = Enum.Material.Concrete })
-	shellPart(plot, { Name = "WallBack", Size = Vector3.new(w, h, 1), CFrame = g(0, h / 2, -d / 2), Color = WALL })
-	shellPart(plot, { Name = "WallL", Size = Vector3.new(1, h, d), CFrame = g(-w / 2, h / 2, 0), Color = WALL })
-	shellPart(plot, { Name = "WallR", Size = Vector3.new(1, h, d), CFrame = g(w / 2, h / 2, 0), Color = WALL })
-	shellPart(plot, { Name = "Roof", Size = Vector3.new(w, 1, d + 1), CFrame = g(0, h, 0), Color = TRIM })
+		Color = CFG.FLOOR, Material = Enum.Material.Concrete })
+	shellPart(plot, { Name = "WallBack", Size = Vector3.new(w, h, 1), CFrame = g(0, h / 2, -d / 2), Color = CFG.WALL })
+	shellPart(plot, { Name = "WallL", Size = Vector3.new(1, h, d), CFrame = g(-w / 2, h / 2, 0), Color = CFG.WALL })
+	shellPart(plot, { Name = "WallR", Size = Vector3.new(1, h, d), CFrame = g(w / 2, h / 2, 0), Color = CFG.WALL })
+	shellPart(plot, { Name = "Roof", Size = Vector3.new(w, 1, d + 1), CFrame = g(0, h, 0), Color = CFG.TRIM })
 
 	-- the company name plate: on every level, readable from the road. Gold
 	-- once the company is public.
 	local plate = shellPart(plot, { Name = "NamePlate", Size = Vector3.new(math.min(w - 12, 26), 3.4, 0.5),
-		CFrame = g(0, h + 2.2, d / 2 - 0.8), Color = TRIM, Material = Enum.Material.SmoothPlastic })
+		CFrame = g(0, h + 2.2, d / 2 - 0.8), Color = CFG.TRIM, Material = Enum.Material.SmoothPlastic })
 	-- The name is painted ON the plate (SurfaceGui), not floated over it. A
 	-- billboard centred in the 0.5-stud plate was half-clipped by the plate's
 	-- own face from any raised camera (the menu orbit shot showed it), and a
@@ -799,7 +668,7 @@ local function buildShell(plot, level, animate)
 
 	if level == 1 then
 		shellPart(plot, { Name = "DoorHeader", Size = Vector3.new(w, 3, 1),
-			CFrame = g(0, h - 1.5, d / 2), Color = TRIM })
+			CFrame = g(0, h - 1.5, d / 2), Color = CFG.TRIM })
 		plot.hq.doorL = shellPart(plot, { Name = "DoorL", Size = Vector3.new(w / 2 - 0.5, h - 3, 0.6),
 			CFrame = g(-(w / 4 + 0.1), (h - 3) / 2, d / 2),
 			Color = Color3.fromRGB(150, 148, 146), Material = Enum.Material.DiamondPlate })
@@ -815,7 +684,7 @@ local function buildShell(plot, level, animate)
 		local sideW = (w - doorW) / 2
 		for _, side in ipairs({ -1, 1 }) do
 			shellPart(plot, { Name = "FrontWall", Size = Vector3.new(sideW, 3, 1),
-				CFrame = g(side * (doorW / 2 + sideW / 2), 2, d / 2), Color = WALL })
+				CFrame = g(side * (doorW / 2 + sideW / 2), 2, d / 2), Color = CFG.WALL })
 			shellPart(plot, { Name = "FrontGlass", Size = Vector3.new(sideW - 2, h - 7, 0.4),
 				CFrame = g(side * (doorW / 2 + sideW / 2), (h - 7) / 2 + 3, d / 2),
 				Color = Color3.fromRGB(150, 200, 220), Material = Enum.Material.Glass, Transparency = 0.45 })
@@ -824,7 +693,7 @@ local function buildShell(plot, level, animate)
 				Color = Color3.fromRGB(150, 200, 220), Material = Enum.Material.Glass, Transparency = 0.45 })
 		end
 		shellPart(plot, { Name = "EntranceHeader", Size = Vector3.new(w, 4, 1),
-			CFrame = g(0, h - 2, d / 2), Color = TRIM })
+			CFrame = g(0, h - 2, d / 2), Color = CFG.TRIM })
 		--[[
 			INTERIOR. His verdict: "not just some garage-looking area, I want
 			this to be a company building." Level 2+ reads as an office from
@@ -847,7 +716,7 @@ local function buildShell(plot, level, animate)
 				Material = Enum.Material.Neon })
 		end
 		local logo = shellPart(plot, { Name = "LogoWall", Size = Vector3.new(math.min(w - 20, 30), 6, 0.6),
-			CFrame = g(0, 8, -d / 2 + 0.8), Color = level >= 3 and Color3.fromRGB(38, 40, 48) or ACCENT,
+			CFrame = g(0, 8, -d / 2 + 0.8), Color = level >= 3 and Color3.fromRGB(38, 40, 48) or CFG.ACCENT,
 			Material = level >= 3 and Enum.Material.SmoothPlastic or Enum.Material.SmoothPlastic })
 		-- v3.0.3: painted ON the panel (SurfaceGui on its room-facing face), like every
 		-- other sign. The old floating billboard slid behind the wall at an angle and
@@ -867,21 +736,21 @@ local function buildShell(plot, level, animate)
 			t.Position = UDim2.new(0.5, 0, 0.5, 0)
 			t.TextScaled = true
 			t.Font = Enum.Font.FredokaOne
-			t.TextColor3 = level >= 3 and GOLD or Color3.new(1, 1, 1)
+			t.TextColor3 = level >= 3 and CFG.GOLD or Color3.new(1, 1, 1)
 			t.Text = ""
 			t.Parent = sg
 			plot.logoTag = t
 		end
 		if level >= 3 then
 			shellPart(plot, { Name = "Parapet", Size = Vector3.new(w + 2, 1.6, d + 2),
-				CFrame = g(0, h + 0.8, 0), Color = WALL })
+				CFrame = g(0, h + 0.8, 0), Color = CFG.WALL })
 		end
 		-- storey slabs every 12 studs: height reads as floors, and they are the
 		-- floors CampusArch furnishes (v3.0.3: from level 3, whose 28-stud hall was one room)
 		if level >= 3 then
 			for y = 16, h - 6, 12 do
 				shellPart(plot, { Name = "StoreyBand", Size = Vector3.new(w + 0.6, 1.2, d + 0.6),
-					CFrame = g(0, y, 0), Color = TRIM })
+					CFrame = g(0, y, 0), Color = CFG.TRIM })
 			end
 		end
 		if level >= 4 then
@@ -890,7 +759,7 @@ local function buildShell(plot, level, animate)
 			shellPart(plot, { Name = "RoofBeacon", Size = Vector3.new(0.6, 8, 0.6),
 				CFrame = g(0, h + 5.5, -d / 4), Color = Color3.fromRGB(243, 239, 230) })
 			shellPart(plot, { Name = "RoofBeaconLight", Shape = Enum.PartType.Ball, Size = Vector3.new(1.1, 1.1, 1.1),
-				CFrame = g(0, h + 9.9, -d / 4), Color = level >= 5 and GOLD or Color3.fromRGB(255, 96, 80), Material = Enum.Material.Neon })
+				CFrame = g(0, h + 9.9, -d / 4), Color = level >= 5 and CFG.GOLD or Color3.fromRGB(255, 96, 80), Material = Enum.Material.Neon })
 		end
 		-- v2.8: the same architecture as the wings (white, mullions, canopy, roof plant)
 		if CampusArch then
@@ -932,11 +801,11 @@ local function buildSlots(plot)
 		local cf = plot.pivot * (typeof(off) == "CFrame" and off or CFrame.new(off))
 		local pad, t
 		if CampusArch and CampusArch.lot then
-			local ok, a1, a2 = pcall(CampusArch.lot, folder, cf, i, SLOT_W, SLOT_D)
+			local ok, a1, a2 = pcall(CampusArch.lot, folder, cf, i, CFG.SLOT_W, CFG.SLOT_D)
 			if ok then pad, t = a1, a2 else warn("[SV] lot " .. i .. " failed: " .. tostring(a1)) end
 		end
 		if not pad then
-			pad = part({ Name = "Slot" .. i, Size = Vector3.new(SLOT_W, 0.4, SLOT_D), CFrame = cf * CFrame.new(0, 0.2, 0),
+			pad = part({ Name = "Slot" .. i, Size = Vector3.new(CFG.SLOT_W, 0.4, CFG.SLOT_D), CFrame = cf * CFrame.new(0, 0.2, 0),
 				Color = Color3.fromRGB(120, 118, 116), Material = Enum.Material.Concrete }, folder)
 			t = label(pad, "", 20, 3, 120)
 		end
@@ -949,7 +818,7 @@ local function buildSlots(plot)
 			if slot.built or not pp.Enabled then return end
 			-- the picker shows THIS company's prices, not the base table
 			local priced = {}
-			for k, r in ipairs(ROOMS) do
+			for k, r in ipairs(CFG.ROOMS) do
 				local sess = sessions[player.UserId]
 				priced[k] = { id = r.id, name = r.name, blurb = r.blurb, cost = wingCostOf(r, plot, sess and sess.rate),
 					color = r.color, accent = r.accent }
@@ -1005,17 +874,17 @@ local function buildPlot(index, def)
 		Color = Color3.fromRGB(150, 118, 80), Material = Enum.Material.Cardboard }, garage)
 	local desk = part({ Name = "Desk", Size = Vector3.new(7, 0.4, 3.4), CFrame = g(0, 3.2, -9),
 		Color = Color3.fromRGB(150, 120, 86), Material = Enum.Material.WoodPlanks }, garage)
-	part({ Name = "DeskLegL", Size = Vector3.new(0.4, 3, 0.4), CFrame = g(-3, 1.5, -9), Color = TRIM }, garage)
-	part({ Name = "DeskLegR", Size = Vector3.new(0.4, 3, 0.4), CFrame = g(3, 1.5, -9), Color = TRIM }, garage)
+	part({ Name = "DeskLegL", Size = Vector3.new(0.4, 3, 0.4), CFrame = g(-3, 1.5, -9), Color = CFG.TRIM }, garage)
+	part({ Name = "DeskLegR", Size = Vector3.new(0.4, 3, 0.4), CFrame = g(3, 1.5, -9), Color = CFG.TRIM }, garage)
 	local laptop = part({ Name = "Laptop", Size = Vector3.new(2.6, 0.15, 1.8), CFrame = g(0, 3.5, -9),
 		Color = Color3.fromRGB(60, 64, 74), Material = Enum.Material.Metal }, garage)
 	local screen = part({ Name = "Screen", Size = Vector3.new(2.6, 1.7, 0.12),
 		CFrame = g(0, 4.35, -9.8) * CFrame.Angles(math.rad(-15), 0, 0),
-		Color = ACCENT, Material = Enum.Material.Neon }, garage)
+		Color = CFG.ACCENT, Material = Enum.Material.Neon }, garage)
 	part({ Name = "Chair", Size = Vector3.new(2, 1.0, 2),
-		CFrame = g(4.6, 1.5, -6.0) * CFrame.Angles(0, math.rad(-28), 0), Color = TRIM }, garage)
+		CFrame = g(4.6, 1.5, -6.0) * CFrame.Angles(0, math.rad(-28), 0), Color = CFG.TRIM }, garage)
 	part({ Name = "ChairBack", Size = Vector3.new(2, 1.8, 0.3),
-		CFrame = g(4.6, 2.9, -5.15) * CFrame.Angles(0, math.rad(-28), 0), Color = TRIM }, garage)
+		CFrame = g(4.6, 2.9, -5.15) * CFrame.Angles(0, math.rad(-28), 0), Color = CFG.TRIM }, garage)
 
 	if FurnitureKit then
 		local swapped = { desk = desk, laptop = laptop }
@@ -1031,11 +900,11 @@ local function buildPlot(index, def)
 		table.insert(plot.fixed, { key = "desk", x = wp.X, z = wp.Z, w = 4.32, d = 2.31, top = 2.26, y = 1.0 })
 	end
 
-	plot.hirePad = part({ Name = "HirePad", Size = Vector3.new(7, 0.3, 7), CFrame = g(-11, 1.15, 4), Color = TRIM }, garage)
+	plot.hirePad = part({ Name = "HirePad", Size = Vector3.new(7, 0.3, 7), CFrame = g(-11, 1.15, 4), Color = CFG.TRIM }, garage)
 	plot.hireLabel = label(plot.hirePad, "", 20, 3, 34)
 
 	plot.hqPad = part({ Name = "HQPad", Size = Vector3.new(6, 0.4, 6), CFrame = g(13, 1.2, 8),
-		Color = GOLD, Material = Enum.Material.Neon }, garage)
+		Color = CFG.GOLD, Material = Enum.Material.Neon }, garage)
 	plot.hqLabel = label(plot.hqPad, "", 18, 3, 34)
 
 	local bulb = part({ Name = "Bulb", Size = Vector3.new(1.6, 0.3, 1.6), CFrame = g(0, 13.2, -8),
@@ -1071,7 +940,7 @@ end
 local function refreshSign(plot)
 	local s = plot.owner and sessions[plot.owner]
 	if not plot.signTag then return end
-	local L = HQ_LEVELS[plot.hq.level]
+	local L = CFG.HQ_LEVELS[plot.hq.level]
 	if plot.logoTag and plot.logoTag.Parent then
 		plot.logoTag.Text = (s and s.name) or ""
 	end
@@ -1080,16 +949,16 @@ local function refreshSign(plot)
 		if s.ipo then
 			plot.signTag.Text = ("%s  ·  %s"):format(companyLabel(s), s.ticker or "")
 			-- v3.5 (ART.md: Neon only for lights/screens): a painted gold plate, not a glowing bar
-			plot.signPlate.Color = GOLD
+			plot.signPlate.Color = CFG.GOLD
 			plot.signPlate.Material = Enum.Material.SmoothPlastic
 		else
 			plot.signTag.Text = companyLabel(s)
-			plot.signPlate.Color = TRIM
+			plot.signPlate.Color = CFG.TRIM
 			plot.signPlate.Material = Enum.Material.SmoothPlastic
 		end
 	else
 		plot.signTag.Text = L.name
-		plot.signPlate.Color = TRIM
+		plot.signPlate.Color = CFG.TRIM
 		plot.signPlate.Material = Enum.Material.SmoothPlastic
 	end
 	-- v2.8: a charcoal plate with white letters on the white HQ (the cyan neon
@@ -1112,8 +981,8 @@ end
 local function recompute(player)
 	local s = sessions[player.UserId]
 	if not s then return end
-	local q = math.min(s.quality or 0, QUALITY_CAP)
-	local mo = math.min(s.morale or 0, MORALE_CAP)
+	local q = math.min(s.quality or 0, CFG.QUALITY_CAP)
+	local mo = math.min(s.morale or 0, CFG.MORALE_CAP)
 	local mult = (1 + q) * (1 + mo)
 	-- v3.2.1 OFFICE VIBE: placed decor no longer adds +1% money (capped at 15%,
 	-- and most items added nothing). It builds a star rating that makes rare
@@ -1134,12 +1003,12 @@ local function recompute(player)
 	for _, r in ipairs(s.rigs or {}) do
 		if not (Econ and Econ.V3) then wages += Econ and Econ.wageOf(r.tier) or 0 end
 		if r.seated then
-			local v = TIER_RATE[r.tier or 1] * talentMultOf(r) * ((r.fit and Econ) and Econ.FIT_MULT or 1) * (r.eff or 1)
+			local v = CFG.TIER_RATE[r.tier or 1] * talentMultOf(r) * ((r.fit and Econ) and Econ.FIT_MULT or 1) * (r.eff or 1)
 			base += v
 			perRoom[r.room or "hq"] = (perRoom[r.room or "hq"] or 0) + v
 		end
 	end
-	if #(s.rigs or {}) == 0 then base = s.staff * INTERN_RATE end   -- rigs missing (no StaffRig)
+	if #(s.rigs or {}) == 0 then base = s.staff * CFG.INTERN_RATE end   -- rigs missing (no StaffRig)
 	local plot = plotOf(player)
 	s.hqLevel = plot and plot.hq and plot.hq.level or 1
 	local F = mult * hqMultOf(plot) * spinMultOf(s) * milestoneMultOf(s) * ((Econ and Econ.indexMult) and Econ.indexMult(s.index) or 1)
@@ -1154,7 +1023,7 @@ local function recompute(player)
 	player:SetAttribute("Prestige", math.floor(spinMultOf(s) * milestoneMultOf(s) * ((Econ and Econ.indexMult) and Econ.indexMult(s.index) or 1) * 100 + 0.5) / 100)
 	player:SetAttribute("Spinoffs", s.spinoffs or 0)
 	-- the client shows catalog prices; tell it what to multiply them by
-	local priceMult = hqMultOf(plot) * (1 + FURNITURE_INFLATION * #(s.placed or {}))
+	local priceMult = hqMultOf(plot) * (1 + CFG.FURNITURE_INFLATION * #(s.placed or {}))
 	player:SetAttribute("PriceMult", math.floor(priceMult * 100 + 0.5) / 100)
 	player:SetAttribute("IncomeRate", (Econ and Econ.V3) and 0 or (s.rate or 0))   -- v2.6.3 floor; v2.7.0 none
 	if Econ and Econ.V3 then player:SetAttribute("EconV3", true) end
@@ -1167,8 +1036,8 @@ end
 local function titleOf(r)
 	local role = r.rig and r.rig:GetAttribute("Role") or "engineer"
 	local roleName = (StaffRig and StaffRig.ROLES[role] and StaffRig.ROLES[role].name) or "ENGINEER"
-	local title = (TIER_TITLE[r.tier or 1] or "Intern") .. " " .. roleName:sub(1, 1) .. roleName:sub(2):lower()
-	local t = TALENT[r.talent or 1]
+	local title = (CFG.TIER_TITLE[r.tier or 1] or "Intern") .. " " .. roleName:sub(1, 1) .. roleName:sub(2):lower()
+	local t = CFG.TALENT[r.talent or 1]
 	if t and (r.talent or 1) > 1 then title = title .. ("  ·  1/%d"):format(t.odds) end
 	return title
 end
@@ -1179,7 +1048,7 @@ local function capacityOf(player)
 		local plot = plotOf(player)
 		return plot and Econ.capacity(plot) or 1
 	end
-	return s and (GARAGE_DESKS + s.desks + (s.placedDesks or 0)) or 0
+	return s and (CFG.GARAGE_DESKS + s.desks + (s.placedDesks or 0)) or 0
 end
 
 local function shipFirstProduct(player, plot)
@@ -1189,9 +1058,9 @@ local function shipFirstProduct(player, plot)
 	Telemetry.step(player, "first_ship")
 	local g = plot.g
 	local prod = part({ Name = "Product", Size = Vector3.new(1.6, 2.2, 0.2),
-		CFrame = g(0, 3.9, -9), Color = GOOD, Material = Enum.Material.Neon }, plot.garage)
+		CFrame = g(0, 3.9, -9), Color = CFG.GOOD, Material = Enum.Material.Neon }, plot.garage)
 	local tag = label(prod, "TO-DO APP", 22, 2.2, 60)
-	tag.TextColor3 = GOOD
+	tag.TextColor3 = CFG.GOOD
 	TweenService:Create(prod, TweenInfo.new(1.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
 		{ CFrame = g(0, 9.2, -9) }):Play()
 	task.delay(2.6, function()
@@ -1199,7 +1068,7 @@ local function shipFirstProduct(player, plot)
 		TweenService:Create(tag, TweenInfo.new(0.5), { TextTransparency = 1 }):Play()
 		task.delay(0.6, function() prod:Destroy() end)
 	end)
-	popup(plot.desk, "SHIPPED!", GOLD)
+	popup(plot.desk, "SHIPPED!", CFG.GOLD)
 end
 
 local function writeCode(player, plot)
@@ -1212,16 +1081,16 @@ local function writeCode(player, plot)
 	s.lastCode = os.clock()
 	s.clicks += 1
 	local brew = (Econ and Econ.Inv and Econ.Inv.codeMult(player)) or 1     -- v3.2: a Cold Brew runs x3
-	cash.Value += CODE_REWARD * brew
+	cash.Value += CFG.CODE_REWARD * brew
 	Telemetry.step(player, "first_code")
-	popup(plot.laptop, "+$" .. CODE_REWARD * brew)
-	plot.screen.Color = GOOD
-	task.delay(0.12, function() plot.screen.Color = ACCENT end)
-	if s.clicks == CLICKS_TO_SHIP then shipFirstProduct(player, plot) end
+	popup(plot.laptop, "+$" .. CFG.CODE_REWARD * brew)
+	plot.screen.Color = CFG.GOOD
+	task.delay(0.12, function() plot.screen.Color = CFG.ACCENT end)
+	if s.clicks == CFG.CLICKS_TO_SHIP then shipFirstProduct(player, plot) end
 	-- v2.7.0 the active verb: every click after the first ship pushes the product bar
-	if Econ and Econ.V3 and s.shipped and s.clicks > CLICKS_TO_SHIP and not s.pendingProduct then
+	if Econ and Econ.V3 and s.shipped and s.clicks > CFG.CLICKS_TO_SHIP and not s.pendingProduct then
 		local team = 0
-		for _, r in ipairs(s.rigs or {}) do team += TIER_RATE[r.tier or 1] end
+		for _, r in ipairs(s.rigs or {}) do team += CFG.TIER_RATE[r.tier or 1] end
 		s.work = (s.work or 0) + math.max(1, team * Econ.CODE_WORK) * brew
 	end
 end
@@ -1341,7 +1210,7 @@ end
 local function spawnStaff(player, plot, n, talent, who)
 	if not StaffRig then return nil end
 	local s = sessions[player.UserId]
-	local roleKey = ROLE_ORDER[((n - 1) % #ROLE_ORDER) + 1]
+	local roleKey = CFG.ROLE_ORDER[((n - 1) % #CFG.ROLE_ORDER) + 1]
 	-- v3.0: a recruited candidate keeps the role and face you carried home
 	-- (same StaffRig seed = same name, skin and hair)
 	if who and who.role and who.seed then roleKey = who.role end
@@ -1363,7 +1232,7 @@ local function spawnStaff(player, plot, n, talent, who)
 		end
 	end
 	table.insert(s.rigs, entry)
-	local t = TALENT[entry.talent]
+	local t = CFG.TALENT[entry.talent]
 	if t and t.color and StaffRig.setTalent then StaffRig.setTalent(rig, entry.talent, t.color, t.name) end
 	StaffRig.setTitle(rig, titleOf(entry))
 	assignDesks(player)
@@ -1377,7 +1246,7 @@ local function updateHirePad(player)
 	local cap = capacityOf(player)
 	if not s.shipped then
 		plot.hireLabel.Text = ""
-		plot.hirePad.Color = TRIM
+		plot.hirePad.Color = CFG.TRIM
 	elseif s.staff >= cap then
 		plot.hireLabel.Text = "SEATS FULL  ·  add a station (B) or upgrade a room"
 		if Econ and Econ.V3 then
@@ -1389,13 +1258,13 @@ local function updateHirePad(player)
 		plot.hirePad.Color = Color3.fromRGB(120, 90, 90)
 	elseif s.staff == 0 then
 		plot.hireLabel.Text = "HIRE YOUR FIRST INTERN  ·  FREE"
-		plot.hirePad.Color = GOLD
+		plot.hirePad.Color = CFG.GOLD
 	elseif Econ and Econ.RECRUIT and Econ.Drop then
 		plot.hireLabel.Text = "HIRING HAPPENS ON THE STREET  ·  candidates wait on the sidewalk"
-		plot.hirePad.Color = TRIM
+		plot.hirePad.Color = CFG.TRIM
 	else
 		plot.hireLabel.Text = string.format("HIRE  ·  $%s  ·  rolls talent", fmt(hireCostOf(s, plot)))
-		plot.hirePad.Color = GOLD
+		plot.hirePad.Color = CFG.GOLD
 	end
 	-- the HQ is not a verb until someone works here (it competed with the laptop at 0:00)
 	if plot.hqPrompt then plot.hqPrompt.Enabled = s.staff >= 1 end
@@ -1429,7 +1298,7 @@ local function refreshObjective(player)
 	local key, text, pos, sub, cost
 	if not s.shipped then
 		key, text, pos = "code", "Write your first app", posOf(plot.laptop)
-		sub = ("Tap the laptop  (%d of %d)"):format(math.min(s.clicks or 0, CLICKS_TO_SHIP), CLICKS_TO_SHIP)
+		sub = ("Tap the laptop  (%d of %d)"):format(math.min(s.clicks or 0, CFG.CLICKS_TO_SHIP), CFG.CLICKS_TO_SHIP)
 	elseif s.staff < 1 then
 		key, text, pos, sub = "hire", "Hire your first intern", posOf(plot.hirePad), "Step on the HIRE pad. It's free!"
 	elseif not s.buildUnlocked then
@@ -1448,7 +1317,7 @@ local function refreshObjective(player)
 			if slot.built then built += 1 elseif not empty then empty = slot end
 		end
 		local cap = capacityOf(player)
-		local nxtHq = HQ_LEVELS[plot.hq.level + 1]
+		local nxtHq = CFG.HQ_LEVELS[plot.hq.level + 1]
 		local upWing
 		for _, slot in ipairs(plot.slots) do
 			if slot.built and not wingMaxed(s, slot) then upWing = slot break end
@@ -1463,7 +1332,7 @@ local function refreshObjective(player)
 			return capN and ("Room for %d staff"):format(capN) or nil
 		end
 		if built == 0 and empty then
-			local r = ROOM_BY_ID.office
+			local r = CFG.ROOM_BY_ID.office
 			key, text, pos, sub = "build", "Build an Open Office", posOf(empty.pad), "Walk to your empty lot"
 			cost = r and wingCostOf(r, plot, s.rate) or nil
 		else
@@ -1514,17 +1383,17 @@ local function refreshObjective(player)
 			if nxtHq then
 				offer(nxtHq.cost, "hq", ("Upgrade to %s"):format(nxtHq.name), posOf(plot.hqPad), hqTease())
 			else
-				offer(spinoffCostOf(s), "spin", "Spin off", posOf(plot.hqPad), ("Start over with x%s money forever"):format((string.format("%.1f", spinMultOf(s) + SPINOFF_STEP)):gsub("%.0$", "")))
+				offer(spinoffCostOf(s), "spin", "Spin off", posOf(plot.hqPad), ("Start over with x%s money forever"):format((string.format("%.1f", spinMultOf(s) + CFG.SPINOFF_STEP)):gsub("%.0$", "")))
 			end
 			if empty and Econ and Econ.V3 then
 				if built < (Econ.SLOTS_BY_HQ[plot.hq.level] or 6) then
-					local r = ROOM_BY_ID[Econ.nextRoom(plot)]
+					local r = CFG.ROOM_BY_ID[Econ.nextRoom(plot)]
 					local wc = wingCostOf(r, plot, s.rate)
 					offer(wc, "wing", ("Build %s %s"):format((r.name:match("^[AEIOU]") and "an" or "a"), (r.name:lower():gsub("(%a)(%w*)", function(a, b) return a:upper() .. b end))), posOf(empty.pad), r.blurb)
 				end
 			elseif empty then
 				local cheapest = math.huge
-				for _, r in ipairs(ROOMS) do cheapest = math.min(cheapest, wingCostOf(r, plot, s.rate)) end
+				for _, r in ipairs(CFG.ROOMS) do cheapest = math.min(cheapest, wingCostOf(r, plot, s.rate)) end
 				offer(cheapest, "wing", "Build another building", posOf(empty.pad), "Walk to an empty lot")
 			end
 			if upWing then
@@ -1538,7 +1407,7 @@ local function refreshObjective(player)
 			-- is, and "cheapest" never picked it (a room is never the cheapest
 			-- thing). Clean-run bot: 2 rooms by minute 10 with $110K unspent.
 			if empty and Econ and Econ.V3 and held and built < (Econ.SLOTS_BY_HQ[plot.hq.level] or 6) then
-				local r = ROOM_BY_ID[Econ.nextRoom(plot)]
+				local r = CFG.ROOM_BY_ID[Econ.nextRoom(plot)]
 				local wc = wingCostOf(r, plot, s.rate)
 				if held.Value >= wc then
 					best = { c = wc, k = "wing", t = ("Build %s %s"):format((r.name:match("^[AEIOU]") and "an" or "a"), (r.name:lower():gsub("(%a)(%w*)", function(a, b) return a:upper() .. b end))), at = posOf(empty.pad), sub = r.blurb, roomsFirst = true }
@@ -1554,7 +1423,7 @@ local function refreshObjective(player)
 			-- v2.8: at HQ 5 the spin-off is the big goal, with the same afford / save-up treatment
 			if not nxtHq and held and Econ and Econ.V3 then
 				local sc = spinoffCostOf(s)
-				local why = ("Start over with x%s money forever"):format((string.format("%.1f", spinMultOf(s) + SPINOFF_STEP)):gsub("%.0$", ""))
+				local why = ("Start over with x%s money forever"):format((string.format("%.1f", spinMultOf(s) + CFG.SPINOFF_STEP)):gsub("%.0$", ""))
 				if held.Value >= sc then
 					best = { c = sc, k = "spin", t = "Spin off!", at = posOf(plot.hqPad), sub = why }
 				elseif (s.rate or 0) > 0 and (sc - held.Value) / s.rate <= Econ.SAVE_WINDOW then
@@ -1610,16 +1479,16 @@ local function hire(player, plot, recruit)
 	local cash = cashOf(player)
 	if not s or not cash or not s.shipped then return false end
 	if not recruit and s.staff >= 1 and Econ and Econ.RECRUIT and Econ.Drop then
-		popup(plot.hirePad, "Recruit on the street  ·  candidates wait on the sidewalk", ACCENT)
+		popup(plot.hirePad, "Recruit on the street  ·  candidates wait on the sidewalk", CFG.ACCENT)
 		return false
 	end
 	if s.staff >= capacityOf(player) then
-		popup(plot.hirePad, "No desks free", BAD)
+		popup(plot.hirePad, "No desks free", CFG.BAD)
 		return false
 	end
 	local cost = recruit and recruit.fee or ((s.staff == 0) and 0 or hireCostOf(s, plot))
 	if cash.Value < cost then
-		popup(plot.hirePad, "Need $" .. fmt(cost), BAD)
+		popup(plot.hirePad, "Need $" .. fmt(cost), CFG.BAD)
 		return false
 	end
 	cash.Value -= cost
@@ -1627,7 +1496,7 @@ local function hire(player, plot, recruit)
 	s.staff += 1
 	if cost > 0 then s.hireCost = math.floor(s.hireCost * hireGrowthAt(s.staff)) end
 	Telemetry.step(player, "first_hire")
-	local talent = (cost == 0) and 1 or TALENT.roll((player:GetAttribute("VibeLuck") or 1) * (recruit and recruit.luck or 1))   -- v3.2.1 vibe x v4.2 a Penthouse VIP
+	local talent = (cost == 0) and 1 or CFG.TALENT.roll((player:GetAttribute("VibeLuck") or 1) * (recruit and recruit.luck or 1))   -- v3.2.1 vibe x v4.2 a Penthouse VIP
 	if recruit then talent = math.max(talent, recruit.floor or 1) end   -- the tier they wore is a floor
 	if cost > 0 and Econ and Econ.Inv then talent = Econ.Inv.onHire(player, talent) end   -- v3.2: a Scout Report
 	local indexBefore = 0
@@ -1636,12 +1505,12 @@ local function hire(player, plot, recruit)
 	local indexAfter = 0
 	for _ in pairs(s.index or {}) do indexAfter += 1 end
 	recompute(player)
-	local t = TALENT[talent]
+	local t = CFG.TALENT[talent]
 	if talent > 1 then
 		-- v3.0: a recruited floor is a signing, not luck; only a roll ABOVE the floor says "1 in N"
 		local lucky = not (recruit and talent <= (recruit.floor or 1))
 		-- v3.1: the numbers live on the reveal card; the world marker just names it (say it once)
-		popup(torso or plot.hirePad, t.name:upper() .. "!", t.color or GOLD)
+		popup(torso or plot.hirePad, t.name:upper() .. "!", t.color or CFG.GOLD)
 		local r = s.rigs[#s.rigs]
 		if r then
 			talentReveal:FireClient(player, {
@@ -1677,7 +1546,7 @@ local function hire(player, plot, recruit)
 			end
 		end
 	else
-		popup(torso or plot.hirePad, (cost == 0) and "INTERN HIRED" or ("HIRED  -$" .. fmt(cost)), GOOD)
+		popup(torso or plot.hirePad, (cost == 0) and "INTERN HIRED" or ("HIRED  -$" .. fmt(cost)), CFG.GOOD)
 	end
 	updateHirePad(player)
 	return true
@@ -1685,7 +1554,7 @@ end
 
 local spinOff   -- assigned below releasePlot (it needs it); forward-declared like refreshFacade
 local function refreshHqPad(plot)
-	local nxt = HQ_LEVELS[plot.hq.level + 1]
+	local nxt = CFG.HQ_LEVELS[plot.hq.level + 1]
 	local s = plot.owner and sessions[plot.owner]
 	local needApt = nxt and s and Econ and Econ.Apt and (s.apt or 0) < Econ.Apt.need(plot.hq.level + 1)
 	if needApt then
@@ -1693,14 +1562,14 @@ local function refreshHqPad(plot)
 		plot.hqPad.Color = Color3.fromRGB(150, 146, 140)
 	elseif nxt then
 		plot.hqLabel.Text = ("UPGRADE HQ  ·  $%s"):format(fmt(nxt.cost))
-		plot.hqPad.Color = GOLD
+		plot.hqPad.Color = CFG.GOLD
 	elseif s then
 		if plot.spinArmed then
-			plot.hqLabel.Text = "TAP AGAIN TO SPIN OFF  ·  back to the garage, x" .. string.format("%.1f", spinMultOf(s) + SPINOFF_STEP) .. " forever"
+			plot.hqLabel.Text = "TAP AGAIN TO SPIN OFF  ·  back to the garage, x" .. string.format("%.1f", spinMultOf(s) + CFG.SPINOFF_STEP) .. " forever"
 			plot.hqPad.Color = Color3.fromRGB(255, 120, 60)
 		else
-			plot.hqLabel.Text = ("SPIN OFF  ·  $%s  ·  revenue x%.1f forever"):format(fmt(spinoffCostOf(s)), spinMultOf(s) + SPINOFF_STEP)
-			plot.hqPad.Color = GOLD
+			plot.hqLabel.Text = ("SPIN OFF  ·  $%s  ·  revenue x%.1f forever"):format(fmt(spinoffCostOf(s)), spinMultOf(s) + CFG.SPINOFF_STEP)
+			plot.hqPad.Color = CFG.GOLD
 		end
 	else
 		plot.hqLabel.Text = "HQ MAXED"
@@ -1717,8 +1586,8 @@ local function checkMilestones(player, s)
 	local plot = plotOf(player)
 	-- v3.1: a HUD chip where the money is, not a popup at a pad you may be 80 studs from
 	if plot and Econ and Econ.celebrate then
-		Econ.celebrate:FireClient(player, { kind = "milestone", earned = MILESTONE_BASE * 10 ^ (want - 1),
-			bonus = math.floor(want * MILESTONE_STEP * 100 + 0.5) })
+		Econ.celebrate:FireClient(player, { kind = "milestone", earned = CFG.MILESTONE_BASE * 10 ^ (want - 1),
+			bonus = math.floor(want * CFG.MILESTONE_STEP * 100 + 0.5) })
 	end
 end
 
@@ -1726,17 +1595,17 @@ local function tryUpgrade(player, plot)
 	if plotOf(player) ~= plot or plot.busy then return end
 	local s = sessions[player.UserId]
 	local cash = cashOf(player)
-	local nxt = HQ_LEVELS[plot.hq.level + 1]
+	local nxt = CFG.HQ_LEVELS[plot.hq.level + 1]
 	if not s or not cash then return end
 	if not nxt then if spinOff then spinOff(player, plot) end return end
-	if not s.shipped then popup(plot.hqPad, "Ship something first", BAD) return end
-	if s.staff < 1 then popup(plot.hqPad, "Hire someone first", BAD) return end
+	if not s.shipped then popup(plot.hqPad, "Ship something first", CFG.BAD) return end
+	if s.staff < 1 then popup(plot.hqPad, "Hire someone first", CFG.BAD) return end
 	if Econ and Econ.Apt and (s.apt or 0) < Econ.Apt.need(plot.hq.level + 1) then
 		local t = Econ.Apt.TIERS[Econ.Apt.need(plot.hq.level + 1)]
-		popup(plot.hqPad, ("Buy your %s downtown first"):format(t.name), BAD)
+		popup(plot.hqPad, ("Buy your %s downtown first"):format(t.name), CFG.BAD)
 		return
 	end
-	if cash.Value < nxt.cost then popup(plot.hqPad, "Need $" .. fmt(nxt.cost), BAD) return end
+	if cash.Value < nxt.cost then popup(plot.hqPad, "Need $" .. fmt(nxt.cost), CFG.BAD) return end
 	plot.busy = true
 	cash.Value -= nxt.cost
 	s.lastBuy = os.clock()
@@ -1762,7 +1631,7 @@ local function tryUpgrade(player, plot)
 	end
 	updateHirePad(player)
 	for _, sl in ipairs(plot.slots) do if sl.built then refreshWingPrompt(sl, plot, s) end end
-	popup(plot.hqPad, nxt.name .. "!", GOLD)
+	popup(plot.hqPad, nxt.name .. "!", CFG.GOLD)
 	--[[ v3.1: ONE celebration banner with what the level unlocked. It replaces
 	two world popups and two toasts, the second of which ("Your scooter is
 	faster: speed 17") overwrote the one that mattered after 2.5 s. ]]
@@ -1788,7 +1657,7 @@ local function openDoor(plot)
 		TweenService:Create(door, TweenInfo.new(2.2, Enum.EasingStyle.Quad),
 			{ CFrame = door.CFrame * CFrame.new(0, 11, 0) }):Play()
 	end
-	task.delay(0.4, function() popup(plot.desk, "Your lot is outside. Build on it.", GOLD) end)
+	task.delay(0.4, function() popup(plot.desk, "Your lot is outside. Build on it.", CFG.GOLD) end)
 end
 
 -- ============ ROOMS ============
@@ -1803,29 +1672,29 @@ local function buildRoom(plot, slot, room)
 			Color = colour or room.color, Material = mat or Enum.Material.SmoothPlastic }, m)
 	end
 	-- v2.8: a glass department pavilion (CampusArch) instead of the shed below
-	local arch = CampusArch and select(1, pcall(CampusArch.wing, m, cf, room, SLOT_W, SLOT_D))
+	local arch = CampusArch and select(1, pcall(CampusArch.wing, m, cf, room, CFG.SLOT_W, CFG.SLOT_D))
 	if not arch then
 	m:ClearAllChildren()
-	rp("Floor", Vector3.new(SLOT_W, 1, SLOT_D), Vector3.new(0, 0.5, 0), FLOOR, Enum.Material.Concrete)
-	rp("WallL", Vector3.new(1, 10, SLOT_D), Vector3.new(-SLOT_W / 2, 5, 0))
-	rp("WallR", Vector3.new(1, 10, SLOT_D), Vector3.new(SLOT_W / 2, 5, 0))
-	rp("WallBack", Vector3.new(SLOT_W, 10, 1), Vector3.new(0, 5, -SLOT_D / 2))
-	rp("Roof", Vector3.new(SLOT_W + 1, 1, SLOT_D + 1), Vector3.new(0, 10, 0), TRIM)
+	rp("Floor", Vector3.new(CFG.SLOT_W, 1, CFG.SLOT_D), Vector3.new(0, 0.5, 0), CFG.FLOOR, Enum.Material.Concrete)
+	rp("WallL", Vector3.new(1, 10, CFG.SLOT_D), Vector3.new(-CFG.SLOT_W / 2, 5, 0))
+	rp("WallR", Vector3.new(1, 10, CFG.SLOT_D), Vector3.new(CFG.SLOT_W / 2, 5, 0))
+	rp("WallBack", Vector3.new(CFG.SLOT_W, 10, 1), Vector3.new(0, 5, -CFG.SLOT_D / 2))
+	rp("Roof", Vector3.new(CFG.SLOT_W + 1, 1, CFG.SLOT_D + 1), Vector3.new(0, 10, 0), CFG.TRIM)
 	local dimmed = Color3.new(room.accent.R * 0.45, room.accent.G * 0.45, room.accent.B * 0.45)
-	rp("Fascia", Vector3.new(SLOT_W + 1, 1.6, 0.8), Vector3.new(0, 9.2, SLOT_D / 2), dimmed, Enum.Material.Neon)
+	rp("Fascia", Vector3.new(CFG.SLOT_W + 1, 1.6, 0.8), Vector3.new(0, 9.2, CFG.SLOT_D / 2), dimmed, Enum.Material.Neon)
 	-- a glass front with a doorway, not an open fourth wall: a wing reads as a
 	-- room you enter, and the furniture inside shows from the campus
 	local doorW = 7
-	local sideW = (SLOT_W - doorW) / 2
+	local sideW = (CFG.SLOT_W - doorW) / 2
 	for _, side in ipairs({ -1, 1 }) do
-		local gl = rp("FrontGlass", Vector3.new(sideW, 7.4, 0.4), Vector3.new(side * (doorW / 2 + sideW / 2), 4.7, SLOT_D / 2),
+		local gl = rp("FrontGlass", Vector3.new(sideW, 7.4, 0.4), Vector3.new(side * (doorW / 2 + sideW / 2), 4.7, CFG.SLOT_D / 2),
 			Color3.fromRGB(150, 200, 220), Enum.Material.Glass)
 		gl.Transparency = 0.45
 		gl.CanCollide = false          -- see through, walk through the door only
 		gl.CanCollide = true
 	end
-	rp("DoorHeader", Vector3.new(doorW + 0.4, 1.6, 0.6), Vector3.new(0, 7.6, SLOT_D / 2), TRIM)
-	rp("CeilingLight", Vector3.new(SLOT_W * 0.6, 0.25, 1), Vector3.new(0, 9.4, 0),
+	rp("DoorHeader", Vector3.new(doorW + 0.4, 1.6, 0.6), Vector3.new(0, 7.6, CFG.SLOT_D / 2), CFG.TRIM)
+	rp("CeilingLight", Vector3.new(CFG.SLOT_W * 0.6, 0.25, 1), Vector3.new(0, 9.4, 0),
 		Color3.fromRGB(255, 244, 222), Enum.Material.Neon)
 	end
 	-- rooms are EMPTY SHELLS you furnish; the server room keeps its racks
@@ -1863,9 +1732,9 @@ local function upgradeWing(player, plot, slot)
 	local s = sessions[player.UserId]
 	local cash = cashOf(player)
 	if not s or not cash or not slot.built or not slot.room then return end
-	if wingMaxed(s, slot) then popup(slot.header or plot.hirePad, slot.room.name .. " is maxed", ACCENT) refreshWingPrompt(slot, plot, s) return end
+	if wingMaxed(s, slot) then popup(slot.header or plot.hirePad, slot.room.name .. " is maxed", CFG.ACCENT) refreshWingPrompt(slot, plot, s) return end
 	local cost = wingUpgradeCostOf(slot.room, slot.level or 1, plot, s.rate)
-	if cash.Value < cost then popup(slot.header or plot.hirePad, "Need $" .. fmt(cost), BAD) return end
+	if cash.Value < cost then popup(slot.header or plot.hirePad, "Need $" .. fmt(cost), CFG.BAD) return end
 	cash.Value -= cost
 	s.lastBuy = os.clock()
 	slot.level = (slot.level or 1) + 1
@@ -1881,10 +1750,10 @@ local function upgradeWing(player, plot, slot)
 	recompute(player)
 	updateHirePad(player)
 	refreshWingPrompt(slot, plot, s)
-	popup(slot.header or plot.hirePad, ("%s Lv%d  %s"):format(slot.room.name, slot.level, WING_LEVEL_TEXT[slot.room.id] or ""), GOOD)
+	popup(slot.header or plot.hirePad, ("%s Lv%d  %s"):format(slot.room.name, slot.level, CFG.WING_LEVEL_TEXT[slot.room.id] or ""), CFG.GOOD)
 	-- v3.2: the building itself grows (Lv 4 storey, Lv 7 terrace, Lv 10 crown)
 	if CampusArch and CampusArch.grow and slot.model then
-		local ok, parts = pcall(CampusArch.grow, slot.model, slot.cf, slot.room, SLOT_W, SLOT_D, slot.level)
+		local ok, parts = pcall(CampusArch.grow, slot.model, slot.cf, slot.room, CFG.SLOT_W, CFG.SLOT_D, slot.level)
 		if ok and parts and #parts > 0 then rise(parts, 9, 0.8) elseif not ok then warn("[SV] grow: " .. tostring(parts)) end
 	end
 end
@@ -1895,16 +1764,16 @@ local function buildWing(player, plot, slotIndex, roomId, free)
 	if not s or not plot or not cash then return false end
 	if type(slotIndex) ~= "number" then return false end
 	local slot = plot.slots[slotIndex]
-	local room = ROOM_BY_ID[roomId]
+	local room = CFG.ROOM_BY_ID[roomId]
 	if not slot or not room or slot.built then return false end
 	if not free then
 		if not s.buildUnlocked then return false end
 		if Econ and Econ.V3 and Econ.slotsBuilt(plot) >= (Econ.SLOTS_BY_HQ[plot.hq.level] or 6) then
-			popup(slot.pad, "Upgrade your HQ to build more rooms", BAD)
+			popup(slot.pad, "Upgrade your HQ to build more rooms", CFG.BAD)
 			return false
 		end
 		local cost = wingCostOf(room, plot, s.rate)
-		if cash.Value < cost then popup(slot.pad, "Need $" .. fmt(cost), BAD) return false end
+		if cash.Value < cost then popup(slot.pad, "Need $" .. fmt(cost), CFG.BAD) return false end
 		cash.Value -= cost
 		s.lastBuy = os.clock()
 	end
@@ -1923,8 +1792,8 @@ local function buildWing(player, plot, slotIndex, roomId, free)
 		local root = pl.Character and pl.Character:FindFirstChild("HumanoidRootPart")
 		if root then
 			local rel = slot.cf:PointToObjectSpace(root.Position)
-			if math.abs(rel.X) < SLOT_W / 2 + 1.5 and math.abs(rel.Z) < SLOT_D / 2 + 1.5 and rel.Y > -2 and rel.Y < 20 then
-				local out = slot.cf:PointToWorldSpace(Vector3.new(0, 3.2, SLOT_D / 2 + 8))
+			if math.abs(rel.X) < CFG.SLOT_W / 2 + 1.5 and math.abs(rel.Z) < CFG.SLOT_D / 2 + 1.5 and rel.Y > -2 and rel.Y < 20 then
+				local out = slot.cf:PointToWorldSpace(Vector3.new(0, 3.2, CFG.SLOT_D / 2 + 8))
 				pl.Character:PivotTo(CFrame.lookAt(out, Vector3.new(slot.cf.Position.X, out.Y, slot.cf.Position.Z)))
 			end
 		end
@@ -1943,12 +1812,12 @@ local function buildWing(player, plot, slotIndex, roomId, free)
 		slot.levelTag = model:FindFirstChild("LevelText", true)
 		if not slot.levelTag then
 			slot.levelTag = label(header, "Lv1", 16, 1.6, 60, true)
-			slot.levelTag.TextColor3 = GOLD
+			slot.levelTag.TextColor3 = CFG.GOLD
 		end
 		refreshWingPrompt(slot, plot, s)
 	end
 	if Econ and Econ.V3 then Econ.furnish(FurnitureKit, slot) end
-	if CampusArch then pcall(CampusArch.links, plot, SLOT_W, SLOT_D) end
+	if CampusArch then pcall(CampusArch.links, plot, CFG.SLOT_W, CFG.SLOT_D) end
 	s.desks += (room.desks or 0)
 	s.quality = (s.quality or 0) + (room.quality or 0)
 	s.morale = (s.morale or 0) + (room.morale or 0)
@@ -1958,7 +1827,7 @@ local function buildWing(player, plot, slotIndex, roomId, free)
 	updateHirePad(player)
 	if not free then
 		Telemetry.step(player, "first_wing")
-		popup(slot.pad, room.name .. " BUILT", GOOD)
+		popup(slot.pad, room.name .. " BUILT", CFG.GOOD)
 	end
 	return true
 end
@@ -1974,10 +1843,10 @@ local GRID = 0.5
 local DESK_FAMILY = { desk = true, deskCorner = true, tableRound = true, tableCross = true, kitchenBar = true }
 
 local function floorRects(plot)
-	local L = HQ_LEVELS[plot.hq.level]
+	local L = CFG.HQ_LEVELS[plot.hq.level]
 	local rects = { { cf = plot.pivot, w = L.w, d = L.d, top = 1.0 } }
 	for _, slot in ipairs(plot.slots) do
-		if slot.built then table.insert(rects, { cf = slot.cf, w = SLOT_W, d = SLOT_D, top = 1.0 }) end
+		if slot.built then table.insert(rects, { cf = slot.cf, w = CFG.SLOT_W, d = CFG.SLOT_D, top = 1.0 }) end
 	end
 	return rects
 end
@@ -2005,9 +1874,9 @@ local function placeAt(player, plot, key, px, pz, yawDeg, free, forcedPrice)
 	if not item or not FurnitureKit.has(key) then return false end
 	if item.needs and not roomBuilt(plot, item.needs) then
 		if not free then
-			local r = ROOM_BY_ID[item.needs]
+			local r = CFG.ROOM_BY_ID[item.needs]
 			local nm = r and r.name or tostring(item.needs)
-			popup(plot.hirePad, ("Build %s %s first"):format(nm:upper():match("^[AEIOU]") and "an" or "a", nm), BAD)
+			popup(plot.hirePad, ("Build %s %s first"):format(nm:upper():match("^[AEIOU]") and "an" or "a", nm), CFG.BAD)
 		end
 		return false
 	end
@@ -2022,15 +1891,15 @@ local function placeAt(player, plot, key, px, pz, yawDeg, free, forcedPrice)
 		local l = r.cf:PointToObjectSpace(Vector3.new(x, 0, z))
 		if math.abs(l.X) + w / 2 <= r.w / 2 and math.abs(l.Z) + d / 2 <= r.d / 2 then floor = r break end
 	end
-	if not floor then if not free then popup(plot.hirePad, "Outside your floor", BAD) end return false end
+	if not floor then if not free then popup(plot.hirePad, "Outside your floor", CFG.BAD) end return false end
 
 	-- v2.6.0 ROOM ECONOMY: a station seats people only in its own room, up to
 	-- that room's cap. A refused station from an old save is refunded, not lost.
 	local st = Econ and Econ.STATIONS[key]
 	local roomId, slotIdx
 	if st then
-		local L = HQ_LEVELS[plot.hq.level]
-		roomId, slotIdx = Econ.roomAt(plot, x, z, L.w, L.d, SLOT_W, SLOT_D)
+		local L = CFG.HQ_LEVELS[plot.hq.level]
+		roomId, slotIdx = Econ.roomAt(plot, x, z, L.w, L.d, CFG.SLOT_W, CFG.SLOT_D)
 		local why
 		if not (roomId == st.room or (roomId == "hq" and st.hq)) then
 			why = ("%s only works in the %s"):format(item.name, st.hq and "HQ or an Open Office" or (Econ.ROOM_NAME[st.room] or st.room):lower())
@@ -2066,7 +1935,7 @@ local function placeAt(player, plot, key, px, pz, yawDeg, free, forcedPrice)
 	for _, e in ipairs(plot.fixed) do
 		if rectsOverlap(x, z, w, d, e.x, e.z, e.w, e.d) then
 			if not (item.tuck or onSurface == e or e.y ~= y) then
-				if not free then popup(plot.hirePad, "The workbench is there", BAD) end
+				if not free then popup(plot.hirePad, "The workbench is there", CFG.BAD) end
 				return false
 			end
 		end
@@ -2077,7 +1946,7 @@ local function placeAt(player, plot, key, px, pz, yawDeg, free, forcedPrice)
 			local surfacePair = onSurface and (e == onSurface)
 			local stacked = (e.y or 0) ~= y
 			if not (tucking or surfacePair or stacked) then
-				if not free then popup(plot.hirePad, "Something is already there", BAD) end
+				if not free then popup(plot.hirePad, "Something is already there", CFG.BAD) end
 				return false
 			end
 		end
@@ -2098,7 +1967,7 @@ local function placeAt(player, plot, key, px, pz, yawDeg, free, forcedPrice)
 				cash.Value += (forcedPrice or item.price)
 				player:SetAttribute("SVRefunded", (player:GetAttribute("SVRefunded") or 0) + 1)   -- Studio audit reads this
 			else
-				popup(plot.hirePad, clash, BAD)
+				popup(plot.hirePad, clash, CFG.BAD)
 			end
 			return false
 		end
@@ -2109,7 +1978,7 @@ local function placeAt(player, plot, key, px, pz, yawDeg, free, forcedPrice)
 	-- recomputing at a higher HQ level minted cash on every relog)
 	local price = forcedPrice or (free and item.price) or furniturePriceOf(item, s, plot)
 	if not free then
-		if cash.Value < price then popup(plot.hirePad, "Need $" .. fmt(price), BAD) return false end
+		if cash.Value < price then popup(plot.hirePad, "Need $" .. fmt(price), CFG.BAD) return false end
 		cash.Value -= price
 	end
 
@@ -2131,7 +2000,7 @@ local function placeAt(player, plot, key, px, pz, yawDeg, free, forcedPrice)
 	local starsAfter = player:GetAttribute("VibeStars") or 0
 	if not free and starsAfter > starsBefore then
 		local at = m:IsA("BasePart") and m or m.PrimaryPart or m:FindFirstChildWhichIsA("BasePart", true)
-		if at then popup(at, ("VIBE UP! %d of 5 stars  ·  rare hires x%s"):format(starsAfter, (string.format("%.1f", player:GetAttribute("VibeLuck") or 1))), ACCENT) end
+		if at then popup(at, ("VIBE UP! %d of 5 stars  ·  rare hires x%s"):format(starsAfter, (string.format("%.1f", player:GetAttribute("VibeLuck") or 1))), CFG.ACCENT) end
 	end
 	if item.desk then assignDesks(player) end
 	updateHirePad(player)
@@ -2231,7 +2100,7 @@ if Econ and Econ.RECRUIT then
 	Econ.Drop = tryRequire(ServerScriptService, "TalentDrop")
 	if Econ.Drop and Econ.Drop.init then
 		local ok, err = pcall(Econ.Drop.init, {
-			plots = plots, TALENT = TALENT, RIVALS = RIVALS, BAD = BAD, fmt = fmt, popup = popup,
+			plots = plots, TALENT = CFG.TALENT, RIVALS = CFG.RIVALS, BAD = CFG.BAD, fmt = fmt, popup = popup,
 			session = function(p) return sessions[p.UserId] end,
 			plotOf = plotOf, cash = cashOf, capacity = capacityOf,
 			ladder = function(p)
@@ -2263,7 +2132,7 @@ if Econ then
 	if Econ.Phone and Econ.Phone.init then
 		local ok, err = pcall(Econ.Phone.init, {
 			session = function(p) return sessions[p.UserId] end,
-			plotOf = plotOf, cash = cashOf, fmt = fmt, TALENT = TALENT,
+			plotOf = plotOf, cash = cashOf, fmt = fmt, TALENT = CFG.TALENT,
 			grant = function(p, id, n, why) return Econ.Inv and Econ.Inv.grant(p, id, n, why) end,
 		})
 		if not ok then warn("[SV] Phone init failed: " .. tostring(err)); Econ.Phone = nil end
@@ -2337,10 +2206,10 @@ local function releasePlot(plot)
 	buildShell(plot, 1, false)
 	buildSlots(plot)
 	plot.hireLabel.Text = ""
-	plot.hirePad.Color = TRIM
+	plot.hirePad.Color = CFG.TRIM
 	refreshHqPad(plot)
-	if plot.signTag then plot.signTag.Text = HQ_LEVELS[1].name end
-	if plot.signPlate then plot.signPlate.Color = TRIM; plot.signPlate.Material = Enum.Material.SmoothPlastic end
+	if plot.signTag then plot.signTag.Text = CFG.HQ_LEVELS[1].name end
+	if plot.signPlate then plot.signPlate.Color = CFG.TRIM; plot.signPlate.Material = Enum.Material.SmoothPlastic end
 end
 
 spinOff = function(player, plot)
@@ -2348,7 +2217,7 @@ spinOff = function(player, plot)
 	local cash = cashOf(player)
 	if not s or not cash or plot.busy or plotOf(player) ~= plot then return end
 	local cost = spinoffCostOf(s)
-	if cash.Value < cost then popup(plot.hqPad, "Need $" .. fmt(cost), BAD) return end
+	if cash.Value < cost then popup(plot.hqPad, "Need $" .. fmt(cost), CFG.BAD) return end
 	-- two taps: a one-click reset of an hour of play is not a decision
 	--[[ v3.1: the confirm is a card (what you keep vs what resets, SPIN OFF /
 	NOT YET), not a fading 1-second sentence at the pad. An accidental reset of
@@ -2361,7 +2230,7 @@ spinOff = function(player, plot)
 		for _, r in ipairs(s.rigs or {}) do if (r.talent or 1) >= ((Econ and Econ.KEEP_TALENT) or 3) then keepN += 1 end end
 		keepN = math.min(keepN, (Econ and Econ.KEEP_MAX) or keepN)
 		if Econ and Econ.celebrate then
-			Econ.celebrate:FireClient(player, { kind = "spinAsk", cost = cost, from = spinMultOf(s), to = spinMultOf(s) + SPINOFF_STEP,
+			Econ.celebrate:FireClient(player, { kind = "spinAsk", cost = cost, from = spinMultOf(s), to = spinMultOf(s) + CFG.SPINOFF_STEP,
 				keep = keepN, number = (s.spinoffs or 0) + 1 })
 		end
 		task.delay(30.5, function()
@@ -2384,16 +2253,16 @@ spinOff = function(player, plot)
 	cash.Value = 0
 	releasePlot(plot)                -- wipes rooms, furniture, staff; shell back to the garage
 	plot.owner = player.UserId
-	s.staff = 0; s.rigs = {}; s.desks = 0; s.hireCost = HIRE_BASE
+	s.staff = 0; s.rigs = {}; s.desks = 0; s.hireCost = CFG.HIRE_BASE
 	s.quality = 0; s.morale = 0; s.compute = 0
 	s.placed = {}; s.placedDesks = 0; s.placedMorale = 0
-	s.work = 0; s.workNeed = math.floor(WORK_FIRST * (WORK_GROWTH ^ (s.launches or 0)))
+	s.work = 0; s.workNeed = math.floor(CFG.WORK_FIRST * (CFG.WORK_GROWTH ^ (s.launches or 0)))
 	s.launch = nil; s.pressure = nil; s.share = 1; s.pendingOffer = nil
 	-- v3.1: an app finished before the spin-off belongs to the old company; its
 	-- LAUNCH card used to survive the reset showing the old payday
 	s.pendingProduct = nil
 	productReady:FireClient(player, nil)
-	s.spinoffs = math.min((s.spinoffs or 0) + 1, SPINOFF_CAP)
+	s.spinoffs = math.min((s.spinoffs or 0) + 1, CFG.SPINOFF_CAP)
 	s.shipped = true; s.buildUnlocked = true
 	plot.doorOpened = true
 	for _, door in ipairs({ plot.hq.doorL, plot.hq.doorR }) do door.CFrame = door.CFrame * CFrame.new(0, 11, 0) end
@@ -2404,7 +2273,7 @@ spinOff = function(player, plot)
 		spawnStaff(player, plot, i, k.talent, k.who)
 	end
 	if #keep > 0 then
-		task.delay(2.2, function() popup(plot.hirePad, ("%d rare hire%s came with you  ·  build an office to seat them"):format(#keep, #keep == 1 and "" or "s"), GOLD) end)
+		task.delay(2.2, function() popup(plot.hirePad, ("%d rare hire%s came with you  ·  build an office to seat them"):format(#keep, #keep == 1 and "" or "s"), CFG.GOLD) end)
 	end
 	recompute(player)
 	refreshSign(plot)
@@ -2412,7 +2281,7 @@ spinOff = function(player, plot)
 	updateHirePad(player)
 	local char = player.Character
 	if char and plot.spawn then char:PivotTo(plot.spawn.CFrame + Vector3.new(0, 3, 0)) end
-	popup(plot.hqPad, ("SPIN-OFF %s!"):format(ROMAN[s.spinoffs + 1] or ""), GOLD)
+	popup(plot.hqPad, ("SPIN-OFF %s!"):format(CFG.ROMAN[s.spinoffs + 1] or ""), CFG.GOLD)
 	if Econ and Econ.celebrate then
 		Econ.celebrate:FireClient(player, { kind = "spin", number = s.spinoffs, mult = spinMultOf(s), kept = #keep })
 	end
@@ -2431,7 +2300,7 @@ local function assignPlot(player)
 	return nil
 end
 
-for i, def in ipairs(PLOT_DEFS) do
+for i, def in ipairs(CFG.PLOT_DEFS) do
 	plots[i] = buildPlot(i, def)
 	wirePlot(plots[i])
 end
@@ -2451,10 +2320,10 @@ task.spawn(function()
 				-- buzz cancelled every rival hit, so share never moved in real play)
 				local buzz = s.launch and s.launch.marketId == s.pressureMarket
 					and (os.clock() - s.launch.t0) < s.launch.duration
-				if s.pressure and os.clock() - s.pressure >= PRESSURE_SECONDS then
+				if s.pressure and os.clock() - s.pressure >= CFG.PRESSURE_SECONDS then
 					s.pressure = nil
 				elseif s.pressure and not buzz then
-					s.share = math.max(SHARE_FLOOR, (s.share or 1) - SHARE_DECAY)
+					s.share = math.max(CFG.SHARE_FLOOR, (s.share or 1) - CFG.SHARE_DECAY)
 				end
 				local shown = math.floor((s.share or 1) * 100 + 0.5)
 				if shown ~= s.shareShown then
@@ -2489,7 +2358,7 @@ task.spawn(function()
 				cash.Value += earned
 				s.valuation = (s.valuation or 0) + earned
 				s.earned = (s.earned or 0) + earned
-				if s.earned >= MILESTONE_BASE * 10 ^ (s.milestones or 0) then checkMilestones(player, s) end
+				if s.earned >= CFG.MILESTONE_BASE * 10 ^ (s.milestones or 0) then checkMilestones(player, s) end
 				s.effective = earned
 			elseif s then
 				s.effective = 0
@@ -2499,19 +2368,19 @@ task.spawn(function()
 				local work = 0
 				for _, r in ipairs(s.rigs or {}) do
 					if r.seated then
-						work += TIER_RATE[r.tier or 1] / 2
-						r.seatedTime = (r.seatedTime or 0) + 1 + ALUMNI_STEP * math.min(s.alumni or 0, ALUMNI_CAP)
-						local want = math.min(#TIER_TITLE, 1 + math.floor(r.seatedTime / PROMOTE_EVERY))
+						work += CFG.TIER_RATE[r.tier or 1] / 2
+						r.seatedTime = (r.seatedTime or 0) + 1 + CFG.ALUMNI_STEP * math.min(s.alumni or 0, CFG.ALUMNI_CAP)
+						local want = math.min(#CFG.TIER_TITLE, 1 + math.floor(r.seatedTime / CFG.PROMOTE_EVERY))
 						if want > (r.tier or 1) then
 							r.tier = want
 							StaffRig.setTitle(r.rig, titleOf(r))
-							StaffRig.say(r.rig, "Promoted to " .. TIER_TITLE[want] .. "!")
+							StaffRig.say(r.rig, "Promoted to " .. CFG.TIER_TITLE[want] .. "!")
 							recompute(player)
 						end
 					end
 				end
 				s.work = (s.work or 0) + work * afk      -- AFK: products slow too (no free paydays)
-				s.workNeed = s.workNeed or WORK_FIRST
+				s.workNeed = s.workNeed or CFG.WORK_FIRST
 				player:SetAttribute("ProductProgress", math.clamp(s.work / s.workNeed, 0, 1))
 				s.playtime = (s.playtime or 0) + 1
 			end
@@ -2554,7 +2423,7 @@ setName.OnServerEvent:Connect(function(player, raw)
 	s.name = name
 	s.ticker = tickerOf(name)
 	refreshSign(plot)
-	popup(plot.desk, name .. " is born.", GOLD)
+	popup(plot.desk, name .. " is born.", CFG.GOLD)
 	pcall(function()
 		if nameStore then nameStore:SetAsync(tostring(player.UserId), name) end
 	end)
@@ -2567,7 +2436,7 @@ local function launchProduct(player, plot, market, mod, auto)
 	if not s or not plot then return end
 	local name = market.names[math.random(1, #market.names)]
 	local tier = 1 + (s.compute or 0)
-	local spike = market.spike * (mod or 1) * (1 + math.min(s.quality or 0, QUALITY_CAP)) * (0.8 + 0.2 * tier)
+	local spike = market.spike * (mod or 1) * (1 + math.min(s.quality or 0, CFG.QUALITY_CAP)) * (0.8 + 0.2 * tier)
 	if s.lastMarket == market.id then s.marketRepeat = (s.marketRepeat or 1) + 1 else s.marketRepeat = 1 end
 	s.lastMarket = market.id
 	s.pendingMods = nil
@@ -2578,7 +2447,7 @@ local function launchProduct(player, plot, market, mod, auto)
 		shape = nil
 		s.launch = nil                   -- v2.7.0: a launch is a payday, not a revenue boost
 	else
-		s.launch = { t0 = os.clock(), spike = spike * (shape and shape.h or 1), duration = shape and shape.dur or LAUNCH_DURATION,
+		s.launch = { t0 = os.clock(), spike = spike * (shape and shape.h or 1), duration = shape and shape.dur or CFG.LAUNCH_DURATION,
 			curve = shape and shape.curve, slow = market.slow, marketId = market.id }
 	end
 	s.launches = (s.launches or 0) + 1
@@ -2588,7 +2457,7 @@ local function launchProduct(player, plot, market, mod, auto)
 	s.pressure = nil
 	s.valuation = (s.valuation or 0) + math.floor(s.rate * 30 * spike)
 	-- PAYDAY: a launch is cash, not only a valuation line
-	local payday = math.floor(s.rate * (shape and shape.pay or PAYDAY_SECONDS) * spike * (auto and 0.5 or 1))
+	local payday = math.floor(s.rate * (shape and shape.pay or CFG.PAYDAY_SECONDS) * spike * (auto and 0.5 or 1))
 	if Econ and Econ.V3 then
 		payday = math.floor(s.rate * Econ.LAUNCH_PAY * (1 + 0.1 * (s.compute or 0)) * (auto and 0.5 or 1))
 	end
@@ -2598,7 +2467,7 @@ local function launchProduct(player, plot, market, mod, auto)
 	if Econ and Econ.Inv then pcall(Econ.Inv.onLaunch, player, s) end
 	s.pendingProduct = nil
 	s.work = 0
-	s.workNeed = math.floor(WORK_FIRST * (WORK_GROWTH ^ s.launches))
+	s.workNeed = math.floor(CFG.WORK_FIRST * (CFG.WORK_GROWTH ^ s.launches))
 	-- the room reacts: everyone cheers, one of them says something
 	for i, r in ipairs(s.rigs or {}) do
 		task.delay(0.1 * i, function() if StaffRig then StaffRig.cheer(r.rig) end end)
@@ -2609,12 +2478,12 @@ local function launchProduct(player, plot, market, mod, auto)
 
 	-- v3.4 THE CEREMONY: the brand rocket lifts off this HQ's roof and every
 	-- player in the server sees it (RocketClient). Was a neon box floating up.
-	local L = HQ_LEVELS[plot.hq.level]
+	local L = CFG.HQ_LEVELS[plot.hq.level]
 	local rl = remotes:FindFirstChild("RocketLaunch")
 	if rl then
 		rl:FireAllClients({ pos = plot.g(0, L.h + (plot.hq.level >= 5 and 1.7 or 0.6), -4).Position, name = name, market = market.name, owner = player.UserId, auto = auto == true })
 	end
-	popup(plot.hqPad, "LAUNCHED: " .. name, GOLD)
+	popup(plot.hqPad, "LAUNCHED: " .. name, CFG.GOLD)
 	if Econ and Econ.V3 then
 		if Econ.celebrate then Econ.celebrate:FireClient(player, { kind = "launch", name = name, payday = payday, auto = auto == true }) end
 	else toast:FireClient(player, ("%s%s launched! +$%s payday. Revenue x%.1f for %s."):format(
@@ -2638,7 +2507,7 @@ local function offerProduct(player, plot)
 	if not s or s.pendingProduct then return end
 	if Econ and Econ.V3 then
 		-- v2.7.0 one button: the product is ready, launch it. No market picker.
-		local m = MARKETS[math.random(1, #MARKETS)]
+		local m = CFG.MARKETS[math.random(1, #CFG.MARKETS)]
 		local picks = { m }
 		s.pendingProduct = picks
 		s.pendingMods = { 1 }
@@ -2653,7 +2522,7 @@ local function offerProduct(player, plot)
 		return
 	end
 	-- three distinct markets, shuffled
-	local pool = table.clone(MARKETS)
+	local pool = table.clone(CFG.MARKETS)
 	local picks = {}
 	for _ = 1, 3 do table.insert(picks, table.remove(pool, math.random(1, #pool))) end
 	s.pendingProduct = picks
@@ -2686,7 +2555,7 @@ local function offerProduct(player, plot)
 	end
 	s.pendingMods = mods
 	local tier = 1 + (s.compute or 0)
-	local grow = (1 + math.min(s.quality or 0, QUALITY_CAP)) * (0.8 + 0.2 * tier)
+	local grow = (1 + math.min(s.quality or 0, CFG.QUALITY_CAP)) * (0.8 + 0.2 * tier)
 	local payload = {}
 	for i, m in ipairs(picks) do
 		local shape = Econ and Econ.MARKET[m.id]
@@ -2699,7 +2568,7 @@ local function offerProduct(player, plot)
 			minutes = shape and (shape.dur / 60) or nil }
 	end
 	productReady:FireClient(player, payload)
-	popup(plot.hqPad, "PRODUCT READY -- pick a market", GOLD)
+	popup(plot.hqPad, "PRODUCT READY -- pick a market", CFG.GOLD)
 	-- unanswered for 60s: it ships anyway, at half payday. Progress never
 	-- waits on a menu, but choosing is worth more than ignoring.
 	task.delay(60, function()
@@ -2712,7 +2581,7 @@ local function productLoop(player, plot)
 	task.spawn(function()
 		while player.Parent and plotOf(player) == plot do
 			local s = sessions[player.UserId]
-			if s and not s.pendingProduct and (s.work or 0) >= (s.workNeed or WORK_FIRST) then
+			if s and not s.pendingProduct and (s.work or 0) >= (s.workNeed or CFG.WORK_FIRST) then
 				offerProduct(player, plot)
 			end
 			task.wait(1)
@@ -2730,14 +2599,14 @@ local function rivalLaunch(forced)
 	for _, pl in ipairs(Players:GetPlayers()) do
 		local s = sessions[pl.UserId]
 		if s and s.shipped then
-			for _, m in ipairs(MARKETS) do
+			for _, m in ipairs(CFG.MARKETS) do
 				if s.markets[m.id] then inUse[#inUse + 1] = m end
 			end
 		end
 	end
 	local market = forced or inUse[math.random(1, math.max(1, #inUse))]
 	if not market then return 0 end
-	local rival = RIVALS[math.random(1, #RIVALS)]
+	local rival = CFG.RIVALS[math.random(1, #CFG.RIVALS)]
 	local hit = 0
 	for _, pl in ipairs(Players:GetPlayers()) do
 		local s = sessions[pl.UserId]
@@ -2759,7 +2628,7 @@ end
 
 task.spawn(function()
 	while true do
-		task.wait(math.random(RIVAL_EVERY[1], RIVAL_EVERY[2]))
+		task.wait(math.random(CFG.RIVAL_EVERY[1], CFG.RIVAL_EVERY[2]))
 		rivalLaunch()
 	end
 end)
@@ -2793,7 +2662,7 @@ end
 local function offerLoop(player, plot)
 	task.spawn(function()
 		while player.Parent and plotOf(player) == plot do
-			task.wait(math.random(OFFER_EVERY[1], OFFER_EVERY[2]))
+			task.wait(math.random(CFG.OFFER_EVERY[1], CFG.OFFER_EVERY[2]))
 			local s = sessions[player.UserId]
 			if Econ and Econ.V3 then continue end   -- v2.7.0: poach offers off
 			-- v2.5.1: one decision at a time -- no poach offer while a product is waiting
@@ -2801,8 +2670,8 @@ local function offerLoop(player, plot)
 			-- the best person, if anyone is worth buying
 			local best
 			for _, r in ipairs(s.rigs) do
-				local worth = TIER_RATE[r.tier or 1] * talentMultOf(r)
-				if (r.tier or 1) >= OFFER_MIN_TIER and (not best or worth > TIER_RATE[best.tier or 1] * talentMultOf(best)) then best = r end
+				local worth = CFG.TIER_RATE[r.tier or 1] * talentMultOf(r)
+				if (r.tier or 1) >= CFG.OFFER_MIN_TIER and (not best or worth > CFG.TIER_RATE[best.tier or 1] * talentMultOf(best)) then best = r end
 			end
 			if not best then continue end
 			-- capped at rehire cost + 60s of the person's output: selling a Lead
@@ -2810,15 +2679,15 @@ local function offerLoop(player, plot)
 			-- scaled the offer but not the hire)
 			local cashNow = cashOf(player)
 			local amount = offerAmountOf(s, cashNow and cashNow.Value or 0)
-			local loss = math.floor((TIER_RATE[best.tier] - TIER_RATE[1]) * hqMultOf(plot))
+			local loss = math.floor((CFG.TIER_RATE[best.tier] - CFG.TIER_RATE[1]) * hqMultOf(plot))
 			local minutes = (s.rate or 0) > 0 and amount / s.rate / 60 or 0
 			local id = (s.offerSerial or 0) + 1
 			s.offerSerial = id
-			s.pendingOffer = { id = id, entry = best, amount = amount, rival = RIVALS[math.random(1, #RIVALS)] }
+			s.pendingOffer = { id = id, entry = best, amount = amount, rival = CFG.RIVALS[math.random(1, #CFG.RIVALS)] }
 			offerEvent:FireClient(player, {
 				id = id, rival = s.pendingOffer.rival, who = best.rig:GetAttribute("PersonName") or "?",
 				title = titleOf(best), amount = amount, tier = best.tier, loss = loss, minutes = minutes,
-				alumni = math.min(s.alumni or 0, ALUMNI_CAP), step = ALUMNI_STEP,
+				alumni = math.min(s.alumni or 0, CFG.ALUMNI_CAP), step = CFG.ALUMNI_STEP,
 			})
 			StaffRig.say(best.rig, s.pendingOffer.rival .. " keeps calling me...", 5)
 			task.delay(30, function()
@@ -2850,13 +2719,13 @@ answerOffer.OnServerEvent:Connect(function(player, id, accept)
 	s.staff = math.max(0, s.staff - 1)
 	cash.Value += o.amount
 	s.valuation = (s.valuation or 0) + math.floor(o.amount / 2)
-	s.alumni = math.min((s.alumni or 0) + 1, ALUMNI_CAP)
+	s.alumni = math.min((s.alumni or 0) + 1, CFG.ALUMNI_CAP)
 	player:SetAttribute("Alumni", s.alumni)
 	assignDesks(player)
 	recompute(player)
 	updateHirePad(player)
 	toast:FireClient(player, ("+$%s from %s. ALUMNI x%d: your team gets promoted %d%% faster."):format(
-		fmt(o.amount), o.rival, s.alumni, math.floor(s.alumni * ALUMNI_STEP * 100 + 0.5)))
+		fmt(o.amount), o.rival, s.alumni, math.floor(s.alumni * CFG.ALUMNI_STEP * 100 + 0.5)))
 end)
 
 setMuted.OnServerEvent:Connect(function(player, v)
@@ -2868,13 +2737,13 @@ end)
 
 local function checkIPO(player, plot)
 	local s = sessions[player.UserId]
-	if not s or s.ipo or (s.valuation or 0) < IPO_AT then return end
+	if not s or s.ipo or (s.valuation or 0) < CFG.IPO_AT then return end
 	if not s.name then return end          -- a nameless company cannot list
 	s.ipo = true
 	s.ticker = tickerOf(s.name)
 	refreshSign(plot)
 	toast:FireAllClients(("%s (%s) just went PUBLIC at $%s valuation!"):format(s.name, s.ticker, fmt(s.valuation)), "news")
-	popup(plot.hqPad, "PUBLICLY TRADED", GOLD)
+	popup(plot.hqPad, "PUBLICLY TRADED", CFG.GOLD)
 end
 
 local function pushTicker(player)
@@ -2890,9 +2759,9 @@ end
 -- THE BOARD at the road, two-sided, top ten public companies across all servers
 local board
 do
-	local post = part({ Name = "TickerPost", Size = Vector3.new(1.2, 12, 1.2), CFrame = CFrame.new(0, 6, ROAD_Z + 30),
-		Color = TRIM }, world)
-	board = part({ Name = "TickerBoard", Size = Vector3.new(30, 12, 0.8), CFrame = CFrame.new(0, 16, ROAD_Z + 30),
+	local post = part({ Name = "TickerPost", Size = Vector3.new(1.2, 12, 1.2), CFrame = CFrame.new(0, 6, CFG.ROAD_Z + 30),
+		Color = CFG.TRIM }, world)
+	board = part({ Name = "TickerBoard", Size = Vector3.new(30, 12, 0.8), CFrame = CFrame.new(0, 16, CFG.ROAD_Z + 30),
 		Color = Color3.fromRGB(16, 18, 24), Material = Enum.Material.SmoothPlastic }, world)
 	for _, face in ipairs({ Enum.NormalId.Front, Enum.NormalId.Back }) do
 		local sg = Instance.new("SurfaceGui")
@@ -2904,7 +2773,7 @@ do
 		head.Size = UDim2.new(1, 0, 0, 60)
 		head.BackgroundTransparency = 1
 		head.Text = "VALLEY EXCHANGE  ·  TOP COMPANIES"
-		head.TextColor3 = GOLD
+		head.TextColor3 = CFG.GOLD
 		head.TextSize = 34
 		head.Font = Enum.Font.FredokaOne
 		head.Parent = sg
@@ -2913,7 +2782,7 @@ do
 		list.Position = UDim2.new(0, 24, 0, 66)
 		list.Size = UDim2.new(1, -48, 1, -76)
 		list.BackgroundTransparency = 1
-		list.Text = "No company has gone public yet. First to $" .. fmt(IPO_AT) .. " valuation."
+		list.Text = "No company has gone public yet. First to $" .. fmt(CFG.IPO_AT) .. " valuation."
 		list.TextColor3 = Color3.fromRGB(236, 240, 246)
 		list.TextSize = 26
 		list.Font = Enum.Font.GothamMedium
@@ -2928,8 +2797,8 @@ end
 -- human so the top of the board is always reachable
 local function rivalValuation(r, bestHuman)
 	local minutes = (os.clock() - serverStart) / 60
-	local cap = math.max(bestHuman * RIVAL_CAP_MULT, PUBLIC_RIVALS[#PUBLIC_RIVALS].base)
-	return math.floor(math.min(r.base * (RIVAL_GROWTH ^ minutes), cap))
+	local cap = math.max(bestHuman * CFG.RIVAL_CAP_MULT, CFG.PUBLIC_RIVALS[#CFG.PUBLIC_RIVALS].base)
+	return math.floor(math.min(r.base * (CFG.RIVAL_GROWTH ^ minutes), cap))
 end
 
 local bestHumanSeen = 0
@@ -2966,7 +2835,7 @@ local function refreshBoard()
 			bestHumanSeen = math.max(bestHumanSeen, entry.value)
 		end
 	end)
-	for _, r in ipairs(PUBLIC_RIVALS) do
+	for _, r in ipairs(CFG.PUBLIC_RIVALS) do
 		entries[#entries + 1] = { name = r.name, ticker = r.ticker, value = rivalValuation(r, bestHumanSeen) }
 	end
 	table.sort(entries, function(a, b) return a.value > b.value end)
@@ -2995,7 +2864,7 @@ if Econ then
 			nameOf = function(key) return nameStore and nameStore:GetAsync(key) end,
 			rivals = function()
 				local t = {}
-				for _, r in ipairs(PUBLIC_RIVALS) do table.insert(t, { name = r.name, value = rivalValuation(r, bestHumanSeen) }) end
+				for _, r in ipairs(CFG.PUBLIC_RIVALS) do table.insert(t, { name = r.name, value = rivalValuation(r, bestHumanSeen) }) end
 				return t
 			end,
 			toast = function(p, text) toast:FireClient(p, text) end,
@@ -3017,7 +2886,7 @@ task.spawn(function()
 			-- OVERTAKE: the first time your valuation passes a rival, everyone hears
 			local s = sessions[pl.UserId]
 			if s then
-				for _, r in ipairs(PUBLIC_RIVALS) do
+				for _, r in ipairs(CFG.PUBLIC_RIVALS) do
 					local v = rivalValuation(r, bestHumanSeen)
 					if (s.valuation or 0) > v then
 						if s.above[r.name] == nil and s.aboveInit then
@@ -3095,9 +2964,9 @@ local function serialize(player)
 		muted = s.muted == true,
 		dailyDay = s.dailyDay or 0,          -- v3.1 daily streak: two integers, clamped on load
 		streak = s.streak or 0,
-		alumni = math.min(s.alumni or 0, ALUMNI_CAP),
+		alumni = math.min(s.alumni or 0, CFG.ALUMNI_CAP),
 		work = math.floor(s.work or 0),
-		spinoffs = math.min(s.spinoffs or 0, SPINOFF_CAP),
+		spinoffs = math.min(s.spinoffs or 0, CFG.SPINOFF_CAP),
 		earned = math.floor(s.earned or 0),
 		items = Econ and Econ.Inv and Econ.Inv.save(s) or nil,   -- v3.2 the bag: counts only
 		apt = s.apt or 0,                                            -- v4.0 the apartment rung (0-3)
@@ -3157,10 +3026,10 @@ local function applySave(player, plot, data)
 	-- whole step, never two). The late game is where it counts (sim/offline_sim3.py).
 	if Econ and Econ.Apt and Econ.Apt.offline and Econ.Apt.ladder then
 		local apt = clampInt(data.apt, 0, 3, 0)
-		local spins = clampInt(data.spinoffs, 0, SPINOFF_CAP, 0)
-		local nxt, aft = Econ.Apt.ladder(clampInt(data.hq, 1, #HQ_LEVELS, 1), apt,
-			function(l) return HQ_LEVELS[l] and HQ_LEVELS[l].cost or 0 end,
-			math.floor(SPINOFF_BASE * (SPINOFF_GROWTH ^ spins)))
+		local spins = clampInt(data.spinoffs, 0, CFG.SPINOFF_CAP, 0)
+		local nxt, aft = Econ.Apt.ladder(clampInt(data.hq, 1, #CFG.HQ_LEVELS, 1), apt,
+			function(l) return CFG.HQ_LEVELS[l] and CFG.HQ_LEVELS[l].cost or 0 end,
+			math.floor(SPINOFF_BASE * (CFG.SPINOFF_GROWTH ^ spins)))
 		offline = Econ.Apt.offline(clampInt(data.rate, 0, 1e9, 0), away, apt, cash and cash.Value or 0, nxt, aft)
 		player:SetAttribute("OfflineApt", apt)
 	end
@@ -3169,7 +3038,7 @@ local function applySave(player, plot, data)
 		player:SetAttribute("OfflineEarned", offline)
 	end
 
-	local level = clampInt(data.hq, 1, #HQ_LEVELS, 1)
+	local level = clampInt(data.hq, 1, #CFG.HQ_LEVELS, 1)
 	if level > 1 then buildShell(plot, level, false) end
 	s.hqLevel = level
 	if s.shipped then
@@ -3188,18 +3057,18 @@ local function applySave(player, plot, data)
 			local i = tonumber(k)
 			local roomId = type(w) == "table" and w.id or w        -- v1 saves stored the id string
 			local lv = type(w) == "table" and clampInt(w.lv, 1, WING_MAX_LEVEL, 1) or 1
-			if i and ROOM_BY_ID[roomId] and buildWing(player, plot, i, roomId, true) then
+			if i and CFG.ROOM_BY_ID[roomId] and buildWing(player, plot, i, roomId, true) then
 				local slot = plot.slots[i]
 				for _ = 2, lv do
 					slot.level += 1
-					applyWingLevel(s, ROOM_BY_ID[roomId])
+					applyWingLevel(s, CFG.ROOM_BY_ID[roomId])
 					if roomId == "office" then
 						officeDesk(slot, 2 * slot.level - 1)
 						officeDesk(slot, 2 * slot.level)
 					end
 				end
 				if Econ and Econ.V3 then Econ.furnish(FurnitureKit, slot) end
-				if CampusArch and CampusArch.grow and slot.model then pcall(CampusArch.grow, slot.model, slot.cf, slot.room, SLOT_W, SLOT_D, slot.level) end
+				if CampusArch and CampusArch.grow and slot.model then pcall(CampusArch.grow, slot.model, slot.cf, slot.room, CFG.SLOT_W, CFG.SLOT_D, slot.level) end
 				refreshWingPrompt(slot, plot, s)
 			end
 		end
@@ -3209,7 +3078,7 @@ local function applySave(player, plot, data)
 			if type(e) == "table" and type(e.k) == "string" then
 				local lx, lz, ly = tonumber(e.x) or 0, tonumber(e.z) or 0, tonumber(e.y) or 0
 				-- saved in an older layout: carried into the same room at its new place
-				if CampusArch and CampusArch.migrate then lx, lz, ly = CampusArch.migrate(lx, lz, ly, data.layout, SLOT_W, SLOT_D) end
+				if CampusArch and CampusArch.migrate then lx, lz, ly = CampusArch.migrate(lx, lz, ly, data.layout, CFG.SLOT_W, CFG.SLOT_D) end
 				local w = plot.pivot:PointToWorldSpace(Vector3.new(lx, 0, lz))
 				placeAt(player, plot, e.k, w.X, w.Z, (ly + plotYawDeg) % 360, true, clampInt(e.p, 0, 1e9, nil))
 			end
@@ -3225,16 +3094,16 @@ local function applySave(player, plot, data)
 			local role, t
 			if type(k) == "string" then role, t = k:match("^(%a+):(%d)$") end
 			t = tonumber(t)
-			if role and t and StaffRig and StaffRig.ROLES[role] and t >= 1 and t <= #TALENT then s.index[k] = true end
+			if role and t and StaffRig and StaffRig.ROLES[role] and t >= 1 and t <= #CFG.TALENT then s.index[k] = true end
 		end
 	end
 	s.indexQuiet = true
 	local staffN = clampInt(data.staff, 0, 200, 0)
-	s.hireCost = HIRE_BASE
+	s.hireCost = CFG.HIRE_BASE
 	for i = 1, staffN do
 		s.staff = i
 		if i > 1 then s.hireCost = math.floor(s.hireCost * hireGrowthAt(i)) end
-		local talent = type(data.talents) == "table" and clampInt(data.talents[i], 1, #TALENT, 1) or 1
+		local talent = type(data.talents) == "table" and clampInt(data.talents[i], 1, #CFG.TALENT, 1) or 1
 		local who
 		local pe = type(data.people) == "table" and data.people[i]
 		if type(pe) == "string" then
@@ -3244,10 +3113,10 @@ local function applySave(player, plot, data)
 		end
 		spawnStaff(player, plot, i, talent, who)
 		local r = s.rigs[#s.rigs]
-		local tier = type(data.tiers) == "table" and clampInt(data.tiers[i], 1, #TIER_TITLE, 1) or 1
+		local tier = type(data.tiers) == "table" and clampInt(data.tiers[i], 1, #CFG.TIER_TITLE, 1) or 1
 		if r then
 			r.tier = tier
-			r.seatedTime = (tier - 1) * PROMOTE_EVERY
+			r.seatedTime = (tier - 1) * CFG.PROMOTE_EVERY
 			StaffRig.setTitle(r.rig, titleOf(r))
 		end
 	end
@@ -3255,11 +3124,11 @@ local function applySave(player, plot, data)
 	if Econ and Econ.publishIndex then Econ.publishIndex(player, s) end
 	s.playtime = clampInt(data.playtime, 0, 1e9, 0)
 	s.muted = data.muted == true
-	s.alumni = clampInt(data.alumni, 0, ALUMNI_CAP, 0)
+	s.alumni = clampInt(data.alumni, 0, CFG.ALUMNI_CAP, 0)
 	player:SetAttribute("Alumni", s.alumni)
 	s.work = clampInt(data.work, 0, 1e9, 0)
-	s.workNeed = math.floor(WORK_FIRST * (WORK_GROWTH ^ (s.launches or 0)))
-	s.spinoffs = clampInt(data.spinoffs, 0, SPINOFF_CAP, 0)
+	s.workNeed = math.floor(CFG.WORK_FIRST * (CFG.WORK_GROWTH ^ (s.launches or 0)))
+	s.spinoffs = clampInt(data.spinoffs, 0, CFG.SPINOFF_CAP, 0)
 	-- pre-v2.4 saves have no `earned`; valuation is the closest honest proxy
 	s.earned = data.earned ~= nil and clampInt(data.earned, 0, 1e15, 0) or clampInt(data.valuation, 0, 1e15, 0)
 	s.milestones = milestonesFromEarned(s.earned)
@@ -3318,7 +3187,7 @@ local function onJoin(player)
 	local plot = assignPlot(player)
 	sessions[player.UserId] = {
 		clicks = 0, shipped = false, rate = 0,
-		staff = 0, desks = 0, hireCost = HIRE_BASE,
+		staff = 0, desks = 0, hireCost = CFG.HIRE_BASE,
 		quality = 0, morale = 0, compute = 0,
 		buildUnlocked = false,
 		placed = {}, placedDesks = 0, placedMorale = 0, rigs = {},
@@ -3330,7 +3199,7 @@ local function onJoin(player)
 	local ls = Instance.new("Folder")
 	ls.Name = "leaderstats"
 	ls.Parent = player
-	local cash = Instance.new("IntValue"); cash.Name = "Cash"; cash.Value = START_CASH; cash.Parent = ls
+	local cash = Instance.new("IntValue"); cash.Name = "Cash"; cash.Value = CFG.START_CASH; cash.Parent = ls
 	local rate = Instance.new("IntValue"); rate.Name = "Per Sec"; rate.Parent = ls
 	local staff = Instance.new("IntValue"); staff.Name = "Staff"; staff.Parent = ls
 	local val = Instance.new("IntValue"); val.Name = "Valuation"; val.Parent = ls
@@ -3496,8 +3365,8 @@ if game:GetService("RunService"):IsStudio() then
 			-- v2.5: set the LAST hire's talent (1..5) for testing; snapshot the record first
 			local r = s and s.rigs and s.rigs[#s.rigs]
 			if not r then return "no staff" end
-			r.talent = clampInt(tonumber(arg), 1, #TALENT, 1)
-			local t = TALENT[r.talent]
+			r.talent = clampInt(tonumber(arg), 1, #CFG.TALENT, 1)
+			local t = CFG.TALENT[r.talent]
 			if t.color and StaffRig.setTalent then StaffRig.setTalent(r.rig, r.talent, t.color, t.name) end
 			StaffRig.setTitle(r.rig, titleOf(r))
 			recompute(player)
@@ -3507,7 +3376,7 @@ if game:GetService("RunService"):IsStudio() then
 		elseif action == "rival" then
 			return "hit " .. rivalLaunch()
 		elseif action == "launch" then
-			local m = MARKETS[tonumber(arg) or 1]
+			local m = CFG.MARKETS[tonumber(arg) or 1]
 			if plot and m then launchProduct(player, plot, m) end
 			return "launched " .. (m and m.name or "?")
 		elseif action == "buzzoff" then
@@ -3519,7 +3388,7 @@ if game:GetService("RunService"):IsStudio() then
 			upgradeWing(player, plot, slot)
 			return ("%s lv%d desks=%d compute=%d quality=%.2f morale=%.2f"):format(slot.room.name, slot.level, s.desks, s.compute or 0, s.quality or 0, s.morale or 0)
 		elseif action == "share" then
-			s.share = math.clamp(tonumber(arg) or 1, SHARE_FLOOR, 1)
+			s.share = math.clamp(tonumber(arg) or 1, CFG.SHARE_FLOOR, 1)
 			return "share " .. s.share
 		elseif action == "peek" then
 			local ok, d = pcall(function() return saveStore and saveStore:GetAsync(tostring(player.UserId)) end)
@@ -3531,9 +3400,9 @@ if game:GetService("RunService"):IsStudio() then
 			-- fire one acquisition offer now (same code path as the loop)
 			local best
 			for _, r in ipairs(s.rigs or {}) do
-				if (r.tier or 1) >= OFFER_MIN_TIER and (not best or r.tier > best.tier) then best = r end
+				if (r.tier or 1) >= CFG.OFFER_MIN_TIER and (not best or r.tier > best.tier) then best = r end
 			end
-			if not best then return "nobody above tier " .. OFFER_MIN_TIER end
+			if not best then return "nobody above tier " .. CFG.OFFER_MIN_TIER end
 			-- capped at rehire cost + 60s of the person's output: selling a Lead
 			-- and rehiring an intern must never be a money printer (it was: quality
 			-- scaled the offer but not the hire)
@@ -3541,16 +3410,16 @@ if game:GetService("RunService"):IsStudio() then
 			local amount = offerAmountOf(s, cashNow and cashNow.Value or 0)
 			local id = (s.offerSerial or 0) + 1
 			s.offerSerial = id
-			s.pendingOffer = { id = id, entry = best, amount = amount, rival = RIVALS[1] }
-			offerEvent:FireClient(player, { id = id, rival = RIVALS[1], who = best.rig:GetAttribute("PersonName") or "?",
+			s.pendingOffer = { id = id, entry = best, amount = amount, rival = CFG.RIVALS[1] }
+			offerEvent:FireClient(player, { id = id, rival = CFG.RIVALS[1], who = best.rig:GetAttribute("PersonName") or "?",
 				title = titleOf(best), amount = amount, tier = best.tier,
 				minutes = (s.rate or 0) > 0 and amount / s.rate / 60 or 0,
-				loss = math.floor((TIER_RATE[best.tier] - TIER_RATE[1]) * hqMultOf(plot)),
-				alumni = math.min(s.alumni or 0, ALUMNI_CAP), step = ALUMNI_STEP })
+				loss = math.floor((CFG.TIER_RATE[best.tier] - CFG.TIER_RATE[1]) * hqMultOf(plot)),
+				alumni = math.min(s.alumni or 0, CFG.ALUMNI_CAP), step = CFG.ALUMNI_STEP })
 			return ("offered $%d for %s"):format(amount, tostring(best.rig:GetAttribute("PersonName")))
 		elseif action == "tier" then
 			local r = s.rigs and s.rigs[1]
-			if r then r.tier = tonumber(arg) or 1; r.seatedTime = (r.tier - 1) * PROMOTE_EVERY
+			if r then r.tier = tonumber(arg) or 1; r.seatedTime = (r.tier - 1) * CFG.PROMOTE_EVERY
 				StaffRig.setTitle(r.rig, titleOf(r)); recompute(player) end
 			return "tier set"
 		elseif action == "work" then
@@ -3677,7 +3546,7 @@ if game:GetService("RunService"):IsStudio() then
 								end
 							end
 						elseif key == "hq" then
-							local nxt = HQ_LEVELS[plot.hq.level + 1]
+							local nxt = CFG.HQ_LEVELS[plot.hq.level + 1]
 							if nxt and cash.Value >= nxt.cost then tryUpgrade(player, plot); did = "hq" end
 						elseif key == "apartment" and Econ and Econ.Apt and Econ.Apt.botBuy then
 							if Econ.Apt.botBuy(player) then did = "apartment" end
@@ -3731,7 +3600,7 @@ if game:GetService("RunService"):IsStudio() then
 			local n = math.clamp(tonumber(arg) or 20000, 1, 200000)
 			local luck = player:GetAttribute("VibeLuck") or 1
 			local counts = { 0, 0, 0, 0, 0 }
-			for _ = 1, n do local t = TALENT.roll(luck); counts[t] += 1 end
+			for _ = 1, n do local t = CFG.TALENT.roll(luck); counts[t] += 1 end
 			return ("luck %.1f  n %d  regular %d  skilled %d  star %d  genius %d  unicorn %d"):format(luck, n, counts[1], counts[2], counts[3], counts[4], counts[5])
 		elseif action == "item" then
 			-- v3.2 test hook: put an item in the bag (Items.LIST id)
