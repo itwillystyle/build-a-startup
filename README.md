@@ -12,6 +12,7 @@ marks every service `$ignoreUnknownInstances`, so Rojo never deletes them.
 ## Toolchain (pinned in rokit.toml)
 - `rojo serve` then Studio > Plugins > Rojo > Connect: edits here sync into Studio live
 - `selene src`            lint (catches undefined names, unbalanced assignments, shadowing)
+- `hooks/pre-commit` runs selene on every commit and REFUSES it on any error (warnings pass). It is on for this repo via `git config core.hooksPath hooks`; after a fresh clone, run that once. It replaces the old install pipe's forward-use check: a local function called above its definition is selene `undefined_variable`.
 - `stylua src`            format (not run yet: do it in its own commit)
 - `rojo sourcemap default.project.json -o sourcemap.json` + `luau-lsp analyze --sourcemap=sourcemap.json --definitions=globalTypes.d.luau src`   type check
 
