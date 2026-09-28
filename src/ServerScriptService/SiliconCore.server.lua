@@ -56,6 +56,7 @@ local FurnitureKit = tryRequire(ReplicatedStorage, "FurnitureKit")
 local Telemetry = tryRequire(ServerScriptService, "Telemetry")
 local CampusArch = tryRequire(ServerScriptService, "CampusArch")   -- v2.8 HQ architecture (glass wings, links, grounds)
 local Econ = tryRequire(ServerScriptService, "RoomEconomy")   -- v2.6.0 room economy (stations, caps, fit, wages)
+local Prog = require(ServerScriptService:WaitForChild("Progression"))   -- v4.3 spin-off curve + offline rule (pure, tested offline)
 if not Telemetry then
 	local noop = function() end
 	Telemetry = { joined = noop, step = noop, platform = noop, event = noop, left = noop }
@@ -92,17 +93,19 @@ local function hqMultOf(plot)
 end
 --[[
 	v2.4 SPIN-OFF (prestige) + MILESTONE LADDER -- the sink after HQ 5.
-	Spin-off: at HQ 5, pay SPINOFF_BASE x SPINOFF_GROWTH^n, reset to the
-	garage with $0, keep a permanent +SPINOFF_STEP revenue multiplier per
+	Spin-off: at HQ 5, pay Progression.spinCost(n) (v4.3: follows your income, so
+	the wait grows 1.3x per spin-off to 2 h max), reset to the garage with $0,
+	keep a permanent +Progression.SPIN_STEP revenue multiplier per
 	spin-off (Sell Lemons' Rebirth shape: the reset BUYS a multiplier).
 	Milestones: every power of ten of lifetime earnings past MILESTONE_BASE
 	is +MILESTONE_STEP revenue forever. Saved: spinoffs (int), earned (int).
 	milestones is DERIVED from earned at load, never trusted from a save.
 ]]
 local SPINOFF_BASE = (Econ and Econ.V3) and Econ.SPINOFF_BASE or 5000000
-local function spinMultOf(s) return 1 + CFG.SPINOFF_STEP * (s and s.spinoffs or 0) end
+local function spinMultOf(s) return Prog.spinMult(s and s.spinoffs or 0) end
+local function nextSpinMultOf(s) return Prog.spinMult((s and s.spinoffs or 0) + 1) end
 local function milestoneMultOf(s) return 1 + CFG.MILESTONE_STEP * (s and s.milestones or 0) end
-local function spinoffCostOf(s) return math.floor(SPINOFF_BASE * (CFG.SPINOFF_GROWTH ^ (s and s.spinoffs or 0))) end
+local function spinoffCostOf(s) return Prog.spinCost(s and s.spinoffs or 0, SPINOFF_BASE) end
 local function milestonesFromEarned(earned)
 	if (earned or 0) < CFG.MILESTONE_BASE then return 0 end
 	return math.min(CFG.MILESTONE_MAX, math.floor(math.log10(earned / CFG.MILESTONE_BASE)) + 1)
@@ -1383,7 +1386,7 @@ local function refreshObjective(player)
 			if nxtHq then
 				offer(nxtHq.cost, "hq", ("Upgrade to %s"):format(nxtHq.name), posOf(plot.hqPad), hqTease())
 			else
-				offer(spinoffCostOf(s), "spin", "Spin off", posOf(plot.hqPad), ("Start over with x%s money forever"):format((string.format("%.1f", spinMultOf(s) + CFG.SPINOFF_STEP)):gsub("%.0$", "")))
+				offer(spinoffCostOf(s), "spin", "Spin off", posOf(plot.hqPad), ("Start over with x%s money forever"):format((string.format("%.1f", nextSpinMultOf(s))):gsub("%.0$", "")))
 			end
 			if empty and Econ and Econ.V3 then
 				if built < (Econ.SLOTS_BY_HQ[plot.hq.level] or 6) then
@@ -1423,7 +1426,7 @@ local function refreshObjective(player)
 			-- v2.8: at HQ 5 the spin-off is the big goal, with the same afford / save-up treatment
 			if not nxtHq and held and Econ and Econ.V3 then
 				local sc = spinoffCostOf(s)
-				local why = ("Start over with x%s money forever"):format((string.format("%.1f", spinMultOf(s) + CFG.SPINOFF_STEP)):gsub("%.0$", ""))
+				local why = ("Start over with x%s money forever"):format((string.format("%.1f", nextSpinMultOf(s))):gsub("%.0$", ""))
 				if held.Value >= sc then
 					best = { c = sc, k = "spin", t = "Spin off!", at = posOf(plot.hqPad), sub = why }
 				elseif (s.rate or 0) > 0 and (sc - held.Value) / s.rate <= Econ.SAVE_WINDOW then
@@ -1565,10 +1568,10 @@ local function refreshHqPad(plot)
 		plot.hqPad.Color = CFG.GOLD
 	elseif s then
 		if plot.spinArmed then
-			plot.hqLabel.Text = "TAP AGAIN TO SPIN OFF  ·  back to the garage, x" .. string.format("%.1f", spinMultOf(s) + CFG.SPINOFF_STEP) .. " forever"
+			plot.hqLabel.Text = "TAP AGAIN TO SPIN OFF  ·  back to the garage, x" .. string.format("%.1f", nextSpinMultOf(s)) .. " forever"
 			plot.hqPad.Color = Color3.fromRGB(255, 120, 60)
 		else
-			plot.hqLabel.Text = ("SPIN OFF  ·  $%s  ·  revenue x%.1f forever"):format(fmt(spinoffCostOf(s)), spinMultOf(s) + CFG.SPINOFF_STEP)
+			plot.hqLabel.Text = ("SPIN OFF  ·  $%s  ·  revenue x%.1f forever"):format(fmt(spinoffCostOf(s)), nextSpinMultOf(s))
 			plot.hqPad.Color = CFG.GOLD
 		end
 	else
@@ -2230,7 +2233,7 @@ spinOff = function(player, plot)
 		for _, r in ipairs(s.rigs or {}) do if (r.talent or 1) >= ((Econ and Econ.KEEP_TALENT) or 3) then keepN += 1 end end
 		keepN = math.min(keepN, (Econ and Econ.KEEP_MAX) or keepN)
 		if Econ and Econ.celebrate then
-			Econ.celebrate:FireClient(player, { kind = "spinAsk", cost = cost, from = spinMultOf(s), to = spinMultOf(s) + CFG.SPINOFF_STEP,
+			Econ.celebrate:FireClient(player, { kind = "spinAsk", cost = cost, from = spinMultOf(s), to = nextSpinMultOf(s),
 				keep = keepN, number = (s.spinoffs or 0) + 1 })
 		end
 		task.delay(30.5, function()
@@ -2262,7 +2265,7 @@ spinOff = function(player, plot)
 	-- LAUNCH card used to survive the reset showing the old payday
 	s.pendingProduct = nil
 	productReady:FireClient(player, nil)
-	s.spinoffs = math.min((s.spinoffs or 0) + 1, CFG.SPINOFF_CAP)
+	s.spinoffs = math.min((s.spinoffs or 0) + 1, Prog.SPIN_CAP)
 	s.shipped = true; s.buildUnlocked = true
 	plot.doorOpened = true
 	for _, door in ipairs({ plot.hq.doorL, plot.hq.doorR }) do door.CFrame = door.CFrame * CFrame.new(0, 11, 0) end
@@ -2908,6 +2911,7 @@ end)
 -- v4.2: the code lives in SaveLoad.lua (moved out to free SiliconCore's top-level
 -- locals). It still runs here, at the same point in the load order.
 local SaveLoad = require(ServerScriptService:WaitForChild("SaveLoad"))({
+	Prog = Prog,
 	CFG = CFG,
 	CampusArch = CampusArch,
 	Econ = Econ,

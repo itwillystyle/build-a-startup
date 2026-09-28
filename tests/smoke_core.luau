@@ -15,6 +15,9 @@ local function add(k, v) table.insert(out, k .. "=" .. tostring(v)) end
 local t0 = os.clock()
 repeat task.wait(0.5) until (p:GetAttribute("Plot") and dev:Invoke("state", p).loaded) or os.clock() - t0 > 40
 task.wait(2)
+-- freeze the product timer: a product becoming ready ~17 s in changes the goal text,
+-- and the snapshots land right on that edge (a timing diff, not a behaviour diff)
+dev:Invoke("work", p, -1e12)
 
 local function snap(tag)
 	local st = dev:Invoke("state", p)

@@ -6,6 +6,7 @@ used to run, passing the SiliconCore locals it needs in `core`. Every one of
 them is assigned before this point and never reassigned, so aliasing is safe. ]]
 return function(core)
 	local CFG = core.CFG
+	local Prog = core.Prog
 	local CampusArch = core.CampusArch
 	local Econ = core.Econ
 	local FurnitureKit = core.FurnitureKit
@@ -97,7 +98,7 @@ return function(core)
 			streak = s.streak or 0,
 			alumni = math.min(s.alumni or 0, CFG.ALUMNI_CAP),
 			work = math.floor(s.work or 0),
-			spinoffs = math.min(s.spinoffs or 0, CFG.SPINOFF_CAP),
+			spinoffs = math.min(s.spinoffs or 0, Prog.SPIN_CAP),
 			earned = math.floor(s.earned or 0),
 			items = Econ and Econ.Inv and Econ.Inv.save(s) or nil,   -- v3.2 the bag: counts only
 			apt = s.apt or 0,                                            -- v4.0 the apartment rung (0-3)
@@ -157,10 +158,10 @@ return function(core)
 		-- whole step, never two). The late game is where it counts (sim/offline_sim3.py).
 		if Econ and Econ.Apt and Econ.Apt.offline and Econ.Apt.ladder then
 			local apt = clampInt(data.apt, 0, 3, 0)
-			local spins = clampInt(data.spinoffs, 0, CFG.SPINOFF_CAP, 0)
+			local spins = clampInt(data.spinoffs, 0, Prog.SPIN_CAP, 0)
 			local nxt, aft = Econ.Apt.ladder(clampInt(data.hq, 1, #CFG.HQ_LEVELS, 1), apt,
 				function(l) return CFG.HQ_LEVELS[l] and CFG.HQ_LEVELS[l].cost or 0 end,
-				math.floor(SPINOFF_BASE * (CFG.SPINOFF_GROWTH ^ spins)))
+				Prog.spinCost(spins, SPINOFF_BASE))
 			offline = Econ.Apt.offline(clampInt(data.rate, 0, 1e9, 0), away, apt, cash and cash.Value or 0, nxt, aft)
 			player:SetAttribute("OfflineApt", apt)
 		end
@@ -259,7 +260,7 @@ return function(core)
 		player:SetAttribute("Alumni", s.alumni)
 		s.work = clampInt(data.work, 0, 1e9, 0)
 		s.workNeed = math.floor(CFG.WORK_FIRST * (CFG.WORK_GROWTH ^ (s.launches or 0)))
-		s.spinoffs = clampInt(data.spinoffs, 0, CFG.SPINOFF_CAP, 0)
+		s.spinoffs = clampInt(data.spinoffs, 0, Prog.SPIN_CAP, 0)
 		-- pre-v2.4 saves have no `earned`; valuation is the closest honest proxy
 		s.earned = data.earned ~= nil and clampInt(data.earned, 0, 1e15, 0) or clampInt(data.valuation, 0, 1e15, 0)
 		s.milestones = milestonesFromEarned(s.earned)

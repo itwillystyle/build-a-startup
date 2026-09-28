@@ -26,22 +26,13 @@ local SSS = game:GetService("ServerScriptService")
 
 local Apartments = {}
 
-Apartments.TIERS = {
-	{ id = 1, key = "studio", name = "STUDIO", price = 20000, minHQ = 2, gateHQ = 3, bonus = 0.10,
-	  blurb = "A place of your own. Floor-to-ceiling windows." },
-	{ id = 2, key = "loft", name = "LOFT", price = 150000, minHQ = 3, gateHQ = 4, bonus = 0.10,
-	  blurb = "Room to host: a kitchen island, a real bedroom." },
-	{ id = 3, key = "penthouse", name = "PENTHOUSE", price = 2000000, minHQ = 4, gateHQ = 5, bonus = 0.10,
-	  blurb = "The top of the tower. An indoor pool. A view of your valley." },
-}
+-- v4.3: the tier table and the pure rules below live in Progression.lua (tested
+-- offline in Lune); these names stay so every caller keeps working.
+local Prog = require(SSS:WaitForChild("Progression"))
+Apartments.TIERS = Prog.APARTMENTS
 
 -- the apartment you must own before building HQ `level`
-function Apartments.need(level)
-	for _, t in ipairs(Apartments.TIERS) do
-		if t.gateHQ == level then return t.id end
-	end
-	return 0
-end
+Apartments.need = Prog.aptNeeded
 
 function Apartments.mult(s)
 	local m = 1
@@ -58,42 +49,14 @@ often only minutes of income). The rule that shipped (sim/offline_sim2/3.py):
 	offline = min( rate x 0.25 x min(away, WINDOW[apt]),     the time your home covers
 	               max(10 min of income, your next step),     never below today; up to one step
 	               next + the step after - cash - 1 )          never two steps in one return
-Where it matters is the late game: at spin-off 4 the wait at HQ 5 is ~52 min and
-one night covers 19% of it today, 58% with a Studio, 100% with a Loft or Penthouse. ]]
-Apartments.WINDOW = { [0] = 40 * 60, 2 * 3600, 4 * 3600, 8 * 3600 }
-Apartments.OFFLINE_RATE = 0.25
-Apartments.OFFLINE_FLOOR = 600            -- seconds of full income: today's cap, now the floor
-
--- your next two steps: each HQ level with the apartment it needs, then the spin-off, then HQ 2
-function Apartments.ladder(level, apt, hqCost, spinCost)
-	local steps = {}
-	local l, a = level or 1, apt or 0
-	while #steps < 2 do
-		if l >= 5 then
-			table.insert(steps, spinCost)
-			l = 1                                 -- a spin-off: the garage again (the apartment stays yours)
-		else
-			local c = hqCost(l + 1) or 0
-			local need = Apartments.need(l + 1)
-			if need > 0 and a < need then
-				c += Apartments.TIERS[need].price
-				a = need
-			end
-			table.insert(steps, c)
-			l += 1
-		end
-	end
-	return steps[1], steps[2]
-end
-
-function Apartments.offline(rate, away, apt, cash, nextStep, stepAfter)
-	rate = math.max(0, rate or 0)
-	local window = Apartments.WINDOW[math.clamp(math.floor(apt or 0), 0, 3)]
-	local raw = rate * Apartments.OFFLINE_RATE * math.min(math.max(0, away or 0), window)
-	local top = math.max(rate * Apartments.OFFLINE_FLOOR, nextStep or 0)
-	local never2 = math.max(0, (nextStep or 0) + (stepAfter or 0) - (cash or 0) - 1)
-	return math.floor(math.max(0, math.min(raw, top, never2)))
-end
+Where it matters is the late game. v4.3 capped the wait at HQ 5 at 2 h (it
+reached 20 h), which is exactly what one Penthouse night pays; at the cap a Studio
+night covers 25% and a Loft 50% (tests/offline/progression.spec.luau). ]]
+Apartments.WINDOW = Prog.WINDOW
+Apartments.OFFLINE_RATE = Prog.OFFLINE_RATE
+Apartments.OFFLINE_FLOOR = Prog.OFFLINE_FLOOR
+Apartments.ladder = Prog.ladder       -- your next two steps (HQ + its apartment, then the spin-off, then HQ 2)
+Apartments.offline = Prog.offline
 
 local api
 local Downtown

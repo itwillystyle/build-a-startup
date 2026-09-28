@@ -127,6 +127,10 @@ return function(core)
 			if r then r.tier = tonumber(arg) or 1; r.seatedTime = (r.tier - 1) * CFG.PROMOTE_EVERY
 				StaffRig.setTitle(r.rig, titleOf(r)); recompute(player) end
 			return "tier set"
+		elseif action == "hire" then
+			-- v4.3 test hook: one hire through the real hire() (after a spin-off the HQ needs staff)
+			if plot then hire(player, plot) end
+			return ("staff=%d"):format(s.staff or 0)
 		elseif action == "work" then
 			s.work = tonumber(arg) or 0
 			return "work set"

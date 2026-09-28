@@ -3,7 +3,8 @@ Moved out of SiliconCore on 28 Sep 2026 (v4.2): the script was at 196 of
 Luau's 200 top-level locals. Pure data, no requires. SiliconCore reads these
 as CFG.NAME. Values that depend on RoomEconomy or CampusArch (SPINOFF_BASE,
 WING_MAX_LEVEL, SLOT_LOCAL, ...) stay in SiliconCore, and SiliconCore may
-overwrite fields at load (the V3 HQ costs). ]]
+overwrite fields at load (the V3 HQ costs). The spin-off curve lives in
+Progression.lua (v4.3). ]]
 
 local START_CASH = 0
 local CODE_REWARD = 5
@@ -51,9 +52,6 @@ local HIRE_GROWTH = 1.3                   -- was 1.6: hire 20 cost $487K, hire 2
 local WING_STEP = 0.5                     -- each wing already built raises the next by 50%
 local FURNITURE_INFLATION = 0.08          -- per item already placed
 local PAYDAY_SECONDS = 45                 -- a launch pays this many seconds of income, x spike
-local SPINOFF_GROWTH = 2.5
-local SPINOFF_STEP = 0.5
-local SPINOFF_CAP = 20
 local MILESTONE_BASE = 10000
 local MILESTONE_STEP = 0.02
 local MILESTONE_MAX = 12
@@ -156,9 +154,6 @@ return {
 	WING_STEP = WING_STEP,
 	FURNITURE_INFLATION = FURNITURE_INFLATION,
 	PAYDAY_SECONDS = PAYDAY_SECONDS,
-	SPINOFF_GROWTH = SPINOFF_GROWTH,
-	SPINOFF_STEP = SPINOFF_STEP,
-	SPINOFF_CAP = SPINOFF_CAP,
 	MILESTONE_BASE = MILESTONE_BASE,
 	MILESTONE_STEP = MILESTONE_STEP,
 	MILESTONE_MAX = MILESTONE_MAX,

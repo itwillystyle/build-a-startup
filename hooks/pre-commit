@@ -1,5 +1,6 @@
 #!/bin/sh
-# Refuses a commit when selene finds an ERROR in a staged Lua/Luau file.
+# Refuses a commit when selene finds an ERROR in a staged Lua/Luau file,
+# or when the offline tests (tests/offline, run in Lune) fail.
 # Warnings pass. The error it exists for: calling a local function above the
 # line that defines it (selene: undefined_variable), which crashed the game 7+ times.
 # Enabled by: git config core.hooksPath hooks   (already set in this repo)
@@ -19,5 +20,16 @@ if [ $? -ne 0 ]; then
 	echo "pre-commit: selene found errors, commit refused:" >&2
 	echo "$OUT" | grep -i "error" >&2
 	exit 1
+fi
+# The offline tests (Lune, ~0.2 s): the pure economy rules must still pass.
+LUNE="$HOME/.rokit/bin/lune"
+[ -x "$LUNE" ] || LUNE="$HOME/.rokit/bin/lune.exe"
+if [ -x "$LUNE" ] && [ -f tests/offline/run.luau ]; then
+	TOUT=$(PATH="$HOME/.rokit/bin:$PATH" "$LUNE" run tests/offline/run 2>&1)
+	if [ $? -ne 0 ]; then
+		echo "pre-commit: offline tests failed, commit refused:" >&2
+		echo "$TOUT" >&2
+		exit 1
+	fi
 fi
 exit 0
