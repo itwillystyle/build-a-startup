@@ -3219,7 +3219,11 @@ local function applySave(player, plot, data)
 	s.index = {}
 	if type(data.index) == "table" then
 		for _, k in ipairs(data.index) do
-			local role, t = type(k) == "string" and k:match("^(%a+):(%d)$")
+			-- v4.2: `x and k:match(...)` keeps only match's FIRST return, so `t` was
+			-- always nil and no saved Index entry was ever restored (found by selene:
+			-- unbalanced_assignments, the first time it ran on this code)
+			local role, t
+			if type(k) == "string" then role, t = k:match("^(%a+):(%d)$") end
 			t = tonumber(t)
 			if role and t and StaffRig and StaffRig.ROLES[role] and t >= 1 and t <= #TALENT then s.index[k] = true end
 		end
