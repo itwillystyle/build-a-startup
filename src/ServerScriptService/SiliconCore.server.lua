@@ -2905,277 +2905,40 @@ task.spawn(function()
 end)
 
 -- ============ SAVE / LOAD ============
-
-local function serialize(player)
-	local s = sessions[player.UserId]
-	local plot = plotOf(player)
-	if not s or not plot then return nil end
-	local _, plotYaw = plot.pivot:ToEulerAnglesYXZ()
-	local plotYawDeg = math.floor(math.deg(plotYaw) + 0.5)
-	local placed = {}
-	for _, e in ipairs(s.placed) do
-		local l = plot.pivot:PointToObjectSpace(Vector3.new(e.x, 0, e.z))
-		placed[#placed + 1] = { k = e.key, x = l.X, z = l.Z, y = ((e.yaw or 0) - plotYawDeg) % 360, p = e.price }
-	end
-	local wings = {}
-	for i, slot in ipairs(plot.slots) do
-		if slot.built then wings[tostring(i)] = { id = slot.built, lv = slot.level or 1 } end
-	end
-	local cash = cashOf(player)
-	return {
-		v = 1,
-		layout = (CampusArch and CampusArch.LAYOUT) or 2,   -- the lot layout the furniture coordinates are in
-		cash = cash and cash.Value or 0,
-		hq = plot.hq.level,
-		wings = wings,
-		placed = placed,
-		staff = s.staff,
-		shipped = s.shipped,
-		name = s.name,
-		valuation = math.floor(s.valuation or 0),
-		weekId = s.weekId,                                  -- v4.2 the weekly board: which week, and the value it started at
-		weekBase = s.weekBase and math.floor(s.weekBase) or nil,
-		ipo = s.ipo or false,
-		launches = s.launches or 0,
-		rate = s.rate,
-		lastSeen = os.time(),
-		tiers = (function()
-			local t = {}
-			for i, r in ipairs(s.rigs or {}) do t[i] = r.tier or 1 end
-			return t
-		end)(),
-		talents = (function()
-			local t = {}
-			for i, r in ipairs(s.rigs or {}) do t[i] = r.talent or 1 end
-			return t
-		end)(),
-		index = (function()
-			local t = {}
-			for k in pairs(s.index or {}) do table.insert(t, k) end
-			return t
-		end)(),
-		-- v3.0: who each recruit was ("role:seed"), so they look the same after a rejoin
-		people = (function()
-			local t = {}
-			for i, r in ipairs(s.rigs or {}) do t[i] = r.who and (r.who.role .. ":" .. r.who.seed) or "" end
-			return t
-		end)(),
-		playtime = math.floor(s.playtime or 0),
-		muted = s.muted == true,
-		dailyDay = s.dailyDay or 0,          -- v3.1 daily streak: two integers, clamped on load
-		streak = s.streak or 0,
-		alumni = math.min(s.alumni or 0, CFG.ALUMNI_CAP),
-		work = math.floor(s.work or 0),
-		spinoffs = math.min(s.spinoffs or 0, CFG.SPINOFF_CAP),
-		earned = math.floor(s.earned or 0),
-		items = Econ and Econ.Inv and Econ.Inv.save(s) or nil,   -- v3.2 the bag: counts only
-		apt = s.apt or 0,                                            -- v4.0 the apartment rung (0-3)
-		vipDay = s.vipDay,                                          -- v4.2 the UTC day the daily VIP was picked up
-		cars = Econ and Econ.Cars and Econ.Cars.save(s) or nil,     -- v4.0 owned car ids
-		car = s.car,
-	}
-end
-
-local function saveNow(player)
-	if not saveStore or not loaded[player.UserId] then return false end
-	local data = serialize(player)
-	if not data then return false end
-	local ok, err = pcall(function()
-		saveStore:UpdateAsync(tostring(player.UserId), function(old)
-			-- never let an older session overwrite a newer one
-			if type(old) == "table" and (old.lastSeen or 0) > data.lastSeen then return nil end
-			return data
-		end)
-	end)
-	if not ok then warn("[SV] save failed for " .. player.Name .. ": " .. tostring(err)) end
-	return ok
-end
-
-local function clampInt(v, lo, hi, default)
-	if type(v) ~= "number" then return default end
-	return math.clamp(math.floor(v), lo, hi)
-end
-
-local function applySave(player, plot, data)
-	local s = sessions[player.UserId]
-	if not s or not plot or type(data) ~= "table" then return end
-	local cash = cashOf(player)
-	local _, plotYaw = plot.pivot:ToEulerAnglesYXZ()
-	local plotYawDeg = math.floor(math.deg(plotYaw) + 0.5)
-
-	if cash then cash.Value = clampInt(data.cash, 0, 1e12, 0) end
-	s.shipped = data.shipped == true or clampInt(data.staff, 0, 200, 0) > 0
-	s.name = type(data.name) == "string" and data.name:sub(1, 20) or nil
-	s.ticker = s.name and tickerOf(s.name) or nil
-	s.valuation = clampInt(data.valuation, 0, 1e13, 0)
-	s.weekId = clampInt(data.weekId, 0, 1e7, 0)          -- v4.2 (Ranks.rollWeek resets a stale or nonsense base)
-	s.weekBase = data.weekBase ~= nil and clampInt(data.weekBase, 0, 1e13, 0) or nil
-	s.ipo = data.ipo == true and s.name ~= nil
-	s.launches = clampInt(data.launches, 0, 1e6, 0)
-
-	-- offline earnings: a quarter rate, capped at 8 hours. A returning player
-	-- should find something waiting, not a fortune (Roblox 2026 discovery
-	-- scores D1..D28 -- this is the come-back-tomorrow mechanic)
-	local away = math.clamp(os.time() - clampInt(data.lastSeen, 0, 4e9, os.time()), 0, 8 * 3600)
-	local offline = math.floor(clampInt(data.rate, 0, 1e9, 0) * 0.25 * away)
-	-- v2.7.0: on fixed price ladders 2 hours of income skips a whole HQ tier;
-	-- coming back should find something useful waiting, not the next building
-	if Econ and Econ.V3 then offline = math.min(offline, clampInt(data.rate, 0, 1e9, 0) * Econ.OFFLINE_CAP) end
-	-- v4.2 HOME TURF: your apartment decides how much of the wait for your next step
-	-- a return covers (Apartments.offline: never below the line above, up to one
-	-- whole step, never two). The late game is where it counts (sim/offline_sim3.py).
-	if Econ and Econ.Apt and Econ.Apt.offline and Econ.Apt.ladder then
-		local apt = clampInt(data.apt, 0, 3, 0)
-		local spins = clampInt(data.spinoffs, 0, CFG.SPINOFF_CAP, 0)
-		local nxt, aft = Econ.Apt.ladder(clampInt(data.hq, 1, #CFG.HQ_LEVELS, 1), apt,
-			function(l) return CFG.HQ_LEVELS[l] and CFG.HQ_LEVELS[l].cost or 0 end,
-			math.floor(SPINOFF_BASE * (CFG.SPINOFF_GROWTH ^ spins)))
-		offline = Econ.Apt.offline(clampInt(data.rate, 0, 1e9, 0), away, apt, cash and cash.Value or 0, nxt, aft)
-		player:SetAttribute("OfflineApt", apt)
-	end
-	if offline > 0 and cash then
-		cash.Value += offline
-		player:SetAttribute("OfflineEarned", offline)
-	end
-
-	local level = clampInt(data.hq, 1, #CFG.HQ_LEVELS, 1)
-	if level > 1 then buildShell(plot, level, false) end
-	s.hqLevel = level
-	if s.shipped then
-		s.buildUnlocked = true
-		plot.doorOpened = true
-		for _, door in ipairs({ plot.hq.doorL, plot.hq.doorR }) do
-			door.CFrame = door.CFrame * CFrame.new(0, 11, 0)
-		end
-		for _, slot in ipairs(plot.slots) do
-			slot.prompt.Enabled = true
-			slot.text.Text = "BUILD HERE"
-		end
-	end
-	if type(data.wings) == "table" then
-		for k, w in pairs(data.wings) do
-			local i = tonumber(k)
-			local roomId = type(w) == "table" and w.id or w        -- v1 saves stored the id string
-			local lv = type(w) == "table" and clampInt(w.lv, 1, WING_MAX_LEVEL, 1) or 1
-			if i and CFG.ROOM_BY_ID[roomId] and buildWing(player, plot, i, roomId, true) then
-				local slot = plot.slots[i]
-				for _ = 2, lv do
-					slot.level += 1
-					applyWingLevel(s, CFG.ROOM_BY_ID[roomId])
-					if roomId == "office" then
-						officeDesk(slot, 2 * slot.level - 1)
-						officeDesk(slot, 2 * slot.level)
-					end
-				end
-				if Econ and Econ.V3 then Econ.furnish(FurnitureKit, slot) end
-				if CampusArch and CampusArch.grow and slot.model then pcall(CampusArch.grow, slot.model, slot.cf, slot.room, CFG.SLOT_W, CFG.SLOT_D, slot.level) end
-				refreshWingPrompt(slot, plot, s)
-			end
-		end
-	end
-	if type(data.placed) == "table" then
-		for _, e in ipairs(data.placed) do
-			if type(e) == "table" and type(e.k) == "string" then
-				local lx, lz, ly = tonumber(e.x) or 0, tonumber(e.z) or 0, tonumber(e.y) or 0
-				-- saved in an older layout: carried into the same room at its new place
-				if CampusArch and CampusArch.migrate then lx, lz, ly = CampusArch.migrate(lx, lz, ly, data.layout, CFG.SLOT_W, CFG.SLOT_D) end
-				local w = plot.pivot:PointToWorldSpace(Vector3.new(lx, 0, lz))
-				placeAt(player, plot, e.k, w.X, w.Z, (ly + plotYawDeg) % 360, true, clampInt(e.p, 0, 1e9, nil))
-			end
-		end
-	end
-	-- v3.0 TALENT INDEX: sanitized; rebuilt staff below are rediscoveries, not news
-	s.index = {}
-	if type(data.index) == "table" then
-		for _, k in ipairs(data.index) do
-			-- v4.2: `x and k:match(...)` keeps only match's FIRST return, so `t` was
-			-- always nil and no saved Index entry was ever restored (found by selene:
-			-- unbalanced_assignments, the first time it ran on this code)
-			local role, t
-			if type(k) == "string" then role, t = k:match("^(%a+):(%d)$") end
-			t = tonumber(t)
-			if role and t and StaffRig and StaffRig.ROLES[role] and t >= 1 and t <= #CFG.TALENT then s.index[k] = true end
-		end
-	end
-	s.indexQuiet = true
-	local staffN = clampInt(data.staff, 0, 200, 0)
-	s.hireCost = CFG.HIRE_BASE
-	for i = 1, staffN do
-		s.staff = i
-		if i > 1 then s.hireCost = math.floor(s.hireCost * hireGrowthAt(i)) end
-		local talent = type(data.talents) == "table" and clampInt(data.talents[i], 1, #CFG.TALENT, 1) or 1
-		local who
-		local pe = type(data.people) == "table" and data.people[i]
-		if type(pe) == "string" then
-			local role, seed = pe:match("^(%a+):(%d+)$")
-			seed = tonumber(seed)
-			if role and seed and StaffRig and StaffRig.ROLES[role] and seed >= 1 and seed <= 1e9 then who = { role = role, seed = seed } end
-		end
-		spawnStaff(player, plot, i, talent, who)
-		local r = s.rigs[#s.rigs]
-		local tier = type(data.tiers) == "table" and clampInt(data.tiers[i], 1, #CFG.TIER_TITLE, 1) or 1
-		if r then
-			r.tier = tier
-			r.seatedTime = (tier - 1) * CFG.PROMOTE_EVERY
-			StaffRig.setTitle(r.rig, titleOf(r))
-		end
-	end
-	s.indexQuiet = false
-	if Econ and Econ.publishIndex then Econ.publishIndex(player, s) end
-	s.playtime = clampInt(data.playtime, 0, 1e9, 0)
-	s.muted = data.muted == true
-	s.alumni = clampInt(data.alumni, 0, CFG.ALUMNI_CAP, 0)
-	player:SetAttribute("Alumni", s.alumni)
-	s.work = clampInt(data.work, 0, 1e9, 0)
-	s.workNeed = math.floor(CFG.WORK_FIRST * (CFG.WORK_GROWTH ^ (s.launches or 0)))
-	s.spinoffs = clampInt(data.spinoffs, 0, CFG.SPINOFF_CAP, 0)
-	-- pre-v2.4 saves have no `earned`; valuation is the closest honest proxy
-	s.earned = data.earned ~= nil and clampInt(data.earned, 0, 1e15, 0) or clampInt(data.valuation, 0, 1e15, 0)
-	s.milestones = milestonesFromEarned(s.earned)
-	s.dailyDay = clampInt(data.dailyDay, 0, 1e6, 0)
-	s.streak = clampInt(data.streak, 0, 7, 0)
-	-- v4.0: the apartment (clamped) and the cars (validated against the catalog)
-	s.apt = clampInt(data.apt, 0, 3, 0)
-	s.vipDay = clampInt(data.vipDay, 0, 1e7, 0)
-	if Econ and Econ.Apt then pcall(Econ.Apt.onLoad, player, s) end
-	if Econ and Econ.Cars then pcall(Econ.Cars.onLoad, player, s, data, plot) end
-	recompute(player)
-	refreshSign(plot)
-	refreshHqPad(plot)
-	updateHirePad(player)
-end
-
-local function loadOnce(player, plot)
-	if loading[player.UserId] then return end
-	loading[player.UserId] = true
-	local data, ok = nil, false
-	if saveStore then
-		ok, data = pcall(function() return saveStore:GetAsync(tostring(player.UserId)) end)
-		if not ok then
-			warn("[SV] load FAILED for " .. player.Name .. " -- this session will not save")
-			data = nil
-		end
-	end
-	loading[player.UserId] = nil
-	if ok then loaded[player.UserId] = true end     -- a failed read never saves
-	if data then
-		player:SetAttribute("Returning", true)
-		applySave(player, plot, data)
-	end
-	if Econ and Econ.Inv then pcall(Econ.Inv.load, player, sessions[player.UserId], data and data.items) end
-	if Econ and Econ.Daily and Econ.Daily.refresh then pcall(Econ.Daily.refresh, player) end
-end
-
-game:BindToClose(function()
-	for _, pl in ipairs(Players:GetPlayers()) do saveNow(pl); pushTicker(pl) end
-	task.wait(1)
-end)
-task.spawn(function()
-	while true do
-		task.wait(120)
-		for _, pl in ipairs(Players:GetPlayers()) do saveNow(pl) end
-	end
-end)
+-- v4.2: the code lives in SaveLoad.lua (moved out to free SiliconCore's top-level
+-- locals). It still runs here, at the same point in the load order.
+local SaveLoad = require(ServerScriptService:WaitForChild("SaveLoad"))({
+	CFG = CFG,
+	CampusArch = CampusArch,
+	Econ = Econ,
+	FurnitureKit = FurnitureKit,
+	Players = Players,
+	SPINOFF_BASE = SPINOFF_BASE,
+	StaffRig = StaffRig,
+	WING_MAX_LEVEL = WING_MAX_LEVEL,
+	applyWingLevel = applyWingLevel,
+	buildShell = buildShell,
+	buildWing = buildWing,
+	cashOf = cashOf,
+	hireGrowthAt = hireGrowthAt,
+	loaded = loaded,
+	loading = loading,
+	milestonesFromEarned = milestonesFromEarned,
+	officeDesk = officeDesk,
+	placeAt = placeAt,
+	plotOf = plotOf,
+	pushTicker = pushTicker,
+	recompute = recompute,
+	refreshHqPad = refreshHqPad,
+	refreshSign = refreshSign,
+	refreshWingPrompt = refreshWingPrompt,
+	saveStore = saveStore,
+	sessions = sessions,
+	spawnStaff = spawnStaff,
+	tickerOf = tickerOf,
+	titleOf = titleOf,
+	updateHirePad = updateHirePad,
+})
 
 -- ============ PLAYERS ============
 
@@ -3206,7 +2969,7 @@ local function onJoin(player)
 
 	-- load BEFORE the beats so a returning player's campus is standing when
 	-- the intro camera arrives
-	if plot then loadOnce(player, plot) end
+	if plot then SaveLoad.loadOnce(player, plot) end
 	if plot then productLoop(player, plot); chatterLoop(player, plot); offerLoop(player, plot) end
 	do
 		local s = sessions[player.UserId]
@@ -3309,7 +3072,7 @@ Players.PlayerRemoving:Connect(function(player)
 	local plot = plotOf(player)
 	local mine = sessions[player.UserId]
 	Telemetry.left(player)
-	saveNow(player)          -- yields (DataStore)
+	SaveLoad.saveNow(player)          -- yields (DataStore)
 	pushTicker(player)       -- yields (DataStore)
 	-- if the same user reconnected during those yields, PlayerAdded already
 	-- built a new session; deleting it here would soft-lock them until relog
@@ -3332,319 +3095,45 @@ clientInfo.OnServerEvent:Connect(function(player, isMobile)
 end)
 
 -- ============ STUDIO-ONLY DEV HOOK ============
-
+-- v4.2: the code lives in DevHook.lua. Studio only, same load point.
 if game:GetService("RunService"):IsStudio() then
-	local dev = Instance.new("BindableFunction")
-	dev.Name = "SVDev"
-	dev.Parent = script
-	dev.OnInvoke = function(action, player, arg)
-		local s = sessions[player.UserId]
-		local plot = plotOf(player)
-		if not s then return "no session" end
-		if action == "ship" then
-			s.shipped = true
-			s.buildUnlocked = true
-			updateHirePad(player)
-			return "ok"
-		elseif action == "cash" then
-			local c = cashOf(player)
-			if c then c.Value += (tonumber(arg) or 0) end
-			return "ok"
-		elseif action == "upgrade" then
-			if plot then tryUpgrade(player, plot) end
-			return "ok"
-		elseif action == "spinoff" then
-			if not plot then return "no plot" end
-			plot.spinArmed = os.clock() - 1        -- skip the confirm tap
-			spinOff(player, plot)
-			return ("spinoffs=%d rate=%d"):format(s and s.spinoffs or -1, s and s.rate or -1)
-		elseif action == "earned" then
-			if s then s.earned = tonumber(arg) or 0; checkMilestones(player, s) end
-			return ("earned=%d milestones=%d rate=%d"):format(s and s.earned or 0, s and s.milestones or 0, s and s.rate or 0)
-		elseif action == "talent" then
-			-- v2.5: set the LAST hire's talent (1..5) for testing; snapshot the record first
-			local r = s and s.rigs and s.rigs[#s.rigs]
-			if not r then return "no staff" end
-			r.talent = clampInt(tonumber(arg), 1, #CFG.TALENT, 1)
-			local t = CFG.TALENT[r.talent]
-			if t.color and StaffRig.setTalent then StaffRig.setTalent(r.rig, r.talent, t.color, t.name) end
-			StaffRig.setTitle(r.rig, titleOf(r))
-			recompute(player)
-			return ("talent=%s x%.1f rate=%d"):format(t.name, t.mult, s.rate)
-		elseif action == "save" then
-			return saveNow(player) and "saved" or "NOT saved"
-		elseif action == "rival" then
-			return "hit " .. rivalLaunch()
-		elseif action == "launch" then
-			local m = CFG.MARKETS[tonumber(arg) or 1]
-			if plot and m then launchProduct(player, plot, m) end
-			return "launched " .. (m and m.name or "?")
-		elseif action == "buzzoff" then
-			s.launch = nil
-			return "buzz cleared"
-		elseif action == "wingup" then
-			local slot = plot and plot.slots[tonumber(arg) or 1]
-			if not slot or not slot.built then return "no wing there" end
-			upgradeWing(player, plot, slot)
-			return ("%s lv%d desks=%d compute=%d quality=%.2f morale=%.2f"):format(slot.room.name, slot.level, s.desks, s.compute or 0, s.quality or 0, s.morale or 0)
-		elseif action == "share" then
-			s.share = math.clamp(tonumber(arg) or 1, CFG.SHARE_FLOOR, 1)
-			return "share " .. s.share
-		elseif action == "peek" then
-			local ok, d = pcall(function() return saveStore and saveStore:GetAsync(tostring(player.UserId)) end)
-			return ok and d or ("err " .. tostring(d))
-		elseif action == "wipe" then
-			pcall(function() saveStore:RemoveAsync(tostring(player.UserId)) end)
-			return "wiped"
-		elseif action == "offer" then
-			-- fire one acquisition offer now (same code path as the loop)
-			local best
-			for _, r in ipairs(s.rigs or {}) do
-				if (r.tier or 1) >= CFG.OFFER_MIN_TIER and (not best or r.tier > best.tier) then best = r end
-			end
-			if not best then return "nobody above tier " .. CFG.OFFER_MIN_TIER end
-			-- capped at rehire cost + 60s of the person's output: selling a Lead
-			-- and rehiring an intern must never be a money printer (it was: quality
-			-- scaled the offer but not the hire)
-			local cashNow = cashOf(player)
-			local amount = offerAmountOf(s, cashNow and cashNow.Value or 0)
-			local id = (s.offerSerial or 0) + 1
-			s.offerSerial = id
-			s.pendingOffer = { id = id, entry = best, amount = amount, rival = CFG.RIVALS[1] }
-			offerEvent:FireClient(player, { id = id, rival = CFG.RIVALS[1], who = best.rig:GetAttribute("PersonName") or "?",
-				title = titleOf(best), amount = amount, tier = best.tier,
-				minutes = (s.rate or 0) > 0 and amount / s.rate / 60 or 0,
-				loss = math.floor((CFG.TIER_RATE[best.tier] - CFG.TIER_RATE[1]) * hqMultOf(plot)),
-				alumni = math.min(s.alumni or 0, CFG.ALUMNI_CAP), step = CFG.ALUMNI_STEP })
-			return ("offered $%d for %s"):format(amount, tostring(best.rig:GetAttribute("PersonName")))
-		elseif action == "tier" then
-			local r = s.rigs and s.rigs[1]
-			if r then r.tier = tonumber(arg) or 1; r.seatedTime = (r.tier - 1) * CFG.PROMOTE_EVERY
-				StaffRig.setTitle(r.rig, titleOf(r)); recompute(player) end
-			return "tier set"
-		elseif action == "work" then
-			s.work = tonumber(arg) or 0
-			return "work set"
-		elseif action == "product" then
-			if plot then offerProduct(player, plot) end
-			return "offered"
-		elseif action == "name" then
-			s.name = tostring(arg); s.ticker = tickerOf(s.name); if plot then refreshSign(plot) end
-			return "named"
-		elseif action == "valuation" then
-			s.valuation = tonumber(arg) or 0
-			if plot then checkIPO(player, plot) end
-			return "ok"
-		elseif action == "bot" then
-			--[[ v2.7.2 CLEAN-RUN BOT. Plays the real handlers (the same ones the
-			prompts, pads and remotes call) by following the on-screen guide:
-			taps WRITE CODE once a second, launches a ready product after 2 s,
-			and makes one guide purchase every `pace` seconds when it can afford
-			it. Logs HQ times, spin-off, waits, and launch share. Read with
-			"botlog". Studio only, like the rest of this hook. ]]
-			local pace = tonumber(arg) or 20
-			s.bot = { t0 = os.clock(), log = {}, pace = pace, paid = 0, earnedStart = s.earned or 0, lastBuy = os.clock(), longest = 0, buys = 0, fails = 0, running = true }
-			local B = s.bot
-			local function note(ev)
-				local line = ("%5.1f min  %s"):format((os.clock() - B.t0) / 60, ev)
-				table.insert(B.log, line)
-				print("[BOT] " .. line)
-			end
-			note(("start  pace %ds  hq %d  cash %d"):format(pace, plot.hq.level, cashOf(player).Value))
-			task.spawn(function()
-				local lastTap, lastMin, lastHq = 0, -1, plot.hq.level
-				while B.running and player.Parent and sessions[player.UserId] == s do
-					local now = os.clock()
-					local cash = cashOf(player)
-					if now - lastTap >= 1 then lastTap = now; writeCode(player, plot) end
-					if s.pendingProduct and not B.launchAt then B.launchAt = now + 2 end
-					if B.launchAt and now >= B.launchAt then
-						B.launchAt = nil
-						if s.pendingProduct then
-							local before = cash.Value
-							launchProduct(player, plot, s.pendingProduct[1], 1, false)
-							B.paid += cash.Value - before
-						end
-					end
-					-- v3.0.2: log every carry's outcome (home or lost) per tier
-					if B.carry and not player:GetAttribute("Carrying") then
-						local ok = s.staff > B.carry.staff
-						B.carries = B.carries or {}
-						local k = B.carry.tier .. (ok and " home" or " LOST")
-						B.carries[k] = (B.carries[k] or 0) + 1
-						note(("carry %s %s after %.0f s"):format(B.carry.tier, ok and "home" or "LOST", now - B.carry.t0))
-						B.carry = nil
-					end
-					local key = player:GetAttribute("Objective")
-					-- v3.0: carrying a candidate home = walk there at the default 16 studs/s
-					if key == "carry" then
-						local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-						local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-						-- (the guide's objective lags delivery by up to 0.4 s: only a real carry counts)
-						if root and hum and player:GetAttribute("Carrying") then
-							-- v3.0.2: walk like a person, not a laser: your real (scooter) speed,
-							-- a +-35 degree weave round lamps and cars, and one 1.5 s stop
-							-- a third of the way home to look around
-							B.carry = B.carry or { t0 = now, tier = player:GetAttribute("Carrying") or "?", staff = s.staff }
-							local to = plot.hqPad.Position
-							local d = Vector3.new(to.X - root.Position.X, 0, to.Z - root.Position.Z)
-							B.carry.total = B.carry.total or d.Magnitude
-							if not B.carry.stopAt and d.Magnitude < B.carry.total * 0.67 then B.carry.stopAt = now end
-							local stopped = B.carry.stopAt and now - B.carry.stopAt < 1.5
-							if d.Magnitude > 1 and not stopped then
-								local dir = CFrame.Angles(0, math.sin((now - B.carry.t0) * 1.3) * math.rad(35), 0):VectorToWorldSpace(d.Unit)
-								local np = root.Position + dir * math.min(d.Magnitude, hum.WalkSpeed * 0.25)
-								player.Character:PivotTo(CFrame.lookAt(np, np + dir))
-							end
-						end
-					elseif key == "recruit" and now - B.lastBuy >= pace and Econ.Drop then
-						local cand = Econ.Drop.bestFor(player, cash.Value)
-						local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-						if cand and root then
-							-- walk out (time it like the sim: distance / 16), then recruit
-							local walk = (Vector3.new(cand.pos.X, 0, cand.pos.Z) - Vector3.new(root.Position.X, 0, root.Position.Z)).Magnitude / 16
-							task.wait(walk)
-							player.Character:PivotTo(CFrame.new(cand.pos + Vector3.new(0, 1, 3)))
-							Econ.Drop.devRecruit(player, cand.index)
-							B.recruits = (B.recruits or 0) + 1
-							note(("recruit %s (walked %.0f s)"):format(cand.tier.name, walk))
-							B.lastBuy = os.clock()
-						end
-					end
-					if now - B.lastBuy >= pace then
-						local before = cash.Value
-						local did
-						if key == "hire" or key == "hire2" then
-							hire(player, plot); did = "hire"
-						elseif key == "build" or key == "wing" then
-							for i, slot in ipairs(plot.slots) do
-								if not slot.built then
-									local rid = (Econ and Econ.V3) and Econ.nextRoom(plot) or "office"
-									if buildWing(player, plot, i, rid, false) then did = "build " .. rid end
-									break
-								end
-							end
-						elseif key == "wingup" then
-							for _, slot in ipairs(plot.slots) do
-								if slot.built and not wingMaxed(s, slot) then
-									local lv = slot.level or 1
-									upgradeWing(player, plot, slot)
-									if (slot.level or 1) > lv then did = ("level %s -> %d"):format(slot.room.id, slot.level) end
-									break
-								end
-							end
-						elseif key == "decor" then
-							-- v3.2.1: a guide-following player decorates until the first Vibe star
-							local keys = { "pottedPlant", "lampSquareFloor", "cardboardBoxClosed" }
-							local k = keys[(#s.placed % #keys) + 1]
-							for gx = -12, 12, 4 do
-								for gz = -10, 10, 4 do
-									if not did then
-										local at = plot.g(gx, 0, gz).Position
-										if placeAt(player, plot, k, at.X, at.Z, 0, false) then did = "decor " .. k end
-									end
-								end
-							end
-						elseif key == "hq" then
-							local nxt = CFG.HQ_LEVELS[plot.hq.level + 1]
-							if nxt and cash.Value >= nxt.cost then tryUpgrade(player, plot); did = "hq" end
-						elseif key == "apartment" and Econ and Econ.Apt and Econ.Apt.botBuy then
-							if Econ.Apt.botBuy(player) then did = "apartment" end
-						elseif key == "spin" then
-							if cash.Value >= spinoffCostOf(s) then
-								plot.spinArmed = os.clock() - 1
-								spinOff(player, plot)
-								note(("SPIN-OFF  (kept %d staff)  launch share %.0f%%"):format(s.staff or 0,
-									100 * B.paid / math.max(1, (s.earned or 0) - B.earnedStart)))
-								B.spun = (B.spun or 0) + 1
-								if B.spun >= (tonumber(B.runs) or 1) then B.running = false end
-								did = "spin"
-							end
-						end
-						if did then
-							local spent = before - cash.Value
-							if spent > 0 or did == "spin" then
-								local wait = now - B.lastBuy
-								B.buys += 1
-								if wait > B.longest and B.buys > 1 then B.longest = wait end
-								if wait > pace + 45 then note(("long wait %.0f s before %s"):format(wait, did)) end
-								B.lastBuy = now
-								if did ~= "hq" and did ~= "spin" and did ~= "hire" then note(("%s  $%d"):format(did, spent)) end
-							elseif did ~= "hq" and not (did == "hire" and s.staff == 1) then
-								B.fails += 1
-								if B.fails <= 12 then note(("REFUSED %s (guide said %s, cash %d)"):format(did, tostring(key), cash.Value)) end
-							end
-						end
-					end
-					if plot.hq.level ~= lastHq then
-						lastHq = plot.hq.level
-						note(("HQ %d  staff %d  rate %d/s  rooms %d"):format(lastHq, s.staff, s.rate or 0, Econ and Econ.slotsBuilt(plot) or 0))
-					end
-					local m = math.floor((now - B.t0) / 60)
-					if m ~= lastMin then
-						lastMin = m
-						if m % 2 == 0 then
-							note(("tick  cash %d  rate %d  staff %d/%d  guide %s: %s"):format(cash.Value, s.rate or 0, s.staff,
-								capacityOf(player), tostring(key), tostring(player:GetAttribute("ObjectiveText"))))
-						end
-					end
-					if now - B.t0 > 45 * 60 then note("TIMEOUT 45 min"); B.running = false end
-					task.wait(0.25)
-				end
-				note(("end  buys %d  longest wait %.0f s  refused %d"):format(B.buys, B.longest, B.fails))
-				for k, v in pairs(B.carries or {}) do note(("carries  %s x%d"):format(k, v)) end
-			end)
-			return "bot started"
-		elseif action == "rolls" then
-			-- v3.2.1 test hook: roll the door talent n times at this player's Vibe luck
-			local n = math.clamp(tonumber(arg) or 20000, 1, 200000)
-			local luck = player:GetAttribute("VibeLuck") or 1
-			local counts = { 0, 0, 0, 0, 0 }
-			for _ = 1, n do local t = CFG.TALENT.roll(luck); counts[t] += 1 end
-			return ("luck %.1f  n %d  regular %d  skilled %d  star %d  genius %d  unicorn %d"):format(luck, n, counts[1], counts[2], counts[3], counts[4], counts[5])
-		elseif action == "item" then
-			-- v3.2 test hook: put an item in the bag (Items.LIST id)
-			if not (Econ and Econ.Inv) then return "no Inventory" end
-			return Econ.Inv.grant(player, tostring(arg), 1, "Dev") and "granted" or "unknown item"
-		elseif action == "seats" then
-			-- v3.5 audit hook: the seat homes the game seats people at (world x, z)
-			local t = {}
-			for _, h in ipairs(deskHomes(s, plot)) do table.insert(t, { h.cf.Position.X, h.cf.Position.Z, h.room }) end
-			return t
-		elseif action == "apt" then
-			-- v4.2 test hook: set the apartment rung (0-3)
-			s.apt = math.clamp(math.floor(tonumber(arg) or 0), 0, 3)
-			recompute(player)
-			return "apt=" .. s.apt
-		elseif action == "vip" then
-			-- v4.2 test hook: the daily VIP now, ignoring the day
-			local okV = Econ and Econ.Apt and Econ.Apt.trySpawnVip and Econ.Apt.trySpawnVip(player, true)
-			return okV and "vip spawned" or "no vip"
-		elseif action == "vippick" then
-			if not (Econ and Econ.Drop and Econ.Drop.devPickVip) then return "no TalentDrop" end
-			Econ.Drop.devPickVip(player)
-			return ("carrying=%s vipDay=%s"):format(tostring(player:GetAttribute("Carrying")), tostring(s.vipDay))
-		elseif action == "recruit" then
-			-- v3.0 test hook: recruit tier n (1 walk-in .. 4 genius) through the real recruit()
-			if not (Econ and Econ.Drop) then return "no TalentDrop" end
-			Econ.Drop.devRecruit(player, tonumber(arg) or 1)
-			return ("carrying=%s"):format(tostring(player:GetAttribute("Carrying")))
-		elseif action == "botlog" then
-			return s.bot and table.concat(s.bot.log, "\n") or "no bot"
-		elseif action == "botstop" then
-			if s.bot then s.bot.running = false end
-			return "stopping"
-		elseif action == "state" then
-			return { plot = plot and plot.index or 0, hqLevel = plot and plot.hq.level or 0,
-				shipped = s.shipped, placedDesks = s.placedDesks, placedMorale = s.placedMorale,
-				placed = #s.placed, capacity = capacityOf(player), rate = s.rate, staff = s.staff,
-				name = s.name, valuation = s.valuation, ipo = s.ipo, launches = s.launches,
-				boost = boostOf(s), loaded = loaded[player.UserId] == true,
-				work = s.work, workNeed = s.workNeed, pendingOffer = s.pendingOffer ~= nil,
-				tiers = (function() local t = {} for i, r in ipairs(s.rigs or {}) do t[i] = r.tier end return table.concat(t, ",") end)() }
-		end
-		return "unknown"
-	end
+	require(ServerScriptService:WaitForChild("DevHook"))({
+		coreScript = script,
+		CFG = CFG,
+		Econ = Econ,
+		SaveLoad = SaveLoad,
+		StaffRig = StaffRig,
+		boostOf = boostOf,
+		buildWing = buildWing,
+		capacityOf = capacityOf,
+		cashOf = cashOf,
+		checkIPO = checkIPO,
+		checkMilestones = checkMilestones,
+		deskHomes = deskHomes,
+		hire = hire,
+		hqMultOf = hqMultOf,
+		launchProduct = launchProduct,
+		loaded = loaded,
+		offerAmountOf = offerAmountOf,
+		offerEvent = offerEvent,
+		offerProduct = offerProduct,
+		placeAt = placeAt,
+		plotOf = plotOf,
+		recompute = recompute,
+		refreshSign = refreshSign,
+		rivalLaunch = rivalLaunch,
+		saveStore = saveStore,
+		sessions = sessions,
+		spinOff = spinOff,
+		spinoffCostOf = spinoffCostOf,
+		tickerOf = tickerOf,
+		titleOf = titleOf,
+		tryUpgrade = tryUpgrade,
+		updateHirePad = updateHirePad,
+		upgradeWing = upgradeWing,
+		wingMaxed = wingMaxed,
+		writeCode = writeCode,
+	})
 end
 
 -- ============ LIGHTING ============
