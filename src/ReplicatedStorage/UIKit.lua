@@ -617,6 +617,23 @@ function UIKit.rail()
 		f.Parent = g
 		railLayout(g, f)
 		workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function() railLayout(g, f) end)
+		-- v5 critique: a tile never moves once shown. At join, the tiles take their
+		-- unlock-order slots; one that appears later in the session goes after every
+		-- tile already showing (in a 2-wide grid an insert shifted every tile after it)
+		local t0 = os.clock()
+		local function watch(c)
+			if not c:IsA("GuiObject") then return end
+			c:GetPropertyChangedSignal("Visible"):Connect(function()
+				if not c.Visible or os.clock() - t0 < 8 or c:GetAttribute("Appended") then return end
+				local last = 0
+				for _, o in ipairs(f:GetChildren()) do
+					if o ~= c and o:IsA("GuiObject") and o.Visible then last = math.max(last, o.LayoutOrder) end
+				end
+				if c.LayoutOrder < last then c.LayoutOrder = last + 1 end
+				c:SetAttribute("Appended", true)
+			end)
+		end
+		f.ChildAdded:Connect(watch)
 		-- the single column still shrinks as one piece if it runs out of room (never below 0.8);
 		-- the grid never needs to
 		local sc = Instance.new("UIScale")
@@ -721,7 +738,12 @@ function UIKit.fitMenu(panel, w, h, sc, vMargin)
 		-- scale; a taller one stays centred rather than shrink (v5 critique: the
 		-- BAG header cut the money in half)
 		local hh = H * s / 2
-		dy = (hh * 2 <= ph - 64 - 8) and math.max(0, (64 + hh) - ph / 2) or 0
+		dy = (hh * 2 <= ph - 64 - 8) and math.max(0, (64 + hh) - (ph * base.Scale + base.Offset)) or 0
+		-- still reaching above the money line: it slides right, clear of Roblox's
+		-- own buttons (top-left, about 196 x 58 on a phone), when it fits there
+		if ph * base.Scale + base.Offset + dy - hh < 62 and px + x - half < 204 and 204 + 2 * half <= right then
+			x = 204 + half - px
+		end
 		-- a menu mid pop-in tweens to its Rest scale; move that instead of fighting it
 		if sc:GetAttribute("Rest") then
 			sc:SetAttribute("Rest", s)
@@ -1055,6 +1077,39 @@ end
 -- one big menu at a time: opening one closes the others (the phone over the
 -- daily card over the bag was three stacked panels)
 UIKit.MENUS = { "Phone", "Daily", "Bag", "TalentIndex", "Lift", "Apartments", "Dealer", "Ranks" }
+
+-- v5: is a menu, or a decision card (ModalOpen: spin-off, while-away), on
+-- screen? The HUD's own buttons step aside for it: one thing at a time, and a
+-- tap can't land on a button showing through under the menu
+function UIKit.menuOpen()
+	local p = game:GetService("Players").LocalPlayer
+	if p:GetAttribute("ModalOpen") then return true end
+	local pg = p:FindFirstChild("PlayerGui")
+	for _, n in ipairs(UIKit.MENUS) do
+		local g = pg and pg:FindFirstChild(n)
+		if g and g:IsA("ScreenGui") and g.Enabled then return true end
+	end
+	return false
+end
+-- fn(open) runs whenever that changes (one shared watch for every script)
+local menuWatchers
+function UIKit.onMenuChange(fn)
+	if not menuWatchers then
+		menuWatchers = {}
+		task.spawn(function()
+			local was = false
+			while true do
+				task.wait(0.15)
+				local now = UIKit.menuOpen()
+				if now ~= was then
+					was = now
+					for _, f in ipairs(menuWatchers) do task.spawn(f, now) end
+				end
+			end
+		end)
+	end
+	table.insert(menuWatchers, fn)
+end
 
 -- v5: a panel opens by growing in (0.94 -> 1, Quint out, no overshoot: a menu
 -- is a state change, not a celebration). A frame keeps ONE UIScale (Roblox only

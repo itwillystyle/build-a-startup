@@ -97,11 +97,16 @@ liftMenu.OnClientEvent:Connect(function(data)
 		if c:IsA("GuiObject") then c:Destroy() end
 	end
 	local stops = data.stops or {}
-	-- top to bottom, the way a lift panel reads; v5: two columns, a floor badge
-	-- (R, 5, 4 ... L) and the floor's name (six full-width rows were 414 px tall,
-	-- taller than a phone, and "ROOF / ROOF GARDEN" said it twice)
+	-- v5: two columns, a floor badge and the floor's name (six full-width rows were
+	-- 414 px tall, taller than a phone, and "ROOF / ROOF GARDEN" said it twice)
+	-- v5 critique: like a real lift panel, it counts up from the bottom-left:
+	-- the stops pair up in twos (L 2 / 3 4 / 5 R) and the rows stack upward
+	local rowsOf = {}
+	for i = 1, #stops, 2 do table.insert(rowsOf, { stops[i], stops[i + 1] }) end
 	local order = {}
-	for i = #stops, 1, -1 do table.insert(order, stops[i]) end
+	for r = #rowsOf, 1, -1 do
+		for _, st in ipairs(rowsOf[r]) do table.insert(order, st) end
+	end
 	for k, st in ipairs(order) do
 		local here = st.id == data.here
 		-- the server sends { id = "L" | "F2".."F5" | "R", name = "LOBBY" | "2" | "R",

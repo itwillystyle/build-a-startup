@@ -257,16 +257,10 @@ local function seated()
 end
 -- v5: an open menu owns the screen; the slot (a pulsing gold LAUNCH) half under
 -- it was a second loud thing next to the menu's own button
-local welcomeUp = false      -- set by the WELCOME BACK card below
-local function menuOpen()
-	if welcomeUp then return true end   -- the while-away card has its own COLLECT (a passive item card does not hide LAUNCH)
-	local pg = player:FindFirstChild("PlayerGui")
-	for _, n in ipairs(UIKit.MENUS or {}) do
-		local g = pg and pg:FindFirstChild(n)
-		if g and g:IsA("ScreenGui") and g.Enabled then return true end
-	end
-	return false
-end
+-- ModalOpen (client-local): a decision card with its own buttons is up (the
+-- while-away COLLECT, the spin-off confirm). The bottom row, WRITE CODE and CAR,
+-- steps aside for it, so a thumb slip can't hit the wrong thing
+local function menuOpen() return UIKit.menuOpen() end
 local function syncCode()
 	local inCar = seated()
 	-- in a car the speedometer owns the bottom centre: a waiting LAUNCH sits above it
@@ -290,14 +284,7 @@ syncCode()
 player:GetAttributeChangedSignal("Shipped"):Connect(syncCode)
 player:GetAttributeChangedSignal("BuildModeOpen"):Connect(syncCode)
 player:GetAttributeChangedSignal("NamingOpen"):Connect(syncCode)
-task.spawn(function()      -- menus are other scripts' guis, made at different times: watch the state
-	local was = false
-	while true do
-		task.wait(0.15)
-		local now = menuOpen()
-		if now ~= was then was = now; syncCode() end
-	end
-end)
+UIKit.onMenuChange(function() syncCode() end)   -- menus are other scripts' guis: one shared watch
 -- v4.2: in a car the speedometer owns the bottom centre (it sat on top of WRITE CODE)
 local function watchSeat(char)
 	local hum = char:WaitForChild("Humanoid", 10)
@@ -580,12 +567,16 @@ local function hqBanner(e, done)
 		pill.Position = UDim2.new(0.5, 0, 0, 80)
 		pill.Size = UDim2.new(0, 0, 0, 34)
 		pill.AutomaticSize = Enum.AutomaticSize.X
-		pill.BackgroundColor3 = UIKit.INK
+		pill.BackgroundColor3 = UIKit.GOLD_LIGHT     -- v5 critique: a black pill read as the navy-pill anti-reference
 		pill.Parent = card
 		Instance.new("UICorner", pill).CornerRadius = UDim.new(1, 0)
+		local ps = Instance.new("UIStroke", pill)
+		ps.Color = UIKit.GOLD
+		ps.Thickness = 2
+		ps.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 		local pp = Instance.new("UIPadding", pill)
 		pp.PaddingLeft = UDim.new(0, 16); pp.PaddingRight = UDim.new(0, 16)
-		UIKit.label(pill, "NEW: " .. e.headline, 20, UIKit.GOLD, { Size = UDim2.new(0, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.X }, UIKit.HEAD)
+		UIKit.label(pill, "NEW: " .. e.headline, 20, UIKit.GOLD_DEEP, { Size = UDim2.new(0, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.X }, UIKit.HEAD)
 		-- v5: say it once. The "Next:" line repeated the goal card, and the
 		-- headline was also one of the chips (GENIUS three times on one card)
 	end
@@ -614,7 +605,8 @@ local function hqBanner(e, done)
 		Instance.new("UICorner", c).CornerRadius = UDim.new(1, 0)
 		local pad = Instance.new("UIPadding", c)
 		pad.PaddingLeft = UDim.new(0, 12); pad.PaddingRight = UDim.new(0, 12)
-		UIKit.label(c, money and (text:gsub("^Money", "MONEY")) or text, 18, money and UIKit.GREEN_DEEP or UIKit.CARD_TEXT, { Size = UDim2.new(0, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.X }, UIKit.HEAD)
+		-- one style for every chip: caps, the multiplier's x kept lower-case
+		UIKit.label(c, (text:upper():gsub("X(%d)", "x%1")), 18, money and UIKit.GREEN_DEEP or UIKit.CARD_TEXT, { Size = UDim2.new(0, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.X }, UIKit.HEAD)
 		local sc = Instance.new("UIScale", c)
 		sc.Scale = 0
 		task.delay(0.35 + i * 0.15, function() tween(sc, 0.3, { Scale = 1 }, Enum.EasingStyle.Back) end)
@@ -696,16 +688,48 @@ local function spinAsk(e)
 	local no = UIKit.button(body, "NOT YET", UIKit.MUTED, {
 		AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, 0), Size = UDim2.new(0.5, -6, 0, 50),
 	}, { textSize = 20 })
-	local yes = UIKit.button(body, "SPIN OFF", UIKit.ORANGE, {
+	-- v5 critique: it resets an hour of play, so it is a 1 s HOLD with a fill,
+	-- not a tap; and while this card is up the bottom row steps aside (ModalOpen)
+	local yes, yesLabel = UIKit.button(body, "HOLD TO SPIN OFF", UIKit.ORANGE, {
 		AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, 0, 1, 0), Size = UDim2.new(0.5, -6, 0, 50),
-	}, { textSize = 20 })
+	}, { textSize = 18, silent = true })
+	local fill = Instance.new("Frame")
+	fill.Name = "Hold"
+	fill.BackgroundColor3 = UIKit.ORANGE_DEEP
+	fill.BorderSizePixel = 0
+	fill.Size = UDim2.new(0, 0, 1, -5)
+	fill.ZIndex = yes.ZIndex
+	fill.Parent = yes
+	Instance.new("UICorner", fill).CornerRadius = UDim.new(0, UIKit.RADIUS.md)
+	if yesLabel then yesLabel.ZIndex = yes.ZIndex + 1 end
+	player:SetAttribute("ModalOpen", true)
+	panel.Destroying:Connect(function() player:SetAttribute("ModalOpen", nil) end)
 	no.MouseButton1Click:Connect(function()
 		remotes:WaitForChild("SpinCancel"):FireServer()
 		panel:Destroy(); spinCard = nil
 	end)
-	yes.MouseButton1Click:Connect(function()
-		remotes:WaitForChild("SpinConfirm"):FireServer()
-		panel:Destroy(); spinCard = nil
+	local holding
+	local function press(input)
+		return input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch
+	end
+	yes.InputBegan:Connect(function(input)
+		if not press(input) or holding then return end
+		local mine = {}
+		holding = mine
+		UIKit.sfx("tap")
+		local tw = TweenService:Create(fill, TweenInfo.new(1, Enum.EasingStyle.Linear), { Size = UDim2.new(1, 0, 1, -5) })
+		tw.Completed:Connect(function(state)
+			if holding ~= mine or state ~= Enum.PlaybackState.Completed then return end
+			holding = nil
+			remotes:WaitForChild("SpinConfirm"):FireServer()
+			panel:Destroy(); spinCard = nil
+		end)
+		tw:Play()
+	end)
+	yes.InputEnded:Connect(function(input)
+		if not press(input) or not holding then return end
+		holding = nil                      -- let go early: nothing happens, the fill runs back
+		TweenService:Create(fill, TweenInfo.new(0.15, Enum.EasingStyle.Quint), { Size = UDim2.new(0, 0, 1, -5) }):Play()
 	end)
 	task.delay(30, function() if spinCard == panel then panel:Destroy(); spinCard = nil end end)
 end
@@ -831,8 +855,8 @@ task.spawn(function()
 		local sc = Instance.new("UIScale", card)
 		sc.Scale = 0.5
 		tween(sc, 0.35, { Scale = 1 }, Enum.EasingStyle.Back)
-		welcomeUp = true            -- the bottom slot steps aside: COLLECT is the one loud thing
-		card.Destroying:Connect(function() welcomeUp = false end)
+		player:SetAttribute("ModalOpen", true)     -- the bottom row steps aside: COLLECT is the one loud thing
+		card.Destroying:Connect(function() player:SetAttribute("ModalOpen", nil) end)
 		local done = false
 		closeCard = function() done = true; card:Destroy() end   -- a cutscene took the screen: shown again after
 		local function collect()

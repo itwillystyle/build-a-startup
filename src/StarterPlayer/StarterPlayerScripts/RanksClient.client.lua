@@ -244,9 +244,11 @@ task.spawn(function()
 end)
 
 -- v5: the board arrives with HQ 2 (at 0:30 it was a leaderboard where a new player is last)
-local function sync() btn.Visible = (player:GetAttribute("HQLevel") or 1) >= 2 end
+-- v5: it steps aside while a menu is open (the Index's close sat on top of it)
+local function sync() btn.Visible = (player:GetAttribute("HQLevel") or 1) >= 2 and not UIKit.menuOpen() end
 sync()
 player:GetAttributeChangedSignal("HQLevel"):Connect(sync)
+UIKit.onMenuChange(function() sync() end)
 
 -- v5: the rail tile shows when this menu is open
 UIKit.bindRail(btn, gui)

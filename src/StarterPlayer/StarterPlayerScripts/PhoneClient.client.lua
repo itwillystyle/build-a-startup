@@ -39,7 +39,7 @@ local act = remotes:WaitForChild("PhoneAction", 60)
 if not ev or not act then return end
 
 local isTouch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
-local W, H = 600, 330                    -- the phone's design size; a UIScale fits it to the screen
+local W, H = 584, 330                    -- the phone's design size (v5: 584 fits right of Roblox's top-left buttons on a phone)
 local SIDE = 78
 local BODY = UIKit.BODY               -- v5: Nunito ExtraBold (thin Gotham was the "web app" text)
 local BUBBLE_TEXT = 16

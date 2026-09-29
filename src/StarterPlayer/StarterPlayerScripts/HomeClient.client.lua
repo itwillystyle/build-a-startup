@@ -33,7 +33,9 @@ gui.Enabled = false
 UIKit.safe(gui)
 gui.Parent = player:WaitForChild("PlayerGui")
 
-local PANEL_W, PANEL_H = 620, 330
+-- v5: 318 tall so it sits below the money line on a phone (at 330 it covered
+-- the counter and reached Roblox's top-left buttons); the blurb box was 17 px too tall
+local PANEL_W, PANEL_H = 620, 318
 local panel, body, closeBtn = UIKit.menu(gui, "THE RESIDENCES", Color3.fromRGB(38, 41, 48), {
 	Name = "Panel", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 10), Size = UDim2.new(0, PANEL_W, 0, PANEL_H),
 })
@@ -93,7 +95,7 @@ local function showMenu(st)
 		UIKit.label(c, ("Unlocks HQ level %d"):format(t.gate or 0), 14, UIKit.MUTED_TEXT, {
 			Size = UDim2.new(1, -16, 0, 16), Position = UDim2.new(0, 8, 0, 113), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.BOLD)
 		UIKit.label(c, t.blurb or "", 14, UIKit.INK_SOFT, {
-			Size = UDim2.new(1, -20, 0, 44), Position = UDim2.new(0, 10, 0, 134), TextWrapped = true,
+			Size = UDim2.new(1, -20, 0, 32), Position = UDim2.new(0, 10, 0, 134), TextWrapped = true,
 			TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Top }, UIKit.BODY)
 		local label, color, enabled
 		if t.state == "owned" then label, color, enabled = "YOURS", UIKit.MUTED, false

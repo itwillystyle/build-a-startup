@@ -268,37 +268,23 @@ quick.DisplayOrder = 8
 UIKit.safe(quick)
 quick.Parent = player.PlayerGui
 
--- a Cold Brew beside WRITE CODE. v5: 30 px clear of it (it was 9 px from the
--- button you mash, so a drifting thumb burned a coffee), a sticker outline, and a
--- gold "3x" tag that says what it does
-local brew = UIKit.button(quick, "", UIKit.CARD, { Name = "Brew", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(0.5, -148, 1, -22),
-	Size = UDim2.new(0, 60, 0, 60), Visible = false }, { radius = 30, dark = true, silent = true, stroke = UIKit.INK_SOFT })
-local brewTag = Instance.new("TextLabel")
-brewTag.Name = "Tag"
-brewTag.AnchorPoint = Vector2.new(0.5, 0.5)
-brewTag.Position = UDim2.new(1, -4, 0, 4)
-brewTag.Size = UDim2.new(0, 34, 0, 22)
-brewTag.BackgroundColor3 = UIKit.GOLD
-brewTag.Text = "3x"
-brewTag.TextColor3 = UIKit.INK
-brewTag.TextSize = 14
-brewTag.Font = UIKit.HEAD
-brewTag.ZIndex = brew.ZIndex + 4
-brewTag.Parent = brew
-Instance.new("UICorner", brewTag).CornerRadius = UDim.new(1, 0)
-local tagStroke = Instance.new("UIStroke", brewTag)
-tagStroke.Color = UIKit.INK
-tagStroke.Thickness = 2
-tagStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+-- a Cold Brew beside WRITE CODE, 30 px clear of it (at 9 px a drifting thumb
+-- burned a coffee). v5 critique: a tile like CAR and the rail (it was a round
+-- bubble with "3x" and "x1" on it and no name): the coffee, COFFEE under it,
+-- and how many you have on a red badge. The Bag and the boost chip say what it does.
+local brew = UIKit.button(quick, "", UIKit.PAPER, { Name = "Brew", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(0.5, -148, 1, -22),
+	Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false }, { radius = UIKit.RADIUS.md, dark = true, silent = true, stroke = UIKit.INK_SOFT })
 local brewVpf = Instance.new("ViewportFrame")
 brewVpf.BackgroundTransparency = 1
-brewVpf.Position = UDim2.new(0, 6, 0, 4)
-brewVpf.Size = UDim2.new(1, -12, 1, -14)
+brewVpf.Position = UDim2.new(0, 8, 0, 2)
+brewVpf.Size = UDim2.new(1, -16, 1, -24)
 brewVpf.ZIndex = brew.ZIndex + 1
 brewVpf.Parent = brew
 Items.icon("coffee", brewVpf)
-local brewCount = UIKit.label(brew, "", 14, UIKit.CARD_TEXT, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -4),
+UIKit.label(brew, "COFFEE", 14, UIKit.INK, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -7),
 	Size = UDim2.new(1, 0, 0, 16), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = brew.ZIndex + 2 }, UIKit.HEAD)
+local brewBadge, brewCount = UIKit.badge(brew)
+brewBadge.Visible = true
 brew.MouseButton1Click:Connect(function() UIKit.sfx("tap"); useItem:FireServer("coffee") end)
 
 -- a rescue under the headhunter warning (Non-Compete first, else an Energy Drink)
@@ -350,7 +336,7 @@ RunService.Heartbeat:Connect(function(dt)
 	-- only beside WRITE CODE itself (not beside a waiting LAUNCH, where it would be the wrong tap)
 	brew.Visible = (c.coffee or 0) > 0 and code <= 0 and writeCode ~= nil and writeCode.Visible
 		and codeLabel ~= nil and codeLabel.Text == "WRITE CODE"
-	brewCount.Text = "x" .. (c.coffee or 0)
+	brewCount.Text = tostring(c.coffee or 0)
 	-- the rescue: only while something is chasing you, and only if you can do something
 	local id = ((c.noncompete or 0) > 0 and "noncompete") or (((c.energy or 0) > 0 and energy <= 0) and "energy") or nil
 	local show = id ~= nil and player:GetAttribute("Carrying") ~= nil and chased()

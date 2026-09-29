@@ -662,10 +662,7 @@ RunService.RenderStepped:Connect(function()
 	if (onScreen and sp.Z > 0) or dist < 16 then edge.Visible = false return end
 	-- a menu or the decor sheet owns the screen while it is open
 	if player:GetAttribute("BuildModeOpen") == true or player:GetAttribute("NamingOpen") == true then edge.Visible = false return end
-	for _, n in ipairs(UIKit.MENUS or {}) do        -- v5: any open menu (the lift cut its label in half)
-		local m = player.PlayerGui:FindFirstChild(n)
-		if m and m:IsA("ScreenGui") and m.Enabled then edge.Visible = false return end
-	end
+	if UIKit.menuOpen() then edge.Visible = false return end   -- v5: any open menu (the lift cut its label in half)
 	local left, right, top, bottom, colBottom = bounds(vp)
 	local centre = Vector2.new(vp.X / 2, vp.Y / 2)
 	if sp.Z < 0 then

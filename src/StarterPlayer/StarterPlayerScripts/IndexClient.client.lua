@@ -76,7 +76,9 @@ gui.Parent = player:WaitForChild("PlayerGui")
 -- 11 px). So: 46 px rows, column heads that are the talent's own pill (sized so
 -- the longest name fits at 14 px) with its worth under it, the odds on tap
 -- instead of in a legend, and the reward in a short side column.
-local CELL_W, CELL_H, GAP, ROW_W = 62, 46, 4, 124
+-- v5: the row labels are words only (every cell already shows the role's icon),
+-- 84 wide: the Index is 584 and fits right of Roblox's top-left buttons on a phone
+local CELL_W, CELL_H, GAP, ROW_W = 62, 46, 4, 84
 local PILL_H, MULT_H = 24, 18
 local COLHEAD_H = PILL_H + 2 + MULT_H + 6
 local GRID_W = ROW_W + 5 * (CELL_W + GAP)
@@ -85,15 +87,15 @@ local GRID_W = ROW_W + 5 * (CELL_W + GAP)
 -- it had to shrink to 0.91, taking the 14 px words under 13)
 local SIDE_W, SIDE_GAP = 136, 12
 local HEAD_H = 48
-local W = GRID_W + SIDE_GAP + SIDE_W + 28
+local W = GRID_W + SIDE_GAP + SIDE_W + 22
 local H = HEAD_H + 10 + COLHEAD_H + 5 * (CELL_H + GAP) + 10
 
 local panel, body, close, title = UIKit.menu(gui, "TALENT INDEX", UIKit.BLUE, {
 	Name = "Panel", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0),
 	Size = UDim2.new(0, W, 0, H),
 }, { headerHeight = HEAD_H })
-body.Position = UDim2.new(0, 14, 0, HEAD_H + 10)
-body.Size = UDim2.new(1, -28, 1, -(HEAD_H + 20))
+body.Position = UDim2.new(0, 11, 0, HEAD_H + 10)
+body.Size = UDim2.new(1, -22, 1, -(HEAD_H + 20))
 local fit = Instance.new("UIScale", panel)   -- shrink to fit a small phone (only below ~360 px tall)
 UIKit.fitMenu(panel, W, H, fit, 16)   -- v5: the shared rule (clears the rail, scales to fit)
 
@@ -132,14 +134,11 @@ local hint     -- assigned below; cell taps write to it
 local showHint
 for r, role in ipairs(ROLES) do
 	local y = COLHEAD_H + (r - 1) * (CELL_H + GAP)
-	UIKit.icon(body, UIKit.ROLE_ICON[role.key] or "person", 24, UIKit.INK_SOFT, {
-		AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, 0, y + CELL_H / 2),
-	})
 	UIKit.label(body, role.name, 16, UIKit.INK, {
-		Position = UDim2.new(0, 30, 0, y), Size = UDim2.new(0, ROW_W - 34, 0, CELL_H), TextTruncate = Enum.TextTruncate.AtEnd,
+		Position = UDim2.new(0, 0, 0, y), Size = UDim2.new(0, ROW_W - 4, 0, CELL_H), TextTruncate = Enum.TextTruncate.AtEnd,
 	}, UIKit.HEAD)
-	rowChecks[r] = UIKit.art(body, "check", 26, {
-		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, ROW_W - 12, 0, y + 10), ZIndex = 3, Visible = false,
+	rowChecks[r] = UIKit.art(body, "check", 22, {         -- top-right of the label, above its words
+		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, ROW_W - 10, 0, y + 5), ZIndex = 3, Visible = false,
 	})
 	for c, t in ipairs(TALENTS) do
 		local cell = Instance.new("TextButton")
