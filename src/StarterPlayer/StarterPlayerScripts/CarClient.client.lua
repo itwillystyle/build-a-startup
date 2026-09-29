@@ -13,6 +13,13 @@
 	  - the wheels spin with speed (Motor6D.Transform) and the fronts steer
 	UI: the CAR button (calls your car to you; C on a keyboard), a speedometer
 	while driving, the dealership card, and turntables in the showroom.
+
+	v4.3 FEEL (his note: "improve the car mechanics"): turn hard at speed and the
+	car SLIDES (lateral slip grows with speed; let go and it grips again), with
+	tyre smoke and a squeal; NITRO on Shift (or the button on a phone): +35% top
+	speed for 2.2 s, 7 s to recharge; an electric-motor hum that rises with
+	speed; headlights at night; and a car pushing into a wall bumps back instead
+	of staying glued at full throttle (the old "stops dead at the valley edge").
 ]]
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
@@ -32,7 +39,11 @@ local carToast = remotes:WaitForChild("CarToast")
 
 -- ============ DRIVING ============
 local RIDE = 0.8
-local driving = nil         -- { model, chassis, seat, align, axles, v, spin, steer }
+local driving = nil         -- { model, chassis, seat, align, axles, v, spin, steer, lat, fx }
+local MOTOR = "rbxassetid://9119386571"   -- PSE "Spacecraft Engine Idle Constant Mild Roar 2", pitched as an EV hum
+local SKID = "rbxassetid://9120399077"    -- PSE "Vehicle Skids Long Heavy Tire Squeal 3"
+local NITRO_SND = "rbxassetid://9126228631"
+local NITRO = { mult = 1.35, time = 2.2, recharge = 7 }
 local camera = workspace.CurrentCamera
 
 local function carOf(seat)
@@ -53,16 +64,98 @@ local function startDrive(m, seat)
 	end
 	driving = { model = m, chassis = chassis, seat = seat, align = chassis:FindFirstChild("Keep"), axles = axles,
 		v = 0, spin = 0, steer = 0, top = m:GetAttribute("Speed") or 70, accel = m:GetAttribute("Accel") or 44,
-		yaw = select(2, chassis.CFrame:ToEulerAnglesYXZ()), up = Vector3.new(0, 1, 0), fov = camera.FieldOfView }
+		yaw = select(2, chassis.CFrame:ToEulerAnglesYXZ()), up = Vector3.new(0, 1, 0), fov = camera.FieldOfView,
+		lat = 0, blockT = 0, fx = {} }
+	-- v4.3: the sound, the smoke and the lights live on the client (nobody else needs to hear your engine)
+	local fx = driving.fx
+	local size = chassis.Size
+	local function att(name, pos)
+		local a = Instance.new("Attachment")
+		a.Name = name
+		a.Position = pos
+		a.Parent = chassis
+		table.insert(fx, a)
+		return a
+	end
+	local function snd(id, loop)
+		local x = Instance.new("Sound")
+		x.SoundId = id
+		x.Looped = loop
+		x.Volume = 0
+		x.RollOffMaxDistance = 120
+		x.Parent = chassis
+		table.insert(fx, x)
+		return x
+	end
+	fx.motor = snd(MOTOR, true)
+	fx.motor:Play()
+	fx.skid = snd(SKID, true)
+	for _, side in ipairs({ -1, 1 }) do
+		local a = att("SmokeL" .. side, Vector3.new(side * size.X * 0.42, -size.Y * 0.4, size.Z * 0.42))
+		local pe = Instance.new("ParticleEmitter")
+		pe.Texture = "rbxasset://textures/particles/smoke_main.dds"
+		pe.Color = ColorSequence.new(Color3.fromRGB(235, 235, 235))
+		pe.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.55), NumberSequenceKeypoint.new(1, 1) })
+		pe.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.2), NumberSequenceKeypoint.new(1, 4.5) })
+		pe.Lifetime = NumberRange.new(0.6, 1.1)
+		pe.Speed = NumberRange.new(1, 3)
+		pe.SpreadAngle = Vector2.new(40, 40)
+		pe.Rate = 0
+		pe.Parent = a
+		table.insert(fx, pe)
+		fx["smoke" .. side] = pe
+		local la = att("Lamp" .. side, Vector3.new(side * size.X * 0.32, 0, -size.Z * 0.5))
+		local light = Instance.new("SpotLight")
+		light.Face = Enum.NormalId.Front
+		light.Angle = 70
+		light.Range = 45
+		light.Brightness = 2.2
+		light.Color = Color3.fromRGB(255, 244, 214)
+		light.Enabled = false
+		light.Parent = la
+		table.insert(fx, light)
+		fx["light" .. side] = light
+	end
+	local flame = att("Nitro", Vector3.new(0, -size.Y * 0.2, size.Z * 0.52))
+	local pe = Instance.new("ParticleEmitter")
+	pe.Texture = "rbxasset://textures/particles/fire_main.dds"
+	pe.Color = ColorSequence.new(Color3.fromRGB(120, 200, 255), Color3.fromRGB(255, 150, 60))
+	pe.LightEmission = 1
+	pe.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.4), NumberSequenceKeypoint.new(1, 0.2) })
+	pe.Lifetime = NumberRange.new(0.15, 0.3)
+	pe.Speed = NumberRange.new(10, 16)
+	pe.EmissionDirection = Enum.NormalId.Back
+	pe.Rate = 0
+	pe.Parent = flame
+	table.insert(fx, pe)
+	fx.flame = pe
 end
 
 local function stopDrive()
 	if driving then
 		for _, j in ipairs(driving.axles) do j.Transform = CFrame.new() end
+		for _, x in ipairs(driving.fx or {}) do if x.Parent then x:Destroy() end end
 		TweenService:Create(camera, TweenInfo.new(0.5), { FieldOfView = 70 }):Play()
 	end
 	driving = nil
 end
+
+local nitroUntil, nitroReadyAt = 0, 0
+local function nitro()
+	if not driving or os.clock() < nitroReadyAt then return end
+	nitroUntil = os.clock() + NITRO.time
+	nitroReadyAt = os.clock() + NITRO.recharge
+	local x = Instance.new("Sound")
+	x.SoundId = NITRO_SND
+	x.Volume = 0.6
+	x.Parent = driving.chassis
+	x:Play()
+	task.delay(3, function() x:Destroy() end)
+end
+UserInputService.InputBegan:Connect(function(input, processed)
+	if processed then return end
+	if input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.RightShift or input.KeyCode == Enum.KeyCode.ButtonX then nitro() end
+end)
 
 local function approach(v, target, rate)
 	if v < target then return math.min(v + rate, target) end
@@ -83,14 +176,17 @@ RunService.Heartbeat:Connect(function(dt)
 	local throttle = d.seat.ThrottleFloat
 	local steer = d.seat.SteerFloat
 	-- speed along the heading
+	local now = os.clock()
+	local boosting = now < nitroUntil
+	local top = d.top * (boosting and NITRO.mult or 1)
 	local target
-	if throttle > 0.05 then target = throttle * d.top
+	if throttle > 0.05 then target = throttle * top
 	elseif throttle < -0.05 then target = throttle * d.top * 0.45
 	else target = 0 end
 	local rate
 	if target ~= 0 and math.sign(target) ~= math.sign(d.v) and math.abs(d.v) > 2 then rate = d.accel * 2.4    -- braking
 	elseif target == 0 then rate = d.accel * 0.6                                                            -- coasting
-	else rate = d.accel end
+	else rate = d.accel * (boosting and 1.8 or 1) end
 	d.v = approach(d.v, target, rate * dt)
 	-- steering: stronger at low speed, gentler at the top end
 	local speedK = math.clamp(math.abs(d.v) / 18, 0, 1) * (1 - 0.4 * math.clamp(math.abs(d.v) / d.top, 0, 1))
@@ -115,8 +211,48 @@ RunService.Heartbeat:Connect(function(dt)
 	local up = d.up.Magnitude > 0.1 and d.up.Unit or Vector3.new(0, 1, 0)
 	local along = (fwd - up * fwd:Dot(up))
 	along = along.Magnitude > 0.01 and along.Unit or fwd
-	local horiz = along * d.v
+	-- v4.3 THE SLIDE: turn hard at speed and the back steps out (lateral slip grows
+	-- from 30 studs/s to the top end); let go of the wheel and it grips again
+	local speedAbs = math.abs(d.v)
+	local slipK = math.clamp((speedAbs - 30) / math.max(1, d.top - 30), 0, 1) * 0.34
+	local latTarget = -d.steer * speedAbs * slipK
+	d.lat = approach(d.lat, latTarget, (math.abs(latTarget) > math.abs(d.lat) and 38 or 24) * dt)
+	local right = along:Cross(up)
+	local horiz = along * d.v + right * d.lat
+	-- a wall: at full throttle against something, bump back instead of staying glued
+	local planar = Vector3.new(vel.X, 0, vel.Z).Magnitude
+	if speedAbs > 14 and planar < speedAbs * 0.35 then d.blockT += dt else d.blockT = 0 end
+	if d.blockT > 0.25 then
+		d.v = -d.v * 0.25
+		d.lat = 0
+		d.blockT = 0
+	end
 	ch.AssemblyLinearVelocity = Vector3.new(horiz.X, hit and vy + horiz.Y or vy, horiz.Z)
+	-- v4.3: the sound, the smoke, the flame, the lights
+	local fx = d.fx
+	if fx then
+		local sp = math.clamp(speedAbs / d.top, 0, 1.4)
+		if fx.motor then
+			fx.motor.PlaybackSpeed = 0.55 + 0.85 * sp + (boosting and 0.15 or 0)
+			fx.motor.Volume = 0.12 + 0.2 * math.min(sp, 1)
+		end
+		local slide = math.clamp((math.abs(d.lat) - 4) / 10, 0, 1)
+		if fx.skid then
+			if slide > 0.05 and not fx.skid.IsPlaying then fx.skid:Play() end
+			if slide <= 0.05 and fx.skid.IsPlaying then fx.skid:Stop() end
+			fx.skid.Volume = 0.45 * slide
+		end
+		for _, side in ipairs({ -1, 1 }) do
+			local pe = fx["smoke" .. side]
+			if pe then pe.Rate = slide > 0.05 and (18 + 40 * slide) or 0 end
+			local l = fx["light" .. side]
+			if l then
+				local ct = game:GetService("Lighting").ClockTime
+				l.Enabled = ct < 6.4 or ct > 17.8
+			end
+		end
+		if fx.flame then fx.flame.Rate = boosting and 120 or 0 end
+	end
 	if d.align then
 		d.align.CFrame = CFrame.lookAt(Vector3.zero, along, up)
 	end
@@ -127,7 +263,7 @@ RunService.Heartbeat:Connect(function(dt)
 		j.Transform = CFrame.Angles(0, steerA, 0) * CFrame.Angles(-d.spin, 0, 0)
 	end
 	-- a touch more field of view with speed
-	camera.FieldOfView = camera.FieldOfView + ((70 + 10 * math.clamp(math.abs(d.v) / 120, 0, 1)) - camera.FieldOfView) * math.clamp(dt * 3, 0, 1)
+	camera.FieldOfView = camera.FieldOfView + ((70 + 10 * math.clamp(math.abs(d.v) / 120, 0, 1) + (boosting and 8 or 0)) - camera.FieldOfView) * math.clamp(dt * 3, 0, 1)
 end)
 
 -- ============ THE HUD ============
@@ -170,11 +306,39 @@ local exitHint = UIKit.label(speedo, UserInputService.TouchEnabled and not UserI
 	Size = UDim2.new(1, -16, 0, 14), Position = UDim2.new(0, 8, 1, -16), TextXAlignment = Enum.TextXAlignment.Right,
 }, UIKit.BOLD)
 local _ = exitHint
+-- v4.3 NITRO: a bar on the speedometer, and a button for phones
+local nitroBar = Instance.new("Frame")
+nitroBar.Name = "Nitro"
+nitroBar.BackgroundColor3 = UIKit.SURFACE_2
+nitroBar.BorderSizePixel = 0
+nitroBar.Position = UDim2.new(0, 10, 0, -10)
+nitroBar.Size = UDim2.new(1, -20, 0, 8)
+nitroBar.Parent = speedo
+Instance.new("UICorner", nitroBar).CornerRadius = UDim.new(1, 0)
+local nitroFill = Instance.new("Frame")
+nitroFill.BackgroundColor3 = UIKit.BLUE
+nitroFill.BorderSizePixel = 0
+nitroFill.Size = UDim2.new(1, 0, 1, 0)
+nitroFill.Parent = nitroBar
+Instance.new("UICorner", nitroFill).CornerRadius = UDim.new(1, 0)
+local nitroLbl = UIKit.label(speedo, UserInputService.KeyboardEnabled and "SHIFT = NITRO" or "NITRO", 11, UIKit.CARD_MUTED, {
+	Size = UDim2.new(1, -16, 0, 14), Position = UDim2.new(0, 8, 0, 2), TextXAlignment = Enum.TextXAlignment.Left,
+}, UIKit.BOLD)
+local nitroBtn = UIKit.button(gui, "NITRO", UIKit.BLUE, {
+	Name = "NitroButton", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -190, 1, -20), Size = UDim2.new(0, 110, 0, 70),
+	Visible = false,
+}, { textSize = 22 })
+nitroBtn.Activated:Connect(nitro)
 
 RunService.RenderStepped:Connect(function()
 	local show = driving ~= nil
 	if speedo.Visible ~= show then speedo.Visible = show; refreshBtn() end
+	nitroBtn.Visible = show and UserInputService.TouchEnabled
 	if show then
+		local ready = math.clamp(1 - (nitroReadyAt - os.clock()) / NITRO.recharge, 0, 1)
+		nitroFill.Size = UDim2.new(os.clock() < nitroUntil and math.clamp((nitroUntil - os.clock()) / NITRO.time, 0, 1) or ready, 0, 1, 0)
+		nitroFill.BackgroundColor3 = (os.clock() < nitroUntil and UIKit.ORANGE) or (ready >= 1 and UIKit.BLUE or UIKit.CARD_MUTED)
+		nitroLbl.TextColor3 = ready >= 1 and UIKit.BLUE or UIKit.CARD_MUTED
 		-- 1 stud = 0.28 m; mph for the feel of it
 		speedText.Text = tostring(math.floor(math.abs(driving.v) * 0.28 * 2.237 * 1.6 + 0.5))
 	end
