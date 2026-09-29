@@ -34,6 +34,17 @@ local camera = workspace.CurrentCamera
 
 local WALK_TIME = 1.7          -- seconds out, same pace as the old 34 x 0.05 s steps
 local CHEER_TIME = 0.7
+-- v4.4 the launch cheer as a real animation (tools/anim/staff_cheer.luau, published
+-- by the Wilz account and granted to this experience). Upper body only: legs, the
+-- hop and the wander stay procedural. If it fails to load (Length stays 0), the
+-- procedural cheer below still plays.
+local CHEER_ANIM = "rbxassetid://73484143829468"
+local cheerAnim = Instance.new("Animation")
+cheerAnim.AnimationId = CHEER_ANIM
+-- measured: without this the FIRST cheer started ~1.1 s late (the download)
+task.spawn(function()
+	pcall(function() game:GetService("ContentProvider"):PreloadAsync({ cheerAnim }) end)
+end)
 
 local rigs = {}                -- model -> state
 local hidden = {}              -- model -> true while culled by distance (v3.5)
@@ -76,6 +87,18 @@ local function add(model)
 		if not (st.lS and st.rS and st.neck) then return end
 		model:GetAttributeChangedSignal("CheerAt"):Connect(function()
 			st.cheerAt = model:GetAttribute("CheerAt") or 0
+			if hidden[model] or (hrp.Position - camera.CFrame.Position).Magnitude > RANGE then return end
+			if not st.cheerTrack then
+				local hum = model:FindFirstChildOfClass("Humanoid")
+				local animator = hum and hum:FindFirstChildOfClass("Animator")
+				if not animator then return end
+				local ok, track = pcall(animator.LoadAnimation, animator, cheerAnim)
+				if not ok then return end
+				track.Priority = Enum.AnimationPriority.Action
+				track.Looped = false
+				st.cheerTrack = track
+			end
+			st.cheerTrack:Play(0.05)
 		end)
 		-- a halo or accessory added while the body is culled stays hidden with it
 		model.DescendantAdded:Connect(function(d)
@@ -290,19 +313,23 @@ RunService.PreSimulation:Connect(function()
 				sh, el = { 2.7 * k, 2.7 * k }, { 0.2, 0.2 }
 				if not seated then hop = 1.2 * k end
 			end
+			-- v4.4 while the keyframed cheer plays, it owns the arms, elbows and neck
+			local keyed = st.cheerTrack and st.cheerTrack.IsPlaying and st.cheerTrack.Length > 0
 			local armL = CFrame.Angles(sh[1], 0, 0.12)
 			local armR = CFrame.Angles(sh[2], 0, -0.12)
-			if st.lE then st.lE.Transform = CFrame.Angles(el[1], 0, 0) end
-			if st.rE then st.rE.Transform = CFrame.Angles(el[2], 0, 0) end
+			if st.lE and not keyed then st.lE.Transform = CFrame.Angles(el[1], 0, 0) end
+			if st.rE and not keyed then st.rE.Transform = CFrame.Angles(el[2], 0, 0) end
 			if not seated then
 				if st.lH then st.lH.Transform = CFrame.Angles(hip[1], 0, 0) end
 				if st.rH then st.rH.Transform = CFrame.Angles(hip[2], 0, 0) end
 				if st.lK then st.lK.Transform = CFrame.Angles(knee[1], 0, 0) end
 				if st.rK then st.rK.Transform = CFrame.Angles(knee[2], 0, 0) end
 			end
-			st.lS.Transform = armL
-			st.rS.Transform = armR
-			st.neck.Transform = CFrame.Angles(math.sin(t * 0.41) * 0.10, math.sin(t * 0.27) * 0.30, 0)
+			if not keyed then
+				st.lS.Transform = armL
+				st.rS.Transform = armR
+				st.neck.Transform = CFrame.Angles(math.sin(t * 0.41) * 0.10, math.sin(t * 0.27) * 0.30, 0)
+			end
 			if st.root then
 				st.root.Transform = CFrame.new(0, hop, 0) * wander(model, st, now)
 			end
