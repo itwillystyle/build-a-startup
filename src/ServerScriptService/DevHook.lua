@@ -252,6 +252,12 @@ return function(core)
 					local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 					local desk = Econ and Econ.Apt and Econ.Apt.deskPosition and Econ.Apt.deskPosition()
 					local farFromDesk = not (root and desk) or (root.Position - desk).Magnitude > 120
+					-- "Save for a Penthouse" is also key "apartment": only drive down once it's affordable
+					-- (run 1 drove back and forth for 3 minutes while saving)
+					local function aptAffordable()
+						local t = Econ and Econ.Apt and Econ.Apt.TIERS and Econ.Apt.TIERS[(s.apt or 0) + 1]
+						return t ~= nil and cash.Value >= t.price
+					end
 					if key == "car" then
 						local cp = Econ.Cars and Econ.Cars.carPos and Econ.Cars.carPos(player)
 						if not B.carAt then
@@ -262,7 +268,7 @@ return function(core)
 							s.jr.drove = true
 							note("car: walked over and got in")
 						end
-					elseif (key == "drive" or (key == "apartment" and farFromDesk)) and desk and root then
+					elseif (key == "drive" or (key == "apartment" and farFromDesk and aptAffordable())) and desk and root then
 						if not B.driveAt then
 							B.driveAt = now + (desk - root.Position).Magnitude / 50 + 5
 						elseif now >= B.driveAt then

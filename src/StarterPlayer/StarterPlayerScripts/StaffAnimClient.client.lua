@@ -38,13 +38,13 @@ local CHEER_TIME = 0.7
 -- by the Wilz account and granted to this experience). Upper body only: legs, the
 -- hop and the wander stay procedural. If it fails to load (Length stays 0), the
 -- procedural cheer below still plays.
-local CHEER_ANIM = "rbxassetid://73484143829468"
+local CHEER_ANIM = "rbxassetid://127266644409990"   -- v2 (waist/neck lean fixed); v1 was 73484143829468
 local cheerAnim = Instance.new("Animation")
 cheerAnim.AnimationId = CHEER_ANIM
 -- v4.4 the headhunter's windup and lunge, keyed (tools/anim/hunter.luau), played
 -- when the server flips the rig's Windup / Lunging attribute. Full body: while
 -- one plays, this script writes nothing to that rig. Empty id = procedural only.
-local HUNTER_ANIM = { windup = "", lunge = "" }
+local HUNTER_ANIM = { windup = "rbxassetid://76836764246835", lunge = "rbxassetid://131389875339938" }
 local hunterAnims = {}
 for which, id in pairs(HUNTER_ANIM) do
 	if id ~= "" then
