@@ -51,12 +51,8 @@ list.CellPadding = UDim2.new(0, 8, 0, 8)
 list.SortOrder = Enum.SortOrder.LayoutOrder
 list.Parent = body
 local fit = Instance.new("UIScale", menu)
-local function refit()
-	local vp = workspace.CurrentCamera.ViewportSize
-	fit.Scale = math.min(1, (vp.Y - 16) / math.max(1, menu.Size.Y.Offset), (vp.X - 24) / 360)
-end
-menu:GetPropertyChangedSignal("Size"):Connect(refit)
-workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(refit)
+local place = UIKit.fitMenu(menu, 360, nil, fit, 16)   -- v5: the shared rule (clears the rail, scales to fit)
+menu:GetPropertyChangedSignal("Size"):Connect(function() place(menu.Position.Y.Scale, menu.Position.Y.Offset) end)   -- the stop count sets its height
 
 local openedAt
 local busy = false

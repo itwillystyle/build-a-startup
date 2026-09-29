@@ -47,7 +47,7 @@ local function bgOf(o)
 	local x = o
 	while x and not x:IsA("ScreenGui") do
 		if x:IsA("GuiObject") and x ~= o and x.BackgroundTransparency < 0.5 then return x.BackgroundColor3, x end
-		if x == o and (o:IsA("TextButton") or o:IsA("TextBox")) and o.BackgroundTransparency < 0.5 then return o.BackgroundColor3, o end
+		if x == o and o.BackgroundTransparency < 0.5 then return o.BackgroundColor3, o end   -- a label with its own fill (a badge) sits on that fill
 		x = x.Parent
 	end
 	return nil
@@ -79,7 +79,7 @@ for _, g in ipairs(player.PlayerGui:GetChildren()) do
 					-- off screen: ignore parked elements (tweened away), report the rest
 					if o.Parent == g then table.insert(R.offscreen, short(o)) end
 				else
-					if p0.Y < inset.Y and p0.X < 230 and (o:IsA("GuiButton") or o:IsA("TextLabel")) then
+					if p0.Y < inset.Y and p0.X < 196 and (o:IsA("GuiButton") or o:IsA("TextLabel")) then
 						table.insert(R.topbar, ("%s at %d,%d"):format(short(o), p0.X, p0.Y))
 					end
 					if (o:IsA("TextLabel") or o:IsA("TextButton") or o:IsA("TextBox")) and o.Text ~= "" and o.TextTransparency < 0.9 then
@@ -152,7 +152,7 @@ section("text under " .. MIN_TEXT .. "px", R.small)
 section("tap targets under " .. MIN_TAP .. "px", R.tap)
 section("contrast under " .. MIN_CONTRAST .. ":1 (no outline)", R.contrast)
 section("floating text, no outline, no backing", R.floating)
-section("under the Roblox top bar (top-left 230x58)", R.topbar)
+section("under the Roblox top bar (top-left 196x58)", R.topbar)
 section("overlapping HUD pieces", R.overlaps)
 local f = {}
 for k, v in pairs(R.fonts) do table.insert(f, k .. "=" .. v) end

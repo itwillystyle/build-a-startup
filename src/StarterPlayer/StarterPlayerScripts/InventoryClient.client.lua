@@ -68,12 +68,7 @@ local panel, body, closeBtn = UIKit.menu(gui, "BAG", UIKit.ORANGE, {
 body.Position = UDim2.new(0, 12, 0, 54)
 body.Size = UDim2.new(1, -24, 1, -64)
 local fit = Instance.new("UIScale", panel)
-local function refit()
-	local vp = workspace.CurrentCamera.ViewportSize
-	fit.Scale = math.min(1, (vp.X - 130) / PW, (vp.Y - 24) / PH)
-end
-refit()
-workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(refit)
+UIKit.fitMenu(panel, PW, PH, fit)   -- v5: the shared rule (clears the rail, scales to fit)
 
 -- five item slots on the left (3 x 2), what the picked one does on the right
 local grid = Instance.new("Frame")
@@ -202,7 +197,7 @@ drawDetail = function()
 		label = "GET IT READY"
 	end
 	local b = UIKit.button(detail, label, ok and color or UIKit.MUTED, { Name = "Use", AnchorPoint = Vector2.new(0, 1),
-		Position = UDim2.new(0, 0, 1, 0), Size = UDim2.new(1, 0, 0, 48) }, { textSize = ok and 20 or 15, silent = true })
+		Position = UDim2.new(0, 0, 1, 0), Size = UDim2.new(1, 0, 0, 48) }, { textSize = ok and 20 or 16, silent = true })
 	b.MouseButton1Click:Connect(function()
 		if not ok then UIKit.sfx("thunk", 0.8) return end
 		useItem:FireServer(it.id)
@@ -455,7 +450,7 @@ itemEvent.OnClientEvent:Connect(function(e)
 		local lbl = detail:FindFirstChild("Refused")
 		if lbl then lbl:Destroy() end
 		if gui.Enabled then
-			UIKit.label(detail, e.text or "", 14, UIKit.RED, { Name = "Refused", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, -54),
+			UIKit.label(detail, e.text or "", 14, UIKit.RED_DEEP, { Name = "Refused", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, -54),
 				Size = UDim2.new(1, 0, 0, 36), TextWrapped = true }, UIKit.HEAD)
 		end
 	end

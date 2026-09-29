@@ -212,6 +212,20 @@ local codeCaption = UIKit.outlined(codeBtn, "NEXT APP", 14, UIKit.TEXT, {
 })
 local codeWrap = Instance.new("UIScale")   -- the button's own UIScale is the press squish; pulse the label
 codeWrap.Parent = codeLabel
+-- the full-pay time left on a waiting LAUNCH: a thin strip draining along the
+-- bottom of the face. v5: it used to be a light fill over the WHOLE face, so the
+-- loudest button in the game read pale gold for its first minute.
+local TIME_W = FULL.X.Offset - 24
+local timeBar = Instance.new("Frame")
+timeBar.Name = "TimeLeft"
+timeBar.BackgroundColor3 = UIKit.GOLD_DEEP
+timeBar.BorderSizePixel = 0
+timeBar.Position = UDim2.new(0, 12, 1, -12)
+timeBar.Size = UDim2.new(0, TIME_W, 0, 4)
+timeBar.Visible = false
+timeBar.ZIndex = codeBtn.ZIndex + 1
+timeBar.Parent = codeBtn
+Instance.new("UICorner", timeBar).CornerRadius = UDim.new(1, 0)
 
 local launchState     -- { payday, autoAt } while an app waits to launch
 local pulsing = false
@@ -224,8 +238,10 @@ end
 local function syncCode()
 	local inCar = seated()
 	-- in a car the speedometer owns the bottom centre: a waiting LAUNCH sits above it
+	-- v5: it also steps aside while the company-name box is up (it pulsed behind
+	-- the box, two loud things at once, and its caption ran under the box's edge)
 	codeBtn.Visible = player:GetAttribute("Shipped") == true and player:GetAttribute("BuildModeOpen") ~= true
-		and (not inCar or launchState ~= nil)
+		and player:GetAttribute("NamingOpen") ~= true and (not inCar or launchState ~= nil)
 	codeBtn.Position = UDim2.new(0.5, 0, 1, inCar and -126 or -22)
 	local loud = launchState ~= nil or pulsing
 	codeBtn.Size = loud and FULL or QUIET
@@ -234,6 +250,7 @@ end
 syncCode()
 player:GetAttributeChangedSignal("Shipped"):Connect(syncCode)
 player:GetAttributeChangedSignal("BuildModeOpen"):Connect(syncCode)
+player:GetAttributeChangedSignal("NamingOpen"):Connect(syncCode)
 -- v4.2: in a car the speedometer owns the bottom centre (it sat on top of WRITE CODE)
 local function watchSeat(char)
 	local hum = char:WaitForChild("Humanoid", 10)
@@ -269,8 +286,9 @@ local function setLaunch(o)
 	if chargeTween then chargeTween:Cancel(); chargeTween = nil end
 	if o then
 		UIKit.setButtonColor(codeBtn, UIKit.GOLD)
-		charge.BackgroundColor3 = UIKit.GOLD_LIGHT
-		charge.Size = UDim2.new(1, 0, 1, -5)
+		charge.Size = UDim2.new(0, 0, 1, -5)
+		-- solid gold; the full-pay time drains along the bottom (none on your first launch)
+		timeBar.Visible = o.autoAt ~= nil
 		slotArt.Image = UIKit.ART.rocket
 		codeLabel.Text = "LAUNCH!"
 		codeLabel.Position = UDim2.new(0, 56, 0, 3)
@@ -285,6 +303,7 @@ local function setLaunch(o)
 	else
 		UIKit.setButtonColor(codeBtn, UIKit.GREEN)
 		charge.BackgroundColor3 = MINT
+		timeBar.Visible = false
 		slotArt.Image = UIKit.ART.code
 		codeLabel.Text = "WRITE CODE"
 		codeLabel.Position = UDim2.new(0, 56, 0, 0)
@@ -352,7 +371,8 @@ RunService.RenderStepped:Connect(function()
 		local at = launchState.autoAt
 		if at then
 			local left = math.max(0, at - workspace:GetServerTimeNow())
-			charge.Size = UDim2.new(math.clamp(left / 60, 0, 1), 0, 1, -5)
+			timeBar.Size = UDim2.new(0, math.floor(TIME_W * math.clamp(left / 60, 0, 1)), 0, 4)
+			timeBar.BackgroundColor3 = left <= 15 and UIKit.ORANGE_DEEP or UIKit.GOLD_DEEP
 			codeCaption.Text = ("FULL PAY  %ds"):format(math.ceil(left))
 			codeCaption.TextColor3 = left <= 15 and UIKit.ORANGE or UIKit.TEXT
 		else
@@ -474,12 +494,22 @@ _G.SVCoinStream = coinStream   -- DailyClient reuses it
 -- ============ CELEBRATIONS ============
 
 -- the HQ level-up banner
+-- v5: the banner fits the gap between the rail and the goal card (on a phone a
+-- 520-wide card sat on top of both). Laid out at 440 and scaled down to fit,
+-- never below 0.78, where the 18 px chip text is still 14 px on screen.
+local BANNER_W = 440
 local function hqBanner(e, done)
 	UIKit.sfx("levelup")
-	local w = math.min(520, fx.AbsoluteSize.X * 0.92)
+	local cx, gap = UIKit.hudGap(520)
+	local scale = math.clamp(gap / BANNER_W, 0.78, 1)
+	local w = scale < 1 and BANNER_W or gap
+	local x = cx - fx.AbsolutePosition.X
 	local card = UIKit.card(fx, {
-		AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, -140), Size = UDim2.new(0, w, 0, e.headline and 172 or 132),
+		AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0, x, 0, -180), Size = UDim2.new(0, w, 0, e.headline and 176 or 136),
 	}, { radius = 18, stroke = UIKit.GOLD, strokeWidth = 4 })
+	local fit = Instance.new("UIScale")
+	fit.Scale = scale
+	fit.Parent = card
 	local top = UIKit.label(card, ("HQ LEVEL %d"):format(e.level or 2), 18, UIKit.GOLD_DEEP, {
 		Position = UDim2.new(0, 0, 0, 10), Size = UDim2.new(1, 0, 0, 22), TextXAlignment = Enum.TextXAlignment.Center,
 	}, UIKit.HEAD)
@@ -505,7 +535,7 @@ local function hqBanner(e, done)
 	local chips = Instance.new("Frame")
 	chips.BackgroundTransparency = 1
 	chips.Position = UDim2.new(0, 10, 0, e.headline and 124 or 86)
-	chips.Size = UDim2.new(1, -20, 0, 34)
+	chips.Size = UDim2.new(1, -20, 0, 36)
 	chips.Parent = card
 	local cl = Instance.new("UIListLayout", chips)
 	cl.FillDirection = Enum.FillDirection.Horizontal
@@ -525,12 +555,12 @@ local function hqBanner(e, done)
 		Instance.new("UICorner", c).CornerRadius = UDim.new(1, 0)
 		local pad = Instance.new("UIPadding", c)
 		pad.PaddingLeft = UDim.new(0, 12); pad.PaddingRight = UDim.new(0, 12)
-		UIKit.label(c, text, 16, UIKit.CARD_TEXT, { Size = UDim2.new(0, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.X }, UIKit.HEAD)
+		UIKit.label(c, text, 18, UIKit.CARD_TEXT, { Size = UDim2.new(0, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.X }, UIKit.HEAD)
 		local sc = Instance.new("UIScale", c)
 		sc.Scale = 0
 		task.delay(0.35 + i * 0.15, function() tween(sc, 0.3, { Scale = 1 }, Enum.EasingStyle.Back) end)
 	end
-	tween(card, 0.45, { Position = UDim2.new(0.5, 0, 0, 92) }, Enum.EasingStyle.Back)
+	tween(card, 0.45, { Position = UDim2.new(0, x, 0, 100) }, Enum.EasingStyle.Back)
 	-- confetti
 	local colours = { UIKit.GOLD, UIKit.GREEN, UIKit.BLUE, UIKit.RED, UIKit.ORANGE }
 	for k = 1, 40 do
@@ -546,13 +576,26 @@ local function hqBanner(e, done)
 			Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 		task.delay(t, function() p:Destroy() end)
 	end
-	task.delay(3.6, function()
-		tween(card, 0.35, { Position = UDim2.new(0.5, 0, 0, -160) }, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
+	-- 4.4 s to read it (the biggest moment in the game), or tap it away sooner
+	local gone = false
+	local function leave()
+		if gone then return end
+		gone = true
+		tween(card, 0.35, { Position = UDim2.new(0, x, 0, -180) }, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
 		task.delay(0.4, function()
 			card:Destroy()
 			if done then done() end
 		end)
-	end)
+	end
+	local tap = Instance.new("TextButton")
+	tap.Name = "Dismiss"
+	tap.Text = ""
+	tap.BackgroundTransparency = 1
+	tap.Size = UDim2.new(1, 0, 1, 0)
+	tap.ZIndex = 10
+	tap.Parent = card
+	tap.Activated:Connect(leave)
+	task.delay(4.4, leave)
 	return card
 end
 
@@ -565,16 +608,21 @@ local function spinAsk(e)
 		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), Size = UDim2.new(0, w, 0, 280),
 	}, { noClose = true })
 	spinCard = panel
-	local function col(x, title, lines, color)
+	local function col(x, title, lines, color, lead)
 		local f = Instance.new("Frame")
 		f.BackgroundColor3 = UIKit.SURFACE_2
 		f.Position = UDim2.new(x, x > 0 and 6 or 0, 0, 0)
 		f.Size = UDim2.new(0.5, -6, 0, 140)
 		f.Parent = body
 		Instance.new("UICorner", f).CornerRadius = UDim.new(0, 12)
-		UIKit.label(f, title, 17, color, { Position = UDim2.new(0, 12, 0, 8), Size = UDim2.new(1, -24, 0, 22) }, UIKit.HEAD)
+		UIKit.label(f, title, 18, color, { Position = UDim2.new(0, 12, 0, 8), Size = UDim2.new(1, -24, 0, 22) }, UIKit.HEAD)
+		-- v5: the reason to press it is the loud line (it was the same body text as "Keep your bag")
+		local y = 36
 		for i, line in ipairs(lines) do
-			UIKit.label(f, line, 16, UIKit.INK_SOFT, { Position = UDim2.new(0, 12, 0, 8 + i * 26), Size = UDim2.new(1, -24, 0, 24), TextWrapped = true }, UIKit.BODY)
+			local lead = i == 1 and lead
+			UIKit.label(f, line, lead and 20 or 16, lead and color or UIKit.INK_SOFT,
+				{ Position = UDim2.new(0, 12, 0, y), Size = UDim2.new(1, -24, 0, lead and 28 or 24), TextWrapped = true }, lead and UIKit.HEAD or UIKit.BODY)
+			y += lead and 30 or 24
 		end
 	end
 	local function m(v) return (string.format("%.1f", v)):gsub("%.0$", "") end
@@ -583,8 +631,8 @@ local function spinAsk(e)
 		(e.keep or 0) > 0 and ("Keep %d rare hire%s"):format(e.keep, e.keep == 1 and "" or "s") or "A fresh garage",
 		"Keep your Talent Index",
 		"Keep your bag",
-	}, UIKit.darker(UIKit.GREEN, 0.75))
-	col(0.5, "STARTS OVER", { "Cash", "Buildings", "HQ level" }, UIKit.darker(UIKit.ORANGE, 0.85))
+	}, UIKit.GREEN_DEEP, true)
+	col(0.5, "STARTS OVER", { "Cash", "Buildings", "HQ level" }, UIKit.ORANGE_DEEP)
 	local no = UIKit.button(body, "NOT YET", UIKit.MUTED, {
 		AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, 0), Size = UDim2.new(0.5, -6, 0, 50),
 	}, { textSize = 20 })

@@ -657,6 +657,79 @@ function UIKit.railRight()
 	if w == 0 then w = UIKit.RAIL * (sc and sc.Scale or 1) end
 	return col.AbsolutePosition.X + w
 end
+
+--[[ v5 the free strip across the top of the HUD, between the left rail and the
+right column, in screen x. A card that must not cover either one (the HQ
+banner, a rare-hire reveal) sits here. Centred on the screen when it fits
+(minCentred wide or more), otherwise centred in the gap. Returns the card's
+centre x and its width, capped at maxW. Measured on a phone (801 wide): the
+rail ends at 148 and the goal card starts at 529, so a 520-wide banner sat on
+both. To place a card, subtract its ScreenGui's AbsolutePosition.X from cx. ]]
+function UIKit.hudGap(maxW, minCentred)
+	local pg = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
+	local vpX = workspace.CurrentCamera.ViewportSize.X
+	local rail = pg and pg:FindFirstChild("Rail")
+	local l = (rail and rail.Enabled) and (UIKit.railRight() + 8) or 12
+	local r = vpX - 12
+	local col = pg and pg:FindFirstChild("RightColumn")
+	local c = col and col.Enabled and col:FindFirstChild("Column")
+	if c and c.Visible then
+		for _, row in ipairs(c:GetChildren()) do
+			if row:IsA("GuiObject") and row.Visible and row.AbsoluteSize.X > 1 then
+				r = math.min(r, row.AbsolutePosition.X - 8)
+			end
+		end
+	end
+	local centred = 2 * math.min(vpX / 2 - l, r - vpX / 2)
+	if centred >= (minCentred or 340) then return vpX / 2, math.min(maxW, centred) end
+	return (l + r) / 2, math.min(maxW, r - l)
+end
+
+--[[ v5 ONE RULE FOR WHERE A MENU GOES. Every menu had its own fit line
+(vp.X - 24, vp.X - 130, a +24 or +30 nudge), and the ones written for a
+one-column rail put the Bag 3.5 px over the phone's 2-wide rail, on the PHONE
+badge. Now: centred on the screen, slid right just enough to clear the rail,
+scaled down only when the free area is smaller than the menu. Refits when the
+screen changes and every time the menu opens (the rail grows as tiles unlock).
+The panel is centre-anchored and a child of its ScreenGui. Returns place(yScale,
+yOffset) -> a UDim2 at the fitted x, for menus that slide in. ]]
+function UIKit.fitMenu(panel, w, h, sc, vMargin)
+	sc = sc or panel:FindFirstChildOfClass("UIScale")
+	if not sc then
+		sc = Instance.new("UIScale")
+		sc.Parent = panel
+	end
+	local x = nil
+	local function refit()
+		local parent = panel.Parent
+		if not (parent and parent:IsA("GuiBase2d")) then return end
+		local px, pw, ph = parent.AbsolutePosition.X, parent.AbsoluteSize.X, parent.AbsoluteSize.Y
+		if pw <= 0 then return end
+		local W, H = w or panel.Size.X.Offset, h or panel.Size.Y.Offset
+		local left, right = px + 12, px + pw - 12
+		local pg = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
+		local rail = pg and pg:FindFirstChild("Rail")
+		if rail and rail.Enabled then left = math.max(left, UIKit.railRight() + 10) end
+		local s = math.min(1, (right - left) / W, (ph - (vMargin or 24)) / H)
+		local half = W * s / 2
+		x = math.clamp(px + pw / 2, left + half, math.max(left + half, right - half)) - px
+		-- a menu mid pop-in tweens to its Rest scale; move that instead of fighting it
+		if sc:GetAttribute("Rest") then
+			sc:SetAttribute("Rest", s)
+		elseif math.abs(sc.Scale - s) > 0.001 then
+			sc.Scale = s
+		end
+		panel.Position = UDim2.new(0, x, panel.Position.Y.Scale, panel.Position.Y.Offset)
+	end
+	refit()
+	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(refit)
+	local g = panel:FindFirstAncestorWhichIsA("ScreenGui")
+	if g then g:GetPropertyChangedSignal("Enabled"):Connect(function() if g.Enabled then refit() end end) end
+	return function(yScale, yOffset)
+		refit()
+		return UDim2.new(0, x or 0, yScale, yOffset)
+	end
+end
 -- a red count badge on a button's top-right corner (both references use one)
 function UIKit.badge(button)
 	local b = Instance.new("Frame")
@@ -824,6 +897,43 @@ function UIKit.column()
 		cam:GetPropertyChangedSignal("ViewportSize"):Connect(fit)
 		-- v4.4 and never taller than the screen: the WRITE CODE bar owns the bottom ~110
 		fitColumn(g, f, l, 60, 110, 0.9)    -- v5: one goal card now, so it never has to shrink to 0.7
+		-- v5 one thing at a time: a centred menu or decision card that reaches the
+		-- goal card hides it until it closes. On a phone a 440-wide menu covered
+		-- half the card and the cut-off half ("in off!") read as clutter. This loop
+		-- owns the frame's Visible; the ScreenGui's Enabled stays with build mode.
+		task.spawn(function()
+			local function covers(mg, left, bottom, vpX)
+				if not (mg and mg:IsA("ScreenGui") and mg.Enabled) then return false end
+				for _, c in ipairs(mg:GetChildren()) do
+					if c:IsA("GuiObject") and c.Visible and c.AbsoluteSize.X >= 240 and c.AbsoluteSize.X < vpX * 0.9
+						and c.AbsoluteSize.Y >= 120 and c.AbsolutePosition.X + c.AbsoluteSize.X > left + 4
+						and c.AbsolutePosition.Y < bottom then
+						return true
+					end
+				end
+				return false
+			end
+			while f.Parent do
+				local left, bottom = math.huge, -math.huge
+				for _, row in ipairs(f:GetChildren()) do
+					if row:IsA("GuiObject") and row.Visible then
+						left = math.min(left, row.AbsolutePosition.X)
+						bottom = math.max(bottom, row.AbsolutePosition.Y + row.AbsoluteSize.Y)
+					end
+				end
+				local covered = false
+				if left < math.huge then
+					local vpX = workspace.CurrentCamera.ViewportSize.X
+					covered = covers(pg:FindFirstChild("Celebrate"), left, bottom, vpX)
+					for _, name in ipairs(UIKit.MENUS or {}) do
+						if covered then break end
+						covered = covers(pg:FindFirstChild(name), left, bottom, vpX)
+					end
+				end
+				if f.Visible == covered then f.Visible = not covered end
+				task.wait(0.15)
+			end
+		end)
 	end
 	return g:WaitForChild("Column")
 end
@@ -887,7 +997,7 @@ function UIKit.menu(parent, title, accent, props, opts)
 		local sc = f:FindFirstChildOfClass("UIScale")
 		local k = (sc and sc.Scale > 0) and sc.Scale or 1
 		local shift = 0
-		if pos.Y + inset < 58 and pos.X < 176 then shift = math.max(0, (176 - pos.X) / k - 6) end
+		if pos.Y + inset < 58 and pos.X < 196 then shift = math.max(0, (196 - pos.X) / k - 6) end   -- phone top bar reaches x ~190
 		t.Position = UDim2.new(0, 18 + shift, 0, 0)
 		t.Size = UDim2.new(1, -(84 + shift), 1, -3)
 	end

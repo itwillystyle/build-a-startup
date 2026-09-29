@@ -48,6 +48,57 @@ end
 
 local current   -- { id, frame, ring, conns, done }
 
+-- v5: where the card goes. Beside the target when there is room, else above or
+-- below it; always fully on screen, under Roblox's top bar (58 px), clear of the
+-- rail, and on a touch screen off the thumbstick and the jump button. Found on a
+-- phone: the LAUNCH tip went left of the centred button, ran off the screen
+-- ("UNCH your app!") and sat on the thumbstick.
+local isTouch = game:GetService("UserInputService").TouchEnabled
+local function place(tp, ts, vp, W, H)
+	local centre = tp + ts / 2
+	local function blocked(x, y)
+		if x < 8 or y < 64 or x + W > vp.X - 8 or y + H > vp.Y - 8 then return true end
+		if isTouch then
+			if x < 170 and y + H > vp.Y - 170 then return true end              -- the thumbstick
+			if x + W > vp.X - 180 and y + H > vp.Y - 160 then return true end   -- the jump button
+		end
+		return false
+	end
+	local rr = UIKit.railRight()
+	local midY = math.clamp(centre.Y - H / 2, 64, math.max(64, vp.Y - H - 8))
+	local midX = math.clamp(centre.X - W / 2, 8, math.max(8, vp.X - W - 8))
+	local at = {
+		right = function() return math.max(tp.X + ts.X + 40, tp.X < rr and rr + 30 or 0), midY end,
+		left = function() return tp.X - W - 40, midY end,
+		above = function() return midX, tp.Y - H - 40 end,
+		below = function() return midX, tp.Y + ts.Y + 40 end,
+	}
+	local order
+	if centre.Y > vp.Y * 0.6 then
+		order = { "above", centre.X < vp.X / 2 and "right" or "left", "below" }
+	elseif centre.X < vp.X * 0.4 then
+		order = { "right", "below", "above", "left" }
+	elseif centre.X > vp.X * 0.6 then
+		order = { "left", "below", "above", "right" }
+	else
+		order = { "below", "above", "right", "left" }
+	end
+	for _, side in ipairs(order) do
+		local x, y = at[side]()
+		if not blocked(x, y) then return side, x, y end
+	end
+	local x, y = at[order[1]]()
+	return order[1], math.clamp(x, 8, math.max(8, vp.X - W - 8)), math.clamp(y, 64, math.max(64, vp.Y - H - 8))
+end
+-- the bouncing arrow sits between the card and the target, pointing at the target
+local ARROW = {
+	right = function(x, y, W, H, c, bob) return -90, x - 20 - bob, c.Y end,
+	left = function(x, y, W, H, c, bob) return 90, x + W + 20 + bob, c.Y end,
+	-- off-centre: a bottom button carries its caption ("APP READY!") centred above it
+	above = function(x, y, W, H, c, bob) return 180, math.clamp(c.X + 76, x + 24, x + W - 24), y + H + 20 + bob end,
+	below = function(x, y, W, H, c, bob) return 0, c.X, y - 20 - bob end,
+}
+
 local function finish(report)
 	local c = current
 	if not c then return end
@@ -106,13 +157,11 @@ local function build(id, target, done)
 		ring.Position = UDim2.fromOffset(centre.X, centre.Y)
 		ring.Size = UDim2.fromOffset(ts.X + 14, ts.Y + 14)
 		rs.Transparency = 0.25 + 0.35 * (0.5 + 0.5 * math.sin((os.clock() - t0) * 5))
-		local leftSide = centre.X < vp.X / 2
-		local x = leftSide and (tp.X + ts.X + 40) or (tp.X - W - 40)
-		-- v5: never under Roblox's top bar (logo, menu and chat live in the top 58 px)
-		local y = math.clamp(centre.Y - H / 2, 64, math.max(64, vp.Y - H - 8))
+		local side, x, y = place(tp, ts, vp, W, H)
 		card.Position = UDim2.fromOffset(x, y)
-		arrow.Rotation = leftSide and -90 or 90                    -- the icon points up at 0
-		arrow.Position = UDim2.fromOffset(leftSide and (tp.X + ts.X + 20 + bob) or (tp.X - 20 - bob), centre.Y)
+		local rot, ax, ay = ARROW[side](x, y, W, H, centre, bob)
+		arrow.Rotation = rot                                        -- the icon points up at 0
+		arrow.Position = UDim2.fromOffset(ax, ay)
 	end))
 	table.insert(c.conns, player:GetAttributeChangedSignal("CoachTip"):Connect(function()
 		if player:GetAttribute("CoachTip") ~= id then finish(false) end

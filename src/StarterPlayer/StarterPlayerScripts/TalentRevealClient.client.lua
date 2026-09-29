@@ -273,18 +273,10 @@ local function showCard(d, done)
 	local okP, shown = pcall(portrait, d.rig)
 	fallback.Visible = not (okP and shown)
 
-	-- fit between the left rail and the right column, so LAUNCH stays reachable
-	local pg = player.PlayerGui
-	local railCol = pg:FindFirstChild("Rail") and pg.Rail:FindFirstChild("Column")
-	local rightCol = pg:FindFirstChild("RightColumn") and pg.RightColumn:FindFirstChild("Column")
-	local vpX = workspace.CurrentCamera.ViewportSize.X
-	local l = railCol and (railCol.AbsolutePosition.X + 86) or 12
-	local r = rightCol and rightCol.AbsolutePosition.X or vpX - 12
-	local centred = 2 * math.min(vpX / 2 - l, r - vpX / 2) - 16
-	-- centred when it fits; on a narrow screen, centred in the gap instead
-	local cx, w = vpX / 2, math.min(480, centred)
-	if centred < 340 then cx, w = (l + r) / 2, math.min(480, r - l - 16) end
-	cardX = cx
+	-- fit between the left rail and the right column (the goal card), so neither
+	-- is covered: centred when it fits, else centred in the gap (UIKit.hudGap)
+	local cx, w = UIKit.hudGap(480)
+	cardX = cx - gui.AbsolutePosition.X
 	card.Size = UDim2.new(0, math.max(260, w), 0, CARD_H)
 	card.Visible = true
 	player:SetAttribute("RevealShowing", true)       -- client-local: PhoneClient moves its banner below this card

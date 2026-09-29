@@ -38,12 +38,7 @@ local panel, body, closeBtn = UIKit.menu(gui, "THE RESIDENCES", Color3.fromRGB(3
 	Name = "Panel", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 10), Size = UDim2.new(0, PANEL_W, 0, PANEL_H),
 })
 local fit = Instance.new("UIScale", panel)
-local function refit()
-	local vp = workspace.CurrentCamera.ViewportSize
-	fit.Scale = math.min(1, (vp.X - 40) / PANEL_W, (vp.Y - 40) / PANEL_H)
-end
-workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(refit)
-refit()
+UIKit.fitMenu(panel, PANEL_W, PANEL_H, fit, 40)   -- v5: the shared rule (clears the rail, scales to fit)
 if closeBtn then closeBtn.MouseButton1Click:Connect(function() gui.Enabled = false end) end
 local row = Instance.new("UIListLayout")
 row.FillDirection = Enum.FillDirection.Horizontal

@@ -57,12 +57,7 @@ local panel, body, close = UIKit.menu(gui, "DAILY REWARD", UIKit.GREEN, {
 	Name = "Panel", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), Size = UDim2.new(0, W, 0, H),
 })
 local fit = Instance.new("UIScale", panel)
-local function refit()
-	local vp = workspace.CurrentCamera.ViewportSize
-	fit.Scale = math.min(1, (vp.X - 24) / W, (vp.Y - 24) / H)
-end
-refit()
-workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(refit)
+UIKit.fitMenu(panel, W, H, fit)   -- v5: the shared rule (clears the rail, scales to fit)
 
 local sub = UIKit.label(body, "", 16, UIKit.CARD_TEXT, {
 	Name = "Sub", Size = UDim2.new(1, 0, 0, 24), TextXAlignment = Enum.TextXAlignment.Center,
@@ -158,16 +153,21 @@ local function refresh()
 	local ready = player:GetAttribute("DailyReady") == true
 	local day = player:GetAttribute("DailyStreak") or 1
 	local a = amounts()
+	-- v5: once today is claimed, tomorrow's tile is the one that is lit (gold
+	-- edge, TOMORROW): the reason to come back, where the eye already is
+	local nextDay = (day % 7) + 1
 	for d, t in ipairs(tiles) do
-		local done = ready and d < day or (not ready and d <= day)
 		local today = ready and d == day
+		local tomorrow = not ready and d == nextDay
+		local done = not tomorrow and (ready and d < day or (not ready and d <= day))
 		t.amt.Text = UIKit.money(a[d] or 0)
 		t.tick.Visible = done
 		t.coins.Visible = not done
 		t.frame.BackgroundColor3 = today and UIKit.GOLD_LIGHT or (done and UIKit.SURFACE_2 or UIKit.CARD)
-		t.stroke.Color = today and UIKit.GOLD or UIKit.CARD_LINE
-		t.stroke.Thickness = today and 4 or 2
-		t.day.TextColor3 = today and UIKit.CARD_TEXT or UIKit.CARD_MUTED
+		t.stroke.Color = (today or tomorrow) and UIKit.GOLD or UIKit.CARD_LINE
+		t.stroke.Thickness = today and 4 or (tomorrow and 3 or 2)
+		t.day.Text = tomorrow and "TOMORROW" or (d == 7 and "DAY 7!" or ("DAY " .. d))
+		t.day.TextColor3 = today and UIKit.CARD_TEXT or (tomorrow and UIKit.GOLD_DEEP or UIKit.CARD_MUTED)
 		t.amt.TextColor3 = done and UIKit.CARD_MUTED or UIKit.CARD_TEXT
 	end
 	if ready then
@@ -175,7 +175,6 @@ local function refresh()
 		claimLabel.Text = "CLAIM " .. UIKit.money(a[day] or 0)
 		UIKit.setButtonColor(claimBtn, UIKit.GREEN)
 	else
-		local nextDay = (day % 7) + 1
 		sub.Text = ("Come back tomorrow for Day %d: %s"):format(nextDay, UIKit.money(a[nextDay] or 0))
 		claimLabel.Text = "CLAIMED!"
 		UIKit.setButtonColor(claimBtn, UIKit.MUTED)

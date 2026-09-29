@@ -301,7 +301,10 @@ local function toastParts()
 	pill.Name = "Toast"
 	pill.AnchorPoint = Vector2.new(0.5, 1)
 	pill.Position = UDim2.new(0.5, 0, 1, 60)
-	pill.Size = UDim2.new(0.9, 0, 0, 44)
+	-- v5: the pill hugs its text (a 480 bar left the icon stranded far from short
+	-- centred text); long lines still stop at 480 and end in "..."
+	pill.Size = UDim2.new(0, 0, 0, 44)
+	pill.AutomaticSize = Enum.AutomaticSize.X
 	pill.BackgroundColor3 = UIKit.CARD
 	pill.Text = ""
 	pill.TextColor3 = UIKit.CARD_TEXT
@@ -320,6 +323,7 @@ local function toastParts()
 	UIKit.icon(pill, "info", 24, UIKit.BLUE, { Name = "Icon", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, -34, 0.5, -1) })
 	local cap = Instance.new("UISizeConstraint", pill)
 	cap.MaxSize = Vector2.new(480, 44)
+	cap.MinSize = Vector2.new(180, 44)
 	toastPill = pill
 	toastSerial = 0
 	return pill

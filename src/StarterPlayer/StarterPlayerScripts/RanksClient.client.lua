@@ -61,12 +61,7 @@ local panel, body, close = UIKit.menu(gui, "RANKS", UIKit.GOLD, {
 	Name = "Panel", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), Size = UDim2.new(0, W, 0, H),
 }, { headerHeight = HEAD_H })
 local fit = Instance.new("UIScale", panel)            -- a phone held sideways is ~390 px tall
-local function refit()
-	local vp = workspace.CurrentCamera.ViewportSize
-	fit.Scale = math.min(1, (vp.X - 24) / W, (vp.Y - 24) / H)
-end
-refit()
-workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(refit)
+UIKit.fitMenu(panel, W, H, fit)   -- v5: the shared rule (clears the rail, scales to fit)
 
 local status = UIKit.label(panel:FindFirstChild("Header"), "", 14, UIKit.TEXT, {
 	Name = "Status", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -58, 0.5, 0), Size = UDim2.new(0, 190, 0, 20),

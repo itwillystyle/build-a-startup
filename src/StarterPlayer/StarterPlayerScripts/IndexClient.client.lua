@@ -80,9 +80,12 @@ local CELL_W, CELL_H, GAP, ROW_W = 62, 46, 4, 124
 local PILL_H, MULT_H = 24, 18
 local COLHEAD_H = PILL_H + 2 + MULT_H + 6
 local GRID_W = ROW_W + 5 * (CELL_W + GAP)
-local SIDE_W = 196
+-- v5: 136 wide (measured: its widest line, "+5% money" at 24, is 109 px) so the
+-- whole Index is 630 and fits beside a phone's 2-wide rail at full size (at 196
+-- it had to shrink to 0.91, taking the 14 px words under 13)
+local SIDE_W, SIDE_GAP = 136, 12
 local HEAD_H = 48
-local W = GRID_W + 14 + SIDE_W + 28
+local W = GRID_W + SIDE_GAP + SIDE_W + 28
 local H = HEAD_H + 10 + COLHEAD_H + 5 * (CELL_H + GAP) + 10
 
 local panel, body, close, title = UIKit.menu(gui, "TALENT INDEX", UIKit.BLUE, {
@@ -92,12 +95,7 @@ local panel, body, close, title = UIKit.menu(gui, "TALENT INDEX", UIKit.BLUE, {
 body.Position = UDim2.new(0, 14, 0, HEAD_H + 10)
 body.Size = UDim2.new(1, -28, 1, -(HEAD_H + 20))
 local fit = Instance.new("UIScale", panel)   -- shrink to fit a small phone (only below ~360 px tall)
-local function refit()
-	local vp = workspace.CurrentCamera.ViewportSize
-	fit.Scale = math.min(1, (vp.X - 24) / W, (vp.Y - 16) / H)
-end
-refit()
-workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(refit)
+UIKit.fitMenu(panel, W, H, fit, 16)   -- v5: the shared rule (clears the rail, scales to fit)
 
 local count = UIKit.label(panel:FindFirstChild("Header"), "0 / 25", 22, UIKit.TEXT, {
 	Name = "Count", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -62, 0.5, -1), Size = UDim2.new(0, 90, 0, 28),
@@ -182,7 +180,7 @@ end
 -- the side column: what the collection pays you now, and the next line to finish
 local side = Instance.new("Frame")
 side.Name = "Side"
-side.Position = UDim2.new(0, GRID_W + 14, 0, 0)
+side.Position = UDim2.new(0, GRID_W + SIDE_GAP, 0, 0)
 side.Size = UDim2.new(0, SIDE_W, 1, 0)
 side.BackgroundColor3 = UIKit.CARD
 side.BorderSizePixel = 0
@@ -194,7 +192,7 @@ sst.Thickness = 2
 local spad = Instance.new("UIPadding", side)
 spad.PaddingLeft, spad.PaddingRight, spad.PaddingTop = UDim.new(0, 12), UDim.new(0, 12), UDim.new(0, 12)
 UIKit.label(side, "EVERY FULL LINE", 14, UIKit.MUTED_TEXT, { Size = UDim2.new(1, 0, 0, 18) }, UIKit.HEAD)
-UIKit.outlined(side, ("+%d%% money"):format(LINE_BONUS), 26, UIKit.MONEY, { Position = UDim2.new(0, 0, 0, 20), Size = UDim2.new(1, 0, 0, 32) })
+UIKit.outlined(side, ("+%d%% money"):format(LINE_BONUS), 24, UIKit.MONEY, { Position = UDim2.new(0, 0, 0, 20), Size = UDim2.new(1, 0, 0, 32) })
 local bonus = UIKit.label(side, "", 16, UIKit.GREEN_DEEP, {
 	Name = "Bonus", Position = UDim2.new(0, 0, 0, 58), Size = UDim2.new(1, 0, 0, 22),
 }, UIKit.HEAD)

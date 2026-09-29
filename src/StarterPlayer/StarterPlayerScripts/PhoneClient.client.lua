@@ -94,12 +94,7 @@ local rim = Instance.new("UIStroke", bezel)
 rim.Color = Color3.fromRGB(70, 76, 96)
 rim.Thickness = 2
 local fit = Instance.new("UIScale", bezel)
-local function refit()
-	local vp = workspace.CurrentCamera.ViewportSize
-	fit.Scale = math.min(1, (vp.X - 130) / W, (vp.Y - 24) / H)
-end
-refit()
-workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(refit)
+local place = UIKit.fitMenu(bezel, W, H, fit)   -- v5: the shared rule (clears the rail, scales to fit)
 
 local screen = Instance.new("Frame")
 screen.Name = "Screen"
@@ -257,19 +252,26 @@ local function avatar(parent, th, size)
 	a.Parent = parent
 	Instance.new("UICorner", a).CornerRadius = UDim.new(1, 0)
 	local initials = (th.name or "?"):gsub("(%a)%a*%s*", "%1"):sub(1, 2):upper()
-	local ini = UIKit.label(a, initials, math.floor(size * 0.42), UIKit.TEXT, { Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.HEAD)
+	-- the initials sit a little high so the AI tag under them never covers a letter
+	-- (v5: at the old bottom-right spot "VL" read as "VI")
+	local lift = th.system and 0 or math.floor(size * 0.12)
+	local ini = UIKit.label(a, initials, math.floor(size * 0.42), UIKit.TEXT, { Position = UDim2.new(0, 0, 0, -lift), Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.HEAD)
 	UIKit.paintLabel(ini, a.BackgroundColor3)   -- v5: ink on a light face, outlined white on a dark one
 	-- v4.2: a scripted sender (the front desk) is not AI, so it gets no badge
 	if not th.system then
 		-- the AI label rides on every investor's face (Roblox asks for disclosure; so does honesty)
 		local tag = Instance.new("Frame")
-		tag.AnchorPoint = Vector2.new(1, 1)
-		tag.Position = UDim2.new(1, 4, 1, 2)
+		tag.AnchorPoint = Vector2.new(0.5, 0.5)
+		tag.Position = UDim2.new(0.5, 0, 1, -1)
 		tag.Size = UDim2.new(0, 26, 0, 18)
 		tag.BackgroundColor3 = UIKit.INK
 		tag.BorderSizePixel = 0
 		tag.Parent = a
 		Instance.new("UICorner", tag).CornerRadius = UDim.new(1, 0)
+		local ring = Instance.new("UIStroke", tag)      -- a paper edge so it reads as a sticker on any face colour
+		ring.Color = UIKit.PAPER
+		ring.Thickness = 1.5
+		ring.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 		UIKit.label(tag, "AI", 14, UIKit.TEXT, { Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.HEAD)
 	end
 	return a
@@ -838,8 +840,8 @@ local function setOpen(v)
 	if v then UIKit.solo(gui) end
 	gui.Enabled = v
 	if v then
-		bezel.Position = UDim2.new(0.5, 30, 0.5, 90)
-		TweenService:Create(bezel, TweenInfo.new(0.28, Enum.EasingStyle.Quint), { Position = UDim2.new(0.5, 30, 0.5, 26) }):Play()
+		bezel.Position = place(0.5, 90)
+		TweenService:Create(bezel, TweenInfo.new(0.28, Enum.EasingStyle.Quint), { Position = place(0.5, 26) }):Play()
 		render()
 	end
 end
