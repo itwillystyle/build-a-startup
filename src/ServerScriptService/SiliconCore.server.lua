@@ -631,7 +631,10 @@ local function buildShell(plot, level, animate)
 	local L = CFG.HQ_LEVELS[level]
 	local w, d, h = L.w, L.d, L.h
 
-	shellPart(plot, { Name = "GarageFloor", Size = Vector3.new(w, 1, d), CFrame = g(0, 0.5, 0),
+	-- v5: 6 studs thick, top still at 1.0. There is no ground under a plot (void to
+	-- the -500 kill height), and a 1-stud slab is thin enough for the solver to
+	-- push a character through ("stuck in the floor and die" on an HQ upgrade)
+	shellPart(plot, { Name = "GarageFloor", Size = Vector3.new(w, 6, d), CFrame = g(0, -2, 0),
 		Color = CFG.FLOOR, Material = Enum.Material.Concrete })
 	shellPart(plot, { Name = "WallBack", Size = Vector3.new(w, h, 1), CFrame = g(0, h / 2, -d / 2), Color = CFG.WALL })
 	shellPart(plot, { Name = "WallL", Size = Vector3.new(1, h, d), CFrame = g(-w / 2, h / 2, 0), Color = CFG.WALL })
@@ -1740,15 +1743,22 @@ local function tryUpgrade(player, plot)
 	cash.Value -= nxt.cost
 	s.lastBuy = os.clock()
 	buildShell(plot, plot.hq.level + 1, true)
-	-- the new shell grows around whoever is inside; anyone pushed onto the roof
-	-- goes back to the garage floor (18 Sep playtest ended on the roof)
-	task.delay(0.9, function()
+	-- the new shell grows around whoever is inside. v5: only someone actually
+	-- caught INSIDE a new wall or slab is moved to the door. The old rule sent
+	-- everyone more than 9 studs up (every upper floor) to the garage on every
+	-- upgrade; the client no longer sweeps the rise through the player inside
+	-- (WorldFxClient), so nobody is pushed onto the roof any more
+	task.delay(0.3, function()
+		local solid = {}
+		for _, sp in ipairs(plot.hq.shell) do if sp.CanCollide and sp.Name ~= "GarageFloor" then solid[sp] = true end end
 		for _, pl in ipairs(Players:GetPlayers()) do
 			local root = pl.Character and pl.Character:FindFirstChild("HumanoidRootPart")
 			if root and plot.spawn then
-				local rel = plot.pivot:PointToObjectSpace(root.Position)
-				if math.abs(rel.X) < 60 and math.abs(rel.Z) < 60 and root.Position.Y > plot.spawn.Position.Y + 9 then
-					pl.Character:PivotTo(plot.spawn.CFrame + Vector3.new(0, 3, 0))
+				for _, hit in ipairs(workspace:GetPartsInPart(root)) do
+					if solid[hit] then
+						pl.Character:PivotTo(plot.spawn.CFrame + Vector3.new(0, 3, 0))
+						break
+					end
 				end
 			end
 		end

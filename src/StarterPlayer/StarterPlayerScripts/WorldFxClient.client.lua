@@ -11,8 +11,16 @@
 	Popup (anchor, text, color): the floating "+$5" / "HIRED" / "LAUNCHED" text.
 	Rise (parts, drop, seconds): new rooms and HQ levels growing out of the
 	ground. The server has already put every part at its final place; this only
-	plays the motion locally, so nothing a player can collide with is ever in
-	a different place on the server.
+	plays the motion locally.
+
+	v5 FIX, "when you upgrade an HQ you get stuck in the floor and die": your
+	own character is simulated on YOUR machine, against the parts where this
+	script has put them. A rise swept the building's walls and full-width storey
+	slabs up through whoever stood inside; the solver shoved them (measured:
+	y 4.4 -> 3.7 -> 7.7 at HQ 3), sometimes down through the 1-stud garage floor,
+	with nothing under it but void (-500 kills). Now a rise is not played for a
+	building you are standing in (you are in the level-up flyover anyway), and
+	a character that ever drops far below the valley is put back at your door.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -93,9 +101,30 @@ if popupRemote then
 	end)
 end
 
+-- is the local character inside (or on top of) the footprint of these parts?
+local function standingIn(parts)
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if not root then return false end
+	local lo, hi
+	for _, p in ipairs(parts) do
+		if typeof(p) == "Instance" and p:IsA("BasePart") and p.Parent then
+			local h = p.Size / 2
+			local c = p.Position
+			local a = Vector3.new(c.X - math.max(h.X, h.Z), c.Y - h.Y, c.Z - math.max(h.X, h.Z))   -- rotation-safe box
+			local b = Vector3.new(c.X + math.max(h.X, h.Z), c.Y + h.Y, c.Z + math.max(h.X, h.Z))
+			lo = lo and lo:Min(a) or a
+			hi = hi and hi:Max(b) or b
+		end
+	end
+	if not lo then return false end
+	local r, m = root.Position, 6
+	return r.X > lo.X - m and r.X < hi.X + m and r.Z > lo.Z - m and r.Z < hi.Z + m and r.Y < hi.Y + 12
+end
+
 if riseRemote then
 	riseRemote.OnClientEvent:Connect(function(parts, drop, seconds)
 		if type(parts) ~= "table" then return end
+		if standingIn(parts) then return end      -- never sweep a building through the player inside it
 		drop = tonumber(drop) or 10
 		seconds = tonumber(seconds) or 0.8
 		local info = TweenInfo.new(seconds, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
@@ -108,3 +137,23 @@ if riseRemote then
 		end
 	end)
 end
+
+-- the catch: nowhere in the valley is below y -40, so a character down there has
+-- fallen through something. Put it back at its company's door instead of letting
+-- it drop to the -500 kill height.
+task.spawn(function()
+	while true do
+		task.wait(0.5)
+		local char = player.Character
+		local root = char and char:FindFirstChild("HumanoidRootPart")
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		if root and hum and hum.Health > 0 and root.Position.Y < -40 then
+			local plot = myPlot()
+			local sp = plot and plot:FindFirstChild("Spawn", true)
+			if sp then
+				root.AssemblyLinearVelocity = Vector3.zero
+				char:PivotTo(sp.CFrame + Vector3.new(0, 3, 0))
+			end
+		end
+	end
+end)

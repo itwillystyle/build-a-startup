@@ -534,7 +534,8 @@ function HQFloors.build(add, g, level, w, d, h, shell, plot)
 					Color = p.Color, Material = p.Material })
 				for _, c in ipairs({ { 1, 1 }, { -1, 1 }, { -1, -1 }, { 1, -1 } }) do
 					add({ Name = "FloorCorner", Shape = Enum.PartType.Cylinder, Size = Vector3.new(p.Size.Y, 2 * R, 2 * R),
-						CFrame = g(c[1] * (hw - R), p.Size.Y / 2, c[2] * (hd - R)) * CFrame.Angles(0, 0, math.rad(90)),
+						-- hangs from the floor's top (1.0), whatever its thickness (v5: 6 studs)
+						CFrame = g(c[1] * (hw - R), 1 - p.Size.Y / 2, c[2] * (hd - R)) * CFrame.Angles(0, 0, math.rad(90)),
 						Color = p.Color, Material = p.Material })
 				end
 				break
