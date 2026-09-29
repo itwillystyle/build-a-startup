@@ -209,12 +209,24 @@ return function(core)
 							B.carry = B.carry or { t0 = now, tier = player:GetAttribute("Carrying") or "?", staff = s.staff }
 							local to = plot.hqPad.Position
 							local d = Vector3.new(to.X - root.Position.X, 0, to.Z - root.Position.Z)
-							B.carry.total = B.carry.total or d.Magnitude
-							if not B.carry.stopAt and d.Magnitude < B.carry.total * 0.67 then B.carry.stopAt = now end
-							local stopped = B.carry.stopAt and now - B.carry.stopAt < 1.5
-							if d.Magnitude > 1 and not stopped then
-								local dir = CFrame.Angles(0, math.sin((now - B.carry.t0) * 1.3) * math.rad(35), 0):VectorToWorldSpace(d.Unit)
-								local np = root.Position + dir * math.min(d.Magnitude, hum.WalkSpeed * 0.25)
+							--[[ v4.4 the v4.3 hunter catches anyone who stops (the old bot's 1.5 s
+							look-around lost every chase-tier carry), so the bot plays like a player
+							who learned the chase: never stops, a small weave round lamps and cars,
+							and BOOST (+8 for 1 s, 5 s cooldown, ChaseRules.BOOST) on the crouch. ]]
+							if not (B.boostUntil and now < B.boostUntil) and now - (B.boostAt or -1e9) >= 5 then
+								local row = workspace:FindFirstChild("SiliconValley") and workspace.SiliconValley:FindFirstChild("TalentRow")
+								for _, m in ipairs(row and row:GetChildren() or {}) do
+									if m:GetAttribute("Chaser") and m:GetAttribute("ChasingUserId") == player.UserId and m:GetAttribute("Windup") then
+										B.boostAt, B.boostUntil = now, now + 1
+										B.boosts = (B.boosts or 0) + 1
+										break
+									end
+								end
+							end
+							local speed = hum.WalkSpeed + ((B.boostUntil and now < B.boostUntil) and 8 or 0)
+							if d.Magnitude > 1 then
+								local dir = CFrame.Angles(0, math.sin((now - B.carry.t0) * 1.3) * math.rad(15), 0):VectorToWorldSpace(d.Unit)
+								local np = root.Position + dir * math.min(d.Magnitude, speed * 0.25)
 								player.Character:PivotTo(CFrame.lookAt(np, np + dir))
 							end
 						end
@@ -406,7 +418,7 @@ return function(core)
 					if now - B.t0 > 45 * 60 then note("TIMEOUT 45 min"); B.running = false end
 					task.wait(0.25)
 				end
-				note(("end  buys %d  longest wait %.0f s  refused %d"):format(B.buys, B.longest, B.fails))
+				note(("end  buys %d  longest wait %.0f s  refused %d  boosts %d"):format(B.buys, B.longest, B.fails, B.boosts or 0))
 				for k, v in pairs(B.carries or {}) do note(("carries  %s x%d"):format(k, v)) end
 			end)
 			return "bot started"

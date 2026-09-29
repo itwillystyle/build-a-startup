@@ -620,4 +620,8 @@ function HQFloors.build(add, g, level, w, d, h, shell, plot)
 	end
 end
 
+-- v4.4 make the lift remotes at load: LiftClient waits for LiftMenu, and on a
+-- fresh save (HQ 1, no lift yet) that wait printed "Infinite yield possible"
+initRemotes()
+
 return HQFloors

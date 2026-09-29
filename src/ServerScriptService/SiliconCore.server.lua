@@ -64,7 +64,7 @@ if not Telemetry then
 end
 if FurnitureKit then
 	local have, missing = FurnitureKit.report()
-	print(("[SV] FurnitureKit: %d/20 meshes present"):format(have))
+	print(("[SV] FurnitureKit: %d/%d meshes present"):format(have, have + #missing))
 	if #missing > 0 then print("[SV] not imported: " .. table.concat(missing, ", ")) end
 end
 
