@@ -73,7 +73,7 @@ function J.task(st)
 	local jr = st.jr or {}
 	-- HQ 2: the car, then the drive, then the home
 	if hq >= 2 and st.hasCar and not jr.drove then
-		return { key = "car", title = "Hop in your company car", sub = st.touch and "Tap CAR" or "Press C or click CAR", target = "car" }
+		return { key = "car", title = "Hop in your car", sub = st.touch and "Tap CAR" or "Press C or click CAR", target = "car" }
 	end
 	if hq >= 2 and (st.apt or 0) == 0 and not jr.res then
 		return { key = "drive", title = "Drive to The Residences", sub = "Downtown, the east end of the road", target = "residences" }
@@ -124,7 +124,7 @@ function J.milestone(st)
 	if not st.listed then
 		return { title = "GO PUBLIC", sub = "List your company on the Valley Exchange", cost = nil }
 	end
-	return { title = "SPIN OFF", sub = ("x%s money, forever"):format(st.nextMult or "?"), cost = st.spinCost }
+	return { title = "SPIN OFF", sub = ("Start a new company: x%s money"):format(st.nextMult or "?"), cost = st.spinCost }
 end
 
 -- v4.4 his screenshot: NEXT GOAL "Save up to spin off" over BIG GOAL "SPIN OFF",

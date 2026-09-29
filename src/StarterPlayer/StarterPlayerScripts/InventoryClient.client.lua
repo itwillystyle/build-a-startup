@@ -113,17 +113,18 @@ local function slot(it)
 	if m then table.insert(spin, { m = m, base = m:GetPivot(), phase = it.order * 1.3 }) end
 	UIKit.label(b, it.name, 14, UIKit.CARD_TEXT, { Position = UDim2.new(0, 4, 0, 70), Size = UDim2.new(1, -8, 0, 18),
 		TextXAlignment = Enum.TextXAlignment.Center, TextTruncate = Enum.TextTruncate.AtEnd }, UIKit.HEAD)
-	-- v5: rarity in words on its colour (a 6 px underline was colour as the only signal)
-	local rc = Items.RARITY[it.rarity].color
+	-- v5: rarity in words (a 6 px underline was colour as the only signal)
 	local rar = Instance.new("TextLabel")
 	rar.Name = "Rarity"
 	rar.AnchorPoint = Vector2.new(0.5, 1)
 	rar.Position = UDim2.new(0.5, 0, 1, -6)
 	rar.Size = UDim2.new(1, -16, 0, 20)
-	rar.BackgroundColor3 = UIKit.light(rc)
+	-- v5 critique: neutral. Green, blue and purple already mean go, info and GENIUS
+	-- in this game (the Index uses them for talent), so the word carries the rarity
+	rar.BackgroundColor3 = UIKit.SURFACE_2
 	rar.BorderSizePixel = 0
 	rar.Text = Items.RARITY[it.rarity].name
-	rar.TextColor3 = UIKit.darker(rc, 0.5)
+	rar.TextColor3 = UIKit.INK_SOFT
 	rar.TextSize = 14
 	rar.Font = UIKit.HEAD
 	rar.Parent = b
@@ -175,7 +176,7 @@ drawDetail = function()
 	local n = counts()[it.id] or 0
 	local r = Items.RARITY[it.rarity]
 	UIKit.label(detail, it.name, 22, UIKit.INK, { Size = UDim2.new(1, 0, 0, 26) }, UIKit.HEAD)
-	UIKit.label(detail, r.name, 14, UIKit.darker(r.color, 0.55), { Position = UDim2.new(0, 0, 0, 26), Size = UDim2.new(1, 0, 0, 18) }, UIKit.HEAD)
+	UIKit.label(detail, r.name, 14, UIKit.MUTED_TEXT, { Position = UDim2.new(0, 0, 0, 26), Size = UDim2.new(1, 0, 0, 18) }, UIKit.HEAD)
 	UIKit.label(detail, it.desc, 16, UIKit.INK_SOFT, { Position = UDim2.new(0, 0, 0, 50), Size = UDim2.new(1, 0, 0, 62),
 		TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top }, UIKit.BODY)
 	if n == 0 then
@@ -387,7 +388,7 @@ local function gotCard(id, n, source, done)
 	end
 	local vp = workspace.CurrentCamera.ViewportSize
 	local card = UIKit.card(fx, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.42, 0), Size = UDim2.new(0, 330, 0, 106) },
-		{ radius = 18, strokeWidth = 3, stroke = Items.RARITY[it.rarity].color })
+		{ radius = 18, strokeWidth = 3, stroke = UIKit.GOLD })          -- gold = a reward
 	local vpf = Instance.new("ViewportFrame")
 	vpf.BackgroundTransparency = 1
 	vpf.Position = UDim2.new(0, 8, 0, 8)
@@ -397,7 +398,7 @@ local function gotCard(id, n, source, done)
 	local base = m and m:GetPivot()
 	UIKit.label(card, ("+%d %s"):format(n or 1, it.name), 20, UIKit.CARD_TEXT, { Position = UDim2.new(0, 96, 0, 12), Size = UDim2.new(1, -104, 0, 24),
 		TextTruncate = Enum.TextTruncate.AtEnd }, UIKit.HEAD)
-	UIKit.label(card, it.short, 16, UIKit.darker(Items.RARITY[it.rarity].color, 0.55), { Position = UDim2.new(0, 96, 0, 38), Size = UDim2.new(1, -104, 0, 18) }, UIKit.HEAD)
+	UIKit.label(card, it.short, 16, UIKit.INK_SOFT, { Position = UDim2.new(0, 96, 0, 38), Size = UDim2.new(1, -104, 0, 18) }, UIKit.HEAD)
 	-- v5: two lines, whole sentence ("Launch day: your team made cold..." was cut)
 	UIKit.label(card, source or "", 14, UIKit.CARD_MUTED, { Position = UDim2.new(0, 96, 0, 60), Size = UDim2.new(1, -108, 0, 36),
 		TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top }, UIKit.BODY)

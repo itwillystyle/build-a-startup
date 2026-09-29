@@ -130,6 +130,13 @@ end
 local claimBtn, claimLabel = UIKit.button(body, "CLAIM", UIKit.GREEN, {
 	Name = "Claim", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, 0), Size = UDim2.new(0, 280, 0, 56),
 }, { textSize = 24, silent = true })
+-- v5 critique: once claimed, the countdown is a flat chip; a lipped button that
+-- does nothing reads as broken (the old quest card's "GO >" problem)
+local nextChip = UIKit.label(body, "", 18, UIKit.INK_SOFT, {
+	Name = "NextGift", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -6), Size = UDim2.new(0, 280, 0, 44),
+	TextXAlignment = Enum.TextXAlignment.Center, BackgroundColor3 = UIKit.SURFACE_2, BackgroundTransparency = 0, Visible = false,
+}, UIKit.HEAD)
+Instance.new("UICorner", nextChip).CornerRadius = UDim.new(1, 0)
 
 -- ============ STATE ============
 
@@ -180,14 +187,14 @@ local function refresh()
 		sub.Text = day == 1 and "Come back every day. Day 7 pays the most!" or ("Day %d in a row! Miss a day and it starts over."):format(day)
 		claimLabel.Text = "CLAIM " .. UIKit.money(a[day] or 0)
 		claimLabel.TextSize = 24
+		claimBtn.Visible, nextChip.Visible = true, false
 		UIKit.setButtonColor(claimBtn, UIKit.GREEN)
 	else
 		-- v5: say "tomorrow" once (the lit TOMORROW tile). The sub is the streak, and
 		-- the dead CLAIMED! button counts down to the next gift instead
 		sub.Text = day <= 1 and "Your streak starts today." or ("%d days in a row!"):format(day)
-		claimLabel.Text = nextGiftText()
-		claimLabel.TextSize = 20            -- "NEXT GIFT IN 14H 03M" fits the 280 button
-		UIKit.setButtonColor(claimBtn, UIKit.MUTED)
+		nextChip.Text = nextGiftText()
+		claimBtn.Visible, nextChip.Visible = false, true
 	end
 	local items = string.split(player:GetAttribute("DailyItems") or "", ",")
 	for d, t in ipairs(tiles) do
@@ -233,7 +240,7 @@ task.spawn(function()
 			for d, t in ipairs(tiles) do t.scale.Scale = d == day and (1 + 0.05 * math.sin(os.clock() * 5)) or 1 end
 		elseif gui.Enabled then
 			local txt = nextGiftText()          -- the countdown ticks while the card is open
-			if claimLabel.Text ~= txt then claimLabel.Text = txt end
+			if nextChip.Text ~= txt then nextChip.Text = txt end
 		end
 		if railIcon then
 			-- a short wiggle every 2.5 s (a constant shake would be noise)

@@ -220,8 +220,8 @@ local timeBar = Instance.new("Frame")
 timeBar.Name = "TimeLeft"
 timeBar.BackgroundColor3 = UIKit.GOLD_DEEP
 timeBar.BorderSizePixel = 0
-timeBar.Position = UDim2.new(0, 12, 1, -12)
-timeBar.Size = UDim2.new(0, TIME_W, 0, 4)
+timeBar.Position = UDim2.new(0, 12, 1, -13)
+timeBar.Size = UDim2.new(0, TIME_W, 0, 6)
 timeBar.Visible = false
 timeBar.ZIndex = codeBtn.ZIndex + 1
 timeBar.Parent = codeBtn
@@ -231,7 +231,7 @@ Instance.new("UICorner", timeBar).CornerRadius = UDim.new(1, 0)
 local timeBadge = Instance.new("Frame")
 timeBadge.Name = "TimeBadge"
 timeBadge.AnchorPoint = Vector2.new(1, 0.5)
-timeBadge.Position = UDim2.new(1, 8, 0, 2)
+timeBadge.Position = UDim2.new(1, 24, 0, 0)      -- clear of the "!" in LAUNCH! (at 1,8 it covered it)
 timeBadge.Size = UDim2.new(0, 58, 0, 30)
 timeBadge.BackgroundColor3 = UIKit.INK
 timeBadge.BorderSizePixel = 0
@@ -425,7 +425,7 @@ RunService.RenderStepped:Connect(function()
 		local at = launchState.autoAt
 		if at then
 			local left = math.max(0, at - workspace:GetServerTimeNow())
-			timeBar.Size = UDim2.new(0, math.floor(TIME_W * math.clamp(left / 60, 0, 1)), 0, 4)
+			timeBar.Size = UDim2.new(0, math.floor(TIME_W * math.clamp(left / 60, 0, 1)), 0, 6)
 			timeBar.BackgroundColor3 = left <= 15 and UIKit.ORANGE_DEEP or UIKit.GOLD_DEEP
 			timeText.Text = math.ceil(left) .. "s"
 			timeBadge.BackgroundColor3 = left <= 15 and UIKit.ORANGE_DEEP or UIKit.INK
@@ -760,7 +760,7 @@ if celebrate then
 			Notify.show({ lane = "top", priority = 2, key = "milestone",
 				open = function(done)
 					UIKit.sfx("ding")
-					popUnderCash(("%s earned!  +%d%% money forever"):format(UIKit.money(e.earned or 0), e.bonus or 2), UIKit.GOLD, 2.4)
+					popUnderCash(("%s earned!  +%d%% money"):format(UIKit.money(e.earned or 0), e.bonus or 2), UIKit.GOLD, 2.4)
 					task.delay(2.9, done)
 				end })
 		elseif e.kind == "spinAsk" then
@@ -780,6 +780,18 @@ task.spawn(function()
 	local t0 = os.clock()
 	while not away and os.clock() - t0 < 12 do task.wait(0.25); away = player:GetAttribute("OfflineEarned") end
 	if not away or away <= 0 or player:GetAttribute("Returning") ~= true then
+		player:SetAttribute("WelcomeDone", true)
+		return
+	end
+	-- v5 critique: a card in the middle of the screen for $43 (1.5 s of income)
+	-- is noise. Under a minute of income and under 5% of your cash, it is a line
+	-- under the money instead
+	local ls = player:WaitForChild("leaderstats", 10)
+	local rate = ls and ls:FindFirstChild("Per Sec") and ls["Per Sec"].Value or 0
+	local cash = ls and ls:FindFirstChild("Cash") and ls.Cash.Value or 0
+	if away < math.max(rate * 60, cash * 0.05) then
+		task.wait(1.5)
+		popUnderCash("+" .. UIKit.money(away) .. " while you were away", UIKit.MONEY, 2.4)
 		player:SetAttribute("WelcomeDone", true)
 		return
 	end

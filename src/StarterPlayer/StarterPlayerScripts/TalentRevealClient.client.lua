@@ -267,7 +267,7 @@ local function showCard(d, done)
 	stroke.Color = UIKit.darker(col, 0.8)
 	disc.BackgroundColor3 = col
 	local mult = tostring(d.mult):gsub("%.0$", "")
-	who.Text = ("%s  ·  x%s money forever"):format(tostring(d.who or "New hire"), mult)
+	who.Text = ("%s  ·  x%s money"):format(tostring(d.who or "New hire"), mult)
 	odds.Text = d.signed and "Signed from the street" or ("Lucky! 1 in %s hires"):format(tostring(d.odds))
 	chip.Visible = d.newIndex == true
 	chipText.Text = ("NEW IN INDEX  %d / 25"):format(tonumber(d.indexCount) or 0)
