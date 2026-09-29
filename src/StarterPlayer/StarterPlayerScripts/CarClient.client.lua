@@ -413,6 +413,24 @@ list.Parent = body
 local openedAt
 
 local function money(n) return UIKit.money and UIKit.money(n) or ("$" .. tostring(n)) end
+-- v5: your cash, in the shop's own header. On a phone the dealer covers the
+-- money counter (fitting it below the counter would shrink its words under 14 px
+-- and its buttons under 44), so the number you shop with lives here
+local header = panel:FindFirstChild("Header")
+local cashLbl = header and UIKit.outlined(header, "", 20, UIKit.MONEY, {
+	Name = "Cash", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -62, 0.5, 0), Size = UDim2.new(0, 120, 0, 26),
+	TextXAlignment = Enum.TextXAlignment.Right,
+})
+local function showCash()
+	local ls = player:FindFirstChild("leaderstats")
+	local c = ls and ls:FindFirstChild("Cash")
+	if cashLbl and c then cashLbl.Text = money(c.Value) end
+end
+task.spawn(function()
+	local ls = player:WaitForChild("leaderstats", 30)
+	local c = ls and ls:WaitForChild("Cash", 30)
+	if c then c.Changed:Connect(function() if dg.Enabled then showCash() end end) end
+end)
 
 local function showDealer(st)
 	for _, c in ipairs(body:GetChildren()) do if c:IsA("GuiObject") then c:Destroy() end end
@@ -474,6 +492,7 @@ local function showDealer(st)
 	refit()
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 	openedAt = root and root.Position
+	showCash()
 	dg.Enabled = true
 	UIKit.solo(dg)
 end
