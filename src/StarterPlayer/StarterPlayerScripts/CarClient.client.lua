@@ -311,6 +311,7 @@ do
 		local coach = player.PlayerGui:FindFirstChild("Coach")
 		local tip = coach and coach:FindFirstChild("CoachCard")
 		local goal = player:GetAttribute("Objective") == "car" and carBtn.Visible and not (tip and tip.Visible)
+			and player:GetAttribute("Celebrating") ~= true     -- nor during a level-up / rare-hire moment
 		if goal then
 			ring.Color = UIKit.GOLD
 			ring.Thickness = 3 + 2 * (0.5 + 0.5 * math.sin(os.clock() * 5))
