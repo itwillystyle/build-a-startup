@@ -186,87 +186,15 @@ local function showPicker()
 	panel.Position = pos + UDim2.new(0, 0, 0, -30)
 	TweenService:Create(panel, TweenInfo.new(0.25, Enum.EasingStyle.Back), { Position = pos }):Play()
 end
--- ============ THE LAUNCH CARD (v3.1) ============
---[[ "Your app is ready" was said three times (guide strip, work bar, and a
-640 x 148 card dead centre over the player). Now it is ONE green card at the
-top of the right column, above the quest card: rocket, LAUNCH!, the payday,
-and a bar counting down to the half-pay auto-launch (the old game said
-nothing about that and then scolded you with "AUTO-LAUNCHED (half pay)"). ]]
-local launchCol = UIKit.column()
-local launch, launchLabel = UIKit.button(launchCol, "", UIKit.GREEN, {
-	Name = "Launch", LayoutOrder = 1, Size = UDim2.new(1, 0, 0, 106), Visible = false,
-}, { textSize = 26, silent = false })
-UIKit.art(launch, "rocket", 56, { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 6, 0, 32), ZIndex = launch.ZIndex + 2 })
-local lTitle = UIKit.outlined(launch, "LAUNCH!", 28, UIKit.TEXT, {
-	Position = UDim2.new(0, 64, 0, 6), Size = UDim2.new(1, -72, 0, 32), ZIndex = launch.ZIndex + 2,
-})
-local lPay = UIKit.outlined(launch, "", 17, UIKit.TEXT, {
-	Position = UDim2.new(0, 64, 0, 38), Size = UDim2.new(1, -72, 0, 20), ZIndex = launch.ZIndex + 2,
-})
-local lTrack = Instance.new("Frame")
-lTrack.BackgroundColor3 = UIKit.darker(UIKit.GREEN, 0.7)
-lTrack.BorderSizePixel = 0
-lTrack.Position = UDim2.new(0, 10, 1, -22)
-lTrack.Size = UDim2.new(1, -20, 0, 12)
-lTrack.ZIndex = launch.ZIndex + 1
-lTrack.Parent = launch
-Instance.new("UICorner", lTrack).CornerRadius = UDim.new(1, 0)
-local lFill = Instance.new("Frame")
-lFill.BackgroundColor3 = UIKit.TEXT
-lFill.BorderSizePixel = 0
-lFill.Size = UDim2.new(1, 0, 1, 0)
-lFill.ZIndex = launch.ZIndex + 2
-lFill.Parent = lTrack
-Instance.new("UICorner", lFill).CornerRadius = UDim.new(1, 0)
--- the auto-launch warning gets its own line (it sat on top of the payday at 12 px)
-local lAuto = UIKit.label(launch, "", 14, UIKit.TEXT, {
-	Position = UDim2.new(0, 12, 0, 62), Size = UDim2.new(1, -24, 0, 16), ZIndex = launch.ZIndex + 2,
-	TextTruncate = Enum.TextTruncate.AtEnd,
-}, UIKit.HEAD)
-lAuto.TextStrokeTransparency = 0.6
-lAuto.TextStrokeColor3 = UIKit.darker(UIKit.GREEN, 0.4)
-local lWrap = Instance.new("UIScale", lTitle)
-local autoAt, launchedSerial = nil, 0
-
-local lastLaunch
--- v3.2: an armed Front Page doubles the payday; the card says so before you tap
-local function payText(o)
-	local press = player:GetAttribute("ArmedPress") == true
-	return press and ("+%s  Front Page x2"):format(UIKit.money((o.payday or 0) * 2)) or ("+%s payday"):format(UIKit.money(o.payday or 0))
-end
-player:GetAttributeChangedSignal("ArmedPress"):Connect(function() if lastLaunch then lPay.Text = payText(lastLaunch) end end)
-local function showLaunch(o)
-	launchedSerial += 1
-	lastLaunch = o
-	lPay.Text = payText(o)
-	autoAt = o.autoAt
-	launch.Visible = true
-	UIKit.sfx("ding", 0.9)
-end
-local function doLaunch()
-	if not launch.Visible then return end
-	pickMarket:FireServer(1)
-	launch.Visible = false
-end
-launch.MouseButton1Click:Connect(doLaunch)
--- v4.3: L on a keyboard, Y on a gamepad (his run: LAUNCH was never pressed in 19 minutes)
-game:GetService("UserInputService").InputBegan:Connect(function(input, processed)
-	if processed then return end
-	if input.KeyCode == Enum.KeyCode.L or input.KeyCode == Enum.KeyCode.ButtonY then doLaunch() end
-end)
-game:GetService("RunService").RenderStepped:Connect(function()
-	if not launch.Visible then return end
-	lWrap.Scale = 1 + 0.05 * (0.5 + 0.5 * math.sin(os.clock() * 5))
-	if autoAt then
-		local left = math.max(0, autoAt - workspace:GetServerTimeNow())
-		lFill.Size = UDim2.new(math.clamp(left / 60, 0, 1), 0, 1, 0)
-		lAuto.Text = ("Auto-launch in %ds (half pay)"):format(math.ceil(left))
-	end
-end)
+-- ============ LAUNCH (v5: moved) ============
+--[[ The v3.1 LAUNCH card lived at the top of the right column. v5 moved
+LAUNCH into the bottom-centre slot (HudClient): the button that fills with
+the next app becomes the button that launches it. This script keeps the
+three-market picker below (non-V3 saves) and the toasts. ]]
 
 productReady.OnClientEvent:Connect(function(options)
-	if not options then panel.Visible = false; pickerHeld = false; launch.Visible = false return end   -- server shipped it
-	if #options == 1 and options[1].launch then showLaunch(options[1]) return end
+	if not options then panel.Visible = false; pickerHeld = false return end   -- server shipped it
+	if #options == 1 and options[1].launch then return end   -- v5: HudClient's slot is the LAUNCH button
 	-- v2.7.0: a single LAUNCH card fills the row; three market cards share it
 	local single = #options == 1
 	singleMode = single
@@ -431,5 +359,7 @@ toast.OnClientEvent:Connect(function(text, kind)
 	Notify.toast(tostring(text), {
 		priority = news and 3 or (carrying and 1 or 2),
 		untilCarryEnds = carrying and not news,
+		icon = news and "team" or "info",
+		iconColor = news and UIKit.PURPLE or UIKit.BLUE,
 	})
 end)

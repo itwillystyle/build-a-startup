@@ -305,18 +305,19 @@ local function toastParts()
 	pill.BackgroundColor3 = UIKit.CARD
 	pill.Text = ""
 	pill.TextColor3 = UIKit.CARD_TEXT
-	pill.TextSize = 17
-	pill.Font = UIKit.HEAD
+	pill.TextSize = 16
+	UIKit.setFont(pill, UIKit.BODY)
 	pill.TextTruncate = Enum.TextTruncate.AtEnd
 	pill.Parent = toastGui
 	Instance.new("UICorner", pill).CornerRadius = UDim.new(1, 0)
 	local st = Instance.new("UIStroke", pill)
-	st.Color = UIKit.CARD_LINE
-	st.Thickness = 1.5
+	st.Color = UIKit.INK_SOFT
+	st.Thickness = 2
 	st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	UIKit.lip(pill, 4)
 	local pad = Instance.new("UIPadding", pill)
 	pad.PaddingLeft = UDim.new(0, 46); pad.PaddingRight = UDim.new(0, 18)
-	UIKit.icon(pill, "info", 24, UIKit.BLUE, { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, -34, 0.5, 0) })
+	UIKit.icon(pill, "info", 24, UIKit.BLUE, { Name = "Icon", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, -34, 0.5, -1) })
 	local cap = Instance.new("UISizeConstraint", pill)
 	cap.MaxSize = Vector2.new(480, 44)
 	toastPill = pill
@@ -338,8 +339,16 @@ function Notify.toast(text, opts)
 			toastSerial += 1
 			local mine = toastSerial
 			pill.Text = tostring(text)
+			-- v5: the icon says whose news it is (it was one blue "i" for everything)
+			local UIKit = require(RS:WaitForChild("UIKit"))
+			local ic = pill:FindFirstChild("Icon")
+			if ic then
+				ic.Image = UIKit.ICON[opts.icon or "info"] or UIKit.ICON.info
+				ic.ImageColor3 = opts.iconColor or UIKit.BLUE
+			end
 			if opts.sfx then require(RS:WaitForChild("UIKit")).sfx(opts.sfx) end
-			TweenService:Create(pill, TweenInfo.new(0.3, Enum.EasingStyle.Back), { Position = UDim2.new(0.5, 0, 1, -98) }):Play()
+			-- v5: above the bottom slot AND its caption (at -98 it covered "NEXT APP")
+			TweenService:Create(pill, TweenInfo.new(0.25, Enum.EasingStyle.Quint), { Position = UDim2.new(0.5, 0, 1, -118) }):Play()
 			local conn
 			local function finish()
 				if conn then conn:Disconnect(); conn = nil end

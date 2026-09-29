@@ -60,19 +60,19 @@ local function finish(report)
 end
 
 local function build(id, target, done)
-	local W, H = 290, 132
+	local W, H = 290, 140
 	local card = UIKit.card(gui, { Name = "CoachCard", Size = UDim2.new(0, W, 0, H), ZIndex = 2 }, { radius = 16, strokeWidth = 3 })
 	local stroke = card:FindFirstChildOfClass("UIStroke")
 	if stroke then stroke.Color = UIKit.GOLD end
 	UIKit.label(card, player:GetAttribute("CoachTitle") or "", 20, UIKit.INK, {
 		Position = UDim2.new(0, 14, 0, 10), Size = UDim2.new(1, -28, 0, 24), ZIndex = 3,
 	}, UIKit.HEAD)
-	UIKit.label(card, player:GetAttribute("CoachBody") or "", 14, UIKit.CARD_MUTED, {
+	UIKit.label(card, player:GetAttribute("CoachBody") or "", 16, UIKit.INK_SOFT, {
 		Position = UDim2.new(0, 14, 0, 38), Size = UDim2.new(1, -28, 0, 44), TextWrapped = true,
 		TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 3,
-	}, UIKit.HEAD)
+	}, UIKit.BODY)
 	local ok = UIKit.button(card, "GOT IT", UIKit.GREEN, {
-		Name = "GotIt", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -12, 1, -10), Size = UDim2.new(0, 110, 0, 36), ZIndex = 4,
+		Name = "GotIt", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -12, 1, -12), Size = UDim2.new(0, 120, 0, 44), ZIndex = 4,
 	}, { textSize = 18 })
 	local arrow = UIKit.icon(gui, "up", 40, UIKit.GOLD, { Name = "CoachArrow", AnchorPoint = Vector2.new(0.5, 0.5), ZIndex = 3 })
 	arrow.Parent = card.Parent
@@ -108,7 +108,8 @@ local function build(id, target, done)
 		rs.Transparency = 0.25 + 0.35 * (0.5 + 0.5 * math.sin((os.clock() - t0) * 5))
 		local leftSide = centre.X < vp.X / 2
 		local x = leftSide and (tp.X + ts.X + 40) or (tp.X - W - 40)
-		local y = math.clamp(centre.Y - H / 2, 8, vp.Y - H - 8)
+		-- v5: never under Roblox's top bar (logo, menu and chat live in the top 58 px)
+		local y = math.clamp(centre.Y - H / 2, 64, math.max(64, vp.Y - H - 8))
 		card.Position = UDim2.fromOffset(x, y)
 		arrow.Rotation = leftSide and -90 or 90                    -- the icon points up at 0
 		arrow.Position = UDim2.fromOffset(leftSide and (tp.X + ts.X + 20 + bob) or (tp.X - 20 - bob), centre.Y)
@@ -123,7 +124,18 @@ local function build(id, target, done)
 	UIKit.sfx("ding", 1.25, 0.4)
 end
 
--- the tip shows after a calm moment and hides (does not close) while anything else is on screen
+-- the tip shows after a calm moment and hides (does not close) while anything else is on screen.
+-- v5: "anything else" includes the goal itself: never while the goal's edge arrow
+-- is up (two gold arrows pointing different ways at minute 1), and never in the
+-- first 20 s of a new goal (let the player start on it first)
+local goalSince = os.clock()
+player:GetAttributeChangedSignal("Objective"):Connect(function() goalSince = os.clock() end)
+local function goalBusy()
+	if os.clock() - goalSince < 20 then return true end
+	local guide = player.PlayerGui:FindFirstChild("Guide")
+	local edge = guide and guide.Enabled and guide:FindFirstChild("EdgeArrow")
+	return edge ~= nil and edge.Visible
+end
 local calmSince
 local function setShown(c, on)
 	if c.frame then c.frame.Visible = on end
@@ -135,7 +147,7 @@ task.spawn(function()
 		task.wait(0.2)
 		local id = player:GetAttribute("CoachTip")
 		if current and current.id ~= id then finish(false) end
-		local busy = Notify.busy()
+		local busy = Notify.busy() or goalBusy()
 		if busy then calmSince = nil elseif not calmSince then calmSince = os.clock() end
 		if current then
 			setShown(current, not busy)

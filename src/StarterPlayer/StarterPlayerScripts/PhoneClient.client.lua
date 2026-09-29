@@ -52,8 +52,8 @@ local call = {}                          -- { state, with, name, id, since, mute
 
 -- ============ THE RAIL BUTTON ============
 
-local railBtn = UIKit.iconButton(UIKit.rail(), "phone", "PHONE", UIKit.GREEN, {
-	Name = "PhoneButton", LayoutOrder = 1, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
+local railBtn = UIKit.railButton("phone", "PHONE", UIKit.GREEN, {
+	Name = "PhoneButton", LayoutOrder = 2, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
 }, { iconSize = 28 })
 local railBadge, railBadgeText = UIKit.badge(railBtn)
 
@@ -249,9 +249,7 @@ end, 1)
 appButton("calls", "Calls", Color3.fromRGB(60, 190, 150), function(tile)
 	UIKit.icon(tile, "phone", 28, UIKit.TEXT, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0) })
 end, 2)
-appButton("rewards", "Daily", UIKit.GOLD, function(tile)
-	UIKit.icon(tile, "medal", 28, UIKit.INK, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0) })
-end, 3)
+-- (v5: the Daily app is gone: the daily gift has its own rail tile, DailyClient)
 
 -- ============ SMALL PIECES ============
 
@@ -831,24 +829,6 @@ local function callList()
 	end
 end
 
--- ============ REWARDS ============
-
-local function rewards()
-	clear()
-	header(content, "Daily reward", "Come back every day. Day 7 pays the most.")
-	local ready = player:GetAttribute("DailyReady") == true
-	local day = player:GetAttribute("DailyStreak") or 1
-	local card = UIKit.card(content, { Position = UDim2.new(0, 14, 0, 64), Size = UDim2.new(1, -28, 0, 120) }, { radius = 16 })
-	UIKit.label(card, ready and ("Day %d is ready!"):format(day) or ("Day %d claimed. Come back tomorrow."):format(day), 18, UIKit.CARD_TEXT, {
-		Position = UDim2.new(0, 14, 0, 12), Size = UDim2.new(1, -28, 0, 24), TextWrapped = true }, UIKit.HEAD)
-	local open = UIKit.button(card, ready and "OPEN" or "SEE THE WEEK", ready and UIKit.GREEN or UIKit.BLUE, {
-		Position = UDim2.new(0, 14, 1, -60), Size = UDim2.new(0, 200, 0, 48) }, { textSize = 18 })
-	open.MouseButton1Click:Connect(function()
-		local be = player.PlayerGui:FindFirstChild("SVOpenDaily")
-		if be then gui.Enabled = false; be:Fire() end
-	end)
-end
-
 -- ============ RENDER ============
 
 render = function()
@@ -857,10 +837,8 @@ render = function()
 	if view.app == "messages" then
 		local th = view.thread and threads[view.thread]
 		if th then openThread(th) else threadList() end
-	elseif view.app == "calls" then
-		callList()
 	else
-		rewards()
+		callList()
 	end
 end
 
@@ -1234,14 +1212,11 @@ refreshBadge = function()
 	local open = player:GetAttribute("Shipped") == true and ((player:GetAttribute("HQLevel") or 1) >= 2
 		or player:GetAttribute("Returning") == true or unread > 0 or call.state ~= nil)
 	railBtn.Visible = open
-	local daily = open and player:GetAttribute("DailyReady") == true
-	local n = unread + (daily and 1 or 0)
-	railBadge.Visible = n > 0 and not gui.Enabled
-	railBadgeText.Text = unread > 0 and (unread > 9 and "9+" or tostring(n)) or "!"
+	-- v5: the badge means one thing, "an investor texted" (the daily gift has its own tile)
+	railBadge.Visible = unread > 0 and not gui.Enabled
+	railBadgeText.Text = unread > 9 and "9+" or tostring(unread)
 	apps.messages.dot.Visible = unread > 0
 	apps.messages.dotText.Text = unread > 9 and "9+" or tostring(unread)
-	apps.rewards.dot.Visible = daily
-	apps.rewards.dotText.Text = "!"
 	apps.calls.dot.Visible = false
 end
 for _, a in ipairs({ "PhoneUnread", "DailyReady", "Shipped", "HQLevel", "Returning" }) do player:GetAttributeChangedSignal(a):Connect(refreshBadge) end
@@ -1275,3 +1250,6 @@ task.spawn(function()
 	local ok, enabled = pcall(function() return VoiceChatService:IsVoiceEnabledForUserIdAsync(player.UserId) end)
 	send({ a = "voice", ok = ok and enabled == true })
 end)
+
+-- v5: the rail tile shows when this menu is open
+UIKit.bindRail(railBtn, gui)

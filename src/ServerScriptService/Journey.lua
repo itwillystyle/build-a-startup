@@ -124,7 +124,7 @@ function J.milestone(st)
 	if not st.listed then
 		return { title = "GO PUBLIC", sub = "List your company on the Valley Exchange", cost = nil }
 	end
-	return { title = "SPIN OFF", sub = ("Start again with x%s money forever"):format(st.nextMult or "?"), cost = st.spinCost }
+	return { title = "SPIN OFF", sub = ("x%s money, forever"):format(st.nextMult or "?"), cost = st.spinCost }
 end
 
 -- v4.4 his screenshot: NEXT GOAL "Save up to spin off" over BIG GOAL "SPIN OFF",
@@ -142,20 +142,24 @@ end
 -- One at a time, each once for life. The client points at `target` (a path
 -- under PlayerGui) and reports it seen.
 J.TIPS = {
-	{ id = "launch", target = "RightColumn.Column.Launch", title = "LAUNCH your app!",
-		body = "Tap it (or press L) for a big payday. Once you know how, a forgotten app launches itself at HALF pay.",
+	-- v5 (UI pass): the copy is one short line a 10-year-old reads at a glance,
+	-- LAUNCH lives in the bottom slot, the Index tip waits for a SECOND kind of
+	-- hire (at the first it landed on top of "walk to your lot"), and the daily
+	-- reward has its own rail button
+	{ id = "launch", target = "Hud.WriteCode", title = "LAUNCH your app!",
+		body = "Tap it for a big payday. Wait too long: half pay.",
 		when = function(st) return st.productReady and not (st.jr and st.jr.launched) end },
 	{ id = "bag", target = "Rail.Column.BagButton", title = "Your BAG",
-		body = "Items you earn live here. Coffee makes your code 3x faster. Tap to use it.",
+		body = "Items you win live here. Coffee makes code 3x faster.",
 		when = function(st) return (st.items or 0) > 0 end },
-	{ id = "index", target = "Rail.Column.IndexButton", title = "Talent INDEX",
-		body = "Every new kind of hire fills a line. Each line pays +5% money forever.",
-		when = function(st) return (st.indexCount or 0) > 0 end },
-	{ id = "ranks", target = "Rail.Column.RanksButton", title = "RANKS",
-		body = "Every founder's company, ranked. The weekly board resets on Monday.",
+	{ id = "index", target = "Rail.Column.IndexButton", title = "TALENT INDEX",
+		body = "Collect every kind of hire. Each full line: +5% money.",
+		when = function(st) return (st.indexCount or 0) >= 2 end },
+	{ id = "ranks", target = "RanksCorner.RanksButton", title = "RANKS",
+		body = "See how your company ranks. New board every Monday.",
 		when = function(st) return (st.hq or 1) >= 2 and st.jr and st.jr.drove end },
-	{ id = "daily", target = "Rail.Column.PhoneButton", title = "Daily reward",
-		body = "Come back every day: each day pays more, day 7 the most. It's in your PHONE.",
+	{ id = "daily", target = "Rail.Column.DailyButton", title = "DAILY GIFT",
+		body = "A gift every day you play. Day 7 is the biggest.",
 		when = function(st) return st.dailyReady and (st.hq or 1) >= 2 and st.jr and st.jr.res end },
 }
 

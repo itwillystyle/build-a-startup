@@ -64,9 +64,9 @@ end
 refit()
 workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(refit)
 
-local sub = UIKit.label(body, "", 17, UIKit.CARD_TEXT, {
+local sub = UIKit.label(body, "", 16, UIKit.CARD_TEXT, {
 	Name = "Sub", Size = UDim2.new(1, 0, 0, 24), TextXAlignment = Enum.TextXAlignment.Center,
-}, UIKit.HEAD)
+}, UIKit.BODY)
 
 local tiles = {}
 for d = 1, 7 do
@@ -82,7 +82,7 @@ for d = 1, 7 do
 	st.Thickness = 2
 	st.Color = UIKit.CARD_LINE
 	st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	local day = UIKit.label(t, d == 7 and "DAY 7!" or ("DAY " .. d), 15, UIKit.CARD_MUTED, {
+	local day = UIKit.label(t, d == 7 and "DAY 7!" or ("DAY " .. d), 14, UIKit.CARD_MUTED, {
 		Position = UDim2.new(0, 0, 0, 6), Size = UDim2.new(1, 0, 0, 18), TextXAlignment = Enum.TextXAlignment.Center,
 	}, UIKit.HEAD)
 	-- a pile that grows with the day: one coin on day 1, a stack by day 7
@@ -112,16 +112,17 @@ for d = 1, 7 do
 	}, UIKit.HEAD)
 	local ac = Instance.new("UITextSizeConstraint", amt)
 	ac.MaxTextSize = 16
-	ac.MinTextSize = 13
+	ac.MinTextSize = 14
 	local tick = UIKit.icon(t, "check", 30, UIKit.GREEN, {
 		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, 44), Visible = false, ZIndex = 3,
 	})
-	-- v3.2: from day 2 each day also gives an item; it sits on the tile's corner
+	-- v3.2: from day 2 each day also gives an item. v5: it sits beside the coins
+	-- (on the corner it covered the DAY label)
 	local itemVpf = Instance.new("ViewportFrame")
 	itemVpf.Name = "Item"
-	itemVpf.AnchorPoint = Vector2.new(1, 0)
-	itemVpf.Position = UDim2.new(1, 4, 0, 16)
-	itemVpf.Size = UDim2.new(0, 32, 0, 32)
+	itemVpf.AnchorPoint = Vector2.new(0.5, 0.5)
+	itemVpf.Position = UDim2.new(0.74, 0, 0, 44)
+	itemVpf.Size = UDim2.new(0, 30, 0, 30)
 	itemVpf.BackgroundColor3 = UIKit.SURFACE
 	itemVpf.BackgroundTransparency = 0
 	itemVpf.ZIndex = 4
@@ -163,7 +164,7 @@ local function refresh()
 		t.amt.Text = UIKit.money(a[d] or 0)
 		t.tick.Visible = done
 		t.coins.Visible = not done
-		t.frame.BackgroundColor3 = today and Color3.fromRGB(255, 246, 214) or (done and UIKit.SURFACE_2 or UIKit.CARD)
+		t.frame.BackgroundColor3 = today and UIKit.GOLD_LIGHT or (done and UIKit.SURFACE_2 or UIKit.CARD)
 		t.stroke.Color = today and UIKit.GOLD or UIKit.CARD_LINE
 		t.stroke.Thickness = today and 4 or 2
 		t.day.TextColor3 = today and UIKit.CARD_TEXT or UIKit.CARD_MUTED
@@ -182,6 +183,7 @@ local function refresh()
 	local items = string.split(player:GetAttribute("DailyItems") or "", ",")
 	for d, t in ipairs(tiles) do
 		local id = items[d]
+		t.coins.Position = UDim2.new((id and id ~= "" and Items.BY_ID[id]) and 0.36 or 0.5, 0, 0, 28)
 		if id and id ~= "" and Items.BY_ID[id] then
 			if t.itemId ~= id then
 				t.item:ClearAllChildren()
@@ -197,13 +199,31 @@ local function refresh()
 	end
 end
 
--- today's tile breathes while it waits
+-- ============ THE RAIL TILE (v5) ============
+--[[ The daily gift is the day-2 return hook, and it lived three taps deep in
+the phone (PHONE > Daily > SEE THE WEEK), sharing the phone's badge with
+investor texts. Now it has the first rail slot: a red "!" and a wiggle when a
+gift is waiting, quiet when today's is claimed. ]]
+local railBtn = UIKit.railButton("medal", "DAILY", UIKit.GREEN, {
+	Name = "DailyButton", LayoutOrder = 1, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
+}, { iconSize = 28 })
+local railBadge, railBadgeText = UIKit.badge(railBtn)
+railBadgeText.Text = "!"
+local railIcon = railBtn:FindFirstChild("Icon")
+
+-- today's tile breathes while it waits, and the rail icon wiggles
 task.spawn(function()
 	while true do
 		task.wait(0.05)
-		if gui.Enabled and player:GetAttribute("DailyReady") == true then
+		local ready = player:GetAttribute("DailyReady") == true
+		if gui.Enabled and ready then
 			local day = player:GetAttribute("DailyStreak") or 1
 			for d, t in ipairs(tiles) do t.scale.Scale = d == day and (1 + 0.05 * math.sin(os.clock() * 5)) or 1 end
+		end
+		if railIcon then
+			-- a short wiggle every 2.5 s (a constant shake would be noise)
+			local phase = os.clock() % 2.5
+			railIcon.Rotation = (ready and railBtn.Visible and not gui.Enabled and phase < 0.5) and (12 * math.sin(phase * 25)) or 0
 		end
 	end
 end)
@@ -235,6 +255,17 @@ claimBtn.MouseButton1Click:Connect(function()
 end)
 
 openEvent.Event:Connect(function() setOpen(true) end)
+railBtn.MouseButton1Click:Connect(function() setOpen(not gui.Enabled) end)
+UIKit.bindRail(railBtn, gui)
+local function syncRail()
+	railBtn.Visible = unlocked()
+	railBadge.Visible = railBtn.Visible and player:GetAttribute("DailyReady") == true and not gui.Enabled
+end
+for _, a in ipairs({ "DailyReady", "DailyAmounts", "Shipped", "HQLevel", "Returning", "JrRes" }) do
+	player:GetAttributeChangedSignal(a):Connect(syncRail)
+end
+gui:GetPropertyChangedSignal("Enabled"):Connect(syncRail)
+syncRail()
 if close then close.MouseButton1Click:Connect(function() setOpen(false) end) end
 UserInputService.InputBegan:Connect(function(input, processed)
 	if processed then return end

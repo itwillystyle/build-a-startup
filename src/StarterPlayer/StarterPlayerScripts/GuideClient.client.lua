@@ -1,87 +1,134 @@
 --[[
-	GuideClient v1 -- LocalScript in StarterPlayer -> StarterPlayerScripts.
+	GuideClient v5 -- LocalScript in StarterPlayer -> StarterPlayerScripts.
 
-	THE ARROW. Ghost Drivers' onboarding, copied: one objective at a time,
-	a floating marker over the thing to touch, an arrow at the edge of the
-	screen when it is off-screen, and one sentence at the top that says what
-	to do. Nothing blocks, nothing dims, nothing needs reading twice.
+	THE GOAL. One objective at a time, drawn three ways that agree:
+	  - the GOAL CARD (top of the right column): the goal's own icon, a short
+	    title, one sub line, and for a purchase a meter (cash / price)
+	  - the PIN over the target in the world: the SAME icon on a paper disc,
+	    bobbing, with a pulsing ring on the ground and a beam from your feet
+	  - the EDGE ARROW when the target is off screen
 
 	The SERVER decides the objective (player attributes Objective /
-	ObjectiveText / ObjectivePos). This script only draws. If the attributes
-	are nil the guide hides itself, so a finished player never sees it.
+	ObjectiveText / ObjectivePos / ObjectiveSub / ObjectiveCost, and the long
+	goal as Milestone*). This script only draws. No attributes = no guide.
+
+	v5 (29 Sep UI pass; ui_audit/CRITIQUE-v45.md):
+	  - ONE card. BIG GOAL was a second card with 11-12 px text; it is now a
+	    footer line of this card, hidden during the first minutes (a $3.8K goal
+	    at $0 was a second "next" before you had done anything)
+	  - nothing under 14 px, and nothing shrinks to fit: long lines wrap
+	  - the card is tappable: the camera turns to face the goal (the old
+	    "READY! GO >" looked like a button and did nothing)
+	  - DONE! only when a goal was actually finished (a purchase landed, or a
+	    free goal moved on). A goal swapping for a cheaper one says nothing,
+	    and the LAUNCH interruption never stamps DONE on the goal underneath
+	  - the world marker is the goal's icon on a pin, not two Neon slabs
 ]]
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local TextService = game:GetService("TextService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
-local UIKit = require(game:GetService("ReplicatedStorage"):WaitForChild("UIKit"))
+local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
+local Cine = ReplicatedStorage:FindFirstChild("Cine") and require(ReplicatedStorage.Cine)
 
-local GOLD = UIKit.GOLD     -- v3.1: one palette (UIKit)
-local INK = UIKit.INK
+local GOLD, INK = UIKit.GOLD, UIKit.INK
 
--- ============ 3D MARKER (one part, reused) ============
+local function tween(o, t, props, style)
+	local tw = TweenService:Create(o, TweenInfo.new(t, style or Enum.EasingStyle.Quint, Enum.EasingDirection.Out), props)
+	tw:Play()
+	return tw
+end
 
-local marker = Instance.new("Part")
-marker.Name = "GuideMarker"
-marker.Shape = Enum.PartType.Cylinder     -- a fat cone reads as an arrow head from every angle
-marker.Size = Vector3.new(1.2, 3.2, 3.2)
-marker.Color = GOLD
-marker.Material = Enum.Material.Neon
-marker.Anchored = true
-marker.CanCollide = false
-marker.CanQuery = false
-marker.CanTouch = false
-marker.CastShadow = false
-marker.Transparency = 1
+-- which rendered icon a goal wears (the card and the pin show the same one)
+local ICON_FOR = { code = "code", watch = "code", wait = "code", hire = "hire", hire2 = "hire", recruit = "hire",
+	carry = "hire", product = "rocket", spin = "rocket", hq = "hq", decor = "home", desk = "office",
+	apartment = "key", car = "car" }
+local ROOM_WORDS = { { "office", "office" }, { "studio", "studio" }, { "caf", "cafe" }, { "server", "servers" } }
+local TINT = { code = UIKit.GREEN, hire = UIKit.BLUE, rocket = UIKit.ORANGE, hq = UIKit.BLUE, home = UIKit.GREEN,
+	office = UIKit.BLUE, studio = UIKit.PINK, cafe = UIKit.ORANGE, servers = Color3.fromRGB(126, 136, 156),
+	key = GOLD, car = UIKit.GREEN, target = GOLD }
+local function iconFor(key, text)
+	local t = string.lower(text or "")
+	if key == "build" or key == "wing" or key == "wingup" then
+		for _, w in ipairs(ROOM_WORDS) do if string.find(t, w[1], 1, true) then return w[2] end end
+		return "hq"
+	end
+	if string.find(t, "apartment", 1, true) or string.find(t, "loft", 1, true) or string.find(t, "penthouse", 1, true) then return "key" end
+	return ICON_FOR[key] or "target"
+end
 
-local tip = Instance.new("WedgePart")
-tip.Name = "Tip"
-tip.Size = Vector3.new(2.2, 2.2, 2.2)
-tip.Color = GOLD
-tip.Material = Enum.Material.Neon
-tip.Anchored = true
-tip.CanCollide = false
-tip.CanQuery = false
-tip.CanTouch = false
-tip.CastShadow = false
-tip.Transparency = 1
-tip.Parent = marker
+local isTouch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+local function words(t)
+	if not t then return "" end
+	if not isTouch then t = t:gsub("^Tap ", "Click "):gsub(" Tap ", " Click ") end
+	return t
+end
 
-local light = Instance.new("PointLight", marker)
-light.Color = GOLD
-light.Range = 14
-light.Brightness = 1.4
+-- ============ THE PIN (world) ============
 
-local bb = Instance.new("BillboardGui")
-bb.Name = "Label"
-bb.Size = UDim2.new(0, 220, 0, 44)
-bb.StudsOffset = Vector3.new(0, 3.4, 0)
-bb.AlwaysOnTop = true
-bb.MaxDistance = 200
-bb.Parent = marker
-local bbFrame = Instance.new("Frame")
-bbFrame.Size = UDim2.new(1, 0, 1, 0)
-bbFrame.BackgroundColor3 = INK
-bbFrame.BackgroundTransparency = 0.15
-bbFrame.BorderSizePixel = 0
-bbFrame.Parent = bb
-Instance.new("UICorner", bbFrame).CornerRadius = UDim.new(0, 10)
-local bbStroke = Instance.new("UIStroke", bbFrame)
-bbStroke.Color = GOLD
-bbStroke.Thickness = 2
-local bbText = Instance.new("TextLabel")
-bbText.Size = UDim2.new(1, -12, 1, 0)
-bbText.Position = UDim2.new(0, 6, 0, 0)
-bbText.BackgroundTransparency = 1
-bbText.Font = Enum.Font.FredokaOne
-bbText.TextSize = 20
-bbText.TextColor3 = GOLD
-bbText.TextScaled = true
-bbText.Text = ""
-bbText.Parent = bbFrame
+local pinPart = Instance.new("Part")
+pinPart.Name = "GuidePin"
+pinPart.Size = Vector3.new(0.2, 0.2, 0.2)
+pinPart.Transparency = 1
+pinPart.Anchored = true
+pinPart.CanCollide = false
+pinPart.CanQuery = false
+pinPart.CanTouch = false
+pinPart.CastShadow = false
+
+local pin = Instance.new("BillboardGui")
+pin.Name = "Pin"
+pin.Size = UDim2.new(0, 72, 0, 88)
+pin.AlwaysOnTop = true          -- a goal behind a wall still shows where it is
+pin.MaxDistance = 600
+pin.LightInfluence = 0
+pin.Parent = pinPart
+local pinScale = Instance.new("UIScale", pin)
+-- the tail: a paper diamond under the disc, so the pin points at the spot
+local tail = Instance.new("Frame")
+tail.AnchorPoint = Vector2.new(0.5, 0.5)
+tail.Position = UDim2.new(0.5, 0, 0, 64)
+tail.Size = UDim2.new(0, 22, 0, 22)
+tail.Rotation = 45
+tail.BackgroundColor3 = UIKit.PAPER
+tail.BorderSizePixel = 0
+tail.Parent = pin
+local tailStroke = Instance.new("UIStroke", tail)
+tailStroke.Color = INK
+tailStroke.Thickness = 3
+local disc = Instance.new("Frame")
+disc.AnchorPoint = Vector2.new(0.5, 0)
+disc.Position = UDim2.new(0.5, 0, 0, 2)
+disc.Size = UDim2.new(0, 64, 0, 64)
+disc.BackgroundColor3 = UIKit.PAPER
+disc.BorderSizePixel = 0
+disc.ZIndex = 2
+disc.Parent = pin
+Instance.new("UICorner", disc).CornerRadius = UDim.new(1, 0)
+local discStroke = Instance.new("UIStroke", disc)
+discStroke.Color = INK
+discStroke.Thickness = 3
+local pinIcon = UIKit.art(disc, "target", 50, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, -1), ZIndex = 3 })
+
+-- a ring on the ground where you should stand
+local ring = Instance.new("Part")
+ring.Name = "GuideRing"
+ring.Shape = Enum.PartType.Cylinder
+ring.Size = Vector3.new(0.12, 8, 8)
+ring.Color = GOLD
+ring.Material = Enum.Material.Neon
+ring.Transparency = 0.6
+ring.Anchored = true
+ring.CanCollide = false
+ring.CanQuery = false
+ring.CanTouch = false
+ring.CastShadow = false
 
 -- a beam from your feet to the target: the path, not just the destination
 local beamEnd = Instance.new("Part")
@@ -95,11 +142,11 @@ beamEnd.Transparency = 1
 local a1 = Instance.new("Attachment", beamEnd)
 local beam = Instance.new("Beam")
 beam.Color = ColorSequence.new(GOLD)
-beam.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.55), NumberSequenceKeypoint.new(1, 0.15) })
-beam.Width0 = 0.5
-beam.Width1 = 1.4
+beam.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.7), NumberSequenceKeypoint.new(1, 0.25) })
+beam.Width0 = 0.4
+beam.Width1 = 1.1
 beam.FaceCamera = true
-beam.LightEmission = 0.6
+beam.LightEmission = 0.4
 beam.Segments = 1
 beam.Attachment1 = a1
 beam.Parent = beamEnd
@@ -113,25 +160,10 @@ local function attachBeam(char)
 	a0.Parent = root
 	beam.Attachment0 = a0
 end
-if player.Character then attachBeam(player.Character) end
+if player.Character then task.spawn(attachBeam, player.Character) end
 player.CharacterAdded:Connect(attachBeam)
 
--- ============ SCREEN LAYER ============
---[[ v3.1 THE QUEST CARD. The top-centre strip collided with the right-hand
-card at phone widths and truncated its own sentence ("Upgrade to GLASS…").
-Now it is a card in the RIGHT COLUMN (Run a Restaurant!'s quest card), in
-the same vertical list as the LAUNCH card so the two can never overlap: a
-short title, a sub line, and for a purchase a GOAL METER (your cash / the
-price) that turns into READY when you can afford it. The server sends
-title / sub / cost separately. ]]
-
-local UIS = game:GetService("UserInputService")
-local isTouch = UIS.TouchEnabled and not UIS.KeyboardEnabled
-local function words(t)
-	if not t then return "" end
-	if not isTouch then t = t:gsub("^Tap ", "Click "):gsub(" Tap ", " Click ") end
-	return t
-end
+-- ============ THE GOAL CARD (screen) ============
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "Guide"
@@ -142,89 +174,64 @@ gui.Enabled = false
 UIKit.safe(gui)
 gui.Parent = player:WaitForChild("PlayerGui")
 
---[[ v4.0 THE QUEST CARD, redesigned. His note: "'Build a design studio' UI and
-similar titles still look like slop." It was a white box with one target icon
-for every goal, grey text and a flat bar. Now a goal is a game object: a NEXT
-GOAL tab, the goal's own rendered icon on a tinted tile, the title big, the
-reward as a green chip, a chunky bar with a shine that sweeps while you save and
-pulses READY, and a real completion beat (a check stamps down, confetti, the
-next goal springs in). ]]
-local ICON_FOR = { code = "code", watch = "code", wait = "code", hire = "hire", hire2 = "hire", recruit = "hire",
-	carry = "hire", product = "rocket", spin = "rocket", hq = "hq", decor = "home", desk = "office",
-	apartment = "key", car = "car" }
-local ROOM_WORDS = { { "office", "office" }, { "studio", "studio" }, { "caf", "cafe" }, { "server", "servers" } }
-local TINT = { code = UIKit.GREEN, hire = UIKit.BLUE, rocket = UIKit.ORANGE, hq = UIKit.BLUE, home = GOLD,
-	office = UIKit.BLUE, studio = Color3.fromRGB(236, 120, 170), cafe = UIKit.ORANGE, servers = Color3.fromRGB(126, 136, 156),
-	key = GOLD, car = UIKit.GREEN, target = GOLD }
-local function iconFor(key, text)
-	local t = string.lower(text or "")
-	if key == "build" or key == "wing" or key == "wingup" then
-		for _, w in ipairs(ROOM_WORDS) do if string.find(t, w[1], 1, true) then return w[2] end end
-		return "hq"
-	end
-	if string.find(t, "apartment", 1, true) or string.find(t, "loft", 1, true) or string.find(t, "penthouse", 1, true) then return "key" end
-	return ICON_FOR[key] or "target"
-end
-
+local PAD, TILE = 10, 52
+local TEXT_X = PAD + TILE + 10
 local column = UIKit.column()
-local card = UIKit.card(column, { Name = "Quest", LayoutOrder = 2, Size = UDim2.new(1, 0, 0, 84), Visible = false }, { radius = 16, strokeWidth = 2 })
+local card = UIKit.card(column, { Name = "Quest", LayoutOrder = 2, Size = UDim2.new(1, 0, 0, 84), Visible = false })
 local cardStroke = card:FindFirstChildOfClass("UIStroke")
-local tab = Instance.new("Frame")
-tab.Name = "Tab"
-tab.AnchorPoint = Vector2.new(0, 0.5)
-tab.Position = UDim2.new(0, 12, 0, 0)
-tab.Size = UDim2.new(0, 86, 0, 20)
-tab.BackgroundColor3 = UIKit.INK
-tab.BorderSizePixel = 0
-tab.ZIndex = 4
-tab.Parent = card
-Instance.new("UICorner", tab).CornerRadius = UDim.new(1, 0)
-UIKit.label(tab, "NEXT GOAL", 12, GOLD, { Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 5 }, UIKit.HEAD)
-local disc = Instance.new("Frame")
-disc.Name = "Tile"
-disc.Position = UDim2.new(0, 10, 0, 16)
-disc.Size = UDim2.new(0, 58, 0, 58)
-disc.BackgroundColor3 = GOLD
-disc.BorderSizePixel = 0
-disc.Parent = card
-Instance.new("UICorner", disc).CornerRadius = UDim.new(0, 14)
-local tileStroke = Instance.new("UIStroke", disc)
+local cardScale = Instance.new("UIScale", card)
+
+local tile = Instance.new("Frame")
+tile.Name = "Tile"
+tile.Position = UDim2.new(0, PAD, 0, PAD)
+tile.Size = UDim2.new(0, TILE, 0, TILE)
+tile.BackgroundColor3 = UIKit.GOLD_LIGHT
+tile.BorderSizePixel = 0
+tile.Parent = card
+Instance.new("UICorner", tile).CornerRadius = UDim.new(0, UIKit.RADIUS.md)
+local tileStroke = Instance.new("UIStroke", tile)
 tileStroke.Thickness = 2
-local tileIcon = UIKit.art(disc, "target", 56, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, -3), ZIndex = 3 })
-local stamp = UIKit.art(disc, "check", 62, { Name = "Stamp", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), ZIndex = 6, Visible = false })
+local tileIcon = UIKit.art(tile, "target", 50, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, -2), ZIndex = 3 })
+local stamp = UIKit.art(tile, "check", 56, { Name = "Stamp", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), ZIndex = 6, Visible = false })
 local function tint(name)
 	local c = TINT[name] or GOLD
-	disc.BackgroundColor3 = c:Lerp(Color3.new(1, 1, 1), 0.72)
-	tileStroke.Color = c
+	tile.BackgroundColor3 = UIKit.light(c)
+	tileStroke.Color = UIKit.deep(c)
 end
+
 local title = UIKit.label(card, "", 20, UIKit.INK, {
-	Name = "Title", Position = UDim2.new(0, 78, 0, 14), Size = UDim2.new(1, -88, 0, 24),
-	TextTruncate = Enum.TextTruncate.AtEnd,
-}, UIKit.HEAD)
-local chip = Instance.new("Frame")
-chip.Name = "Reward"
-chip.Position = UDim2.new(0, 78, 0, 44)
-chip.Size = UDim2.new(0, 0, 0, 24)
-chip.AutomaticSize = Enum.AutomaticSize.X
-chip.BackgroundColor3 = UIKit.GREEN
-chip.BorderSizePixel = 0
-chip.Visible = false
-chip.Parent = card
-Instance.new("UICorner", chip).CornerRadius = UDim.new(1, 0)
-local chipPad = Instance.new("UIPadding", chip)
-chipPad.PaddingLeft = UDim.new(0, 10)
-chipPad.PaddingRight = UDim.new(0, 10)
-local chipText = UIKit.label(chip, "", 13, UIKit.TEXT, { Size = UDim2.new(0, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.X }, UIKit.HEAD)
-local sub = UIKit.label(card, "", 14, UIKit.CARD_MUTED, {
-	Name = "Sub", Position = UDim2.new(0, 78, 0, 42), Size = UDim2.new(1, -88, 0, 32),
+	Name = "Title", Position = UDim2.new(0, TEXT_X, 0, PAD), Size = UDim2.new(1, -(TEXT_X + PAD), 0, 24),
 	TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top,
 }, UIKit.HEAD)
+local sub = UIKit.label(card, "", 16, UIKit.MUTED_TEXT, {
+	Name = "Sub", Position = UDim2.new(0, TEXT_X, 0, 36), Size = UDim2.new(1, -(TEXT_X + PAD), 0, 20),
+	TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top,
+}, UIKit.BODY)
+-- a reward reads as a green chip ("x1.5 money, forever", "Unlocks STAR hires"); it
+-- wraps to a second line instead of shrinking (v4.4 shrank it to 10 pt)
+local chip = Instance.new("TextLabel")
+chip.Name = "Reward"
+chip.Position = UDim2.new(0, TEXT_X, 0, 36)
+chip.Size = UDim2.new(1, -(TEXT_X + PAD), 0, 24)
+chip.BackgroundColor3 = UIKit.GREEN_LIGHT
+chip.BorderSizePixel = 0
+chip.TextColor3 = UIKit.GREEN_DEEP
+chip.TextSize = 14
+chip.TextWrapped = true
+chip.TextXAlignment = Enum.TextXAlignment.Left
+chip.Visible = false
+UIKit.setFont(chip, UIKit.BODY)
+chip.Parent = card
+Instance.new("UICorner", chip).CornerRadius = UDim.new(0, UIKit.RADIUS.sm)
+local chipPad = Instance.new("UIPadding", chip)
+chipPad.PaddingLeft = UDim.new(0, 8); chipPad.PaddingRight = UDim.new(0, 8)
+chipPad.PaddingTop = UDim.new(0, 3); chipPad.PaddingBottom = UDim.new(0, 3)
+
 local meter = Instance.new("Frame")
 meter.Name = "Meter"
 meter.BackgroundColor3 = UIKit.SURFACE_2
 meter.BorderSizePixel = 0
-meter.Position = UDim2.new(0, 10, 1, -32)
-meter.Size = UDim2.new(1, -20, 0, 22)
+meter.Size = UDim2.new(1, -2 * PAD, 0, 22)
 meter.Visible = false
 meter.ClipsDescendants = true
 meter.Parent = card
@@ -235,12 +242,9 @@ fill.BorderSizePixel = 0
 fill.Size = UDim2.new(0, 0, 1, 0)
 fill.Parent = meter
 Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
-local fillGrad = Instance.new("UIGradient", fill)
-fillGrad.Rotation = 90
-fillGrad.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(205, 205, 205))
 local shine = Instance.new("Frame")
 shine.Name = "Shine"
-shine.BackgroundColor3 = Color3.new(1, 1, 1)
+shine.BackgroundColor3 = UIKit.PAPER
 shine.BorderSizePixel = 0
 shine.Size = UDim2.new(1, 0, 1, 0)
 shine.ZIndex = 2
@@ -249,45 +253,36 @@ Instance.new("UICorner", shine).CornerRadius = UDim.new(1, 0)
 local shineGrad = Instance.new("UIGradient", shine)
 shineGrad.Rotation = 20
 shineGrad.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.42, 1),
-	NumberSequenceKeypoint.new(0.5, 0.5), NumberSequenceKeypoint.new(0.58, 1), NumberSequenceKeypoint.new(1, 1) })
-local price = UIKit.label(meter, "", 15, UIKit.CARD_TEXT, {
-	Size = UDim2.new(1, -12, 1, 0), Position = UDim2.new(0, 6, 0, 0), TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 3,
+	NumberSequenceKeypoint.new(0.5, 0.55), NumberSequenceKeypoint.new(0.58, 1), NumberSequenceKeypoint.new(1, 1) })
+local price = UIKit.label(meter, "", 14, UIKit.INK, {
+	Size = UDim2.new(1, -16, 1, 0), Position = UDim2.new(0, 8, 0, 0), TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 3,
 }, UIKit.HEAD)
-local cardScale = Instance.new("UIScale", card)
 
---[[ v4.3 THE BIG GOAL. His Wilz run: "I don't see that I need the Loft, and
-there are no goals at certain points." The quest card shows the NEXT step
-(often a cheap one), so the thing the whole level is working toward was
-invisible until the moment it became the cheapest buy. This small card sits
-under the quest card all the time: the next HQ level with the apartment it
-needs, then GO PUBLIC, then the spin-off, with a bar toward its full price. ]]
-local big = UIKit.card(column, { Name = "BigGoal", LayoutOrder = 3, Size = UDim2.new(1, 0, 0, 82), Visible = false }, { radius = 14, strokeWidth = 2 })
-local bigTab = Instance.new("Frame")
-bigTab.AnchorPoint = Vector2.new(0, 0.5)
-bigTab.Position = UDim2.new(0, 12, 0, 0)
-bigTab.Size = UDim2.new(0, 74, 0, 18)
-bigTab.BackgroundColor3 = UIKit.BLUE
-bigTab.BorderSizePixel = 0
-bigTab.ZIndex = 4
-bigTab.Parent = big
-Instance.new("UICorner", bigTab).CornerRadius = UDim.new(1, 0)
-UIKit.label(bigTab, "BIG GOAL", 11, UIKit.TEXT, { Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 5 }, UIKit.HEAD)
-local bigTitle = UIKit.label(big, "", 16, UIKit.INK, {
-	Name = "Title", Position = UDim2.new(0, 12, 0, 12), Size = UDim2.new(1, -24, 0, 20), TextTruncate = Enum.TextTruncate.AtEnd,
+-- the BIG GOAL, as a quiet footer (v5: was its own card)
+local footer = Instance.new("Frame")
+footer.Name = "BigGoal"
+footer.BackgroundTransparency = 1
+footer.Size = UDim2.new(1, -2 * PAD, 0, 46)
+footer.Visible = false
+footer.Parent = card
+local rule = Instance.new("Frame")
+rule.BackgroundColor3 = UIKit.LINE_LIGHT
+rule.BorderSizePixel = 0
+rule.Size = UDim2.new(1, 0, 0, 2)
+rule.Parent = footer
+local bigTitle = UIKit.label(footer, "", 14, UIKit.INK_SOFT, {
+	Position = UDim2.new(0, 0, 0, 8), Size = UDim2.new(1, 0, 0, 18), TextTruncate = Enum.TextTruncate.AtEnd,
 }, UIKit.HEAD)
-local bigSub = UIKit.label(big, "", 12, UIKit.CARD_MUTED, {
-	Name = "Sub", Position = UDim2.new(0, 12, 0, 32), Size = UDim2.new(1, -24, 0, 14), TextTruncate = Enum.TextTruncate.AtEnd,
-}, UIKit.HEAD)
-local bigUnlock = UIKit.label(big, "", 12, UIKit.darker(UIKit.GOLD, 0.6), {
-	Name = "Unlock", Position = UDim2.new(0, 12, 0, 48), Size = UDim2.new(1, -24, 0, 14), TextTruncate = Enum.TextTruncate.AtEnd,
-}, UIKit.HEAD)
+local bigSub = UIKit.label(footer, "", 14, UIKit.MUTED_TEXT, {
+	Position = UDim2.new(0, 0, 0, 26), Size = UDim2.new(1, 0, 0, 18), TextTruncate = Enum.TextTruncate.AtEnd,
+}, UIKit.BODY)
 local bigBar = Instance.new("Frame")
-bigBar.Name = "Bar"
 bigBar.BackgroundColor3 = UIKit.SURFACE_2
 bigBar.BorderSizePixel = 0
-bigBar.Position = UDim2.new(0, 12, 1, -14)
-bigBar.Size = UDim2.new(1, -24, 0, 6)
-bigBar.Parent = big
+bigBar.AnchorPoint = Vector2.new(1, 0)
+bigBar.Position = UDim2.new(1, 0, 0, 13)
+bigBar.Size = UDim2.new(0, 56, 0, 8)
+bigBar.Parent = footer
 Instance.new("UICorner", bigBar).CornerRadius = UDim.new(1, 0)
 local bigFill = Instance.new("Frame")
 bigFill.BackgroundColor3 = UIKit.BLUE
@@ -295,58 +290,31 @@ bigFill.BorderSizePixel = 0
 bigFill.Size = UDim2.new(0, 0, 1, 0)
 bigFill.Parent = bigBar
 Instance.new("UICorner", bigFill).CornerRadius = UDim.new(1, 0)
-local bigCost
-local function readBig()
-	local t = player:GetAttribute("MilestoneTitle")
-	local unlock = player:GetAttribute("MilestoneUnlock")
-	bigTitle.Text = t or ""
-	bigUnlock.Text = unlock and ("UNLOCKS: " .. unlock) or ""
-	big.Size = UDim2.new(1, 0, 0, unlock and 82 or 66)
-	bigSub.Text = player:GetAttribute("MilestoneSub") or ""
-	bigCost = tonumber(player:GetAttribute("MilestoneCost"))
-	bigBar.Visible = bigCost ~= nil and bigCost > 0
-	big.Visible = t ~= nil and player:GetAttribute("NamingOpen") ~= true
-end
-for _, a in ipairs({ "MilestoneTitle", "MilestoneSub", "MilestoneCost", "MilestoneUnlock", "NamingOpen" }) do
-	player:GetAttributeChangedSignal(a):Connect(readBig)
-end
-task.defer(readBig)
 
--- a finished goal: confetti bursts out of the tile and falls away
-local function confetti()
-	local colours = { UIKit.GREEN, GOLD, UIKit.BLUE, UIKit.ORANGE, Color3.fromRGB(236, 120, 170) }
-	for i = 1, 16 do
-		local f = Instance.new("Frame")
-		f.BorderSizePixel = 0
-		f.BackgroundColor3 = colours[(i % #colours) + 1]
-		f.Size = UDim2.new(0, math.random(5, 9), 0, math.random(5, 9))
-		f.AnchorPoint = Vector2.new(0.5, 0.5)
-		f.Position = UDim2.new(0, 39, 0, 45)
-		f.ZIndex = 8
-		f.Parent = card
-		local a = math.random() * math.pi * 2
-		local r = math.random(40, 90)
-		TweenService:Create(f, TweenInfo.new(0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			Position = UDim2.new(0, 39 + math.cos(a) * r, 0, 45 + math.sin(a) * r * 0.7 + 18),
-			Rotation = math.random(-200, 200), BackgroundTransparency = 1,
-		}):Play()
-		task.delay(0.75, function() f:Destroy() end)
-	end
-end
+-- the whole card is a button: tap it and the camera turns to face the goal
+local hit = Instance.new("TextButton")
+hit.Name = "Hit"
+hit.BackgroundTransparency = 1
+hit.Text = ""
+hit.Size = UDim2.new(1, 0, 1, 0)
+hit.ZIndex = 20
+hit.Parent = card
 
--- edge arrow: sits on its own dark disc so it reads as a pointer, not part of a button
+-- edge arrow: a gold sticker with an ink arrow and the distance under it
 local edge = Instance.new("Frame")
 edge.Name = "EdgeArrow"
 edge.AnchorPoint = Vector2.new(0.5, 0.5)
-edge.Size = UDim2.new(0, 70, 0, 70)
-edge.BackgroundColor3 = INK
-edge.BackgroundTransparency = 0.35
+edge.Size = UDim2.new(0, 60, 0, 60)
+edge.BackgroundColor3 = GOLD
 edge.Visible = false
 edge.Parent = gui
 Instance.new("UICorner", edge).CornerRadius = UDim.new(1, 0)
-local arrow = UIKit.icon(edge, "up", 44, GOLD, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0) })
-local edgeDist = UIKit.outlined(edge, "", 16, GOLD, {
-	AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 1, 2), Size = UDim2.new(0, 110, 0, 20),
+local edgeStroke = Instance.new("UIStroke", edge)
+edgeStroke.Color = INK
+edgeStroke.Thickness = 3
+local arrow = UIKit.icon(edge, "up", 36, INK, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0) })
+local edgeDist = UIKit.outlined(edge, "", 16, UIKit.TEXT, {
+	AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 1, 4), Size = UDim2.new(0, 110, 0, 20),
 	TextXAlignment = Enum.TextXAlignment.Center,
 })
 
@@ -355,51 +323,154 @@ local edgeDist = UIKit.outlined(edge, "", 16, GOLD, {
 local target      -- Vector3 or nil
 local lastKey
 local cost        -- number or nil
+local lastCost
 local readyFor    -- the objective key we already chimed READY for
+local stamping = false
+
+local function cashNow()
+	local l = player:FindFirstChild("leaderstats")
+	local c = l and l:FindFirstChild("Cash")
+	return c and c.Value or 0
+end
+-- the last 2.5 s of cash, so a goal change can tell "you bought it" from "a cheaper goal came up"
+local history = {}
+local function recentMax()
+	local m = cashNow()
+	for _, h in ipairs(history) do m = math.max(m, h[2]) end
+	return m
+end
+
+local function textHeight(label, width)
+	if label.Text == "" then return 0 end
+	local fontSize = label.TextSize
+	local ok, size = pcall(function()
+		local p = Instance.new("GetTextBoundsParams")
+		p.Text = label.Text
+		p.Font = label.FontFace
+		p.Size = fontSize
+		p.Width = width
+		return TextService:GetTextBoundsAsync(p)
+	end)
+	if ok and size then return size.Y end
+	return TextService:GetTextSize(label.Text, fontSize, Enum.Font.FredokaOne, Vector2.new(width, 1000)).Y
+end
+
+local function bigVisible()
+	if player:GetAttribute("NamingOpen") == true then return false end
+	if not player:GetAttribute("MilestoneTitle") then return false end
+	-- not in the first minutes: before the first building a $3.8K goal at $0 is a second "next"
+	local raw = player:GetAttribute("IncomeRooms") or ""
+	local built = raw:find("OFFICE", 1, true) or raw:find("STUDIO", 1, true) or raw:find("CAFE", 1, true) or raw:find("SERVER", 1, true)
+	return (player:GetAttribute("HQLevel") or 1) >= 2 or built ~= nil
+end
 
 local function layout()
-	local hasCost = cost ~= nil and cost > 0
-	meter.Visible = hasCost
-	-- the tile is 58 tall from y 16; the words sit beside it; the meter below both
-	-- measure the wrapped height with TextService: TextBounds on a 1-px-tall label
-	-- only reports the lines that fit, so the card stayed one line tall ("It's...")
-	local w = math.max(40, sub.AbsoluteSize.X)
-	local need = (sub.Text ~= "") and game:GetService("TextService"):GetTextSize(sub.Text, sub.TextSize, sub.Font, Vector2.new(w, 1000)).Y or 0
-	local subH = (sub.Text ~= "") and (math.max(18, need) + 4) or 0
-	sub.Size = UDim2.new(1, -88, 0, math.max(subH, 1))
-	local words = math.max(74, 44 + math.max(subH, chip.Visible and 26 or 0))
-	card.Size = UDim2.new(1, 0, 0, words + 10 + (hasCost and 32 or 0))
-end
-sub:GetPropertyChangedSignal("TextBounds"):Connect(layout)
-sub:GetPropertyChangedSignal("Text"):Connect(layout)
-sub:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() task.defer(layout) end)
-
---[[ v4.4 a reward reads as a green chip ("+25% money", "Unlocks STAR hires");
-anything else as a hint line. His screenshot: the chip grows with its text and
-nothing capped it, so "Start over with x1.5 money forever" ran out of the card
-("...money forev"). Now the chip shrinks its text to fit (13 down to 10 pt) and
-a line too long even then becomes the wrapped grey hint instead. ]]
-local TextService = game:GetService("TextService")
-local function chipSizeFor(text)
-	local avail = (card.AbsoluteSize.X > 0 and card.AbsoluteSize.X or 250) - 88 - 22
-	for size = 13, 10, -1 do
-		if TextService:GetTextSize(text, size, chipText.Font, Vector2.new(2000, 100)).X <= avail then return size end
+	local w = card.AbsoluteSize.X > 0 and card.AbsoluteSize.X or 250
+	local textW = w - TEXT_X - PAD
+	local th = math.max(24, textHeight(title, textW) + 2)
+	title.Size = UDim2.new(1, -(TEXT_X + PAD), 0, th)
+	local y = PAD + th + 4
+	local lineH = 0
+	if chip.Visible then
+		local ch = textHeight(chip, textW - 16) + 6
+		chip.Position = UDim2.new(0, TEXT_X, 0, y)
+		chip.Size = UDim2.new(1, -(TEXT_X + PAD), 0, ch)
+		lineH = ch
+	elseif sub.Visible and sub.Text ~= "" then
+		local sh = textHeight(sub, textW) + 2
+		sub.Position = UDim2.new(0, TEXT_X, 0, y)
+		sub.Size = UDim2.new(1, -(TEXT_X + PAD), 0, sh)
+		lineH = sh
 	end
-	return nil
+	local bottom = math.max(PAD + TILE, y + lineH)
+	if meter.Visible then
+		meter.Position = UDim2.new(0, PAD, 0, bottom + 8)
+		bottom += 8 + 22
+	end
+	if footer.Visible then
+		footer.Position = UDim2.new(0, PAD, 0, bottom + 8)
+		bottom += 8 + 46
+	end
+	card.Size = UDim2.new(1, 0, 0, bottom + PAD + 4)
 end
+card:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+	-- width changes (viewport) re-wrap the text; height changes are ours
+	local w = card.AbsoluteSize.X
+	if w ~= card:GetAttribute("LaidW") then card:SetAttribute("LaidW", w); task.defer(layout) end
+end)
+
 local function applySub()
 	local subText = words(player:GetAttribute("ObjectiveSub"))
 	local reward = subText ~= "" and (string.sub(subText, 1, 1) == "+" or string.find(subText, "Unlocks", 1, true) ~= nil
 		or string.find(subText, "Room for", 1, true) ~= nil or string.find(subText, "money", 1, true) ~= nil)
-	local size = reward and chipSizeFor(subText)
-	if reward and not size then reward = false end
-	chip.Visible = reward
-	chipText.TextSize = size or 13
-	chipText.Text = reward and subText or ""
+	chip.Visible = reward and not stamping
+	chip.Text = reward and subText or ""
 	sub.Text = reward and "" or subText
+	sub.Visible = not stamping
+	meter.Visible = cost ~= nil and cost > 0 and not stamping
+	footer.Visible = bigVisible() and not stamping
 	layout()
 end
-card:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() task.defer(applySub) end)
+
+local function readBig()
+	local t = player:GetAttribute("MilestoneTitle")
+	local c = tonumber(player:GetAttribute("MilestoneCost"))
+	local unlock = player:GetAttribute("MilestoneUnlock")
+	bigTitle.Text = t and ("BIG GOAL:  " .. t) or ""
+	local bits = {}
+	if c and c > 0 then table.insert(bits, UIKit.money(c)) end
+	if unlock then table.insert(bits, "unlocks " .. string.lower(unlock)) end
+	if #bits == 0 then table.insert(bits, player:GetAttribute("MilestoneSub") or "") end
+	bigSub.Text = table.concat(bits, "  ·  ")
+	bigBar.Visible = c ~= nil and c > 0
+	applySub()
+end
+for _, a in ipairs({ "MilestoneTitle", "MilestoneSub", "MilestoneCost", "MilestoneUnlock", "NamingOpen", "HQLevel", "IncomeRooms" }) do
+	player:GetAttributeChangedSignal(a):Connect(readBig)
+end
+
+-- a finished goal: confetti bursts out of the tile and falls away
+local function confetti()
+	local colours = { UIKit.GREEN, GOLD, UIKit.BLUE, UIKit.ORANGE, UIKit.PINK }
+	for i = 1, 16 do
+		local f = Instance.new("Frame")
+		f.BorderSizePixel = 0
+		f.BackgroundColor3 = colours[(i % #colours) + 1]
+		f.Size = UDim2.new(0, math.random(5, 9), 0, math.random(5, 9))
+		f.AnchorPoint = Vector2.new(0.5, 0.5)
+		f.Position = UDim2.new(0, PAD + TILE / 2, 0, PAD + TILE / 2)
+		f.ZIndex = 8
+		f.Parent = card
+		local a = math.random() * math.pi * 2
+		local r = math.random(40, 90)
+		TweenService:Create(f, TweenInfo.new(0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Position = UDim2.new(0, PAD + TILE / 2 + math.cos(a) * r, 0, PAD + TILE / 2 + math.sin(a) * r * 0.7 + 18),
+			Rotation = math.random(-200, 200), BackgroundTransparency = 1,
+		}):Play()
+		task.delay(0.75, function() f:Destroy() end)
+	end
+end
+
+local function showGoal(key, text)
+	title.Text = words(text)
+	title.TextColor3 = UIKit.INK
+	local ic = iconFor(key, text)
+	tileIcon.Image = UIKit.ART[ic] or UIKit.ART.target
+	pinIcon.Image = tileIcon.Image
+	tint(ic)
+end
+
+-- was the goal that just went away actually FINISHED?
+local PASSIVE = { wait = true, watch = true, product = true }
+local function finished(prevKey, prevCost, newKey)
+	if not prevKey or not newKey then return false end
+	if PASSIVE[prevKey] or newKey == "product" then return false end
+	if prevCost and prevCost > 0 then
+		-- a purchase goal is done when the money for it left your pocket
+		return recentMax() - cashNow() >= prevCost * 0.8
+	end
+	return true
+end
 
 local function readObjective()
 	local key = player:GetAttribute("Objective")
@@ -409,10 +480,11 @@ local function readObjective()
 	cost = tonumber(player:GetAttribute("ObjectiveCost"))
 
 	if key ~= lastKey then
-		if lastKey and key then
-			-- the previous goal just finished: a check stamps down, confetti, then the next springs in
+		if finished(lastKey, lastCost, key) then
+			-- a check stamps down, confetti, then the next goal springs in
+			stamping = true
 			title.Text = "DONE!"
-			title.TextColor3 = UIKit.darker(UIKit.GREEN, 0.8)
+			title.TextColor3 = UIKit.GREEN_DEEP
 			if cardStroke then cardStroke.Color = UIKit.GREEN end
 			tileIcon.Visible = false
 			stamp.Visible = true
@@ -423,41 +495,35 @@ local function readObjective()
 			TweenService:Create(ss, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 			confetti()
 			UIKit.sfx("ding", 1.1)
-			task.delay(1.0, function()
+			task.delay(0.9, function()
+				stamping = false
 				stamp.Visible = false
 				tileIcon.Visible = true
-				title.TextColor3 = UIKit.INK
 				if cardStroke then cardStroke.Color = UIKit.CARD_LINE end
-				title.Text = words(player:GetAttribute("ObjectiveText"))
-				local ic = iconFor(player:GetAttribute("Objective"), player:GetAttribute("ObjectiveText"))
-				tileIcon.Image = UIKit.ART[ic] or UIKit.ART.target
-				tint(ic)
-				cardScale.Scale = 0.88
-				TweenService:Create(cardScale, TweenInfo.new(0.34, Enum.EasingStyle.Back), { Scale = 1 }):Play()
+				showGoal(player:GetAttribute("Objective"), player:GetAttribute("ObjectiveText"))
+				applySub()
+				cardScale.Scale = 0.94
+				tween(cardScale, 0.25, { Scale = 1 })
 			end)
-		else
-			title.Text = words(text)
-			local ic = iconFor(key, text)
-			tileIcon.Image = UIKit.ART[ic] or UIKit.ART.target
-			tint(ic)
+		elseif not stamping then
+			showGoal(key, text)
 		end
 		lastKey = key
 		readyFor = nil
-	elseif title.TextColor3 == UIKit.INK then
+	elseif not stamping then
 		title.Text = words(text)
 	end
+	lastCost = cost
 	applySub()
 
 	local show = key ~= nil and text ~= nil
-	-- the LAUNCH card says "your app is ready" itself; the name box sits over everything
+	-- a waiting LAUNCH is the bottom slot's (HudClient); the name box sits over everything
 	card.Visible = show and key ~= "product" and player:GetAttribute("NamingOpen") ~= true
 	gui.Enabled = show and player:GetAttribute("NamingOpen") ~= true
 	local showMarker = show and target ~= nil
-	marker.Transparency = showMarker and 0 or 1
-	tip.Transparency = showMarker and 0 or 1
-	bb.Enabled = false
-	light.Enabled = showMarker
-	marker.Parent = showMarker and workspace or nil
+	pin.Enabled = showMarker
+	pinPart.Parent = showMarker and workspace or nil
+	ring.Parent = showMarker and workspace or nil
 	beamEnd.Parent = showMarker and workspace or nil
 	beam.Enabled = showMarker
 end
@@ -465,22 +531,51 @@ end
 for _, name in ipairs({ "Objective", "ObjectiveText", "ObjectivePos", "ObjectiveSub", "ObjectiveCost" }) do
 	player:GetAttributeChangedSignal(name):Connect(readObjective)
 end
-readObjective()
 player:GetAttributeChangedSignal("NamingOpen"):Connect(readObjective)
+readObjective()
+readBig()
+
+-- ============ TAP THE CARD: LOOK AT THE GOAL ============
+--[[ The camera turns to face the target for a moment and the pin pops, then
+control is yours again. Rotation only, from where the camera already is, so it
+cannot clip a wall. Handing the camera back as Custom makes the camera module
+adopt the new yaw (the v2.3 join-card lesson). Never during a cutscene, in a
+car, or while the camera is scripted by someone else. ]]
+local looking = false
+local function inCar()
+	local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	return hum and hum.SeatPart ~= nil
+end
+local function popPin()
+	pinScale.Scale = 1.5
+	tween(pinScale, 0.4, { Scale = 1 }, Enum.EasingStyle.Back)
+end
+local function lookAtGoal()
+	if looking then return end
+	cardScale.Scale = 0.96
+	tween(cardScale, 0.2, { Scale = 1 })
+	if not target then return end
+	popPin()
+	if camera.CameraType ~= Enum.CameraType.Custom or (Cine and Cine.busy and Cine.busy()) or inCar() then return end
+	looking = true
+	local from = camera.CFrame
+	local goal = CFrame.lookAt(from.Position, target + Vector3.new(0, 3, 0))
+	camera.CameraType = Enum.CameraType.Scriptable
+	local tw = tween(camera, 0.45, { CFrame = goal })
+	tw.Completed:Wait()
+	task.wait(0.35)
+	if camera.CameraType == Enum.CameraType.Scriptable then camera.CameraType = Enum.CameraType.Custom end
+	looking = false
+end
+hit.MouseButton1Click:Connect(function()
+	UIKit.sfx("tap")
+	task.spawn(lookAtGoal)
+end)
 
 -- ============ PER-FRAME ============
 
-local function cashNow()
-	local l = player:FindFirstChild("leaderstats")
-	local c = l and l:FindFirstChild("Cash")
-	return c and c.Value or 0
-end
-
 -- where the arrow may sit: right of the left rail, left of the right column,
--- clear of the money at the top and WRITE CODE at the bottom (the old clamp put
--- it on the music button, pointing at it)
--- the arrow stays clear of the rail and of the right column's cards; below the
--- last card the whole right edge is free (the column frame is taller than its cards)
+-- clear of the money at the top and the bottom slot
 local function bounds(vp)
 	local pg = player.PlayerGui
 	local left, right = 60, vp.X - 60
@@ -494,59 +589,69 @@ local function bounds(vp)
 		colBottom = col.AbsolutePosition.Y + (l and l.AbsoluteContentSize.Y or 0)
 	end
 	-- tiny or not-yet-laid-out screens: never hand math.clamp a max below its min
-	-- (the column reports x = 0 for a frame at join, which made right < left)
-	local top, bottom = 130, vp.Y - 140
+	local top, bottom = 130, vp.Y - 150
 	if right < left then right = left end
 	if bottom < top then bottom = top end
 	return left, right, top, bottom, colBottom
 end
 
 RunService.RenderStepped:Connect(function()
-	-- v4.3 the big goal's bar
-	if bigCost and bigCost > 0 and big.Visible then
-		local pb = math.clamp(cashNow() / bigCost, 0, 1)
+	local now = os.clock()
+	table.insert(history, { now, cashNow() })
+	while history[1] and now - history[1][1] > 2.5 do table.remove(history, 1) end
+
+	-- the big goal's bar
+	local bc = tonumber(player:GetAttribute("MilestoneCost"))
+	if footer.Visible and bc and bc > 0 then
+		local pb = math.clamp(cashNow() / bc, 0, 1)
 		bigFill.Size = UDim2.new(pb, 0, 1, 0)
 		bigFill.BackgroundColor3 = pb >= 1 and UIKit.GREEN or UIKit.BLUE
 	end
 	-- the goal meter: cash / price, then READY
-	if cost and cost > 0 and card.Visible then
+	if cost and cost > 0 and card.Visible and meter.Visible then
 		local have = cashNow()
 		local p = math.clamp(have / cost, 0, 1)
 		fill.Size = UDim2.new(p, 0, 1, 0)
-		shineGrad.Offset = Vector2.new(((os.clock() * 0.55) % 2.4) - 1.2, 0)
+		shineGrad.Offset = Vector2.new(((now * 0.55) % 2.4) - 1.2, 0)
 		if p >= 1 then
 			fill.BackgroundColor3 = UIKit.GREEN
-			price.Text = "READY!  GO  >"
-			if cardStroke then
+			price.Text = "READY!"
+			if cardStroke and not stamping then
 				cardStroke.Color = UIKit.GREEN
-				cardStroke.Thickness = 2 + 1.5 * (0.5 + 0.5 * math.sin(os.clock() * 5))
+				cardStroke.Thickness = 2 + 1.5 * (0.5 + 0.5 * math.sin(now * 5))
 			end
 			if readyFor ~= lastKey then
 				readyFor = lastKey
 				UIKit.sfx("ding")
-				cardScale.Scale = 1.08
-				TweenService:Create(cardScale, TweenInfo.new(0.35, Enum.EasingStyle.Back), { Scale = 1 }):Play()
+				cardScale.Scale = 1.06
+				tween(cardScale, 0.3, { Scale = 1 })
+				popPin()
 			end
 		else
 			fill.BackgroundColor3 = GOLD
 			price.Text = UIKit.money(have) .. " / " .. UIKit.money(cost)
-			if cardStroke and title.TextColor3 == UIKit.INK then
+			if cardStroke and not stamping then
 				cardStroke.Color = UIKit.CARD_LINE
 				cardStroke.Thickness = 2
 			end
 		end
+	elseif cardStroke and not stamping then
+		cardStroke.Color = UIKit.CARD_LINE
+		cardStroke.Thickness = 2
 	end
 
 	if not target then edge.Visible = false return end
-	local t = os.clock()
 	local char = player.Character
 	local root = char and char:FindFirstChild("HumanoidRootPart")
 	local dist = root and (root.Position - target).Magnitude or 0
-	-- bob + spin over the target; lower when close, so a ceiling or the HUD never hides it
-	local y = (dist < 24 and 4.5 or 7.5) + math.sin(t * 3.2) * 0.5
-	local at = target + Vector3.new(0, y, 0)
-	marker.CFrame = CFrame.new(at) * CFrame.Angles(0, t * 1.6, 0) * CFrame.Angles(0, 0, math.rad(90))
-	tip.CFrame = CFrame.new(at - Vector3.new(0, 2.4, 0)) * CFrame.Angles(0, t * 1.6, 0) * CFrame.Angles(math.rad(180), 0, 0)
+	-- the pin bobs over the target; lower when close, so a ceiling or the HUD never hides it
+	local lift = (dist < 24 and 5 or 8) + math.sin(now * 3.2) * 0.5
+	pinPart.Position = target + Vector3.new(0, lift, 0)
+	pin.StudsOffset = Vector3.new(0, 1.2, 0)
+	local pulse = 0.5 + 0.5 * math.sin(now * 3)
+	ring.CFrame = CFrame.new(target + Vector3.new(0, 0.12, 0)) * CFrame.Angles(0, 0, math.rad(90))
+	ring.Size = Vector3.new(0.12, 7 + pulse * 2, 7 + pulse * 2)
+	ring.Transparency = 0.55 + 0.25 * pulse
 	beamEnd.Position = target + Vector3.new(0, 0.6, 0)
 
 	-- screen-edge arrow when the target is off-screen
@@ -558,12 +663,10 @@ RunService.RenderStepped:Connect(function()
 	local left, right, top, bottom, colBottom = bounds(vp)
 	local centre = Vector2.new(vp.X / 2, vp.Y / 2)
 	if sp.Z < 0 then
-		-- behind you: a "turn" arrow on the side you should turn to, at mid
-		-- height (it used to sit dead centre, on top of your own character)
+		-- behind you: a "turn" arrow on the side you should turn to, at mid height
 		local rel = camera.CFrame:PointToObjectSpace(target)
 		local goRight = rel.X >= 0
 		if goRight then
-			-- the right screen edge, just under the column's last card
 			local y = math.clamp(math.max(vp.Y * 0.5, colBottom + 56), top, bottom)
 			edge.Position = UDim2.new(0, vp.X - 60, 0, y)
 		else

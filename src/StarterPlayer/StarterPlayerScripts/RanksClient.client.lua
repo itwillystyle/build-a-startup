@@ -27,9 +27,20 @@ local getRanks = remotes:WaitForChild("GetRanks", 60)
 if not getRanks then return end
 
 -- ============ THE BUTTON ============
-local btn = UIKit.iconButton(UIKit.rail(), "trophy", "RANKS", UIKit.GOLD, {
-	Name = "RanksButton", LayoutOrder = 4, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
-}, { iconSize = 28 })
+-- v5: a small round button in the top-right corner, beside music. The rail
+-- holds the five things you use every few minutes; a leaderboard is a glance
+-- now and then, and a sixth rail tile shrank every tile below readable on a phone.
+local corner = Instance.new("ScreenGui")
+corner.Name = "RanksCorner"
+corner.ResetOnSpawn = false
+corner.IgnoreGuiInset = true
+corner.DisplayOrder = 7
+UIKit.safe(corner)
+corner.Parent = player:WaitForChild("PlayerGui")
+local btn = UIKit.iconButton(corner, "trophy", nil, UIKit.CARD, {
+	Name = "RanksButton", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -64, 0, 10), Size = UDim2.new(0, 44, 0, 44), Visible = false,
+}, { iconSize = 22, dark = true, radius = 22 })
+btn:SetAttribute("Accent", UIKit.GOLD)
 
 -- ============ THE PANEL ============
 local gui = Instance.new("ScreenGui")
@@ -59,8 +70,7 @@ local status = UIKit.label(panel:FindFirstChild("Header"), "", 14, UIKit.TEXT, {
 	Name = "Status", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -58, 0.5, 0), Size = UDim2.new(0, 190, 0, 20),
 	TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 3,
 }, UIKit.HEAD)
-status.TextStrokeTransparency = 0.4
-status.TextStrokeColor3 = UIKit.darker(UIKit.GOLD, 0.35)
+status.TextColor3 = UIKit.INK_SOFT      -- v5: ink on gold (white on gold was 1.5:1)
 
 -- tabs
 local current = "week"
@@ -238,7 +248,10 @@ task.spawn(function()
 	end
 end)
 
--- one verb at a time: the button arrives with the first app
-local function sync() btn.Visible = player:GetAttribute("Shipped") == true end
+-- v5: the board arrives with HQ 2 (at 0:30 it was a leaderboard where a new player is last)
+local function sync() btn.Visible = (player:GetAttribute("HQLevel") or 1) >= 2 end
 sync()
-player:GetAttributeChangedSignal("Shipped"):Connect(sync)
+player:GetAttributeChangedSignal("HQLevel"):Connect(sync)
+
+-- v5: the rail tile shows when this menu is open
+UIKit.bindRail(btn, gui)

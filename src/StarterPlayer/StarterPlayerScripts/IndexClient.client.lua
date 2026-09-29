@@ -55,8 +55,8 @@ local TALENTS = {  -- SiliconCore TALENT (odds = 1 in N hires)
 
 -- ============ THE BUTTON (left rail, second) ============
 
-local btn = UIKit.iconButton(UIKit.rail(), "grid", "INDEX", UIKit.BLUE, {
-	Name = "IndexButton", LayoutOrder = 3, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
+local btn = UIKit.railButton("grid", "INDEX", UIKit.BLUE, {
+	Name = "IndexButton", LayoutOrder = 4, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
 }, { iconSize = 28 })
 local badge, badgeText = UIKit.badge(btn)
 
@@ -296,3 +296,6 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	if processed then return end
 	if input.KeyCode == Enum.KeyCode.Q and gui.Enabled then setOpen(false) end
 end)
+
+-- v5: the rail tile shows when this menu is open
+UIKit.bindRail(btn, gui)

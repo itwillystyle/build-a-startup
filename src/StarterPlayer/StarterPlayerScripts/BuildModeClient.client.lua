@@ -110,9 +110,9 @@ player:GetAttributeChangedSignal("MenuDone"):Connect(function() gui.Enabled = tr
 gui.Parent = player:WaitForChild("PlayerGui")
 
 -- the rail button. Home icon + one word; desktop gets a small key cap.
-local toggle = UIKit.iconButton(UIKit.rail(), "home", "DECOR", UIKit.GOLD, {
-	Name = "BuildToggle", LayoutOrder = 4, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
-}, { dark = true, iconSize = 28 })
+local toggle = UIKit.railButton("home", "DECOR", UIKit.GREEN, {
+	Name = "BuildToggle", LayoutOrder = 5, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
+}, { iconSize = 28 })
 if not isTouch then
 	local cap = UIKit.panel(toggle, { Name = "KeyCap", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -4, 0, 4),
 		Size = UDim2.new(0, 24, 0, 24), ZIndex = toggle.ZIndex + 2 }, { radius = 7, color = UIKit.INK, stroke = UIKit.TEXT, strokeWidth = 1.5 })
@@ -817,7 +817,7 @@ local function setOpen(v)
 	actionBar.Visible = false
 	setColumn(not v)
 	player:SetAttribute("BuildModeOpen", v)   -- client-local: ProductClient holds its panels while this is true
-	UIKit.setButtonColor(toggle, v and UIKit.GREEN or UIKit.GOLD)
+	UIKit.setRailActive(toggle, v)
 	if v then
 		rescanFloors()
 		refreshShelf()

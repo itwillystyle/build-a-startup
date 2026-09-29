@@ -46,30 +46,62 @@ cap.MaxSize = Vector2.new(440, 226)
 
 local hint = UIKit.label(body, HINT, 16, UIKit.CARD_MUTED, {
 	Size = UDim2.new(1, 0, 0, 22), TextTruncate = Enum.TextTruncate.AtEnd,
-}, UIKit.HEAD)
+}, UIKit.BODY)
+
+--[[ v5: the box starts with a REAL name, not a grey placeholder. The review:
+"Pocket Rocket Labs" in grey looked filled in, so a child pressed SAVE and got a
+red "Two letters at least." Now SAVE always works on the first tap, NEW rolls
+another name, and typing replaces the suggestion (it is selected on focus). ]]
+local FIRST = { "Pocket", "Rocket", "Pixel", "Byte", "Turbo", "Cosmic", "Mega", "Nova", "Bright", "Happy",
+	"Tiny", "Epic", "Hyper", "Lucky", "Sunny", "Blue Sky", "Moon", "Comet", "Laser", "Bubble" }
+local SECOND = { "Labs", "Works", "Studio", "Apps", "Tech", "Games", "Bots", "Cloud", "Garage", "Factory", "Rockets", "Code" }
+local rng = Random.new()
+local function suggest()
+	for _ = 1, 10 do
+		local n = FIRST[rng:NextInteger(1, #FIRST)] .. " " .. SECOND[rng:NextInteger(1, #SECOND)]
+		if #n <= 20 then return n end
+	end
+	return "Pocket Rocket Labs"
+end
 
 local box = Instance.new("TextBox")
 box.Position = UDim2.new(0, 0, 0, 28)
-box.Size = UDim2.new(1, 0, 0, 50)
+box.Size = UDim2.new(1, -62, 0, 50)
 box.BackgroundColor3 = UIKit.CARD
-box.PlaceholderText = "Pocket Rocket Labs"
+box.PlaceholderText = "Your company"
 box.PlaceholderColor3 = UIKit.CARD_MUTED
-box.Text = ""
+box.Text = suggest()
 box.TextColor3 = UIKit.CARD_TEXT
 box.TextSize = 22
 box.Font = UIKit.HEAD
 box.TextXAlignment = Enum.TextXAlignment.Left
 box.ClearTextOnFocus = false
 box.Parent = body
-Instance.new("UICorner", box).CornerRadius = UDim.new(0, 12)
+Instance.new("UICorner", box).CornerRadius = UDim.new(0, UIKit.RADIUS.md)
 local boxStroke = Instance.new("UIStroke", box)
 boxStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 boxStroke.Color = UIKit.CARD_LINE
 boxStroke.Thickness = 2
-box.Focused:Connect(function() boxStroke.Color = UIKit.BLUE end)
+box.Focused:Connect(function()
+	boxStroke.Color = UIKit.BLUE
+	-- select the whole suggestion, so the first key typed replaces it
+	task.defer(function()
+		box.CursorPosition = #box.Text + 1
+		box.SelectionStart = 1
+	end)
+end)
 box.FocusLost:Connect(function() boxStroke.Color = UIKit.CARD_LINE end)
 local pad = Instance.new("UIPadding", box)
 pad.PaddingLeft = UDim.new(0, 14)
+
+local reroll = UIKit.button(body, "NEW", UIKit.MUTED, {
+	Name = "Reroll", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 28), Size = UDim2.new(0, 54, 0, 50),
+}, { textSize = 16 })
+reroll.MouseButton1Click:Connect(function()
+	box.Text = suggest()
+	hint.Text = HINT
+	hint.TextColor3 = UIKit.CARD_MUTED
+end)
 
 local ok = UIKit.button(body, "SAVE", UIKit.GREEN, {
 	AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, 0, 1, 0), Size = UDim2.new(0.5, -6, 0, 50),
@@ -94,7 +126,7 @@ local function submit()
 	local t = box.Text:gsub("^%s+", ""):gsub("%s+$", "")
 	if #t < 2 then
 		hint.Text = "Two letters at least."
-		hint.TextColor3 = UIKit.RED
+		hint.TextColor3 = UIKit.RED_DEEP
 		return
 	end
 	setName:FireServer(t)
@@ -116,21 +148,21 @@ askName.OnClientEvent:Connect(function(message)
 	end
 	if message and message ~= "" then
 		hint.Text = message
-		hint.TextColor3 = UIKit.RED
+		hint.TextColor3 = UIKit.RED_DEEP
 	else
 		hint.Text = HINT
 		hint.TextColor3 = UIKit.CARD_MUTED
+		box.Text = suggest()
 	end
 	-- v4.2: through the director (centre lane, P2, at a calm moment)
 	Notify.show({ lane = "centre", priority = 2, key = "name", calm = true, maxHold = 180,
 		open = function(done)
 			gui.Enabled = true
-			local sc = panel:FindFirstChildOfClass("UIScale") or Instance.new("UIScale", panel)
-			sc.Scale = 0.6
-			TweenService:Create(sc, TweenInfo.new(0.3, Enum.EasingStyle.Back), { Scale = 1 }):Play()
+			UIKit.popIn(panel)
 			openSerial += 1
 			local mine = openSerial
-			task.delay(25, function() if openSerial == mine and gui.Enabled and not box:IsFocused() then skip() end end)
+			-- never blocks: after 25 s untouched it keeps the name in the box
+			task.delay(25, function() if openSerial == mine and gui.Enabled and not box:IsFocused() then submit() end end)
 			local conn
 			conn = gui:GetPropertyChangedSignal("Enabled"):Connect(function()
 				if not gui.Enabled then conn:Disconnect(); done() end

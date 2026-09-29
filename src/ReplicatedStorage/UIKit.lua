@@ -1,60 +1,97 @@
 --[[
 	UIKit -- ModuleScript in ReplicatedStorage.
 
-	ONE look for every screen. Zero uploads: Frames, UICorner, UIStroke,
-	UIGradient and two built-in fonts. This is literally what Sell Lemons'
-	HUD is made of. Every client script builds through these helpers so the
-	game stops looking like six different people drew it.
+	ONE look for every screen: THE STICKER SHEET (DESIGN.md at the project
+	root is the spec; this file is its code). Zero uploads: Frames, UICorner,
+	UIStroke and two built-in font families. Every client script builds
+	through these helpers so the game looks like one person drew it.
 
-	Rules baked in:
-	  - headings and numbers: FredokaOne (the tycoon font)
-	  - body: Gotham
-	  - buttons are CHUNKY: 3px darker bottom edge, stroke, 12px radius
-	  - touch targets never under 44px tall
-	  - one palette, below
+	v5 (29 Sep, the UI polish pass):
+	  - palette = ROLES (go / gold / blue / orange / red / purple) on warm
+	    paper and ink; old names kept as aliases so nothing breaks
+	  - FredokaOne is the voice (numbers, titles, buttons); Nunito ExtraBold
+	    is for reading (any sentence), replacing thin Gotham
+	  - one type scale (UIKit.TYPE), three radii (UIKit.RADIUS)
+	  - every piece has a lip: buttons, cards and menus alike
+	  - text on a light fill turns ink automatically (no white on gold)
 ]]
 
 local UIKit = {}
 
---[[ v3.1 ONE PALETTE (the 25 Sep review counted three greens, two golds,
-three greys and a dark panel base redefined in five files). Every client
-reads colours from here; nothing defines its own. ]]
-UIKit.INK = Color3.fromRGB(20, 22, 30)          -- outlines, dark text on light
-UIKit.PANEL = Color3.fromRGB(30, 34, 46)
-UIKit.LINE = Color3.fromRGB(58, 64, 84)
-UIKit.TEXT = Color3.fromRGB(255, 255, 255)
-UIKit.MUTED = Color3.fromRGB(160, 170, 190)
-UIKit.GOLD = Color3.fromRGB(255, 208, 70)
-UIKit.GREEN = Color3.fromRGB(70, 215, 110)
-UIKit.RED = Color3.fromRGB(240, 80, 80)
-UIKit.BLUE = Color3.fromRGB(70, 150, 255)
-UIKit.ORANGE = Color3.fromRGB(255, 140, 60)     -- destructive / reset actions
-UIKit.SURFACE = Color3.fromRGB(246, 247, 250)   -- menus: light and solid (the dark gold-rim panels were the anti-reference)
-UIKit.SURFACE_2 = Color3.fromRGB(232, 236, 243) -- rows and cells inside a menu
+-- ============ COLOUR: roles, not decoration (DESIGN.md section 2) ============
+local rgb = Color3.fromRGB
+UIKit.INK = rgb(20, 22, 30)             -- every outline; text on paper
+UIKit.INK_SOFT = rgb(42, 46, 58)
+UIKit.PAPER = rgb(255, 252, 246)        -- HUD cards, rail buttons (never pure white)
+UIKit.SURFACE = rgb(246, 242, 234)      -- menu bodies
+UIKit.SURFACE_2 = rgb(236, 230, 218)    -- rows, wells, quiet buttons
+UIKit.LINE_LIGHT = rgb(220, 212, 196)   -- dividers and card outlines on paper
+UIKit.MUTED_TEXT = rgb(106, 100, 86)    -- secondary text on paper (5.6:1)
 
---[[
-	v3.0 HUD RULE, from gameplay frames (PLAN-v5-tizzy section 4):
-	  - small HUD cards (objective, product bar, toasts, reveals) are WHITE
-	    with dark text -- Run a Restaurant!'s level-up and quest cards
-	  - money is big green OUTLINED text with no box -- Steal An Egg
-	  - big menus (build catalog, pickers, the Index) stay dark translucent --
-	    Run a Restaurant!'s build catalog
-	  - nothing dark sits at top-centre
-]]
-UIKit.CARD = Color3.fromRGB(255, 255, 255)
-UIKit.CARD_LINE = Color3.fromRGB(214, 219, 228)
-UIKit.CARD_TEXT = Color3.fromRGB(28, 32, 42)
-UIKit.CARD_MUTED = Color3.fromRGB(110, 118, 134)
+UIKit.GREEN = rgb(60, 203, 108)         -- GO: the next action, money gained, ready
+UIKit.GREEN_DEEP = rgb(29, 134, 69)
+UIKit.GREEN_LIGHT = rgb(221, 247, 230)
+UIKit.MONEY = rgb(91, 227, 142)         -- the cash number (always ink-outlined)
+UIKit.GOLD = rgb(255, 200, 61)          -- rewards, goals, your own row
+UIKit.GOLD_DEEP = rgb(138, 100, 0)
+UIKit.GOLD_LIGHT = rgb(255, 241, 196)
+UIKit.BLUE = rgb(59, 139, 255)          -- information, navigation
+UIKit.BLUE_DEEP = rgb(27, 92, 196)
+UIKit.BLUE_LIGHT = rgb(221, 235, 255)
+UIKit.ORANGE = rgb(255, 138, 61)        -- resets and costs (spin-off, away)
+UIKit.ORANGE_DEEP = rgb(176, 80, 26)
+UIKit.ORANGE_LIGHT = rgb(255, 229, 208)
+UIKit.RED = rgb(240, 78, 78)            -- badges and danger only
+UIKit.RED_DEEP = rgb(160, 36, 36)
+UIKit.PURPLE = rgb(165, 92, 255)        -- the rare (GENIUS)
+UIKit.PURPLE_DEEP = rgb(106, 47, 192)
+UIKit.PINK = rgb(236, 120, 170)         -- the design studio's colour
 
-UIKit.HEAD = Enum.Font.FredokaOne
-UIKit.BODY = Enum.Font.Gotham
-UIKit.BOLD = Enum.Font.GothamBold
+-- v3-v4 names, kept so every script still reads (values follow the v5 roles)
+UIKit.TEXT = rgb(255, 252, 246)         -- text ON a coloured fill
+UIKit.MUTED = UIKit.SURFACE_2           -- was a grey button fill: now the quiet button
+UIKit.PANEL = rgb(30, 34, 46)
+UIKit.LINE = rgb(58, 64, 84)
+UIKit.CARD = UIKit.PAPER
+UIKit.CARD_LINE = UIKit.LINE_LIGHT
+UIKit.CARD_TEXT = UIKit.INK_SOFT
+UIKit.CARD_MUTED = UIKit.MUTED_TEXT
 
 local function darker(c, k)
 	local h, s, v = c:ToHSV()
 	return Color3.fromHSV(h, s, v * (k or 0.7))
 end
 UIKit.darker = darker
+
+-- the deep shade of a role colour: its outline and its text on paper
+-- (keyed by the colour's 0-255 triple: a Color3 is a new value every time)
+local function key(c) return ("%d,%d,%d"):format(math.floor(c.R * 255 + 0.5), math.floor(c.G * 255 + 0.5), math.floor(c.B * 255 + 0.5)) end
+local DEEP, LIGHT = {}, {}
+for _, pair in ipairs({ { UIKit.GREEN, UIKit.GREEN_DEEP, UIKit.GREEN_LIGHT }, { UIKit.GOLD, UIKit.GOLD_DEEP, UIKit.GOLD_LIGHT },
+	{ UIKit.BLUE, UIKit.BLUE_DEEP, UIKit.BLUE_LIGHT }, { UIKit.ORANGE, UIKit.ORANGE_DEEP, UIKit.ORANGE_LIGHT },
+	{ UIKit.RED, UIKit.RED_DEEP }, { UIKit.PURPLE, UIKit.PURPLE_DEEP }, { UIKit.MONEY, UIKit.GREEN_DEEP } }) do
+	DEEP[key(pair[1])] = pair[2]
+	LIGHT[key(pair[1])] = pair[3]
+end
+function UIKit.deep(c) return DEEP[key(c)] or darker(c, 0.55) end
+function UIKit.light(c) return LIGHT[key(c)] or c:Lerp(UIKit.PAPER, 0.78) end
+
+-- relative luminance (WCAG): a fill above 0.5 takes ink text, below it white
+local function lin(x) return x <= 0.03928 and x / 12.92 or ((x + 0.055) / 1.055) ^ 2.4 end
+function UIKit.luminance(c) return 0.2126 * lin(c.R) + 0.7152 * lin(c.G) + 0.0722 * lin(c.B) end
+function UIKit.onColor(c) return UIKit.luminance(c) > 0.5 and UIKit.INK or UIKit.TEXT end
+
+-- ============ TYPE (DESIGN.md section 3) ============
+UIKit.HEAD = Enum.Font.FredokaOne                                        -- the voice
+UIKit.BODY = Font.new("rbxasset://fonts/families/Nunito.json", Enum.FontWeight.ExtraBold)   -- for reading
+UIKit.BOLD = Font.new("rbxasset://fonts/families/Nunito.json", Enum.FontWeight.Heavy)
+UIKit.TYPE = { caption = 14, body = 16, label = 18, title = 22, headline = 28, display = 36, money = 44 }
+UIKit.RADIUS = { sm = 8, md = 12, lg = 16 }
+
+-- a font argument may be an Enum.Font (FredokaOne) or a Font (Nunito with a weight)
+function UIKit.setFont(obj, font)
+	if typeof(font) == "Font" then obj.FontFace = font else obj.Font = font or UIKit.HEAD end
+end
 
 local function apply(inst, props)
 	for k, v in pairs(props or {}) do inst[k] = v end
@@ -76,7 +113,42 @@ function UIKit.panel(parent, props, opts)
 	return f
 end
 
--- a chunky cartoon button: bright face, darker bottom lip, dark stroke
+-- the three colours a button derives from its face (DESIGN.md: outline in the
+-- deep shade, a lip under the face, ink text on light fills, white on the rest)
+local function strokeFor(c)
+	if UIKit.luminance(c) > 0.7 then return darker(c, 0.62) end
+	return UIKit.deep(c)
+end
+local function lipFor(c)
+	if UIKit.luminance(c) > 0.7 then return darker(c, 0.8) end
+	return c:Lerp(UIKit.deep(c), 0.7)
+end
+UIKit.strokeFor, UIKit.lipFor = strokeFor, lipFor
+
+-- text on a fill: ink on light, white with a crisp deep-shade outline on the rest
+local function paintLabel(t, face, fixed)
+	local st = t:FindFirstChild("Outline")
+	local col = fixed or UIKit.onColor(face)
+	t.TextColor3 = col
+	t.TextStrokeTransparency = 1
+	if col == UIKit.INK or UIKit.luminance(col) < 0.2 then
+		if st then st.Enabled = false end
+		return
+	end
+	if not st then
+		st = Instance.new("UIStroke")
+		st.Name = "Outline"
+		st.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+		st.LineJoinMode = Enum.LineJoinMode.Round
+		st.Parent = t
+	end
+	st.Enabled = true
+	st.Color = UIKit.deep(face)
+	st.Thickness = t.TextSize >= 20 and 2 or 1.5
+end
+UIKit.paintLabel = paintLabel
+
+-- a chunky toy button: face, a lip under it, an outline in the deep shade
 function UIKit.button(parent, text, color, props, opts)
 	opts = opts or {}
 	color = color or UIKit.GOLD
@@ -85,23 +157,27 @@ function UIKit.button(parent, text, color, props, opts)
 	b.BackgroundColor3 = color
 	b.BorderSizePixel = 0
 	b.AutoButtonColor = false
+	b:SetAttribute("Face", color)
 	apply(b, props)
 	b.Parent = parent
-	Instance.new("UICorner", b).CornerRadius = UDim.new(0, opts.radius or 12)
+	local radius = opts.radius or UIKit.RADIUS.md
+	Instance.new("UICorner", b).CornerRadius = UDim.new(0, radius)
 	local st = Instance.new("UIStroke", b)
-	st.Color = darker(color, 0.45)
+	st.Color = opts.stroke or strokeFor(color)
 	st.Thickness = 2.5
-	-- bottom lip: the thing that makes it read as pressable
+	st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	if opts.stroke then b:SetAttribute("FixedStroke", opts.stroke) end
+	-- the lip: the thing that makes it read as pressable
 	local lip = Instance.new("Frame")
 	lip.Name = "Lip"
 	lip.AnchorPoint = Vector2.new(0, 1)
 	lip.Position = UDim2.new(0, 0, 1, 0)
 	lip.Size = UDim2.new(1, 0, 0, 5)
-	lip.BackgroundColor3 = darker(color, 0.6)
+	lip.BackgroundColor3 = lipFor(color)
 	lip.BorderSizePixel = 0
 	lip.ZIndex = b.ZIndex
 	lip.Parent = b
-	Instance.new("UICorner", lip).CornerRadius = UDim.new(0, opts.radius or 12)
+	Instance.new("UICorner", lip).CornerRadius = UDim.new(0, radius)
 	local t = Instance.new("TextLabel")
 	t.Name = "Label"
 	t.Size = UDim2.new(1, -12, 1, -5)
@@ -110,20 +186,19 @@ function UIKit.button(parent, text, color, props, opts)
 	t.Text = text
 	t.Font = UIKit.HEAD
 	t.TextSize = opts.textSize or 20
-	t.TextColor3 = opts.textColor or (opts.dark and UIKit.INK or UIKit.TEXT)
-	t.TextStrokeTransparency = opts.dark and 1 or 0.4
-	t.TextStrokeColor3 = darker(color, 0.35)
 	t.TextScaled = opts.scaled or false
 	t.ZIndex = b.ZIndex + 1
 	t.Parent = b
-	-- press feedback: darken, squish, click (the same on every button in the game)
+	local fixed = opts.textColor or (opts.dark and UIKit.INK) or nil
+	if fixed then b:SetAttribute("FixedText", fixed) end
+	paintLabel(t, color, fixed)
+	-- press feedback: squash, click, spring back (the same on every button)
 	local sc = Instance.new("UIScale")
 	sc.Parent = b
 	local TS = game:GetService("TweenService")
-	--[[ v4.0 MOTION (his note: "revamp the ui click/scale animations"). Every
-	button: hover lifts it (desktop), a press squashes it fast, a release pops it
-	past full size and settles (0.9 -> 1.07 -> 1: the two-stage spring the top
-	games use), and a rendered icon on it tips and rights itself. ]]
+	--[[ v4.0 MOTION, v5 tuned: hover lifts it (desktop), a press squashes it
+	fast, a release springs just past full size and settles (0.92 -> 1.04 -> 1),
+	and a rendered icon on it tips and rights itself. ]]
 	local UIS = game:GetService("UserInputService")
 	local pressed, hovered = false, false
 	local seq = 0
@@ -133,8 +208,8 @@ function UIKit.button(parent, text, color, props, opts)
 	local function release()
 		seq += 1
 		local mine = seq
-		to(1.07, 0.09)
-		task.delay(0.09, function() if seq == mine then to(hovered and 1.04 or 1, 0.16, Enum.EasingStyle.Sine) end end)
+		to(1.04, 0.08)
+		task.delay(0.08, function() if seq == mine then to(hovered and 1.03 or 1, 0.18, Enum.EasingStyle.Quint) end end)
 	end
 	local function iconTip(down)
 		local ic = b:FindFirstChild("Icon")
@@ -146,13 +221,13 @@ function UIKit.button(parent, text, color, props, opts)
 	b.MouseEnter:Connect(function()
 		if UIS.TouchEnabled and not UIS.MouseEnabled then return end
 		hovered = true
-		if not pressed then to(1.04, 0.12) end
+		if not pressed then to(1.03, 0.12) end
 	end)
 	b.MouseButton1Down:Connect(function()
 		pressed = true
 		seq += 1
-		b.BackgroundColor3 = darker(b:GetAttribute("Face") or color, 0.85)
-		to(0.9, 0.06)
+		b.BackgroundColor3 = darker(b:GetAttribute("Face") or color, 0.9)
+		to(0.92, 0.06)
 		iconTip(true)
 		if not opts.silent then UIKit.sfx("tap") end
 	end)
@@ -176,11 +251,11 @@ function UIKit.setButtonColor(b, color)
 	b:SetAttribute("Face", color)
 	b.BackgroundColor3 = color
 	local st = b:FindFirstChildOfClass("UIStroke")
-	if st then st.Color = darker(color, 0.45) end
+	if st then st.Color = b:GetAttribute("FixedStroke") or strokeFor(color) end
 	local lip = b:FindFirstChild("Lip")
-	if lip then lip.BackgroundColor3 = darker(color, 0.6) end
+	if lip then lip.BackgroundColor3 = lipFor(color) end
 	local t = b:FindFirstChild("Label")
-	if t then t.TextStrokeColor3 = darker(color, 0.35) end
+	if t then paintLabel(t, color, b:GetAttribute("FixedText")) end
 end
 
 function UIKit.label(parent, text, size, color, props, font)
@@ -189,18 +264,52 @@ function UIKit.label(parent, text, size, color, props, font)
 	l.Text = text
 	l.TextSize = size or 16
 	l.TextColor3 = color or UIKit.TEXT
-	l.Font = font or UIKit.BODY
+	UIKit.setFont(l, font or UIKit.BODY)
 	l.TextXAlignment = Enum.TextXAlignment.Left
 	apply(l, props)
 	l.Parent = parent
 	return l
 end
 
--- a white HUD card (see the v3.0 rule above)
+--[[ THE LIP on a panel (v5): the bottom `px` of the face drawn darker, like a
+button's lip, so a paper card separates from a bright floor. A UIGradient on
+the frame itself (a child band would be moved by a UIListLayout inside the
+card), re-cut whenever the frame's height changes. ]]
+function UIKit.lip(frame, px, shade)
+	px = px or 4
+	local g = frame:FindFirstChild("LipGradient") or Instance.new("UIGradient")
+	g.Name = "LipGradient"
+	g.Rotation = 90
+	local k = shade or 0.86
+	local low = Color3.new(k, k * 0.985, k * 0.955)
+	local function cut()
+		local h = frame.AbsoluteSize.Y
+		if h <= px * 2 then g.Enabled = false return end
+		g.Enabled = true
+		local at = math.clamp(1 - px / h, 0.5, 0.995)
+		g.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
+			ColorSequenceKeypoint.new(at - 0.001, Color3.new(1, 1, 1)),
+			ColorSequenceKeypoint.new(at, low),
+			ColorSequenceKeypoint.new(1, low),
+		})
+	end
+	g.Parent = frame
+	if not frame:GetAttribute("LipWired") then
+		frame:SetAttribute("LipWired", true)
+		frame:GetPropertyChangedSignal("AbsoluteSize"):Connect(cut)
+	end
+	cut()
+	return g
+end
+
+-- a paper HUD card: lg radius, a soft outline, a lip
 function UIKit.card(parent, props, opts)
 	opts = opts or {}
-	return UIKit.panel(parent, props, { radius = opts.radius or 14, color = UIKit.CARD,
-		stroke = opts.stroke or UIKit.CARD_LINE, strokeWidth = opts.strokeWidth or 1.5 })
+	local f = UIKit.panel(parent, props, { radius = opts.radius or UIKit.RADIUS.lg, color = UIKit.CARD,
+		stroke = opts.stroke or UIKit.CARD_LINE, strokeWidth = opts.strokeWidth or 2 })
+	if opts.lip ~= false then UIKit.lip(f, opts.lip or 4) end
+	return f
 end
 
 -- big outlined display text (money): a real outline via UIStroke, not the thin TextStroke
@@ -370,6 +479,41 @@ function UIKit.iconButton(parent, key, caption, color, props, opts)
 	return b, t, ic
 end
 
+--[[ v5 A RAIL BUTTON: a paper tile with an ink outline, the full-colour
+rendered icon popping above it and an ink caption (Run a Restaurant!'s rail).
+The rail used to be five saturated tiles in five colours, all as loud as the
+one thing you should do next (DESIGN.md principle 1). The accent colour now
+means one thing: this menu is open (UIKit.setRailActive). ]]
+function UIKit.railButton(key, caption, accent, props, opts)
+	opts = opts or {}
+	opts.dark = true
+	opts.stroke = opts.stroke or UIKit.INK_SOFT
+	opts.iconSize = opts.iconSize or 30
+	opts.captionSize = opts.captionSize or 14
+	local b, t, ic = UIKit.iconButton(UIKit.rail(), key, caption, UIKit.PAPER, props, opts)
+	b:SetAttribute("Accent", accent or UIKit.BLUE)
+	return b, t, ic
+end
+
+function UIKit.setRailActive(b, on)
+	if not b then return end
+	local accent = b:GetAttribute("Accent") or UIKit.BLUE
+	b:SetAttribute("RailActive", on == true)
+	UIKit.setButtonColor(b, on and UIKit.light(accent) or UIKit.PAPER)
+	local st = b:FindFirstChildOfClass("UIStroke")
+	if st then st.Color = on and UIKit.deep(accent) or UIKit.INK_SOFT end
+	local t = b:FindFirstChild("Label")
+	if t then t.TextColor3 = on and UIKit.deep(accent) or UIKit.INK end
+end
+
+-- the tile shows "open" exactly while its menu is (every close path, including
+-- another menu opening via UIKit.solo, goes through gui.Enabled)
+function UIKit.bindRail(b, gui)
+	if not (b and gui) then return end
+	gui:GetPropertyChangedSignal("Enabled"):Connect(function() UIKit.setRailActive(b, gui.Enabled) end)
+	UIKit.setRailActive(b, gui.Enabled)
+end
+
 --[[
 	THE LEFT RAIL (v3.0). Run a Restaurant! and Steal An Egg both stack their
 	few buttons in one column on the left edge. Every script that owns a
@@ -431,7 +575,7 @@ function UIKit.rail()
 		l.Padding = UDim.new(0, 8)
 		l.SortOrder = Enum.SortOrder.LayoutOrder
 		l.Parent = f
-		fitColumn(g, f, l, 64, 10, 0.55)
+		fitColumn(g, f, l, 64, 10, 0.8)     -- v5: never below 0.8 (0.55 made 14 px captions 8 px)
 	end
 	return g:WaitForChild("Column")
 end
@@ -602,7 +746,7 @@ function UIKit.column()
 		fit()
 		cam:GetPropertyChangedSignal("ViewportSize"):Connect(fit)
 		-- v4.4 and never taller than the screen: the WRITE CODE bar owns the bottom ~110
-		fitColumn(g, f, l, 60, 110, 0.7)
+		fitColumn(g, f, l, 60, 110, 0.9)    -- v5: one goal card now, so it never has to shrink to 0.7
 	end
 	return g:WaitForChild("Column")
 end
@@ -614,37 +758,46 @@ panel, body (content area under the header), close button, title. ]]
 function UIKit.menu(parent, title, accent, props, opts)
 	opts = opts or {}
 	accent = accent or UIKit.BLUE
-	local HEAD_H = opts.headerHeight or 48
+	local HEAD_H = opts.headerHeight or 52
+	local R = UIKit.RADIUS.lg
 	local f = Instance.new("Frame")
 	f.BackgroundColor3 = UIKit.SURFACE
 	f.BorderSizePixel = 0
 	apply(f, props)
 	f.Parent = parent
-	Instance.new("UICorner", f).CornerRadius = UDim.new(0, 16)
+	Instance.new("UICorner", f).CornerRadius = UDim.new(0, R)
 	local st = Instance.new("UIStroke", f)
-	st.Color = darker(accent, 0.55)
+	st.Color = UIKit.deep(accent)
 	st.Thickness = 3
 	st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	UIKit.lip(f, 6, 0.9)
 	local head = Instance.new("Frame")
 	head.Name = "Header"
 	head.BackgroundColor3 = accent
 	head.BorderSizePixel = 0
 	head.Size = UDim2.new(1, 0, 0, HEAD_H)
 	head.Parent = f
-	Instance.new("UICorner", head).CornerRadius = UDim.new(0, 16)
+	Instance.new("UICorner", head).CornerRadius = UDim.new(0, R)
 	local sq = Instance.new("Frame")          -- square off the header's bottom corners
 	sq.BackgroundColor3 = accent
 	sq.BorderSizePixel = 0
 	sq.AnchorPoint = Vector2.new(0, 1)
 	sq.Position = UDim2.new(0, 0, 1, 0)
-	sq.Size = UDim2.new(1, 0, 0, 16)
+	sq.Size = UDim2.new(1, 0, 0, R)
 	sq.Parent = head
+	local rule = Instance.new("Frame")        -- a hard edge under the header, in the deep shade
+	rule.Name = "Rule"
+	rule.BackgroundColor3 = UIKit.deep(accent)
+	rule.BorderSizePixel = 0
+	rule.AnchorPoint = Vector2.new(0, 1)
+	rule.Position = UDim2.new(0, 0, 1, 0)
+	rule.Size = UDim2.new(1, 0, 0, 3)
+	rule.Parent = head
 	local t = UIKit.label(head, title or "", 24, UIKit.TEXT, {
-		Name = "Title", Position = UDim2.new(0, 18, 0, 0), Size = UDim2.new(1, -80, 1, 0),
+		Name = "Title", Position = UDim2.new(0, 18, 0, 0), Size = UDim2.new(1, -84, 1, -3),
 		TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 2,
 	}, UIKit.HEAD)
-	t.TextStrokeTransparency = 0.3
-	t.TextStrokeColor3 = darker(accent, 0.35)
+	paintLabel(t, accent)
 	local close
 	if not opts.noClose then
 		close = Instance.new("TextButton")
@@ -652,20 +805,30 @@ function UIKit.menu(parent, title, accent, props, opts)
 		close.Text = ""
 		close.AutoButtonColor = false
 		close.AnchorPoint = Vector2.new(1, 0.5)
-		close.Position = UDim2.new(1, -8, 0.5, 0)
-		close.Size = UDim2.new(0, 40, 0, 40)
-		close.BackgroundColor3 = UIKit.TEXT
+		close.Position = UDim2.new(1, -8, 0.5, -1)
+		close.Size = UDim2.new(0, 44, 0, 44)
+		close.BackgroundColor3 = UIKit.PAPER
 		close.ZIndex = 3
 		close.Parent = head
 		Instance.new("UICorner", close).CornerRadius = UDim.new(1, 0)
-		UIKit.icon(close, "cross", 20, darker(accent, 0.5), { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), ZIndex = 4 })
-		close.MouseButton1Down:Connect(function() UIKit.sfx("tap") end)
+		local cs = Instance.new("UIStroke", close)
+		cs.Color = UIKit.deep(accent)
+		cs.Thickness = 2.5
+		UIKit.icon(close, "cross", 20, UIKit.INK_SOFT, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), ZIndex = 4 })
+		local csc = Instance.new("UIScale", close)
+		local TS = game:GetService("TweenService")
+		close.MouseButton1Down:Connect(function()
+			UIKit.sfx("tap")
+			TS:Create(csc, TweenInfo.new(0.06), { Scale = 0.88 }):Play()
+		end)
+		close.MouseButton1Up:Connect(function() TS:Create(csc, TweenInfo.new(0.16, Enum.EasingStyle.Quint), { Scale = 1 }):Play() end)
+		close.MouseLeave:Connect(function() csc.Scale = 1 end)
 	end
 	local body = Instance.new("Frame")
 	body.Name = "Body"
 	body.BackgroundTransparency = 1
 	body.Position = UDim2.new(0, 14, 0, HEAD_H + 12)
-	body.Size = UDim2.new(1, -28, 1, -(HEAD_H + 24))
+	body.Size = UDim2.new(1, -28, 1, -(HEAD_H + 26))
 	body.Parent = f
 	return f, body, close, t
 end
@@ -675,14 +838,24 @@ end
 -- daily card over the bag was three stacked panels)
 UIKit.MENUS = { "Phone", "Daily", "Bag", "TalentIndex", "Lift", "Apartments", "Dealer", "Ranks" }
 
--- v4.0: a panel opens on a spring (0.86 -> 1, Back), never just appears
+-- v5: a panel opens by growing in (0.94 -> 1, Quint out, no overshoot: a menu
+-- is a state change, not a celebration). A frame keeps ONE UIScale (Roblox only
+-- honours one), so a menu that already fit-scales to the screen is animated
+-- through that scale, from and back to its own value.
 function UIKit.popIn(frame, from)
 	if not (frame and frame:IsA("GuiObject")) then return end
-	local sc = frame:FindFirstChild("PopScale") or Instance.new("UIScale")
-	sc.Name = "PopScale"
-	sc.Parent = frame
-	sc.Scale = from or 0.86
-	game:GetService("TweenService"):Create(sc, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	local sc = frame:FindFirstChildOfClass("UIScale")
+	if not sc then
+		sc = Instance.new("UIScale")
+		sc.Name = "PopScale"
+		sc.Parent = frame
+	end
+	local target = sc:GetAttribute("Rest") or sc.Scale
+	sc:SetAttribute("Rest", target)
+	sc.Scale = target * (from or 0.94)
+	local tw = game:GetService("TweenService"):Create(sc, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Scale = target })
+	tw:Play()
+	tw.Completed:Connect(function() sc:SetAttribute("Rest", nil) end)
 end
 
 -- v4.0: the items in a grid or list arrive one after another (35 ms apart, capped)
@@ -695,13 +868,17 @@ function UIKit.stagger(container, step)
 	table.sort(kids, function(a, b) return a.LayoutOrder < b.LayoutOrder end)
 	local TS = game:GetService("TweenService")
 	for i, c in ipairs(kids) do
-		if i > 24 then break end
-		local sc = c:FindFirstChild("StaggerScale") or Instance.new("UIScale")
-		sc.Name = "StaggerScale"
-		sc.Parent = c
-		sc.Scale = 0.55
-		task.delay(math.min(0.5, (i - 1) * (step or 0.035)), function()
-			TS:Create(sc, TweenInfo.new(0.26, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+		-- one UIScale per frame: a button's press scale doubles as its stagger scale
+		local sc = c:FindFirstChildOfClass("UIScale")
+		if not sc then
+			sc = Instance.new("UIScale")
+			sc.Name = "StaggerScale"
+			sc.Parent = c
+		end
+		if i > 12 then sc.Scale = 1 continue end
+		sc.Scale = 0.8
+		task.delay((i - 1) * (step or 0.03), function()
+			TS:Create(sc, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 		end)
 	end
 end

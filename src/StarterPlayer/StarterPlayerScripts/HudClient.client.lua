@@ -91,7 +91,8 @@ local row = Instance.new("UIListLayout", pill)
 row.FillDirection = Enum.FillDirection.Horizontal
 row.HorizontalAlignment = Enum.HorizontalAlignment.Center
 row.VerticalAlignment = Enum.VerticalAlignment.Center
-row.Padding = UDim.new(0, 10)
+row.SortOrder = Enum.SortOrder.LayoutOrder   -- v5: coin first (it sorted by name and sat on the right)
+row.Padding = UDim.new(0, 8)
 local coin = Instance.new("Frame")
 coin.Name = "Coin"
 coin.Size = UDim2.new(0, 40, 0, 40)
@@ -112,12 +113,12 @@ if UIKit.ART and UIKit.ART.coin then
 	dollar.Visible = false
 	UIKit.art(coin, "coin", 52, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0) })
 end
-local cashText = UIKit.outlined(pill, "$0", 44, UIKit.GREEN, {
+local cashText = UIKit.outlined(pill, "$0", 44, UIKit.MONEY, {
 	Name = "Amount", Size = UDim2.new(0, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.X, LayoutOrder = 2,
 })
 
 -- income line (tap it for the per-building breakdown)
-local rateText = UIKit.outlined(gui, "", 18, UIKit.GREEN, {
+local rateText = UIKit.outlined(gui, "", 18, UIKit.MONEY, {
 	Name = "Rate", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 64),
 	Size = UDim2.new(0, 300, 0, 22), TextXAlignment = Enum.TextXAlignment.Center,
 })
@@ -126,8 +127,8 @@ rateHit.Name = "RateHit"
 rateHit.BackgroundTransparency = 1
 rateHit.Text = ""
 rateHit.AnchorPoint = Vector2.new(0.5, 0)
-rateHit.Position = UDim2.new(0.5, 0, 0, 60)
-rateHit.Size = UDim2.new(0, 300, 0, 30)
+rateHit.Position = UDim2.new(0.5, 0, 0, 54)
+rateHit.Size = UDim2.new(0, 300, 0, 44)
 rateHit.Parent = gui
 
 local breakdown = UIKit.card(gui, {
@@ -149,7 +150,7 @@ local function drawBreakdown()
 			n += 1
 			local val = tonumber(v)
 			local l = UIKit.label(breakdown, ("%s   %s%s / sec"):format(name, val < 0 and "-" or "+", UIKit.money(math.abs(val))), 16,
-				val < 0 and UIKit.RED or UIKit.CARD_TEXT, { Size = UDim2.new(1, 0, 0, 20) }, UIKit.HEAD)
+				val < 0 and UIKit.RED_DEEP or UIKit.CARD_TEXT, { Size = UDim2.new(1, 0, 0, 20) }, UIKit.BODY)
 			l.LayoutOrder = n
 		end
 	end
@@ -167,33 +168,53 @@ rateHit.MouseButton1Click:Connect(function()
 end)
 player:GetAttributeChangedSignal("IncomeRooms"):Connect(function() if breakdown.Visible then drawBreakdown() end end)
 
--- ============ WRITE CODE ============
--- The verb you can always do. The next product fills INSIDE it (a charge meter),
--- a tap pops a click whose pitch climbs with a combo, and it pulses when it is
--- the thing to do right now.
+-- ============ THE NEXT-ACTION SLOT (v5) ============
+--[[ The bottom-centre button is whatever you should do next with your thumb.
+Normally WRITE CODE: the verb you can always do, with the next app filling
+INSIDE it (a mint fill you can actually see now; the old one was pale green on
+green). When the app is ready the SAME button becomes a gold LAUNCH!, with the
+payday on it and the full-pay time draining out of it (it used to be a card in
+the top-right corner, the hardest reach on a phone, 300 px from the button
+that filled it: his Wilz run never pressed it in 19 minutes).
+
+When something else is the goal (build, hire, upgrade), WRITE CODE steps down
+a size so the goal card and the world marker are the loud things (DESIGN.md
+principle 1). It pulses only when writing code IS the goal. ]]
 local writeCodeRemote = remotes:WaitForChild("WriteCode", 10)
+local pickMarket = remotes:WaitForChild("PickMarket", 10)
+local productReady = remotes:WaitForChild("ProductReady", 10)
+local FULL = UDim2.new(0, 236, 0, 64)
+local QUIET = UDim2.new(0, 206, 0, 56)
+local MINT = Color3.fromRGB(176, 242, 198)
 local codeBtn, codeLabel = UIKit.button(gui, "WRITE CODE", UIKit.GREEN, {
 	Name = "WriteCode", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -22),
-	Size = UDim2.new(0, 230, 0, 64), ClipsDescendants = false,
+	Size = FULL, ClipsDescendants = false,
 }, { textSize = 24, silent = true })
 local charge = Instance.new("Frame")
 charge.Name = "Charge"
-charge.BackgroundColor3 = Color3.fromRGB(150, 245, 175)
-charge.BackgroundTransparency = 0.25
+charge.BackgroundColor3 = MINT
 charge.BorderSizePixel = 0
 charge.Size = UDim2.new(0, 0, 1, -5)
 charge.ZIndex = codeBtn.ZIndex
 charge.Parent = codeBtn
-Instance.new("UICorner", charge).CornerRadius = UDim.new(0, 12)
-UIKit.art(codeBtn, "code", 50, { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 10, 0.5, -4), ZIndex = codeBtn.ZIndex + 1 })
-codeLabel.Position = UDim2.new(0, 54, 0, 0)
-codeLabel.Size = UDim2.new(1, -66, 1, -5)
-local codeCaption = UIKit.outlined(codeBtn, "NEXT APP", 13, UIKit.TEXT, {
-	Name = "Caption", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 0, -2),
-	Size = UDim2.new(1, 0, 0, 16), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = codeBtn.ZIndex + 2,
+Instance.new("UICorner", charge).CornerRadius = UDim.new(0, UIKit.RADIUS.md)
+local slotArt = UIKit.art(codeBtn, "code", 50, { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 8, 0.5, -3), ZIndex = codeBtn.ZIndex + 1 })
+codeLabel.Position = UDim2.new(0, 56, 0, 0)
+codeLabel.Size = UDim2.new(1, -64, 1, -5)
+-- the payday line under LAUNCH! (hidden while it is WRITE CODE)
+local payLabel = UIKit.label(codeBtn, "", 16, UIKit.INK, {
+	Name = "Pay", Position = UDim2.new(0, 56, 0, 33), Size = UDim2.new(1, -64, 0, 20), Visible = false,
+	TextXAlignment = Enum.TextXAlignment.Center, ZIndex = codeBtn.ZIndex + 1,
+}, UIKit.HEAD)
+local codeCaption = UIKit.outlined(codeBtn, "NEXT APP", 14, UIKit.TEXT, {
+	Name = "Caption", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 0, -4),
+	Size = UDim2.new(1, 40, 0, 18), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = codeBtn.ZIndex + 2,
 })
 local codeWrap = Instance.new("UIScale")   -- the button's own UIScale is the press squish; pulse the label
 codeWrap.Parent = codeLabel
+
+local launchState     -- { payday, autoAt } while an app waits to launch
+local pulsing = false
 
 local function seated()
 	local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
@@ -201,7 +222,14 @@ local function seated()
 	return st ~= nil and st:IsA("VehicleSeat")
 end
 local function syncCode()
-	codeBtn.Visible = player:GetAttribute("Shipped") == true and player:GetAttribute("BuildModeOpen") ~= true and not seated()
+	local inCar = seated()
+	-- in a car the speedometer owns the bottom centre: a waiting LAUNCH sits above it
+	codeBtn.Visible = player:GetAttribute("Shipped") == true and player:GetAttribute("BuildModeOpen") ~= true
+		and (not inCar or launchState ~= nil)
+	codeBtn.Position = UDim2.new(0.5, 0, 1, inCar and -126 or -22)
+	local loud = launchState ~= nil or pulsing
+	codeBtn.Size = loud and FULL or QUIET
+	codeLabel.TextSize = loud and 24 or 22
 end
 syncCode()
 player:GetAttributeChangedSignal("Shipped"):Connect(syncCode)
@@ -215,16 +243,78 @@ end
 if player.Character then task.spawn(watchSeat, player.Character) end
 player.CharacterAdded:Connect(watchSeat)
 
+local chargeTween
 local function setCharge(p)
+	if launchState then return end
 	p = math.clamp(tonumber(p) or 0, 0, 1)
-	tween(charge, 0.25, { Size = UDim2.new(p, 0, 1, -5) })
+	if chargeTween then chargeTween:Cancel() end
+	chargeTween = tween(charge, 0.25, { Size = UDim2.new(p, 0, 1, -5) })
 	codeCaption.Text = p >= 1 and "APP READY!" or ("NEXT APP  " .. math.floor(p * 100) .. "%")
+	codeCaption.TextColor3 = UIKit.TEXT
 end
 setCharge(player:GetAttribute("ProductProgress"))
 player:GetAttributeChangedSignal("ProductProgress"):Connect(function() setCharge(player:GetAttribute("ProductProgress")) end)
 
+-- v3.2: an armed Front Page doubles the payday; the button says so before you tap
+local function payText()
+	if not launchState then return "" end
+	local press = player:GetAttribute("ArmedPress") == true
+	local pay = (launchState.payday or 0) * (press and 2 or 1)
+	return "+" .. UIKit.money(pay) .. (press and "  Front Page" or "")
+end
+local function setLaunch(o)
+	local was = launchState
+	launchState = o
+	-- a progress tween still running from the last tap would cut the time-left fill short
+	if chargeTween then chargeTween:Cancel(); chargeTween = nil end
+	if o then
+		UIKit.setButtonColor(codeBtn, UIKit.GOLD)
+		charge.BackgroundColor3 = UIKit.GOLD_LIGHT
+		charge.Size = UDim2.new(1, 0, 1, -5)
+		slotArt.Image = UIKit.ART.rocket
+		codeLabel.Text = "LAUNCH!"
+		codeLabel.Position = UDim2.new(0, 56, 0, 3)
+		codeLabel.Size = UDim2.new(1, -64, 0, 30)
+		payLabel.Text = payText()
+		payLabel.Visible = true
+		if not was then
+			UIKit.sfx("ding", 0.9)
+			local sc = codeBtn:FindFirstChildOfClass("UIScale")
+			if sc then sc.Scale = 1.15; tween(sc, 0.35, { Scale = 1 }, Enum.EasingStyle.Back) end
+		end
+	else
+		UIKit.setButtonColor(codeBtn, UIKit.GREEN)
+		charge.BackgroundColor3 = MINT
+		slotArt.Image = UIKit.ART.code
+		codeLabel.Text = "WRITE CODE"
+		codeLabel.Position = UDim2.new(0, 56, 0, 0)
+		codeLabel.Size = UDim2.new(1, -64, 1, -5)
+		payLabel.Visible = false
+		setCharge(player:GetAttribute("ProductProgress"))
+	end
+	syncCode()
+end
+player:GetAttributeChangedSignal("ArmedPress"):Connect(function() payLabel.Text = payText() end)
+if productReady then
+	productReady.OnClientEvent:Connect(function(options)
+		if not options then setLaunch(nil) return end
+		if #options == 1 and options[1].launch then setLaunch(options[1]) end
+	end)
+end
+local function doLaunch()
+	if not launchState or not pickMarket then return end
+	pickMarket:FireServer(1)
+	setLaunch(nil)
+end
+-- v4.3: L on a keyboard, Y on a gamepad (his run: LAUNCH was never pressed in 19 minutes)
+game:GetService("UserInputService").InputBegan:Connect(function(input, processed)
+	if processed then return end
+	if input.KeyCode == Enum.KeyCode.L or input.KeyCode == Enum.KeyCode.ButtonY then doLaunch() end
+end)
+
 local combo, lastTap = 0, 0
 codeBtn.MouseButton1Click:Connect(function()
+	if launchState then doLaunch() return end
 	if writeCodeRemote then writeCodeRemote:FireServer() end
 	local now = os.clock()
 	combo = (now - lastTap < 0.8) and math.min(combo + 1, 10) or 0
@@ -238,25 +328,39 @@ local function floatGain()
 	if not gain then return end
 	local combo = player:GetAttribute("CodeCombo") or 0
 	local text = "+" .. UIKit.money(gain) .. (combo >= 2 and ("  x%.1f"):format(1 + 0.1 * combo) or "")
-	local g = UIKit.outlined(gui, text, 20 + math.min(combo, 8), combo >= 5 and UIKit.GOLD or Color3.fromRGB(190, 255, 205), {
+	local g = UIKit.outlined(gui, text, 20 + math.min(combo, 8), combo >= 5 and UIKit.GOLD or UIKit.MONEY, {
 		AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0, 200, 0, 28), TextXAlignment = Enum.TextXAlignment.Center,
-		Position = UDim2.new(0.5, math.random(-70, 70), 1, -92),
+		Position = UDim2.new(0.5, math.random(-70, 70), 1, -112),
 	})
 	fadeText(g, 0.7, { Position = g.Position - UDim2.new(0, 0, 0, 56) })
 	task.delay(0.75, function() g:Destroy() end)
 end
 player:GetAttributeChangedSignal("CodeTap"):Connect(floatGain)
 
--- pulse when writing code IS the objective
-local pulsing = false
+-- pulse when writing code IS the objective (and when a launch is waiting)
 local function syncPulse()
 	local k = player:GetAttribute("Objective")
 	pulsing = (k == "wait" or k == "watch")
+	syncCode()
 end
 syncPulse()
 player:GetAttributeChangedSignal("Objective"):Connect(syncPulse)
 RunService.RenderStepped:Connect(function()
-	codeWrap.Scale = pulsing and (1 + 0.06 * (0.5 + 0.5 * math.sin(os.clock() * 5))) or 1
+	local t = os.clock()
+	if launchState then
+		codeWrap.Scale = 1 + 0.07 * (0.5 + 0.5 * math.sin(t * 5.5))
+		local at = launchState.autoAt
+		if at then
+			local left = math.max(0, at - workspace:GetServerTimeNow())
+			charge.Size = UDim2.new(math.clamp(left / 60, 0, 1), 0, 1, -5)
+			codeCaption.Text = ("FULL PAY  %ds"):format(math.ceil(left))
+			codeCaption.TextColor3 = left <= 15 and UIKit.ORANGE or UIKit.TEXT
+		else
+			codeCaption.Text = "APP READY!"
+		end
+	else
+		codeWrap.Scale = pulsing and (1 + 0.06 * (0.5 + 0.5 * math.sin(t * 5))) or 1
+	end
 end)
 
 -- ============ TICK ============
@@ -289,7 +393,7 @@ RunService.RenderStepped:Connect(function(dt)
 				rateText.TextColor3 = UIKit.ORANGE
 			else
 				rateText.Text = r > 0 and ("+" .. UIKit.money(r) .. " / sec") or ""
-				rateText.TextColor3 = UIKit.GREEN
+				rateText.TextColor3 = UIKit.MONEY
 			end
 		end
 	end
@@ -329,7 +433,7 @@ task.spawn(function()
 		local perSec = r and r.Value or 0
 		local jump = target - lastTarget
 		if lastTarget > 0 and os.clock() > quietUntil and jump > math.max(50, perSec * 4) then
-			popUnderCash("+" .. UIKit.money(jump), UIKit.GREEN, 0.9)
+			popUnderCash("+" .. UIKit.money(jump), UIKit.MONEY, 0.9)
 			bumpCash(1.08)
 		end
 		lastTarget = target
@@ -374,9 +478,9 @@ local function hqBanner(e, done)
 	UIKit.sfx("levelup")
 	local w = math.min(520, fx.AbsoluteSize.X * 0.92)
 	local card = UIKit.card(fx, {
-		AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, -140), Size = UDim2.new(0, w, 0, e.headline and 196 or 132),
+		AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, -140), Size = UDim2.new(0, w, 0, e.headline and 172 or 132),
 	}, { radius = 18, stroke = UIKit.GOLD, strokeWidth = 4 })
-	local top = UIKit.label(card, ("HQ LEVEL %d"):format(e.level or 2), 18, UIKit.darker(UIKit.GOLD, 0.7), {
+	local top = UIKit.label(card, ("HQ LEVEL %d"):format(e.level or 2), 18, UIKit.GOLD_DEEP, {
 		Position = UDim2.new(0, 0, 0, 10), Size = UDim2.new(1, 0, 0, 22), TextXAlignment = Enum.TextXAlignment.Center,
 	}, UIKit.HEAD)
 	local name = UIKit.outlined(card, (e.name or "NEW HQ") .. "!", 38, UIKit.GOLD, {
@@ -395,11 +499,8 @@ local function hqBanner(e, done)
 		local pp = Instance.new("UIPadding", pill)
 		pp.PaddingLeft = UDim.new(0, 16); pp.PaddingRight = UDim.new(0, 16)
 		UIKit.label(pill, "NEW: " .. e.headline, 20, UIKit.GOLD, { Size = UDim2.new(0, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.X }, UIKit.HEAD)
-		if e.task then
-			UIKit.label(card, "Next: " .. e.task, 15, UIKit.CARD_MUTED, {
-				Position = UDim2.new(0, 12, 1, -30), Size = UDim2.new(1, -24, 0, 20), TextXAlignment = Enum.TextXAlignment.Center,
-			}, UIKit.HEAD)
-		end
+		-- v5: say it once. The "Next:" line repeated the goal card, and the
+		-- headline was also one of the chips (GENIUS three times on one card)
 	end
 	local chips = Instance.new("Frame")
 	chips.BackgroundTransparency = 1
@@ -410,7 +511,11 @@ local function hqBanner(e, done)
 	cl.FillDirection = Enum.FillDirection.Horizontal
 	cl.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	cl.Padding = UDim.new(0, 8)
-	for i, text in ipairs(e.chips or {}) do
+	local shown = 0
+	for _, text in ipairs(e.chips or {}) do
+		if e.headline and text == e.headline then continue end
+		shown += 1
+		local i = shown
 		local c = Instance.new("Frame")
 		c.BackgroundColor3 = UIKit.SURFACE_2
 		c.AutomaticSize = Enum.AutomaticSize.X
@@ -420,7 +525,7 @@ local function hqBanner(e, done)
 		Instance.new("UICorner", c).CornerRadius = UDim.new(1, 0)
 		local pad = Instance.new("UIPadding", c)
 		pad.PaddingLeft = UDim.new(0, 12); pad.PaddingRight = UDim.new(0, 12)
-		local t = UIKit.label(c, text, 15, UIKit.CARD_TEXT, { Size = UDim2.new(0, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.X }, UIKit.HEAD)
+		UIKit.label(c, text, 16, UIKit.CARD_TEXT, { Size = UDim2.new(0, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.X }, UIKit.HEAD)
 		local sc = Instance.new("UIScale", c)
 		sc.Scale = 0
 		task.delay(0.35 + i * 0.15, function() tween(sc, 0.3, { Scale = 1 }, Enum.EasingStyle.Back) end)
@@ -529,7 +634,11 @@ if celebrate then
 			quietUntil = os.clock() + 2
 			UIKit.sfx("coins")
 			local vp = fx.AbsoluteSize
-			coinStream(fx.AbsolutePosition + Vector2.new(vp.X - 140, 140), 12)
+			-- the coins fly out of the button you just pressed (they used to burst
+			-- out of the top-right corner, over the goal card)
+			local slot = gui:FindFirstChild("WriteCode")
+			local from = slot and (slot.AbsolutePosition + slot.AbsoluteSize / 2) or (fx.AbsolutePosition + Vector2.new(vp.X / 2, vp.Y - 60))
+			coinStream(from, 12)
 			popUnderCash("+" .. UIKit.money(e.payday or 0), UIKit.GOLD, 1.4)
 			if e.auto then task.delay(0.4, function() popUnderCash("Auto-launched: half pay", UIKit.ORANGE, 1.6) end) end
 		elseif e.kind == "hq" then
@@ -586,7 +695,7 @@ task.spawn(function()
 		UIKit.label(card, "WHILE YOU WERE AWAY", 18, UIKit.CARD_MUTED, {
 			Position = UDim2.new(0, 0, 0, 14), Size = UDim2.new(1, 0, 0, 22), TextXAlignment = Enum.TextXAlignment.Center,
 		}, UIKit.HEAD)
-		UIKit.outlined(card, "+" .. UIKit.money(away), 48, UIKit.GREEN, {
+		UIKit.outlined(card, "+" .. UIKit.money(away), 48, UIKit.MONEY, {
 			Position = UDim2.new(0, 0, 0, 40), Size = UDim2.new(1, 0, 0, 56), TextXAlignment = Enum.TextXAlignment.Center,
 		})
 		-- v4.2 home turf: the apartment that did it gets the credit
@@ -612,7 +721,7 @@ task.spawn(function()
 			quietUntil = os.clock() + 2
 			coinStream(from, 14, function() end)
 			task.delay(0.3, function() pendingOffline = 0 end)
-			popUnderCash("+" .. UIKit.money(away), UIKit.GREEN, 1.4)
+			popUnderCash("+" .. UIKit.money(away), UIKit.MONEY, 1.4)
 			player:SetAttribute("WelcomeDone", true)
 			finished()
 		end

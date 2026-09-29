@@ -121,7 +121,7 @@ test("a carry or a ready product is never overridden by a story task", function(
 end)
 
 test("LAUNCH is explained first, then BAG / INDEX / RANKS / DAILY, one at a time, once each", function()
-	local s = st({ hq = 2, productReady = true, items = 1, indexCount = 1, dailyReady = true, jr = { drove = true, res = true } })
+	local s = st({ hq = 2, productReady = true, items = 1, indexCount = 2, dailyReady = true, jr = { drove = true, res = true } })
 	local order = {}
 	for _ = 1, 10 do
 		local t = J.tip(s)
@@ -131,6 +131,22 @@ test("LAUNCH is explained first, then BAG / INDEX / RANKS / DAILY, one at a time
 	end
 	assert(table.concat(order, ",") == "launch,bag,index,ranks,daily", table.concat(order, ","))
 	assert(J.tip(s) == nil, "every tip is shown once")
+end)
+
+test("the INDEX tip waits for a second kind of hire (at the first it sat on top of the walk to the lot)", function()
+	local s = st({ hq = 1, indexCount = 1 })
+	assert(J.tip(s) == nil, "one index line is not worth a tip yet")
+	s.indexCount = 2
+	local t = J.tip(s)
+	assert(t and t.id == "index", "second kind of hire: explain the index")
+end)
+
+test("every tip is one short line (a 10-year-old reads it at a glance)", function()
+	for _, t in ipairs(J.TIPS) do
+		local words = select(2, t.body:gsub("%S+", ""))
+		assert(words <= 12, t.id .. " body is " .. words .. " words")
+		assert(not t.body:find("\u{2014}"), t.id .. " has an em dash")
+	end
 end)
 
 test("no tip while carrying a recruit or driving", function()

@@ -1460,12 +1460,12 @@ local function refreshObjective(player)
 			local decorOffer
 			if Econ and Econ.V3 and plot.hq.level >= 2 and (player:GetAttribute("VibeStars") or 0) < 1 then
 				local plant = FurnitureKit and FurnitureKit.BY_KEY and FurnitureKit.BY_KEY.pottedPlant
-				if plant then decorOffer = { c = furniturePriceOf(plant, s, plot), k = "decor", t = "Decorate your office", at = nil, sub = "Tap DECOR. Better offices attract rare hires" } end
+				if plant then decorOffer = { c = furniturePriceOf(plant, s, plot), k = "decor", t = "Decorate your office", at = nil, sub = "Tap DECOR: nicer office, rarer hires" } end
 			end
 			if nxtHq then
 				offer(nxtHq.cost, "hq", ("Upgrade to %s"):format(nxtHq.name), posOf(plot.hqPad), hqTease())
 			else
-				offer(spinoffCostOf(s), "spin", "Spin off", posOf(plot.hqPad), ("Start over with x%s money forever"):format((string.format("%.1f", nextSpinMultOf(s))):gsub("%.0$", "")))
+				offer(spinoffCostOf(s), "spin", "Spin off", posOf(plot.hqPad), ("x%s money, forever"):format((string.format("%.1f", nextSpinMultOf(s))):gsub("%.0$", "")))
 			end
 			if empty and Econ and Econ.V3 then
 				if built < (Econ.SLOTS_BY_HQ[plot.hq.level] or 6) then
@@ -1505,7 +1505,7 @@ local function refreshObjective(player)
 			-- v2.8: at HQ 5 the spin-off is the big goal, with the same afford / save-up treatment
 			if not nxtHq and held and Econ and Econ.V3 then
 				local sc = spinoffCostOf(s)
-				local why = ("Start over with x%s money forever"):format((string.format("%.1f", nextSpinMultOf(s))):gsub("%.0$", ""))
+				local why = ("x%s money, forever"):format((string.format("%.1f", nextSpinMultOf(s))):gsub("%.0$", ""))
 				if held.Value >= sc then
 					best = { c = sc, k = "spin", t = "Spin off!", at = posOf(plot.hqPad), sub = why }
 				elseif (s.rate or 0) > 0 and (sc - held.Value) / s.rate <= Econ.SAVE_WINDOW then

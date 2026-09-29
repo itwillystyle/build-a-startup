@@ -45,8 +45,8 @@ local function now() return workspace:GetServerTimeNow() end
 
 -- ============ THE RAIL BUTTON ============
 
-local railBtn = UIKit.iconButton(UIKit.rail(), "bag", "BAG", UIKit.ORANGE, {
-	Name = "BagButton", LayoutOrder = 2, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
+local railBtn = UIKit.railButton("bag", "BAG", UIKit.ORANGE, {
+	Name = "BagButton", LayoutOrder = 3, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
 }, { iconSize = 28 })
 local badge, badgeText = UIKit.badge(railBtn)
 
@@ -268,9 +268,28 @@ quick.DisplayOrder = 8
 UIKit.safe(quick)
 quick.Parent = player.PlayerGui
 
--- a Cold Brew beside WRITE CODE
-local brew = UIKit.button(quick, "", UIKit.CARD, { Name = "Brew", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(0.5, -124, 1, -22),
-	Size = UDim2.new(0, 64, 0, 64), Visible = false }, { radius = 32, dark = true, silent = true })
+-- a Cold Brew beside WRITE CODE. v5: 30 px clear of it (it was 9 px from the
+-- button you mash, so a drifting thumb burned a coffee), a sticker outline, and a
+-- gold "3x" tag that says what it does
+local brew = UIKit.button(quick, "", UIKit.CARD, { Name = "Brew", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(0.5, -148, 1, -22),
+	Size = UDim2.new(0, 60, 0, 60), Visible = false }, { radius = 30, dark = true, silent = true, stroke = UIKit.INK_SOFT })
+local brewTag = Instance.new("TextLabel")
+brewTag.Name = "Tag"
+brewTag.AnchorPoint = Vector2.new(0.5, 0.5)
+brewTag.Position = UDim2.new(1, -4, 0, 4)
+brewTag.Size = UDim2.new(0, 34, 0, 22)
+brewTag.BackgroundColor3 = UIKit.GOLD
+brewTag.Text = "3x"
+brewTag.TextColor3 = UIKit.INK
+brewTag.TextSize = 14
+brewTag.Font = UIKit.HEAD
+brewTag.ZIndex = brew.ZIndex + 4
+brewTag.Parent = brew
+Instance.new("UICorner", brewTag).CornerRadius = UDim.new(1, 0)
+local tagStroke = Instance.new("UIStroke", brewTag)
+tagStroke.Color = UIKit.INK
+tagStroke.Thickness = 2
+tagStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 local brewVpf = Instance.new("ViewportFrame")
 brewVpf.BackgroundTransparency = 1
 brewVpf.Position = UDim2.new(0, 6, 0, 4)
@@ -327,7 +346,10 @@ RunService.Heartbeat:Connect(function(dt)
 	boosts.Size = UDim2.new(1, 0, 0, 12 + shown * 30)
 	-- the brew button: you have one and none is running
 	local writeCode = player.PlayerGui:FindFirstChild("Hud") and player.PlayerGui.Hud:FindFirstChild("WriteCode")
+	local codeLabel = writeCode and writeCode:FindFirstChild("Label")
+	-- only beside WRITE CODE itself (not beside a waiting LAUNCH, where it would be the wrong tap)
 	brew.Visible = (c.coffee or 0) > 0 and code <= 0 and writeCode ~= nil and writeCode.Visible
+		and codeLabel ~= nil and codeLabel.Text == "WRITE CODE"
 	brewCount.Text = "x" .. (c.coffee or 0)
 	-- the rescue: only while something is chasing you, and only if you can do something
 	local id = ((c.noncompete or 0) > 0 and "noncompete") or (((c.energy or 0) > 0 and energy <= 0) and "energy") or nil
@@ -439,3 +461,6 @@ for _, a in ipairs({ "Items", "ItemsNew", "ArmedScout", "ArmedPress", "Carrying"
 	player:GetAttributeChangedSignal(a):Connect(refresh)
 end
 refresh()
+
+-- v5: the rail tile shows when this menu is open
+UIKit.bindRail(railBtn, gui)
