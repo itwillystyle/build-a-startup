@@ -296,6 +296,22 @@ local function refreshBtn()
 end
 player:GetAttributeChangedSignal("CarOwned"):Connect(refreshBtn)
 player:GetAttributeChangedSignal("BuildModeOpen"):Connect(refreshBtn)
+-- v5: while "Hop in your company car" is the goal, the CAR tile is the loud thing:
+-- a pulsing gold ring (the goal card says "Tap CAR"; there is no world arrow)
+do
+	local ring = carBtn:FindFirstChildOfClass("UIStroke")
+	local rest = ring and { color = ring.Color, width = ring.Thickness }
+	RunService.Heartbeat:Connect(function()
+		if not ring then return end
+		local goal = player:GetAttribute("Objective") == "car" and carBtn.Visible
+		if goal then
+			ring.Color = UIKit.GOLD
+			ring.Thickness = 3 + 2 * (0.5 + 0.5 * math.sin(os.clock() * 5))
+		elseif ring.Color ~= rest.color then
+			ring.Color, ring.Thickness = rest.color, rest.width
+		end
+	end)
+end
 
 -- the speedometer while driving
 local speedo = UIKit.card and UIKit.card(gui, {

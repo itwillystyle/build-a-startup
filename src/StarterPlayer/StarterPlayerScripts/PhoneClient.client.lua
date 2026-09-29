@@ -473,11 +473,11 @@ drawReplies = function(th)
 	local y = 20
 	for i, text in ipairs(th.chips) do
 		local b, lbl = UIKit.button(replyPanel, text, UIKit.CARD, { Name = "Reply" .. i, Position = UDim2.new(0, 0, 0, y), Size = UDim2.new(1, 0, 0, 44) },
-			{ textSize = 15, dark = true, radius = 12, stroke = UIKit.BLUE })
+			{ textSize = 16, dark = true, radius = 12, stroke = UIKit.BLUE })
 		lbl.TextWrapped = true
 		lbl.TextXAlignment = Enum.TextXAlignment.Left
 		UIKit.setFont(lbl, BODY)
-		lbl.TextSize = 15
+		lbl.TextSize = 16
 		lbl.Position = UDim2.new(0, 10, 0, 0)
 		lbl.Size = UDim2.new(1, -20, 1, -5)
 		b.MouseButton1Click:Connect(function()

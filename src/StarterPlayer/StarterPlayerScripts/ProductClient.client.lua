@@ -297,7 +297,7 @@ local oTitle = UIKit.heading(offer, "", 20, GOLD, {
 -- minutes of income (the one unit every player already understands). Grey =
 -- the cost, one sentence, no numbers. ALUMNI is a reward, so it is told AFTER
 -- the sale (server toast), never in the decision.
-local oGain = UIKit.heading(offer, "", 19, GOOD, { Position = UDim2.new(0, 16, 0, 38), Size = UDim2.new(1, -32, 0, 24) })
+local oGain = UIKit.heading(offer, "", 20, GOOD, { Position = UDim2.new(0, 16, 0, 38), Size = UDim2.new(1, -32, 0, 24) })
 local oLoss = UIKit.label(offer, "", 14, Color3.fromRGB(200, 204, 214), { Position = UDim2.new(0, 16, 0, 62), Size = UDim2.new(1, -32, 0, 18) })
 local accept = UIKit.button(offer, "", GOOD, {
 	AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -16, 1, -12), Size = UDim2.new(0, 170, 0, 46),
