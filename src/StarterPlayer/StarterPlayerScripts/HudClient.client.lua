@@ -657,7 +657,7 @@ local function spinAsk(e)
 	if spinCard then spinCard:Destroy() end
 	local w = math.min(440, fx.AbsoluteSize.X * 0.92)
 	local panel, body = UIKit.menu(fx, ("SPIN OFF #%d?"):format(e.number or 1), UIKit.ORANGE, {
-		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), Size = UDim2.new(0, w, 0, 280),
+		Name = "SpinCard", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), Size = UDim2.new(0, w, 0, 280),
 	}, { noClose = true })
 	spinCard = panel
 	local function col(x, title, lines, color, lead)
@@ -686,12 +686,12 @@ local function spinAsk(e)
 	}, UIKit.GREEN_DEEP, true)
 	col(0.5, "STARTS OVER", { "Cash", "Buildings", "HQ level" }, UIKit.ORANGE_DEEP)
 	local no = UIKit.button(body, "NOT YET", UIKit.MUTED, {
-		AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, 0), Size = UDim2.new(0.5, -6, 0, 50),
+		Name = "NotYet", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, 0), Size = UDim2.new(0.5, -6, 0, 50),
 	}, { textSize = 20 })
 	-- v5 critique: it resets an hour of play, so it is a 1 s HOLD with a fill,
 	-- not a tap; and while this card is up the bottom row steps aside (ModalOpen)
 	local yes, yesLabel = UIKit.button(body, "HOLD TO SPIN OFF", UIKit.ORANGE, {
-		AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, 0, 1, 0), Size = UDim2.new(0.5, -6, 0, 50),
+		Name = "SpinHold", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, 0, 1, 0), Size = UDim2.new(0.5, -6, 0, 50),
 	}, { textSize = 18, silent = true })
 	local fill = Instance.new("Frame")
 	fill.Name = "Hold"
