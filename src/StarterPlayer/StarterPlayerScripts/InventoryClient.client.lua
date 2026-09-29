@@ -373,7 +373,9 @@ local function gotCard(id, n, source, done)
 		return
 	end
 	local vp = workspace.CurrentCamera.ViewportSize
-	local card = UIKit.card(fx, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.42, 0), Size = UDim2.new(0, 330, 0, 106) },
+	-- v5: in the gap between the rail and the goal card (centred it ran onto the goal card on a phone)
+	local cx = UIKit.hudGap(330)
+	local card = UIKit.card(fx, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, cx - fx.AbsolutePosition.X, 0.42, 0), Size = UDim2.new(0, 330, 0, 106) },
 		{ radius = 18, strokeWidth = 3, stroke = UIKit.GOLD })          -- gold = a reward
 	local vpf = Instance.new("ViewportFrame")
 	vpf.BackgroundTransparency = 1

@@ -422,7 +422,10 @@ RunService.RenderStepped:Connect(function()
 			codeCaption.Text = "APP READY!"
 		end
 	else
-		codeWrap.Scale = pulsing and (1 + 0.06 * (0.5 + 0.5 * math.sin(t * 5))) or 1
+		-- a coach tip on screen has the stage: the pulse waits
+		local coach = player.PlayerGui:FindFirstChild("Coach")
+		local tip = coach and coach:FindFirstChild("CoachCard")
+		codeWrap.Scale = (pulsing and not (tip and tip.Visible)) and (1 + 0.06 * (0.5 + 0.5 * math.sin(t * 5))) or 1
 	end
 end)
 

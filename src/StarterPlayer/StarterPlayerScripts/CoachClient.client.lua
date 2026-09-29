@@ -222,7 +222,8 @@ task.spawn(function()
 		task.wait(0.2)
 		local id = player:GetAttribute("CoachTip")
 		if current and current.id ~= id then finish(false) end
-		local busy = Notify.busy() or goalBusy()
+		-- v5: also any menu or decision card (a BAG tip opened on top of the spin-off confirm)
+		local busy = Notify.busy() or goalBusy() or UIKit.menuOpen()
 		if busy then calmSince = nil elseif not calmSince then calmSince = os.clock() end
 		if current then
 			setShown(current, not busy)

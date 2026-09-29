@@ -307,7 +307,10 @@ do
 	local rest = ring and { color = ring.Color, width = ring.Thickness }
 	RunService.Heartbeat:Connect(function()
 		if not ring then return end
-		local goal = player:GetAttribute("Objective") == "car" and carBtn.Visible
+		-- a coach tip on screen has the stage: the goal ring waits (two gold pulses at once)
+		local coach = player.PlayerGui:FindFirstChild("Coach")
+		local tip = coach and coach:FindFirstChild("CoachCard")
+		local goal = player:GetAttribute("Objective") == "car" and carBtn.Visible and not (tip and tip.Visible)
 		if goal then
 			ring.Color = UIKit.GOLD
 			ring.Thickness = 3 + 2 * (0.5 + 0.5 * math.sin(os.clock() * 5))
