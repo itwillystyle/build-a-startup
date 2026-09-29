@@ -146,19 +146,19 @@ J.TIPS = {
 	-- LAUNCH lives in the bottom slot, the Index tip waits for a SECOND kind of
 	-- hire (at the first it landed on top of "walk to your lot"), and the daily
 	-- reward has its own rail button
-	{ id = "launch", target = "Hud.WriteCode", title = "LAUNCH your app!",
+	{ id = "launch", target = "Hud.WriteCode", title = "LAUNCH",
 		body = "Tap it for a big payday. Wait too long: half pay.",
 		when = function(st) return st.productReady and not (st.jr and st.jr.launched) end },
-	{ id = "bag", target = "Rail.Column.BagButton", title = "Your BAG",
+	{ id = "bag", target = "Rail.Column.BagButton", title = "BAG",
 		body = "Items you win live here. Coffee makes code 3x faster.",
 		when = function(st) return (st.items or 0) > 0 end },
-	{ id = "index", target = "Rail.Column.IndexButton", title = "TALENT INDEX",
+	{ id = "index", target = "Rail.Column.IndexButton", title = "INDEX",
 		body = "Collect every kind of hire. Each full line: +5% money.",
 		when = function(st) return (st.indexCount or 0) >= 2 end },
 	{ id = "ranks", target = "RanksCorner.RanksButton", title = "RANKS",
 		body = "See how your company ranks. New board every Monday.",
 		when = function(st) return (st.hq or 1) >= 2 and st.jr and st.jr.drove end },
-	{ id = "daily", target = "Rail.Column.DailyButton", title = "DAILY GIFT",
+	{ id = "daily", target = "Rail.Column.DailyButton", title = "DAILY",
 		body = "A gift every day you play. Day 7 is the biggest.",
 		when = function(st) return st.dailyReady and (st.hq or 1) >= 2 and st.jr and st.jr.res end },
 }
@@ -167,7 +167,9 @@ function J.tip(st)
 	if st.carrying or st.seated then return nil end
 	local seen = st.tips or {}
 	for _, t in ipairs(J.TIPS) do
-		if not seen[t.id] and t.when(st) then return t end
+		-- v5: while an app waits to launch (its full-pay clock running) only the
+		-- LAUNCH tip may speak: a DAILY tip over a ready LAUNCH was two loud things
+		if not seen[t.id] and t.when(st) and (t.id == "launch" or not st.productReady) then return t end
 	end
 	return nil
 end

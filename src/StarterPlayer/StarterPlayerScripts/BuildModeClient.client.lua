@@ -111,7 +111,7 @@ gui.Parent = player:WaitForChild("PlayerGui")
 
 -- the rail button. Home icon + one word; desktop gets a small key cap.
 local toggle = UIKit.railButton("home", "DECOR", UIKit.GREEN, {
-	Name = "BuildToggle", LayoutOrder = 5, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
+	Name = "BuildToggle", LayoutOrder = 4, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
 }, { iconSize = 28 })
 if not isTouch then
 	-- v5: a paper keycap at the top-LEFT (the top-right corner is where red count
@@ -180,34 +180,18 @@ local tsc = Instance.new("UITextSizeConstraint", title)
 tsc.MaxTextSize = 20
 tsc.MinTextSize = 14
 
--- v3.2.1 the header says what decor is for: VIBE stars and what they buy
+-- v5: the header is the tabs' alone. It also carried VIBE + five stars + the
+-- luck, which left each tab 45 px on a phone and broke the words ("Offic/e",
+-- "Kitch/en"). The stars moved into the gold VIBE card at the head of the shelf.
 title.Visible = false
-local vibeRow = Instance.new("Frame")
-vibeRow.Name = "Vibe"
-vibeRow.BackgroundTransparency = 1
-vibeRow.AnchorPoint = Vector2.new(0, 0.5)
-vibeRow.Position = UDim2.new(0, 16, 0.5, 0)
-vibeRow.Size = UDim2.new(0.33, -16, 0, 30)
-vibeRow.ZIndex = 3
-vibeRow.Parent = bar:FindFirstChild("Header")
-local vrl = Instance.new("UIListLayout", vibeRow)
-vrl.FillDirection = Enum.FillDirection.Horizontal
-vrl.VerticalAlignment = Enum.VerticalAlignment.Center
-vrl.Padding = UDim.new(0, 3)
-vrl.SortOrder = Enum.SortOrder.LayoutOrder
-UIKit.heading(vibeRow, "VIBE", 18, UIKit.TEXT, { Name = "Word", LayoutOrder = 0, Size = UDim2.new(0, 46, 1, 0), ZIndex = 3 })
 local starIcons = {}
-for i = 1, 5 do
-	starIcons[i] = UIKit.icon(vibeRow, "star", 18, UIKit.TEXT, { Name = "Star" .. i, LayoutOrder = i, ZIndex = 3 })
-end
-local luckLabel = UIKit.heading(vibeRow, "x1.0", 16, UIKit.TEXT, { Name = "Luck", LayoutOrder = 6, Size = UDim2.new(0, 44, 1, 0), ZIndex = 3 })
 
 -- category tabs sit in the header, between the bonus and the buttons
 local tabRow = Instance.new("Frame")
 tabRow.Name = "Tabs"
 tabRow.AnchorPoint = Vector2.new(0, 0.5)
-tabRow.Position = UDim2.new(0.34, 0, 0.5, 0)
-tabRow.Size = UDim2.new(0.66, -112, 0, 44)      -- v5: 44 px tabs (34 was under the thumb minimum)
+tabRow.Position = UDim2.new(0, 14, 0.5, 0)
+tabRow.Size = UDim2.new(1, -(14 + 112), 0, 44)   -- v5: 44 px tabs (34 was under the thumb minimum)
 tabRow.BackgroundTransparency = 1
 tabRow.ZIndex = 3
 tabRow.Parent = bar:FindFirstChild("Header")
@@ -250,7 +234,21 @@ shelfLayout.SortOrder = Enum.SortOrder.LayoutOrder
 -- v3.2.1 the first card answers "why would I place this?" in one breath
 local info = UIKit.panel(shelf, { Name = "WhyDecor", LayoutOrder = 0, Size = UDim2.new(0, 184, 1, -8) },
 	{ radius = 12, color = UIKit.GOLD, stroke = UIKit.darker(UIKit.GOLD, 0.7), strokeWidth = 2 })
-UIKit.label(info, "Decor = VIBE", 18, UIKit.INK, { Position = UDim2.new(0, 10, 0, 8), Size = UDim2.new(1, -20, 0, 20) }, UIKit.HEAD)
+UIKit.label(info, "VIBE", 18, UIKit.INK, { Position = UDim2.new(0, 10, 0, 8), Size = UDim2.new(0, 44, 0, 20) }, UIKit.HEAD)
+local infoStars = Instance.new("Frame")
+infoStars.Name = "Stars"
+infoStars.BackgroundTransparency = 1
+infoStars.Position = UDim2.new(0, 56, 0, 7)
+infoStars.Size = UDim2.new(1, -66, 0, 22)
+infoStars.Parent = info
+local isl = Instance.new("UIListLayout", infoStars)
+isl.FillDirection = Enum.FillDirection.Horizontal
+isl.VerticalAlignment = Enum.VerticalAlignment.Center
+isl.Padding = UDim.new(0, 2)
+isl.SortOrder = Enum.SortOrder.LayoutOrder
+for i = 1, 5 do
+	starIcons[i] = UIKit.icon(infoStars, "star", 20, UIKit.INK, { Name = "Star" .. i, LayoutOrder = i })
+end
 UIKit.label(info, "More stars, more rare hires. Place pieces inside your buildings.", 16, UIKit.INK, {
 	Position = UDim2.new(0, 10, 0, 30), Size = UDim2.new(1, -20, 0, 52), TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top }, UIKit.BODY)
 local infoNext = UIKit.label(info, "", 14, UIKit.CARD_TEXT, { Name = "Next", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 10, 1, -8),
@@ -688,13 +686,13 @@ local function refreshTitle()
 	local luck = player:GetAttribute("VibeLuck") or 1
 	local pts = player:GetAttribute("VibePoints") or 0
 	for i, icon in ipairs(starIcons) do
-		-- v5: an empty star is a clear slot, not a faint white ghost
-		icon.ImageColor3 = (i <= stars) and UIKit.GOLD or UIKit.BLUE_DEEP
-		icon.ImageTransparency = 0
+		-- on the gold card: an earned star is ink, an empty one a faint slot
+		icon.ImageColor3 = (i <= stars) and UIKit.INK or UIKit.GOLD_DEEP
+		icon.ImageTransparency = (i <= stars) and 0 or 0.55
 	end
-	luckLabel.Text = ("x%.1f"):format(luck)
 	local _, _, nextAt = FK.vibe(pts)
-	infoNext.Text = nextAt and ("%d more vibe for star %d"):format(nextAt - pts, stars + 1) or "5 stars! Best odds for rare hires"
+	local nxt = nextAt and ("%d more vibe for star %d"):format(nextAt - pts, stars + 1) or "5 stars! Best odds for rare hires"
+	infoNext.Text = stars > 0 and ("Rare hires x%.1f. %s"):format(luck, nxt) or nxt
 end
 
 local function refreshShelf()

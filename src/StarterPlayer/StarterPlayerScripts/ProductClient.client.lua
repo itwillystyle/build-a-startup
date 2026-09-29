@@ -360,6 +360,6 @@ toast.OnClientEvent:Connect(function(text, kind)
 		priority = news and 3 or (carrying and 1 or 2),
 		untilCarryEnds = carrying and not news,
 		icon = news and "team" or "info",
-		iconColor = news and UIKit.PURPLE or UIKit.BLUE,
+		iconColor = UIKit.BLUE,       -- v5: purple is for GENIUS only; news is information
 	})
 end)

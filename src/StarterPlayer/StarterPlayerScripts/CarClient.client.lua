@@ -278,7 +278,7 @@ gui.Parent = player:WaitForChild("PlayerGui")
 -- the CAR button, bottom-right, left of where a phone's jump button sits
 -- v5: a paper tile like the rail's (green was a second "loud" next to WRITE CODE)
 local carBtn = UIKit.iconButton(gui, "car", "CAR", UIKit.PAPER, {
-	Name = "CarButton", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -190, 1, -20),
+	Name = "CarButton", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0.5, 162, 1, -20),   -- v5: 44 px right of the bottom slot (at 1,-190 it was 27 px from LAUNCH on a phone)
 	Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
 }, { iconSize = 28, dark = true, stroke = UIKit.INK_SOFT, captionSize = 14 })
 local function call()

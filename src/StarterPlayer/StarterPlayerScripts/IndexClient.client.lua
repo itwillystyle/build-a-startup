@@ -56,7 +56,7 @@ local TALENTS = {  -- SiliconCore TALENT (odds = 1 in N hires)
 -- ============ THE BUTTON (left rail, second) ============
 
 local btn = UIKit.railButton("grid", "INDEX", UIKit.BLUE, {
-	Name = "IndexButton", LayoutOrder = 4, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
+	Name = "IndexButton", LayoutOrder = 1, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
 }, { iconSize = 28 })
 local badge, badgeText = UIKit.badge(btn)
 

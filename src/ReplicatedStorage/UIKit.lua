@@ -566,6 +566,9 @@ spot (x 29-103, y 299-373), where a thumb lands to walk. On a short screen the
 rail is a 2-column grid at full size instead: three rows end at y ~262, clear of
 the thumbstick. A tall screen keeps the single column. The layout follows the
 screen (a phone can rotate, a desktop window can be resized). ]]
+-- Tile order = the order they unlock (INDEX 1, BAG 2, PHONE 3, DECOR 4, DAILY 5):
+-- a new tile is appended and a tile you have learned never moves (v5 critique:
+-- INDEX was slot 1, then 3, then 4 as the others appeared ahead of it).
 local RAIL_GRID_BELOW = 520     -- viewport height under which the rail becomes a grid
 local function railLayout(g, f)
 	local cam = workspace.CurrentCamera
@@ -665,14 +668,14 @@ banner, a rare-hire reveal) sits here. Centred on the screen when it fits
 centre x and its width, capped at maxW. Measured on a phone (801 wide): the
 rail ends at 148 and the goal card starts at 529, so a 520-wide banner sat on
 both. To place a card, subtract its ScreenGui's AbsolutePosition.X from cx. ]]
-function UIKit.hudGap(maxW, minCentred)
+function UIKit.hudGap(maxW, minCentred, ignoreColumn)
 	local pg = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
 	local vpX = workspace.CurrentCamera.ViewportSize.X
 	local rail = pg and pg:FindFirstChild("Rail")
 	local l = (rail and rail.Enabled) and (UIKit.railRight() + 8) or 12
 	local r = vpX - 12
 	local col = pg and pg:FindFirstChild("RightColumn")
-	local c = col and col.Enabled and col:FindFirstChild("Column")
+	local c = not ignoreColumn and col and col.Enabled and col:FindFirstChild("Column")
 	if c and c.Visible then
 		for _, row in ipairs(c:GetChildren()) do
 			if row:IsA("GuiObject") and row.Visible and row.AbsoluteSize.X > 1 then
@@ -699,7 +702,8 @@ function UIKit.fitMenu(panel, w, h, sc, vMargin)
 		sc = Instance.new("UIScale")
 		sc.Parent = panel
 	end
-	local x = nil
+	local x, dy = nil, 0
+	local base = panel.Position.Y
 	local function refit()
 		local parent = panel.Parent
 		if not (parent and parent:IsA("GuiBase2d")) then return end
@@ -713,13 +717,18 @@ function UIKit.fitMenu(panel, w, h, sc, vMargin)
 		local s = math.min(1, (right - left) / W, (ph - (vMargin or 24)) / H)
 		local half = W * s / 2
 		x = math.clamp(px + pw / 2, left + half, math.max(left + half, right - half)) - px
+		-- below the money line (screen y 64) when the menu fits there at this
+		-- scale; a taller one stays centred rather than shrink (v5 critique: the
+		-- BAG header cut the money in half)
+		local hh = H * s / 2
+		dy = (hh * 2 <= ph - 64 - 8) and math.max(0, (64 + hh) - ph / 2) or 0
 		-- a menu mid pop-in tweens to its Rest scale; move that instead of fighting it
 		if sc:GetAttribute("Rest") then
 			sc:SetAttribute("Rest", s)
 		elseif math.abs(sc.Scale - s) > 0.001 then
 			sc.Scale = s
 		end
-		panel.Position = UDim2.new(0, x, panel.Position.Y.Scale, panel.Position.Y.Offset)
+		panel.Position = UDim2.new(0, x, base.Scale, base.Offset + dy)
 	end
 	refit()
 	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(refit)
@@ -727,7 +736,7 @@ function UIKit.fitMenu(panel, w, h, sc, vMargin)
 	if g then g:GetPropertyChangedSignal("Enabled"):Connect(function() if g.Enabled then refit() end end) end
 	return function(yScale, yOffset)
 		refit()
-		return UDim2.new(0, x or 0, yScale, yOffset)
+		return UDim2.new(0, x or 0, yScale, yOffset + dy)
 	end
 end
 -- a red count badge on a button's top-right corner (both references use one)
@@ -921,8 +930,11 @@ function UIKit.column()
 						bottom = math.max(bottom, row.AbsolutePosition.Y + row.AbsoluteSize.Y)
 					end
 				end
-				local covered = false
-				if left < math.huge then
+				-- a celebration (HQ level-up, rare hire) is centred under the money and
+				-- the goal card steps aside for its few seconds (v5 critique: the two
+				-- side by side made a 580 px strip across the top third)
+				local covered = game:GetService("Players").LocalPlayer:GetAttribute("Celebrating") == true
+				if not covered and left < math.huge then
 					local vpX = workspace.CurrentCamera.ViewportSize.X
 					covered = covers(pg:FindFirstChild("Celebrate"), left, bottom, vpX)
 					for _, name in ipairs(UIKit.MENUS or {}) do

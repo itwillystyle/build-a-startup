@@ -66,7 +66,7 @@ local call = {}                          -- { state, with, name, id, since, mute
 -- ============ THE RAIL BUTTON ============
 
 local railBtn = UIKit.railButton("phone", "PHONE", UIKit.GREEN, {
-	Name = "PhoneButton", LayoutOrder = 2, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
+	Name = "PhoneButton", LayoutOrder = 3, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
 }, { iconSize = 28 })
 local railBadge, railBadgeText = UIKit.badge(railBtn)
 
@@ -864,12 +864,15 @@ notify.Parent = player.PlayerGui
 -- too, so a centred card up to W - 540 wide clears both.
 -- v4.2: the rare-hire card and these share the top lane (Notify), one at a
 -- time, so they no longer dodge each other (the v3.6 RevealShowing shuffle)
+-- v5: in the gap between the rail and the goal card (UIKit.hudGap). Centred on
+-- the screen, a phone's 280-wide banner ran 11 px into the goal card.
 local function centreOn(frame, maxW, minW, h, y)
 	frame.AnchorPoint = Vector2.new(0.5, 0)
-	local w = math.clamp(notify.AbsoluteSize.X - 540, minW, maxW)
-	frame.Size = UDim2.new(0, w, 0, h)
-	frame.Position = UDim2.new(0.5, 0, 0, y or 96)
+	local cx, w = UIKit.hudGap(maxW)
+	frame.Size = UDim2.new(0, math.max(minW, w), 0, h)
+	frame.Position = UDim2.new(0, cx - notify.AbsolutePosition.X, 0, y or 96)
 end
+local function atY(frame, y) return UDim2.new(0, frame.Position.X.Offset, 0, y) end
 
 local banner = Instance.new("TextButton")
 banner.Name = "Banner"
@@ -884,7 +887,9 @@ banner.Parent = notify
 Instance.new("UICorner", banner).CornerRadius = UDim.new(0, 18)
 local bnst = Instance.new("UIStroke", banner)
 bnst.Color = UIKit.CARD_LINE
-bnst.Thickness = 1.5
+bnst.Thickness = 2
+bnst.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIKit.lip(banner, 4)          -- v5: the same sticker edge as every other HUD card
 local bnAvatarHolder = Instance.new("Frame")
 bnAvatarHolder.BackgroundTransparency = 1
 bnAvatarHolder.Position = UDim2.new(0, 12, 0.5, -20)
@@ -913,12 +918,12 @@ local function showBannerNow(th, text, done)
 	bnText.Text = text or ""
 	centreOn(banner, 380, 280, 78, -90)
 	banner.Visible = true
-	TweenService:Create(banner, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.new(0.5, 0, 0, 96) }):Play()
+	TweenService:Create(banner, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = atY(banner, 96) }):Play()
 	UIKit.sfx("ding", 1.45, 0.45)
 	task.delay(0.16, function() UIKit.sfx("ding", 1.7, 0.4) end)
 	task.delay(7, function()
 		if bannerSerial ~= mine then return end
-		local tw = TweenService:Create(banner, TweenInfo.new(0.25), { Position = UDim2.new(0.5, 0, 0, -90) })
+		local tw = TweenService:Create(banner, TweenInfo.new(0.25), { Position = atY(banner, -90) })
 		tw:Play()
 		tw.Completed:Wait()
 		if bannerSerial == mine then banner.Visible = false end

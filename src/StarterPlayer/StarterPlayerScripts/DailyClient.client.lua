@@ -57,7 +57,7 @@ local panel, body, close = UIKit.menu(gui, "DAILY REWARD", UIKit.GREEN, {
 	Name = "Panel", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), Size = UDim2.new(0, W, 0, H),
 })
 local fit = Instance.new("UIScale", panel)
-UIKit.fitMenu(panel, W, H, fit)   -- v5: the shared rule (clears the rail, scales to fit)
+local place = UIKit.fitMenu(panel, W, H, fit)   -- v5: the shared rule (clears the rail, scales to fit)
 
 local sub = UIKit.label(body, "", 16, UIKit.CARD_TEXT, {
 	Name = "Sub", Size = UDim2.new(1, 0, 0, 24), TextXAlignment = Enum.TextXAlignment.Center,
@@ -149,6 +149,12 @@ local function unlocked()
 end
 
 local claimed = false
+-- the daily day turns over at 00:00 UTC (the server stores the UTC day)
+local function nextGiftText()
+	local left = 86400 - (math.floor(workspace:GetServerTimeNow()) % 86400)
+	local h, m = left // 3600, (left % 3600) // 60
+	return h > 0 and ("NEXT GIFT IN %dH %02dM"):format(h, m) or ("NEXT GIFT IN %dM"):format(math.max(1, m))
+end
 local function refresh()
 	local ready = player:GetAttribute("DailyReady") == true
 	local day = player:GetAttribute("DailyStreak") or 1
@@ -173,10 +179,14 @@ local function refresh()
 	if ready then
 		sub.Text = day == 1 and "Come back every day. Day 7 pays the most!" or ("Day %d in a row! Miss a day and it starts over."):format(day)
 		claimLabel.Text = "CLAIM " .. UIKit.money(a[day] or 0)
+		claimLabel.TextSize = 24
 		UIKit.setButtonColor(claimBtn, UIKit.GREEN)
 	else
-		sub.Text = ("Come back tomorrow for Day %d: %s"):format(nextDay, UIKit.money(a[nextDay] or 0))
-		claimLabel.Text = "CLAIMED!"
+		-- v5: say "tomorrow" once (the lit TOMORROW tile). The sub is the streak, and
+		-- the dead CLAIMED! button counts down to the next gift instead
+		sub.Text = day <= 1 and "Your streak starts today." or ("%d days in a row!"):format(day)
+		claimLabel.Text = nextGiftText()
+		claimLabel.TextSize = 20            -- "NEXT GIFT IN 14H 03M" fits the 280 button
 		UIKit.setButtonColor(claimBtn, UIKit.MUTED)
 	end
 	local items = string.split(player:GetAttribute("DailyItems") or "", ",")
@@ -207,7 +217,7 @@ the phone (PHONE > Daily > SEE THE WEEK), sharing the phone's badge with
 investor texts. Now it has the first rail slot: a red "!" and a wiggle when a
 gift is waiting, quiet when today's is claimed. ]]
 local railBtn = UIKit.railButton("gift", "DAILY", UIKit.GREEN, {
-	Name = "DailyButton", LayoutOrder = 1, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
+	Name = "DailyButton", LayoutOrder = 5, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
 }, { iconSize = 28 })
 local railBadge, railBadgeText = UIKit.badge(railBtn)
 railBadgeText.Text = "!"
@@ -221,6 +231,9 @@ task.spawn(function()
 		if gui.Enabled and ready then
 			local day = player:GetAttribute("DailyStreak") or 1
 			for d, t in ipairs(tiles) do t.scale.Scale = d == day and (1 + 0.05 * math.sin(os.clock() * 5)) or 1 end
+		elseif gui.Enabled then
+			local txt = nextGiftText()          -- the countdown ticks while the card is open
+			if claimLabel.Text ~= txt then claimLabel.Text = txt end
 		end
 		if railIcon then
 			-- a short wiggle every 2.5 s (a constant shake would be noise)
@@ -235,8 +248,8 @@ local function setOpen(v)
 	gui.Enabled = v
 	if v then
 		claimed = false
-		panel.Position = UDim2.new(0.5, 0, 0.55, 0)
-		TweenService:Create(panel, TweenInfo.new(0.25, Enum.EasingStyle.Quint), { Position = UDim2.new(0.5, 0, 0.5, 0) }):Play()
+		panel.Position = place(0.55, 0)     -- the slide-in keeps the fitted x (clear of the rail)
+		TweenService:Create(panel, TweenInfo.new(0.25, Enum.EasingStyle.Quint), { Position = place(0.5, 0) }):Play()
 	end
 	refresh()
 end

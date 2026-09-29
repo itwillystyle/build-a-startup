@@ -245,6 +245,7 @@ local function hide(mine)
 	if serial == mine then
 		card.Visible = false
 		player:SetAttribute("RevealShowing", false)
+		player:SetAttribute("Celebrating", nil)
 	end
 	local f = doneFor[mine]; doneFor[mine] = nil
 	if f then f() end
@@ -273,13 +274,14 @@ local function showCard(d, done)
 	local okP, shown = pcall(portrait, d.rig)
 	fallback.Visible = not (okP and shown)
 
-	-- fit between the left rail and the right column (the goal card), so neither
-	-- is covered: centred when it fits, else centred in the gap (UIKit.hudGap)
-	local cx, w = UIKit.hudGap(480)
+	-- centred under the money, clear of the rail; the goal card steps aside for
+	-- the few seconds it shows (Celebrating), as for the HQ level-up
+	local cx, w = UIKit.hudGap(480, nil, true)
 	cardX = cx - gui.AbsolutePosition.X
 	card.Size = UDim2.new(0, math.max(260, w), 0, CARD_H)
 	card.Visible = true
 	player:SetAttribute("RevealShowing", true)       -- client-local: PhoneClient moves its banner below this card
+	player:SetAttribute("Celebrating", true)
 	card.Position = UDim2.new(0, cardX, 0, -CARD_H - 20)
 	TweenService:Create(card, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
 		{ Position = UDim2.new(0, cardX, 0, TOP) }):Play()

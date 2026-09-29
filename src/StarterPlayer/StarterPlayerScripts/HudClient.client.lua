@@ -226,6 +226,26 @@ timeBar.Visible = false
 timeBar.ZIndex = codeBtn.ZIndex + 1
 timeBar.Parent = codeBtn
 Instance.new("UICorner", timeBar).CornerRadius = UDim.new(1, 0)
+-- v5 critique: the seconds live ON the button (a badge on its corner, like a
+-- count badge), not in a 14 px caption above it; orange for the last 15 s
+local timeBadge = Instance.new("Frame")
+timeBadge.Name = "TimeBadge"
+timeBadge.AnchorPoint = Vector2.new(1, 0.5)
+timeBadge.Position = UDim2.new(1, 8, 0, 2)
+timeBadge.Size = UDim2.new(0, 58, 0, 30)
+timeBadge.BackgroundColor3 = UIKit.INK
+timeBadge.BorderSizePixel = 0
+timeBadge.Visible = false
+timeBadge.ZIndex = codeBtn.ZIndex + 3
+timeBadge.Parent = codeBtn
+Instance.new("UICorner", timeBadge).CornerRadius = UDim.new(1, 0)
+local tbStroke = Instance.new("UIStroke", timeBadge)
+tbStroke.Color = UIKit.PAPER
+tbStroke.Thickness = 2
+tbStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+local timeText = UIKit.label(timeBadge, "", 18, UIKit.TEXT, {
+	Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = codeBtn.ZIndex + 4,
+}, UIKit.HEAD)
 
 local launchState     -- { payday, autoAt } while an app waits to launch
 local pulsing = false
@@ -235,22 +255,49 @@ local function seated()
 	local st = hum and hum.SeatPart
 	return st ~= nil and st:IsA("VehicleSeat")
 end
+-- v5: an open menu owns the screen; the slot (a pulsing gold LAUNCH) half under
+-- it was a second loud thing next to the menu's own button
+local welcomeUp = false      -- set by the WELCOME BACK card below
+local function menuOpen()
+	if welcomeUp then return true end   -- the while-away card has its own COLLECT (a passive item card does not hide LAUNCH)
+	local pg = player:FindFirstChild("PlayerGui")
+	for _, n in ipairs(UIKit.MENUS or {}) do
+		local g = pg and pg:FindFirstChild(n)
+		if g and g:IsA("ScreenGui") and g.Enabled then return true end
+	end
+	return false
+end
 local function syncCode()
 	local inCar = seated()
 	-- in a car the speedometer owns the bottom centre: a waiting LAUNCH sits above it
 	-- v5: it also steps aside while the company-name box is up (it pulsed behind
 	-- the box, two loud things at once, and its caption ran under the box's edge)
 	codeBtn.Visible = player:GetAttribute("Shipped") == true and player:GetAttribute("BuildModeOpen") ~= true
-		and player:GetAttribute("NamingOpen") ~= true and (not inCar or launchState ~= nil)
+		and player:GetAttribute("NamingOpen") ~= true and not menuOpen() and (not inCar or launchState ~= nil)
 	codeBtn.Position = UDim2.new(0.5, 0, 1, inCar and -126 or -22)
 	local loud = launchState ~= nil or pulsing
 	codeBtn.Size = loud and FULL or QUIET
 	codeLabel.TextSize = loud and 24 or 22
+	-- v5: when the goal is out in the world (hire, build, drive...), WRITE CODE is
+	-- a quiet paper button, still one tap away, and the goal is the loud thing
+	if not launchState then
+		codeBtn:SetAttribute("FixedStroke", (not loud) and UIKit.GREEN or nil)
+		codeBtn:SetAttribute("FixedText", (not loud) and UIKit.GREEN_DEEP or nil)
+		UIKit.setButtonColor(codeBtn, loud and UIKit.GREEN or UIKit.PAPER)
+	end
 end
 syncCode()
 player:GetAttributeChangedSignal("Shipped"):Connect(syncCode)
 player:GetAttributeChangedSignal("BuildModeOpen"):Connect(syncCode)
 player:GetAttributeChangedSignal("NamingOpen"):Connect(syncCode)
+task.spawn(function()      -- menus are other scripts' guis, made at different times: watch the state
+	local was = false
+	while true do
+		task.wait(0.15)
+		local now = menuOpen()
+		if now ~= was then was = now; syncCode() end
+	end
+end)
 -- v4.2: in a car the speedometer owns the bottom centre (it sat on top of WRITE CODE)
 local function watchSeat(char)
 	local hum = char:WaitForChild("Humanoid", 10)
@@ -285,10 +332,15 @@ local function setLaunch(o)
 	-- a progress tween still running from the last tap would cut the time-left fill short
 	if chargeTween then chargeTween:Cancel(); chargeTween = nil end
 	if o then
+		codeBtn:SetAttribute("FixedStroke", nil)
+		codeBtn:SetAttribute("FixedText", nil)
 		UIKit.setButtonColor(codeBtn, UIKit.GOLD)
 		charge.Size = UDim2.new(0, 0, 1, -5)
-		-- solid gold; the full-pay time drains along the bottom (none on your first launch)
+		-- solid gold; the full-pay time drains along the bottom and counts on the
+		-- corner badge (neither on your first launch, which has no clock)
 		timeBar.Visible = o.autoAt ~= nil
+		timeBadge.Visible = o.autoAt ~= nil
+		codeCaption.Visible = false
 		slotArt.Image = UIKit.ART.rocket
 		codeLabel.Text = "LAUNCH!"
 		codeLabel.Position = UDim2.new(0, 56, 0, 3)
@@ -304,6 +356,8 @@ local function setLaunch(o)
 		UIKit.setButtonColor(codeBtn, UIKit.GREEN)
 		charge.BackgroundColor3 = MINT
 		timeBar.Visible = false
+		timeBadge.Visible = false
+		codeCaption.Visible = true
 		slotArt.Image = UIKit.ART.code
 		codeLabel.Text = "WRITE CODE"
 		codeLabel.Position = UDim2.new(0, 56, 0, 0)
@@ -373,6 +427,8 @@ RunService.RenderStepped:Connect(function()
 			local left = math.max(0, at - workspace:GetServerTimeNow())
 			timeBar.Size = UDim2.new(0, math.floor(TIME_W * math.clamp(left / 60, 0, 1)), 0, 4)
 			timeBar.BackgroundColor3 = left <= 15 and UIKit.ORANGE_DEEP or UIKit.GOLD_DEEP
+			timeText.Text = math.ceil(left) .. "s"
+			timeBadge.BackgroundColor3 = left <= 15 and UIKit.ORANGE_DEEP or UIKit.INK
 			codeCaption.Text = ("FULL PAY  %ds"):format(math.ceil(left))
 			codeCaption.TextColor3 = left <= 15 and UIKit.ORANGE or UIKit.TEXT
 		else
@@ -494,13 +550,14 @@ _G.SVCoinStream = coinStream   -- DailyClient reuses it
 -- ============ CELEBRATIONS ============
 
 -- the HQ level-up banner
--- v5: the banner fits the gap between the rail and the goal card (on a phone a
--- 520-wide card sat on top of both). Laid out at 440 and scaled down to fit,
--- never below 0.78, where the 18 px chip text is still 14 px on screen.
+-- v5: centred under the money, clear of the rail; the goal card steps aside
+-- for its few seconds (Celebrating). Laid out at 440 and scaled down only when
+-- the screen is narrower, never below 0.78 (18 px chips stay 14 px on screen).
 local BANNER_W = 440
 local function hqBanner(e, done)
 	UIKit.sfx("levelup")
-	local cx, gap = UIKit.hudGap(520)
+	player:SetAttribute("Celebrating", true)
+	local cx, gap = UIKit.hudGap(480, nil, true)
 	local scale = math.clamp(gap / BANNER_W, 0.78, 1)
 	local w = scale < 1 and BANNER_W or gap
 	local x = cx - fx.AbsolutePosition.X
@@ -546,8 +603,10 @@ local function hqBanner(e, done)
 		if e.headline and text == e.headline then continue end
 		shown += 1
 		local i = shown
+		-- the payoff leads: the money chip is the green one
+		local money = text:sub(1, 5) == "Money"
 		local c = Instance.new("Frame")
-		c.BackgroundColor3 = UIKit.SURFACE_2
+		c.BackgroundColor3 = money and UIKit.GREEN_LIGHT or UIKit.SURFACE_2
 		c.AutomaticSize = Enum.AutomaticSize.X
 		c.Size = UDim2.new(0, 0, 1, 0)
 		c.LayoutOrder = i
@@ -555,7 +614,7 @@ local function hqBanner(e, done)
 		Instance.new("UICorner", c).CornerRadius = UDim.new(1, 0)
 		local pad = Instance.new("UIPadding", c)
 		pad.PaddingLeft = UDim.new(0, 12); pad.PaddingRight = UDim.new(0, 12)
-		UIKit.label(c, text, 18, UIKit.CARD_TEXT, { Size = UDim2.new(0, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.X }, UIKit.HEAD)
+		UIKit.label(c, money and (text:gsub("^Money", "MONEY")) or text, 18, money and UIKit.GREEN_DEEP or UIKit.CARD_TEXT, { Size = UDim2.new(0, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.X }, UIKit.HEAD)
 		local sc = Instance.new("UIScale", c)
 		sc.Scale = 0
 		task.delay(0.35 + i * 0.15, function() tween(sc, 0.3, { Scale = 1 }, Enum.EasingStyle.Back) end)
@@ -584,6 +643,7 @@ local function hqBanner(e, done)
 		tween(card, 0.35, { Position = UDim2.new(0, x, 0, -180) }, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
 		task.delay(0.4, function()
 			card:Destroy()
+			player:SetAttribute("Celebrating", nil)
 			if done then done() end
 		end)
 	end
@@ -694,7 +754,7 @@ if celebrate then
 			-- waits for it instead of being hidden by it after 1.4 s
 			local hqCard
 			Notify.show({ lane = "top", priority = 1, key = "hq", delay = 1.6,
-				close = function() if hqCard then hqCard:Destroy() end end,
+				close = function() if hqCard then hqCard:Destroy() end; player:SetAttribute("Celebrating", nil) end,
 				open = function(done) hqCard = hqBanner(e, done) end })
 		elseif e.kind == "milestone" then
 			Notify.show({ lane = "top", priority = 2, key = "milestone",
@@ -737,8 +797,9 @@ task.spawn(function()
 		end,
 		open = function(finished)
 		local w = math.min(380, fx.AbsoluteSize.X * 0.9)
+		-- v5: under the income line (at 0.45 on a phone it covered "+$20 / sec")
 		local card = UIKit.card(fx, {
-			AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.45, 0), Size = UDim2.new(0, w, 0, 200),
+			AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 96), Size = UDim2.new(0, w, 0, 200),
 		}, { radius = 18, stroke = UIKit.GREEN, strokeWidth = 4 })
 		UIKit.label(card, "WHILE YOU WERE AWAY", 18, UIKit.CARD_MUTED, {
 			Position = UDim2.new(0, 0, 0, 14), Size = UDim2.new(1, 0, 0, 22), TextXAlignment = Enum.TextXAlignment.Center,
@@ -758,6 +819,8 @@ task.spawn(function()
 		local sc = Instance.new("UIScale", card)
 		sc.Scale = 0.5
 		tween(sc, 0.35, { Scale = 1 }, Enum.EasingStyle.Back)
+		welcomeUp = true            -- the bottom slot steps aside: COLLECT is the one loud thing
+		card.Destroying:Connect(function() welcomeUp = false end)
 		local done = false
 		closeCard = function() done = true; card:Destroy() end   -- a cutscene took the screen: shown again after
 		local function collect()

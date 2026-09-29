@@ -66,10 +66,13 @@ local function place(tp, ts, vp, W, H)
 	end
 	local rr = UIKit.railRight()
 	local midY = math.clamp(centre.Y - H / 2, 64, math.max(64, vp.Y - H - 8))
+	-- beside a target, the card also stays above the bottom action slot (WRITE CODE /
+	-- LAUNCH and its caption own the bottom ~118 px of the screen)
+	local sideY = math.min(midY, math.max(64, vp.Y - 118 - H))
 	local midX = math.clamp(centre.X - W / 2, 8, math.max(8, vp.X - W - 8))
 	local at = {
-		right = function() return math.max(tp.X + ts.X + 40, tp.X < rr and rr + 30 or 0), midY end,
-		left = function() return tp.X - W - 40, midY end,
+		right = function() return math.max(tp.X + ts.X + 40, tp.X < rr and rr + 30 or 0), sideY end,
+		left = function() return tp.X - W - 40, sideY end,
 		above = function() return midX, tp.Y - H - 40 end,
 		below = function() return midX, tp.Y + ts.Y + 40 end,
 	}
@@ -106,6 +109,7 @@ local function finish(report)
 	for _, k in ipairs(c.conns) do k:Disconnect() end
 	if c.frame then c.frame:Destroy() end
 	if c.ring then c.ring:Destroy() end
+	for _, w in ipairs(c.washes or {}) do w:Destroy() end
 	if report then seenRemote:FireServer(c.id) end
 	if c.done then c.done() end
 end
@@ -122,7 +126,8 @@ local function build(id, target, done)
 		Position = UDim2.new(0, 14, 0, 38), Size = UDim2.new(1, -28, 0, 44), TextWrapped = true,
 		TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 3,
 	}, UIKit.BODY)
-	local ok = UIKit.button(card, "GOT IT", UIKit.GREEN, {
+	-- v5: a quiet button: the thing it points at is the loud one
+	local ok = UIKit.button(card, "GOT IT", UIKit.SURFACE_2, {
 		Name = "GotIt", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -12, 1, -12), Size = UDim2.new(0, 120, 0, 44), ZIndex = 4,
 	}, { textSize = 18 })
 	local arrow = UIKit.icon(gui, "up", 40, UIKit.GOLD, { Name = "CoachArrow", AnchorPoint = Vector2.new(0.5, 0.5), ZIndex = 3 })
@@ -139,7 +144,27 @@ local function build(id, target, done)
 	rs.Color = UIKit.GOLD
 	rs.Thickness = 4
 
-	local c = { id = id, frame = card, ring = ring, arrow = arrow, conns = {}, done = done }
+	-- v5: a rail target on a 2-wide grid: the arrow has to cross the neighbouring
+	-- tile, so every other tile is washed out and only the target stays bright
+	local washes = {}
+	local railCol = player.PlayerGui:FindFirstChild("Rail") and player.PlayerGui.Rail:FindFirstChild("Column")
+	if railCol and target:IsDescendantOf(railCol) then
+		for _, tile in ipairs(railCol:GetChildren()) do
+			if tile:IsA("GuiObject") and tile ~= target and tile.Visible then
+				local w = Instance.new("Frame")
+				w.Name = "CoachWash"
+				w.BackgroundColor3 = UIKit.SURFACE
+				w.BackgroundTransparency = 0.3
+				w.BorderSizePixel = 0
+				w.Size = UDim2.new(1, 0, 1, 0)
+				w.ZIndex = 50
+				w.Parent = tile
+				Instance.new("UICorner", w).CornerRadius = UDim.new(0, UIKit.RADIUS.md)
+				table.insert(washes, w)
+			end
+		end
+	end
+	local c = { id = id, frame = card, ring = ring, arrow = arrow, washes = washes, conns = {}, done = done }
 	current = c
 	table.insert(c.conns, ok.Activated:Connect(function() finish(true) end))
 	if target:IsA("GuiButton") then
@@ -190,6 +215,7 @@ local function setShown(c, on)
 	if c.frame then c.frame.Visible = on end
 	if c.ring then c.ring.Visible = on end
 	if c.arrow then c.arrow.Visible = on end
+	for _, w in ipairs(c.washes or {}) do w.Visible = on end
 end
 task.spawn(function()
 	while true do

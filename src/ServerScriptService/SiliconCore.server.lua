@@ -1326,6 +1326,7 @@ local function journeyState(player, s, plot)
 	local cap = capacityOf(player)
 	local gen = Econ and Econ.Drop and Econ.Drop.candidate and Econ.Drop.candidate(player, "genius", cash)
 	return {
+		touch = player:GetAttribute("Touch") == true,
 		hq = lv, shipped = s.shipped == true, staff = s.staff or 0, cap = cap, cash = cash, rate = s.rate or 0,
 		apt = s.apt or 0, listed = s.listed == true, spinCost = spinoffCostOf(s),
 		nextMult = (string.format("%.1f", nextSpinMultOf(s)):gsub("%.0$", "")),
@@ -3266,6 +3267,9 @@ end)
 
 clientInfo.OnServerEvent:Connect(function(player, isMobile)
 	Telemetry.platform(player, isMobile == true)
+	-- v5: the journey words its instructions for the device ("Tap CAR" vs "Press C");
+	-- it read st.touch, which nothing ever set, so every phone was told to press C
+	player:SetAttribute("Touch", isMobile == true)
 end)
 
 -- ============ STUDIO-ONLY DEV HOOK ============

@@ -128,9 +128,23 @@ test("LAUNCH is explained first, then BAG / INDEX / RANKS / DAILY, one at a time
 		if not t then break end
 		table.insert(order, t.id)
 		s.tips[t.id] = true
+		if t.id == "launch" then s.productReady = false end   -- they launched it
 	end
 	assert(table.concat(order, ",") == "launch,bag,index,ranks,daily", table.concat(order, ","))
 	assert(J.tip(s) == nil, "every tip is shown once")
+end)
+
+test("the car task speaks the device's language (a phone has no C key)", function()
+	assert(J.task(st({ hq = 2, hasCar = true, touch = true })).sub == "Tap CAR", "touch")
+	assert(J.task(st({ hq = 2, hasCar = true })).sub:find("Press C"), "keyboard")
+end)
+
+test("while an app waits to launch, no other tip talks over it (its full-pay clock is running)", function()
+	local s = st({ hq = 2, productReady = true, items = 1, indexCount = 2, dailyReady = true, jr = { drove = true, res = true, launched = true } })
+	s.tips.launch = true
+	assert(J.tip(s) == nil, "BAG/INDEX/RANKS/DAILY must wait for the launch")
+	s.productReady = false
+	assert(J.tip(s) and J.tip(s).id == "bag", "and come back after it")
 end)
 
 test("the INDEX tip waits for a second kind of hire (at the first it sat on top of the walk to the lot)", function()

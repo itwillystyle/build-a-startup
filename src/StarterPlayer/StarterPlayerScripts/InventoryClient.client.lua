@@ -46,7 +46,7 @@ local function now() return workspace:GetServerTimeNow() end
 -- ============ THE RAIL BUTTON ============
 
 local railBtn = UIKit.railButton("bag", "BAG", UIKit.ORANGE, {
-	Name = "BagButton", LayoutOrder = 3, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
+	Name = "BagButton", LayoutOrder = 2, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
 }, { iconSize = 28 })
 local badge, badgeText = UIKit.badge(railBtn)
 
@@ -386,20 +386,21 @@ local function gotCard(id, n, source, done)
 		return
 	end
 	local vp = workspace.CurrentCamera.ViewportSize
-	local card = UIKit.card(fx, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.42, 0), Size = UDim2.new(0, 300, 0, 96) },
+	local card = UIKit.card(fx, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.42, 0), Size = UDim2.new(0, 330, 0, 106) },
 		{ radius = 18, strokeWidth = 3, stroke = Items.RARITY[it.rarity].color })
 	local vpf = Instance.new("ViewportFrame")
 	vpf.BackgroundTransparency = 1
 	vpf.Position = UDim2.new(0, 8, 0, 8)
-	vpf.Size = UDim2.new(0, 80, 0, 80)
+	vpf.Size = UDim2.new(0, 80, 0, 90)
 	vpf.Parent = card
 	local m = Items.icon(id, vpf)
 	local base = m and m:GetPivot()
 	UIKit.label(card, ("+%d %s"):format(n or 1, it.name), 20, UIKit.CARD_TEXT, { Position = UDim2.new(0, 96, 0, 12), Size = UDim2.new(1, -104, 0, 24),
 		TextTruncate = Enum.TextTruncate.AtEnd }, UIKit.HEAD)
 	UIKit.label(card, it.short, 16, UIKit.darker(Items.RARITY[it.rarity].color, 0.55), { Position = UDim2.new(0, 96, 0, 38), Size = UDim2.new(1, -104, 0, 18) }, UIKit.HEAD)
-	UIKit.label(card, source or "", 14, UIKit.CARD_MUTED, { Position = UDim2.new(0, 96, 0, 60), Size = UDim2.new(1, -104, 0, 18),
-		TextTruncate = Enum.TextTruncate.AtEnd }, UIKit.HEAD)
+	-- v5: two lines, whole sentence ("Launch day: your team made cold..." was cut)
+	UIKit.label(card, source or "", 14, UIKit.CARD_MUTED, { Position = UDim2.new(0, 96, 0, 60), Size = UDim2.new(1, -108, 0, 36),
+		TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top }, UIKit.BODY)
 	local sc = Instance.new("UIScale", card)
 	sc.Scale = 0.4
 	TweenService:Create(sc, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()

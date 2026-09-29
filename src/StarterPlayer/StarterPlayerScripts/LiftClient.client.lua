@@ -104,8 +104,12 @@ liftMenu.OnClientEvent:Connect(function(data)
 	for i = #stops, 1, -1 do table.insert(order, stops[i]) end
 	for k, st in ipairs(order) do
 		local here = st.id == data.here
-		local badgeText = (st.id == "R" and "R") or (st.id == "L" and "L") or tostring(st.id)
-		local name = (st.id == "L" and "LOBBY") or st.name or ""
+		-- the server sends { id = "L" | "F2".."F5" | "R", name = "LOBBY" | "2" | "R",
+		-- sub = theme name }: the badge is the floor's number, the title its name
+		local num = tostring(st.id):match("^F(%d+)$")
+		local badgeText = num or tostring(st.id)
+		local name = (st.id == "L" and "LOBBY") or ((st.sub and st.sub ~= "") and st.sub)
+			or (num and ("FLOOR " .. num)) or st.name or ""
 		local b = UIKit.button(body, "", here and UIKit.SURFACE_2 or UIKit.BLUE, {
 			Name = "Stop_" .. st.id, Size = UDim2.new(0, 0, 0, 0), LayoutOrder = k,
 		}, { silent = here })
@@ -125,8 +129,8 @@ liftMenu.OnClientEvent:Connect(function(data)
 			Position = UDim2.new(0, 52, 0, 4), Size = UDim2.new(1, -58, 0, 22), TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = b.ZIndex + 1,
 		}, UIKit.HEAD)
 		if not here then UIKit.paintLabel(nm, UIKit.BLUE) end
-		local sub = here and "YOU ARE HERE" or (st.sub or "")
-		if sub ~= "" and sub ~= name then
+		local sub = here and "YOU ARE HERE" or ""
+		if sub ~= "" then
 			local sl = UIKit.label(b, sub, 14, here and UIKit.MUTED_TEXT or UIKit.TEXT, {
 				Position = UDim2.new(0, 52, 0, 25), Size = UDim2.new(1, -58, 0, 18), TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = b.ZIndex + 1,
 			}, UIKit.BODY)

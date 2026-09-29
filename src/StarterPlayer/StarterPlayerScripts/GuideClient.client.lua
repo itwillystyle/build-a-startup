@@ -586,7 +586,9 @@ local function bounds(vp)
 	if col then
 		right = math.min(right, col.AbsolutePosition.X - 44)
 		local l = col:FindFirstChildOfClass("UIListLayout")
-		colBottom = col.AbsolutePosition.Y + (l and l.AbsoluteContentSize.Y or 0)
+		-- in THIS gui's space (it ignores the top-bar inset; AbsolutePosition does
+		-- not): mixing the two put the behind-you arrow 58 px into the goal card
+		colBottom = col.AbsolutePosition.Y + (l and l.AbsoluteContentSize.Y or 0) - gui.AbsolutePosition.Y
 	end
 	-- tiny or not-yet-laid-out screens: never hand math.clamp a max below its min
 	local top, bottom = 130, vp.Y - 150
@@ -660,6 +662,10 @@ RunService.RenderStepped:Connect(function()
 	if (onScreen and sp.Z > 0) or dist < 16 then edge.Visible = false return end
 	-- a menu or the decor sheet owns the screen while it is open
 	if player:GetAttribute("BuildModeOpen") == true or player:GetAttribute("NamingOpen") == true then edge.Visible = false return end
+	for _, n in ipairs(UIKit.MENUS or {}) do        -- v5: any open menu (the lift cut its label in half)
+		local m = player.PlayerGui:FindFirstChild(n)
+		if m and m:IsA("ScreenGui") and m.Enabled then edge.Visible = false return end
+	end
 	local left, right, top, bottom, colBottom = bounds(vp)
 	local centre = Vector2.new(vp.X / 2, vp.Y / 2)
 	if sp.Z < 0 then
@@ -673,7 +679,7 @@ RunService.RenderStepped:Connect(function()
 			edge.Position = UDim2.new(0, left, 0, math.clamp(vp.Y * 0.5, top, bottom))
 		end
 		arrow.Rotation = goRight and 90 or -90
-		edgeDist.Text = ("turn  %dm"):format(math.floor(dist / 3.5 + 0.5))
+		edgeDist.Text = ("%dm behind"):format(math.floor(dist / 3.5 + 0.5))
 		edge.Visible = true
 		return
 	end
