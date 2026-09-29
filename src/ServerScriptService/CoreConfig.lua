@@ -8,6 +8,12 @@ Progression.lua (v4.3). ]]
 
 local START_CASH = 0
 local CODE_REWARD = 5
+-- v4.3 WRITE CODE scales: a tap is worth this many seconds of income (never under
+-- CODE_REWARD), and taps under 0.9 s apart build a combo (+10% each, up to +80%).
+-- A flat $5 was nothing by HQ 2: his run stood still for minutes while saving.
+local CODE_SECONDS = 0.18
+local CODE_COMBO_STEP = 0.1
+local CODE_COMBO_MAX = 8
 local CLICKS_TO_SHIP = 3
 local INTERN_RATE = 2
 local GARAGE_DESKS = 1
@@ -134,6 +140,9 @@ local PLOT_DEFS = {
 return {
 	START_CASH = START_CASH,
 	CODE_REWARD = CODE_REWARD,
+	CODE_SECONDS = CODE_SECONDS,
+	CODE_COMBO_STEP = CODE_COMBO_STEP,
+	CODE_COMBO_MAX = CODE_COMBO_MAX,
 	CLICKS_TO_SHIP = CLICKS_TO_SHIP,
 	INTERN_RATE = INTERN_RATE,
 	GARAGE_DESKS = GARAGE_DESKS,

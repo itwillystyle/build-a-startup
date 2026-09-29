@@ -90,13 +90,13 @@ function J.task(st)
 	if hq >= 3 and not st.geniusDone and st.geniusAvailable then
 		return { key = "genius", title = "Recruit your first GENIUS", sub = "Far end of the street. Their headhunter is fast!", target = "genius" }
 	end
-	-- HQ 4: the Series A pitch
-	if hq >= 4 and not st.seriesA then
-		return { key = "seriesa", title = "Close your Series A", sub = "Open your PHONE: a big investor texted", target = "phone" }
-	end
-	-- HQ 5: go public before anything else
+	-- HQ 5: go public before anything else (a Series A you skipped is still in the phone)
 	if hq >= 5 and not st.listed then
 		return { key = "gopublic", title = "GO PUBLIC!", sub = "Tap GO PUBLIC and ring the bell", target = "gopublic" }
+	end
+	-- HQ 4: the Series A pitch
+	if hq == 4 and not st.seriesA then
+		return { key = "seriesa", title = "Close your Series A", sub = "Open your PHONE: a big investor texted", target = "phone" }
 	end
 	-- then the apartment the NEXT level needs, the moment you can afford it (after this
 	-- level's own story task, which the level-up banner just promised)

@@ -163,7 +163,21 @@ do -- 16 across lanes the most urgent goes first (after a cutscene, the rare hir
 	st.cutscene = false; d:pump()
 	expect(count("open rev") == 1 and count("open itemcard") == 0, "16 P1 top before P2 centre")
 end
+do -- 17 (v4.3) an earned moment never waits behind ambient news: P1 bumps a P3 in its lane and across top/centre
+	local d = reset()
+	d:show(item("top", 3, "news")); d:pump()
+	d:show(item("top", 1, "levelup")); d:pump()
+	expect(count("open levelup") == 1 and count("close news") == 1, "17a P1 top bumps P3 top")
+	local d2 = reset()
+	d2:show(item("centre", 3, "ambient")); d2:pump()
+	d2:show(item("top", 1, "rev")); d2:pump()
+	expect(count("open rev") == 1, "17b P1 top bumps P3 centre")
+	local d3 = reset()
+	d3:show(item("top", 3, "news2")); d3:pump()
+	d3:show(item("top", 2, "progress")); d3:pump()
+	expect(count("open progress") == 0, "17c P2 still waits for P3")
+end
 expect(type(Notify.toast) == "function", "14 toast exported")
 
 clone:Destroy()
-return #fails == 0 and "PASS 16 groups" or ("FAIL " .. #fails .. "\n" .. table.concat(fails, "\n"))
+return #fails == 0 and "PASS 17 groups" or ("FAIL " .. #fails .. "\n" .. table.concat(fails, "\n"))

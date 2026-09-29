@@ -76,6 +76,11 @@ test("a spun-off company doesn't get told the car is new (it already owns one)",
 	assert(J.headline(3, { hasCar = true }) == "GENIUS HIRES", "other levels unchanged")
 end)
 
+test("at HQ 5 GO PUBLIC wins even with the Series A skipped (live test: two goals disagreed)", function()
+	local t = J.task(st({ hq = 5, apt = 3, jr = { drove = true, res = true }, geniusDone = true, seriesA = false }))
+	assert(t and t.key == "gopublic", "got " .. tostring(t and t.key))
+end)
+
 test("HQ 5 asks you to GO PUBLIC before the spin-off", function()
 	local t = J.task(st({ hq = 5, apt = 3, jr = { drove = true, res = true }, geniusDone = true, seriesA = true }))
 	assert(t and t.key == "gopublic", "got " .. tostring(t and t.key))

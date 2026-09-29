@@ -5,8 +5,10 @@ the daily reward were never explained. The server (Journey.tip) decides WHICH
 button to explain and WHEN (one at a time, never while carrying or driving,
 25 s apart); this draws a card beside that button with a bouncing arrow and a
 pulsing ring on the button, and reports it read on GOT IT or when the button
-itself is used. It goes through Notify (centre lane, calm), so it never lands
-on top of a reveal, a level-up banner or a menu. ]]
+itself is used. It never HOLDS a Notify lane (a tip waiting for you would
+queue the level-up banner and the rare-hire reveal behind it: caught live).
+It shows after 1.5 s of calm (Notify.busy() false) and steps aside, hidden,
+whenever something else takes the screen, then comes back. ]]
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -86,7 +88,7 @@ local function build(id, target, done)
 	rs.Color = UIKit.GOLD
 	rs.Thickness = 4
 
-	local c = { id = id, frame = card, ring = ring, conns = {}, done = done }
+	local c = { id = id, frame = card, ring = ring, arrow = arrow, conns = {}, done = done }
 	current = c
 	table.insert(c.conns, ok.Activated:Connect(function() finish(true) end))
 	if target:IsA("GuiButton") then
@@ -121,33 +123,25 @@ local function build(id, target, done)
 	UIKit.sfx("ding", 1.25, 0.4)
 end
 
-local pending
-local request
-request = function()
-	local id = player:GetAttribute("CoachTip")
-	if not id or (current and current.id == id) or pending == id then return end
-	pending = id
-	-- wait for the button to exist and be on screen (BAG appears with the first item, etc.)
-	local target
-	for _ = 1, 40 do
-		target = findTarget(player:GetAttribute("CoachTarget"))
-		if shownOnScreen(target) or player:GetAttribute("CoachTip") ~= id then break end
-		task.wait(0.5)
-	end
-	pending = nil
-	if player:GetAttribute("CoachTip") ~= id or not shownOnScreen(target) then return end
-	Notify.show({
-		-- maxHold: a tip waits for the player (Notify force-closes centre items after 30 s by default)
-		lane = "centre", priority = 2, key = "coach:" .. id, calm = true, maxHold = 900,
-		valid = function() return player:GetAttribute("CoachTip") == id end,
-		open = function(done) build(id, target, done) end,
-		close = function()
-			finish(false)
-			-- bumped by something more urgent (a reveal, a level-up): ask again once it is over
-			task.delay(8, function() if player:GetAttribute("CoachTip") == id then task.spawn(request) end end)
-		end,
-	})
+-- the tip shows after a calm moment and hides (does not close) while anything else is on screen
+local calmSince
+local function setShown(c, on)
+	if c.frame then c.frame.Visible = on end
+	if c.ring then c.ring.Visible = on end
+	if c.arrow then c.arrow.Visible = on end
 end
-
-player:GetAttributeChangedSignal("CoachTip"):Connect(function() task.spawn(request) end)
-task.spawn(request)
+task.spawn(function()
+	while true do
+		task.wait(0.2)
+		local id = player:GetAttribute("CoachTip")
+		if current and current.id ~= id then finish(false) end
+		local busy = Notify.busy()
+		if busy then calmSince = nil elseif not calmSince then calmSince = os.clock() end
+		if current then
+			setShown(current, not busy)
+		elseif id and calmSince and os.clock() - calmSince > 1.5 then
+			local target = findTarget(player:GetAttribute("CoachTarget"))
+			if shownOnScreen(target) then build(id, target, nil) end
+		end
+	end
+end)

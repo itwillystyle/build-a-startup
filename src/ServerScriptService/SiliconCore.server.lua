@@ -1087,9 +1087,18 @@ local function writeCode(player, plot)
 	s.lastCode = os.clock()
 	s.clicks += 1
 	local brew = (Econ and Econ.Inv and Econ.Inv.codeMult(player)) or 1     -- v3.2: a Cold Brew runs x3
-	cash.Value += CFG.CODE_REWARD * brew
+	-- v4.3: a tap is worth a slice of your income, and fast taps build a combo:
+	-- the one active verb while you save up (CoreConfig CODE_SECONDS / CODE_COMBO_*)
+	local tNow = os.clock()
+	s.codeCombo = (s.lastCodeAt and tNow - s.lastCodeAt < 0.9) and math.min((s.codeCombo or 0) + 1, CFG.CODE_COMBO_MAX) or 0
+	s.lastCodeAt = tNow
+	local gain = math.floor(math.max(CFG.CODE_REWARD, (s.rate or 0) * CFG.CODE_SECONDS) * (1 + CFG.CODE_COMBO_STEP * s.codeCombo) * brew)
+	cash.Value += gain
+	player:SetAttribute("CodeCombo", s.codeCombo)
+	player:SetAttribute("CodeGain", gain)
+	player:SetAttribute("CodeTap", (player:GetAttribute("CodeTap") or 0) + 1)   -- what the HUD watches (a repeat gain still counts)
 	Telemetry.step(player, "first_code")
-	popup(plot.laptop, "+$" .. CFG.CODE_REWARD * brew)
+	popup(plot.laptop, "+$" .. fmt(gain))
 	plot.screen.Color = CFG.GOOD
 	task.delay(0.12, function() plot.screen.Color = CFG.ACCENT end)
 	if s.clicks == CFG.CLICKS_TO_SHIP then shipFirstProduct(player, plot) end
@@ -1377,7 +1386,9 @@ local function refreshObjective(player)
 			end
 			key, text, pos, sub = jt.key, jt.title, at, jt.sub
 			if jt.key == "apartment" and st.need then cost = st.need.price end
-			if jt.key == "seriesa" and Econ and Econ.Phone and Econ.Phone.seriesA and os.clock() - (s.seriesAt or -1e9) > 90 then
+			-- 12 s after a level-up: the investor's text must not land on the level-up banner
+			if jt.key == "seriesa" and Econ and Econ.Phone and Econ.Phone.seriesA and os.clock() - (s.seriesAt or -1e9) > 90
+				and os.clock() - (plot.hqUpAt or -1e9) > 12 then
 				s.seriesAt = os.clock()
 				task.spawn(Econ.Phone.seriesA, player)
 			end
@@ -1738,6 +1749,7 @@ local function tryUpgrade(player, plot)
 	end)
 	refreshSign(plot)
 	refreshHqPad(plot)
+	plot.hqUpAt = os.clock()   -- v4.3: the Series A text waits for the level-up moment to pass
 	recompute(player)          -- a bigger HQ earns more per head and prices everything up
 	if plot.hq.level == 2 and Econ and Econ.Cars then
 		task.delay(3.5, function() pcall(Econ.Cars.grant, player, "hatch", "COMPANY CAR!") end)

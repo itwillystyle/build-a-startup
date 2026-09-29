@@ -201,6 +201,15 @@ function Director:pump()
 			return a.seq < b.seq
 		end)
 		for _, it in ipairs(order) do
+			-- v4.3: an earned moment (P0/P1) never waits behind ambient news (P3).
+			-- Found live: the Series A investor's opener banner (P3, top) held the
+			-- lane over the HQ level-up banner (P1) for its whole 15 s TTL.
+			if it.priority <= 1 and not self:_rule(it, st) and (not it.delay or now - it.t0 >= it.delay) then
+				local mine = self.lanes[it.lane]
+				if mine.current and mine.current.priority == 3 then self:_bump(mine) end
+				local other = (it.lane == "top" and self.lanes.centre) or (it.lane == "centre" and self.lanes.top) or nil
+				if other and other.current and other.current.priority == 3 then self:_bump(other) end
+			end
 			if self:_ready(it, st, now) then
 				table.remove(self.queue, table.find(self.queue, it))
 				self:_open(it, now)
@@ -261,6 +270,17 @@ function Notify.show(it) return get():show(it) end
 function Notify.hold(lane, key) get():hold(lane, key) end
 function Notify.release(key) get():release(key) end
 function Notify.state() return get().env.state() end
+
+-- v4.3: for overlays that must never HOLD a lane (the HUD tips, CoachClient): is
+-- something on screen they should step aside for? A card or banner in the centre
+-- or top lane, or driving / carrying / a cutscene / a menu.
+function Notify.busy()
+	local d = get()
+	local c, tp = d.lanes.centre, d.lanes.top
+	if c.current or tp.current or tp.hold then return true end
+	local st = d.env.state()
+	return (st.driving or st.carrying or st.cutscene or st.menu) and true or false
+end
 
 -- ============ THE ONE TOAST (bottom lane) ============
 -- v4.2: three toasts (Product, Car, Lift) drew in three places, one of them on

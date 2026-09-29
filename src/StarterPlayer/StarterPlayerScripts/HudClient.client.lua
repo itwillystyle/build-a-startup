@@ -230,14 +230,22 @@ codeBtn.MouseButton1Click:Connect(function()
 	combo = (now - lastTap < 0.8) and math.min(combo + 1, 10) or 0
 	lastTap = now
 	UIKit.sfx("tap", 1 + 0.04 * combo, 0.4)
-	-- a little </> flies up off the button
-	local g = UIKit.outlined(gui, "</>", 20, Color3.fromRGB(190, 255, 205), {
-		AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0, 60, 0, 24), TextXAlignment = Enum.TextXAlignment.Center,
-		Position = UDim2.new(0.5, math.random(-60, 60), 1, -92),
-	})
-	fadeText(g, 0.6, { Position = g.Position - UDim2.new(0, 0, 0, 50) })
-	task.delay(0.65, function() g:Destroy() end)
 end)
+-- v4.3: what the tap actually paid flies up off the button (the server scales it
+-- with your income and your combo), with the combo when it is building
+local function floatGain()
+	local gain = player:GetAttribute("CodeGain")
+	if not gain then return end
+	local combo = player:GetAttribute("CodeCombo") or 0
+	local text = "+" .. UIKit.money(gain) .. (combo >= 2 and ("  x%.1f"):format(1 + 0.1 * combo) or "")
+	local g = UIKit.outlined(gui, text, 20 + math.min(combo, 8), combo >= 5 and UIKit.GOLD or Color3.fromRGB(190, 255, 205), {
+		AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0, 200, 0, 28), TextXAlignment = Enum.TextXAlignment.Center,
+		Position = UDim2.new(0.5, math.random(-70, 70), 1, -92),
+	})
+	fadeText(g, 0.7, { Position = g.Position - UDim2.new(0, 0, 0, 56) })
+	task.delay(0.75, function() g:Destroy() end)
+end
+player:GetAttributeChangedSignal("CodeTap"):Connect(floatGain)
 
 -- pulse when writing code IS the objective
 local pulsing = false
