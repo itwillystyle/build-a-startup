@@ -35,11 +35,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Econ = require(ServerScriptService:WaitForChild("RoomEconomy"))
 local StaffRig = require(ServerScriptService:WaitForChild("StaffRig"))
+local Chase = require(ServerScriptService:WaitForChild("ChaseRules"))   -- v4.3 the chase (pure, simulated offline)
 
 local api                        -- set by init: see SiliconCore's wiring section
 local state = {}                 -- plot.index -> { owner, tiers = { [i] = { model, readyAt } } }
 local carries = {}               -- player -> carry
 local folder
+local chaseFx                    -- v4.3 RemoteEvent: CLOSE CALL moments to the carrier
 
 local ROLES = { "engineer", "engineer", "designer", "sales", "research", "recruiter" }
 local LOT_X, LOT_Z1, LOT_Z2 = 110, -105, 65         -- CampusSlab: 220 x 170 centred at local z -20
@@ -313,6 +315,8 @@ local function endCarry(player, reason, lost)
 	carries[player] = nil
 	scooterOff(player, c)
 	if c.hunter then c.hunter:Destroy() end
+	for _, H in ipairs(c.hunters or {}) do if H.rig and H.rig.Parent then H.rig:Destroy() end end
+	player:SetAttribute("ChaseDist", nil)
 	if c.model and c.model.Parent then c.model:Destroy() end
 	player:SetAttribute("Carrying", nil)
 	player:SetAttribute("CarryName", nil)
@@ -356,7 +360,7 @@ local function attach(player, c)
 	return true
 end
 
-local function spawnHunter(player, c, fromPos)
+local function spawnHunter(player, c, fromPos, second)
 	local rival = api.RIVALS[math.random(1, #api.RIVALS)]
 	local rig = StaffRig.build("sales", math.random(1, 99999))
 	rig.Name = "Headhunter"
@@ -371,18 +375,23 @@ local function spawnHunter(player, c, fromPos)
 	local head = rig:FindFirstChild("Head")
 	local old = head and head:FindFirstChild("Tag")
 	if old then old.Enabled = false end
-	label(head, rival:upper(), "HEADHUNTER", Color3.fromRGB(240, 80, 80), 160)
+	label(head, second and ((c.hunterRival or rival):upper()) or rival:upper(), second and "JUNIOR HEADHUNTER" or "HEADHUNTER",
+		Color3.fromRGB(240, 80, 80), 160)
 	rig:SetAttribute("Chaser", true)
 	rig:SetAttribute("ChasingUserId", player.UserId)
 	local y = fromPos.Y
 	rig:PivotTo(CFrame.new(fromPos))
 	rig.Parent = folder
-	c.hunter = rig
-	c.hunterRival = rival
-	c.hunterY = y
-	c.dashAt = os.clock() + Econ.HH_DASH_EVERY
-	c.hhSpeed = c.tier.hhSpeed or Econ.HH_SPEED
-	c.hhDash = c.tier.hhDash or Econ.HH_DASH
+	-- v4.3: ChaseRules owns the movement (tension band, lunges, lead pursuit)
+	c.hunters = c.hunters or {}
+	table.insert(c.hunters, { rig = rig, h = Chase.newHunter(fromPos.X, fromPos.Z, os.clock(), second and 1.6 or 0, second) })
+	if not second then
+		c.hunter = rig
+		c.hunterRival = rival
+	end
+	c.hunterY = c.hunterY or y
+	c.chaseCfg = c.chaseCfg or Chase.config(c.tier.id, c.vip, c.speed)
+	c.chaseT0 = c.chaseT0 or os.clock()
 end
 
 -- v4.2: the carry itself (scooter, offer timer, poach prompt, headhunter), shared
@@ -412,7 +421,7 @@ local function startCarry(player, plot, c)
 	-- the top-centre chip says how close the headhunter is; the toast that also
 	-- said both is gone (the rival's name still lands in the LOST moment)
 	if c.tier.chase then
-		spawnHunter(player, c, Vector3.new(c.from.X + Econ.HH_START, c.from.Y, c.from.Z))
+		spawnHunter(player, c, Vector3.new(c.from.X + Chase.START_BEHIND, c.from.Y, c.from.Z))
 	end
 	if api.onRecruit then api.onRecruit(player) end
 end
@@ -465,7 +474,7 @@ function TalentDrop.poach(thief, victim)
 	carries[thief] = c
 	scooterOn(thief, c)
 	thief:SetAttribute("Carrying", c.tier.id); thief:SetAttribute("CarryName", c.name); thief:SetAttribute("CarryDeadline", c.deadline)
-	if c.hunter then c.hunter:SetAttribute("ChasingUserId", thief.UserId) end
+	for _, H in ipairs(c.hunters or {}) do if H.rig then H.rig:SetAttribute("ChasingUserId", thief.UserId) end end
 	toast(victim, ("%s poached %s from you!"):format(thief.DisplayName, c.name))
 	toast(thief, ("You poached %s! Get them home."):format(c.name))
 end
@@ -491,29 +500,51 @@ local function stepCarry(player, c, dt)
 		endCarry(player, c.name .. " took another offer", true)
 		return
 	end
-	local h = c.hunter
-	if h and h.Parent and h.PrimaryPart then
-		local target = Players:GetPlayerByUserId(h:GetAttribute("ChasingUserId") or 0) or player
-		local thrp = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
-		if thrp then
-			local p = h.PrimaryPart.Position
-			local to = Vector3.new(thrp.Position.X, c.hunterY, thrp.Position.Z)
-			local d = to - Vector3.new(p.X, c.hunterY, p.Z)
-			local dist = d.Magnitude
-			if dist <= Econ.HH_CATCH then
-				endCarry(player, ("%s's headhunter got %s!"):format(c.hunterRival or "A rival", c.name), true)
-				return
+	-- v4.3 THE CHASE: ChaseRules (a tension band, telegraphed lunges, lead pursuit;
+	-- measured in tools/chase_sim). The VIP's second, junior hunter joins from
+	-- across the road after SECOND_DELAY.
+	if c.hunters and #c.hunters > 0 then
+		local t = os.clock()
+		if c.vip and not c.secondSpawned and (c.chaseCfg.hunters or 1) >= 2 and t - (c.chaseT0 or t) >= Chase.SECOND_DELAY then
+			c.secondSpawned = true
+			local side = (hrp.Position.Z >= 0) and -1 or 1
+			spawnHunter(player, c, Vector3.new(hrp.Position.X, c.hunterY, hrp.Position.Z + side * Chase.SECOND_SIDE), true)
+		end
+		local minD = math.huge
+		for i = #c.hunters, 1, -1 do
+			local H = c.hunters[i]
+			local rig = H.rig
+			if not rig.Parent or not rig.PrimaryPart then
+				table.remove(c.hunters, i)
+			else
+				local target = Players:GetPlayerByUserId(rig:GetAttribute("ChasingUserId") or 0) or player
+				local thrp = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+				if thrp then
+					local tv = thrp.AssemblyLinearVelocity
+					local ph, dist = Chase.step(c.chaseCfg, H.h, thrp.Position.X, thrp.Position.Z, tv.X, tv.Z, c.speed or 16, dt, t)
+					if dist <= Chase.CATCH then
+						endCarry(player, ("%s's headhunter got %s!"):format(c.hunterRival or "A rival", c.name), true)
+						return
+					end
+					minD = math.min(minD, dist)
+					-- TalentRowClient / StaffAnimClient / ChaseFxClient draw the tell and the lunge off these
+					local wind, lung = ph == "windup", ph == "lunge"
+					if (rig:GetAttribute("Windup") == true) ~= wind then rig:SetAttribute("Windup", wind) end
+					if (rig:GetAttribute("Lunging") == true) ~= lung then rig:SetAttribute("Lunging", lung) end
+					local np = Vector3.new(H.h.x, c.hunterY, H.h.z)
+					local look = Vector3.new(thrp.Position.X - np.X, 0, thrp.Position.Z - np.Z)
+					rig:PivotTo(look.Magnitude > 0.01 and CFrame.lookAt(np, np + look) or CFrame.new(np))
+				end
 			end
-			local t = os.clock()
-			if t >= c.dashAt + Econ.HH_DASH_TIME then c.dashAt = t + Econ.HH_DASH_EVERY end
-			-- v3.0.2: it stops, crouches and flashes red before every dash (TalentRowClient
-			-- and StaffAnimClient draw it off this one attribute, written twice per cycle)
-			local windup = t >= c.dashAt - Econ.HH_WINDUP and t < c.dashAt
-			if (h:GetAttribute("Windup") == true) ~= windup then h:SetAttribute("Windup", windup) end
-			local speed = (t >= c.dashAt) and c.hhDash or (windup and 0 or c.hhSpeed)
-			local step = math.min(dist - Econ.HH_CATCH * 0.5, speed * dt)
-			local np = Vector3.new(p.X, c.hunterY, p.Z) + d.Unit * math.max(0, step)
-			h:PivotTo(CFrame.lookAt(np, np + Vector3.new(d.X, 0, d.Z)))
+		end
+		-- the fear readout (heartbeat, red edges) and CLOSE CALLs
+		local cd = minD < math.huge and math.floor(minD * 2 + 0.5) / 2 or nil
+		if player:GetAttribute("ChaseDist") ~= cd then player:SetAttribute("ChaseDist", cd) end
+		if minD < Chase.NEAR then
+			c.near = true
+		elseif c.near and minD > Chase.NEAR * 1.8 then
+			c.near = false
+			if chaseFx then chaseFx:FireClient(player, { kind = "close" }) end
 		end
 	end
 end
@@ -525,6 +556,31 @@ function TalentDrop.init(a)
 			local ev = Instance.new("RemoteEvent")
 			ev.Name = "CarryLost"
 			ev.Parent = folder
+		end
+	end
+	do
+		-- v4.3: BOOST (client -> server) and the chase moments (server -> client)
+		local rf = ReplicatedStorage:FindFirstChild("SVRemotes")
+		if rf then
+			chaseFx = rf:FindFirstChild("ChaseFx") or Instance.new("RemoteEvent")
+			chaseFx.Name = "ChaseFx"
+			chaseFx.Parent = rf
+			local boost = rf:FindFirstChild("CarryBoost") or Instance.new("RemoteEvent")
+			boost.Name = "CarryBoost"
+			boost.Parent = rf
+			boost.OnServerEvent:Connect(function(player)
+				local c = carries[player]
+				if not c then return end
+				local t = os.clock()
+				if not Chase.boostReady(c.lastBoost, t) then return end
+				c.lastBoost = t
+				player:SetAttribute("BoostAt", workspace:GetServerTimeNow())
+				local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+				if hum then hum.WalkSpeed = (c.speed or 16) + Chase.BOOST.add end
+				task.delay(Chase.BOOST.time, function()
+					if carries[player] == c and hum and hum.Parent then hum.WalkSpeed = c.speed or hum.WalkSpeed end
+				end)
+			end)
 		end
 	end
 	api = a
@@ -701,12 +757,19 @@ end
 -- v3.2 the bag: a Non-Compete sends the headhunter chasing you home
 function TalentDrop.dismissHunter(player)
 	for _, c in pairs(carries) do
-		local h = c.hunter
-		if h and h.Parent and h:GetAttribute("ChasingUserId") == player.UserId then
+		local mine = c.hunter and c.hunter.Parent and c.hunter:GetAttribute("ChasingUserId") == player.UserId
+		if mine then
 			local rival = c.hunterRival or "The rival"
-			if h.PrimaryPart then api.popup(h.PrimaryPart, "SIGNED A NON-COMPETE", api.BAD) end
-			task.delay(0.4, function() if h.Parent then h:Destroy() end end)
+			for _, H in ipairs(c.hunters or {}) do
+				local h = H.rig
+				if h and h.Parent then
+					if h.PrimaryPart then api.popup(h.PrimaryPart, "SIGNED A NON-COMPETE", api.BAD) end
+					task.delay(0.4, function() if h.Parent then h:Destroy() end end)
+				end
+			end
+			c.hunters = {}
 			c.hunter = nil
+			player:SetAttribute("ChaseDist", nil)
 			toast(player, ("%s's headhunter gave up. Get them home!"):format(rival))
 			return true
 		end

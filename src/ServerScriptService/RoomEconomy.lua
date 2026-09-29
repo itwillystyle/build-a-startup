@@ -359,6 +359,8 @@ Econ.TIERS = {
 Econ.KEEP_MAX = 3              -- the spin-off keeps your 3 best (recruiting makes Star+ common: sim kept ~12)
 Econ.OFFER_BASE = 14           -- offer timer: base seconds ...
 Econ.OFFER_PER_STUD = 0.11     -- ... + this per stud from the candidate to your plot (~1.7x a steady walk)
+-- v4.3: THE CHASE MOVED TO ChaseRules.lua (a tension band, lunges, lead pursuit, BOOST).
+-- The HH_* values below are the v4.2 hunter; only tools/chase_sim uses their shape as a baseline.
 Econ.HH_START = 30             -- the headhunter starts this many studs east of where you recruited
 Econ.HH_SPEED = 13             -- studs/s (you walk 16)
 Econ.HH_DASH = 21              -- a burst ...

@@ -259,6 +259,10 @@ RunService.PreSimulation:Connect(function()
 				local w = math.sin(t * 6) * 0.05
 				sh, el = { 1.3 + w, 1.3 - w }, { 0.45, 0.45 }
 				knee = { -0.12, -0.12 }
+			elseif model:GetAttribute("Chaser") and model:GetAttribute("Lunging") then
+				-- v4.3 the lunge: flat out, both arms reaching for you
+				sh, el, hip, knee = { 1.7, 1.7 }, { 0.1, 0.1 }, { -0.6, 0.9 }, { -0.2, -1.4 }
+				hop = 0.15
 			elseif model:GetAttribute("Chaser") and model:GetAttribute("Windup") then
 				-- the tell before a dash: a crouch, arms thrown back
 				sh, el, hip, knee = { -0.9, -0.9 }, { 0.5, 0.5 }, { 0.7, 0.7 }, { -1.3, -1.3 }

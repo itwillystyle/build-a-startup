@@ -284,8 +284,10 @@ RunService.RenderStepped:Connect(function(dt)
 		local nearest, dashing
 		for _, m in ipairs(row:GetChildren()) do
 			if m:IsA("Model") and m:GetAttribute("Chaser") and m:GetAttribute("ChasingUserId") == player.UserId and m.PrimaryPart and root then
-				nearest = (m.PrimaryPart.Position - root.Position).Magnitude
-				dashing = m:GetAttribute("Windup") == true
+				-- v4.3: the VIP run has two hunters; the chip reads the nearest, and any crouch
+				local d = (m.PrimaryPart.Position - root.Position).Magnitude
+				if not nearest or d < nearest then nearest = d end
+				dashing = dashing or m:GetAttribute("Windup") == true or m:GetAttribute("Lunging") == true
 			end
 		end
 		if nearest then
@@ -299,7 +301,9 @@ RunService.RenderStepped:Connect(function(dt)
 			dangerIcon.ImageColor3 = col
 			dangerStroke.Color = col
 			dangerText.TextColor3 = close and UIKit.RED or UIKit.CARD_TEXT
-			dangerText.Text = dashing and "Headhunter DASH! Move!" or ("Headhunter %dm behind"):format(math.floor(nearest / 3.5 + 0.5))
+			local keyboard = game:GetService("UserInputService").KeyboardEnabled
+			dangerText.Text = dashing and (keyboard and "It's lunging! BOOST now (Shift)" or "It's lunging! BOOST now!")
+				or ("Headhunter %dm behind"):format(math.floor(nearest / 3.5 + 0.5))
 		else
 			danger.Visible = false
 			setDanger(false)
