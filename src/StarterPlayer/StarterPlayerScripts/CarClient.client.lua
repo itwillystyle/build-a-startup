@@ -290,10 +290,27 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	if processed then return end
 	if input.KeyCode == Enum.KeyCode.C and carBtn.Visible then call() end
 end)
+-- v5: an open menu owns the screen; the bottom row (WRITE CODE, CAR) steps aside
+local function menuOpen()
+	for _, n in ipairs(UIKit.MENUS or {}) do
+		local g = player.PlayerGui:FindFirstChild(n)
+		if g and g:IsA("ScreenGui") and g.Enabled then return true end
+	end
+	return false
+end
 local function refreshBtn()
 	-- v5: the decor sheet owns the bottom edge while it is open (it covered this button)
 	carBtn.Visible = player:GetAttribute("CarOwned") == true and not driving and player:GetAttribute("BuildModeOpen") ~= true
+		and not menuOpen()
 end
+task.spawn(function()
+	local was = false
+	while true do
+		task.wait(0.15)
+		local now = menuOpen()
+		if now ~= was then was = now; refreshBtn() end
+	end
+end)
 player:GetAttributeChangedSignal("CarOwned"):Connect(refreshBtn)
 player:GetAttributeChangedSignal("BuildModeOpen"):Connect(refreshBtn)
 -- v5: while "Hop in your company car" is the goal, the CAR tile is the loud thing:
