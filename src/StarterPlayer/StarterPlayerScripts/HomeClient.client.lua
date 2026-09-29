@@ -49,6 +49,24 @@ row.Parent = body
 local TIER_COLOR = { Color3.fromRGB(92, 170, 230), Color3.fromRGB(240, 150, 70), Color3.fromRGB(255, 200, 60) }
 local openedAt
 
+-- v5: your cash in the header (the menu covers the money counter on a phone),
+-- as at the car dealer: the two shops read the same
+local header = panel:FindFirstChild("Header")
+local cashLbl = header and UIKit.outlined(header, "", 20, UIKit.MONEY, {
+	Name = "Cash", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -62, 0.5, 0), Size = UDim2.new(0, 120, 0, 26),
+	TextXAlignment = Enum.TextXAlignment.Right,
+})
+local function showCash()
+	local ls = player:FindFirstChild("leaderstats")
+	local c = ls and ls:FindFirstChild("Cash")
+	if cashLbl and c then cashLbl.Text = UIKit.money(c.Value) end
+end
+task.spawn(function()
+	local ls = player:WaitForChild("leaderstats", 30)
+	local c = ls and ls:WaitForChild("Cash", 30)
+	if c then c.Changed:Connect(function() if gui.Enabled then showCash() end end) end
+end)
+
 local function showMenu(st)
 	for _, c in ipairs(body:GetChildren()) do if c:IsA("GuiObject") then c:Destroy() end end
 	for i, t in ipairs(st.tiers) do
@@ -82,7 +100,7 @@ local function showMenu(st)
 		elseif t.state == "locked" then label, color, enabled = "LOCKED", UIKit.MUTED, false
 		elseif st.cash >= t.price then label, color, enabled = "BUY " .. UIKit.money(t.price), UIKit.GREEN, true
 		else label, color, enabled = UIKit.money(t.price), UIKit.MUTED, false end
-		local b = UIKit.button(c, label, color, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Size = UDim2.new(1, -20, 0, 42) },
+		local b = UIKit.button(c, label, color, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Size = UDim2.new(1, -20, 0, 44) },
 			{ textSize = 18 })
 		if t.why then
 			UIKit.label(c, t.why, 14, UIKit.RED_DEEP, { AnchorPoint = Vector2.new(0.5, 1), Size = UDim2.new(1, -16, 0, 16),
@@ -100,6 +118,7 @@ local function showMenu(st)
 	end
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 	openedAt = root and root.Position
+	showCash()
 	gui.Enabled = true
 	UIKit.solo(gui)
 end

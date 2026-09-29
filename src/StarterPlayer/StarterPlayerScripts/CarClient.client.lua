@@ -399,17 +399,30 @@ local panel, body, closeBtn = UIKit.menu(dg, "VALLEY MOTORS", Color3.fromRGB(38,
 	Name = "Panel", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -20, 0.5, 0), Size = UDim2.new(0, 360, 0, 380),
 })
 local fit = Instance.new("UIScale", panel)
+-- v5: never scaled for height (six rows scaled to 0.82 put the 44 px buttons at
+-- 36 on a phone); the list scrolls instead, with the next row peeking out
 local function refit()
 	local vp = camera.ViewportSize
-	fit.Scale = math.min(1, (vp.Y - 24) / math.max(1, panel.Size.Y.Offset), (vp.X * 0.55) / 360)
+	fit.Scale = math.min(1, (vp.X * 0.55) / 360)
 end
 camera:GetPropertyChangedSignal("ViewportSize"):Connect(refit)
 refit()
 if closeBtn then closeBtn.MouseButton1Click:Connect(function() dg.Enabled = false end) end
+local shelf = Instance.new("ScrollingFrame")
+shelf.Name = "Shelf"
+shelf.BackgroundTransparency = 1
+shelf.BorderSizePixel = 0
+shelf.Size = UDim2.new(1, 0, 1, 0)
+shelf.CanvasSize = UDim2.new(0, 0, 0, 0)
+shelf.AutomaticCanvasSize = Enum.AutomaticSize.Y
+shelf.ScrollingDirection = Enum.ScrollingDirection.Y
+shelf.ScrollBarThickness = 6
+shelf.ScrollBarImageColor3 = UIKit.INK_SOFT
+shelf.Parent = body
 local list = Instance.new("UIListLayout")
 list.Padding = UDim.new(0, 6)
 list.SortOrder = Enum.SortOrder.LayoutOrder
-list.Parent = body
+list.Parent = shelf
 local openedAt
 
 local function money(n) return UIKit.money and UIKit.money(n) or ("$" .. tostring(n)) end
@@ -433,15 +446,15 @@ task.spawn(function()
 end)
 
 local function showDealer(st)
-	for _, c in ipairs(body:GetChildren()) do if c:IsA("GuiObject") then c:Destroy() end end
+	for _, c in ipairs(shelf:GetChildren()) do if c:IsA("GuiObject") then c:Destroy() end end
 	for i, c in ipairs(st.cars) do
 		if c.price > 0 or c.owned then
 			local row = Instance.new("Frame")
 			row.Name = "Car_" .. c.id
 			row.LayoutOrder = i
-			row.Size = UDim2.new(1, 0, 0, 54)
+			row.Size = UDim2.new(1, -10, 0, 54)      -- room for the scroll bar
 			row.BackgroundColor3 = c.id == st.focus and UIKit.GOLD_LIGHT or UIKit.CARD
-			row.Parent = body
+			row.Parent = shelf
 			Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
 			local stroke = Instance.new("UIStroke", row)
 			stroke.Color = UIKit.CARD_LINE
@@ -487,8 +500,9 @@ local function showDealer(st)
 	end
 	-- v5: as tall as its rows (a fixed 380 px ran off a phone), then fit to the screen
 	local rows = 0
-	for _, ch in ipairs(body:GetChildren()) do if ch:IsA("GuiObject") then rows += 1 end end
-	panel.Size = UDim2.new(0, 360, 0, 52 + 26 + rows * 60)
+	for _, ch in ipairs(shelf:GetChildren()) do if ch:IsA("GuiObject") then rows += 1 end end
+	panel.Size = UDim2.new(0, 360, 0, math.min(52 + 26 + rows * 60, camera.ViewportSize.Y - 24))
+	shelf.CanvasPosition = Vector2.new(0, 0)
 	refit()
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 	openedAt = root and root.Position
