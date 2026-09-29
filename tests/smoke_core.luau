@@ -55,6 +55,8 @@ add("tier", dev:Invoke("tier", p, 3))
 add("offer", dev:Invoke("offer", p))
 add("launch", dev:Invoke("launch", p, 1))
 task.wait(1)
+add("gopublic", dev:Invoke("gopublic", p))      -- v4.3: a company goes public before it can spin off
+task.wait(1)
 add("spinoff", dev:Invoke("spinoff", p))
 task.wait(2)
 snap("spin1")

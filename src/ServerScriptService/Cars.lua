@@ -224,6 +224,18 @@ local function owns(s, id)
 end
 Cars.owns = owns
 
+-- v4.3 (Journey): where your car is, and whether you are sitting in it
+function Cars.carPos(player)
+	local m = spawned[player.UserId]
+	return m and m.PrimaryPart and m.PrimaryPart.Position or nil
+end
+
+function Cars.driving(player)
+	local m = spawned[player.UserId]
+	local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	return (m and hum and hum.SeatPart and hum.SeatPart:IsDescendantOf(m)) and true or false
+end
+
 function Cars.hasCar(player)
 	local s = api and api.session(player)
 	return s and s.cars and #s.cars > 0

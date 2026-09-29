@@ -147,7 +147,9 @@ end
 -- minute 4); a returning player meets it straight away
 local function unlocked()
 	return player:GetAttribute("Shipped") == true and player:GetAttribute("DailyAmounts") ~= nil
-		and (player:GetAttribute("Returning") == true or (player:GetAttribute("HQLevel") or 1) >= 2)
+		and (player:GetAttribute("Returning") == true
+			-- v4.3: a new player meets it after the first drive downtown (Journey), not over the car reveal
+			or ((player:GetAttribute("HQLevel") or 1) >= 2 and player:GetAttribute("JrRes") == true))
 end
 
 local claimed = false
@@ -239,7 +241,7 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	if input.KeyCode == Enum.KeyCode.Q and gui.Enabled then setOpen(false) end
 end)
 
-for _, a in ipairs({ "DailyReady", "DailyStreak", "DailyAmounts", "DailyItems", "Shipped", "HQLevel", "Returning" }) do
+for _, a in ipairs({ "DailyReady", "DailyStreak", "DailyAmounts", "DailyItems", "Shipped", "HQLevel", "Returning", "JrRes" }) do
 	player:GetAttributeChangedSignal(a):Connect(refresh)
 end
 refresh()

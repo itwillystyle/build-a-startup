@@ -335,7 +335,7 @@ local function makeOffer(player, th)
 		close(player, th, "pass")
 		return
 	end
-	local amount = niceMoney(math.max(200 * f.hq, rate * (20 + 12 * interest)))
+	local amount = niceMoney(math.max(200 * f.hq, rate * (20 + 12 * interest)) * (th.boost or 1))   -- v4.3 a Series A is x3
 	local item = (interest >= 8 and "frontpage") or (interest >= 6 and anyOf({ "scout", "noncompete" }))
 		or (interest >= 4 and anyOf({ "coffee", "energy" })) or nil
 	th.offer = { amount = amount, item = item, interest = interest, canPush = true }
@@ -402,7 +402,7 @@ local function reply(player, th, text, chip)
 	task.spawn(respond, player, th, shown, verdict, gain)
 end
 
-local function startThread(player)
+local function startThread(player, opts)
 	local st = state[player]
 	local recent = st.recent
 	local pool = {}
@@ -412,13 +412,14 @@ local function startThread(player)
 	if #recent > 3 then table.remove(recent, 1) end
 	serial += 1
 	local th = { id = serial, persona = P, thesis = P.thesis, round = 1, interest = 0, status = "wait", msgs = {}, said = {},
-		deadline = os.clock() + 180 }
+		deadline = os.clock() + 180, boost = opts and opts.boost or 1, series = opts and opts.series or nil }
 	table.insert(st.threads, 1, th)
 	while #st.threads > 6 do table.remove(st.threads) end
 	st.active = th
 	local f = facts(player)
 	send(player, { kind = "thread", thread = snapshot(th) })
-	say(player, th, "them", (anyOf(OPENERS)):format(P.first, P.firm, f.company), true)
+	say(player, th, "them", opts and opts.opener and opts.opener:format(P.first, P.firm, f.company)
+		or (anyOf(OPENERS)):format(P.first, P.firm, f.company), true)
 	task.wait(1.1)
 	say(player, th, "them", THESIS[th.thesis].probes[1], false)
 	makeChips(player, th)
@@ -569,6 +570,7 @@ function Phone.init(a)
 				if o.item then api.grant(player, o.item, 1, th.persona.first .. " sent a gift") end
 				say(player, th, "them", "Done. Sending it now. Talk soon!")
 				send(player, { kind = "paid", id = th.id, amount = o.amount })
+				if th.series and api.onSeriesA then api.onSeriesA(player) end
 				close(player, th, "deal")
 			elseif msg.choice == "push" then
 				local ok = o.interest >= 7 or (o.interest >= 4 and math.random() < (o.interest - 3) / 4)
@@ -581,6 +583,7 @@ function Phone.init(a)
 					if o.item then api.grant(player, o.item, 1, th.persona.first .. " sent a gift") end
 					say(player, th, "them", "You drive a hard bargain. Fine. Deal.")
 					send(player, { kind = "paid", id = th.id, amount = amount })
+					if th.series and api.onSeriesA then api.onSeriesA(player) end
 					close(player, th, "deal")
 				else
 					say(player, th, "them", "Then we'll pass. Good luck out there.")
@@ -648,6 +651,20 @@ end
 
 -- v4.2: a one-off text from someone who is not an investor (the Residences'
 -- front desk about your VIP). Scripted, so no AI badge on the avatar.
+--[[ v4.3 THE SERIES A (the HQ 4 task): an investor texts you right away with a
+round worth 3x a normal term sheet. Retried by SiliconCore every 90 s until a
+deal closes; never stacks on a Series A that is still open. ]]
+function Phone.seriesA(player)
+	local st = state[player]
+	-- the first call can come the second a returning player joins, before the phone
+	-- loop has made their state (live test: silently skipped, then a 90 s wait)
+	if not st then st = { threads = {}, recent = {} }; state[player] = st end
+	local a = st.active
+	if a and a.series and a.status ~= "closed" and a.status ~= "deal" and a.status ~= "pass" then return end
+	startThread(player, { boost = 3, series = true,
+		opener = "Hi, it's %s from %s. We lead Series A rounds, and %s is on our list. Pitch me." })
+end
+
 function Phone.notice(player, id, first, firm, text)
 	if not (player and player.Parent) then return end
 	unread(player, 1)
@@ -664,6 +681,25 @@ function Phone.snapshot(player)
 end
 
 -- Studio tests only
+-- Studio test hooks (v4.3): the live thread, and a term sheet through the real makeOffer
+function Phone.devActive(player)
+	if not game:GetService("RunService"):IsStudio() then return nil end
+	local st = state[player]
+	local th = st and st.active
+	if not th then return nil end
+	return { id = th.id, series = th.series, boost = th.boost, firm = th.persona and th.persona.firm, status = th.status,
+		first = th.msgs[1] and th.msgs[1].text, offer = th.offer and th.offer.amount }
+end
+function Phone.devOffer(player, interest)
+	if not game:GetService("RunService"):IsStudio() then return nil end
+	local st = state[player]
+	local th = st and st.active
+	if not th then return nil end
+	th.interest = interest or 8
+	makeOffer(player, th)
+	return th.offer and th.offer.amount, th.id
+end
+
 function Phone._test() return { state = state, calls = calls, startThread = startThread, reply = reply, facts = facts,
 	sanitize = sanitize, startCall = startCall, answer = answer, endCall = endCall } end
 

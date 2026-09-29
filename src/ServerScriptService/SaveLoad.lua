@@ -7,6 +7,7 @@ them is assigned before this point and never reassigned, so aliasing is safe. ]]
 return function(core)
 	local CFG = core.CFG
 	local Prog = core.Prog
+	local Journey = core.Journey
 	local CampusArch = core.CampusArch
 	local Econ = core.Econ
 	local FurnitureKit = core.FurnitureKit
@@ -103,6 +104,9 @@ return function(core)
 			items = Econ and Econ.Inv and Econ.Inv.save(s) or nil,   -- v3.2 the bag: counts only
 			apt = s.apt or 0,                                            -- v4.0 the apartment rung (0-3)
 			vipDay = s.vipDay,                                          -- v4.2 the UTC day the daily VIP was picked up
+			jr = Journey.cleanFlags(s.jr),                              -- v4.3 journey flags (booleans, sanitized)
+			tips = Journey.tipList(s.tips),                             -- v4.3 HUD tips already read
+			listed = s.listed == true,                                  -- v4.3 this company went public
 			cars = Econ and Econ.Cars and Econ.Cars.save(s) or nil,     -- v4.0 owned car ids
 			car = s.car,
 		}
@@ -269,6 +273,9 @@ return function(core)
 		-- v4.0: the apartment (clamped) and the cars (validated against the catalog)
 		s.apt = clampInt(data.apt, 0, 3, 0)
 		s.vipDay = clampInt(data.vipDay, 0, 1e7, 0)
+		s.jr = Journey.cleanFlags(data.jr)        -- v4.3 only known flags survive a load
+		s.tips = Journey.cleanTips(data.tips)
+		s.listed = data.listed == true
 		if Econ and Econ.Apt then pcall(Econ.Apt.onLoad, player, s) end
 		if Econ and Econ.Cars then pcall(Econ.Cars.onLoad, player, s, data, plot) end
 		recompute(player)

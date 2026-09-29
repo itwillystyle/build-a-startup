@@ -243,10 +243,16 @@ local function showLaunch(o)
 	launch.Visible = true
 	UIKit.sfx("ding", 0.9)
 end
-launch.MouseButton1Click:Connect(function()
+local function doLaunch()
 	if not launch.Visible then return end
 	pickMarket:FireServer(1)
 	launch.Visible = false
+end
+launch.MouseButton1Click:Connect(doLaunch)
+-- v4.3: L on a keyboard, Y on a gamepad (his run: LAUNCH was never pressed in 19 minutes)
+game:GetService("UserInputService").InputBegan:Connect(function(input, processed)
+	if processed then return end
+	if input.KeyCode == Enum.KeyCode.L or input.KeyCode == Enum.KeyCode.ButtonY then doLaunch() end
 end)
 game:GetService("RunService").RenderStepped:Connect(function()
 	if not launch.Visible then return end

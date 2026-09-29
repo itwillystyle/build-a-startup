@@ -4,6 +4,7 @@ upgrade, spinoff, bot, peek, wipe, ...). Moved out of SiliconCore on 28 Sep
 passes its own script (SVDev stays under SiliconCore, where tools look). ]]
 return function(core)
 	local coreScript = core.coreScript
+	local goPublic = core.goPublic
 	local CFG = core.CFG
 	local Econ = core.Econ
 	local SaveLoad = core.SaveLoad
@@ -127,6 +128,17 @@ return function(core)
 			if r then r.tier = tonumber(arg) or 1; r.seatedTime = (r.tier - 1) * CFG.PROMOTE_EVERY
 				StaffRig.setTitle(r.rig, titleOf(r)); recompute(player) end
 			return "tier set"
+		elseif action == "phone" then
+			-- v4.3 test hook: the live investor thread (Series A check)
+			local a = Econ and Econ.Phone and Econ.Phone.devActive and Econ.Phone.devActive(player)
+			return a or "no active thread"
+		elseif action == "phoneoffer" then
+			local amount, id = Econ.Phone.devOffer(player, tonumber(arg) or 8)
+			return { amount = amount, id = id, rate = s.rate }
+		elseif action == "gopublic" then
+			-- v4.3 test hook: the GO PUBLIC button
+			if plot then goPublic(player, plot) end
+			return ("listed=%s ticker=%s"):format(tostring(s.listed), tostring(s.ticker))
 		elseif action == "hire" then
 			-- v4.3 test hook: one hire through the real hire() (after a spin-off the HQ needs staff)
 			if plot then hire(player, plot) end

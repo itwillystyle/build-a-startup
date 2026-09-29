@@ -599,6 +599,10 @@ function TalentDrop.clearVip(player)
 end
 
 function TalentDrop.hasVip(player) return vips[player] ~= nil end
+function TalentDrop.vipPos(player)   -- v4.3 (Journey)
+	local v = vips[player]
+	return v and v.model and v.model.PrimaryPart and v.model.PrimaryPart.Position or nil
+end
 
 local VIP_GOLD = Color3.fromRGB(255, 208, 70)
 
@@ -714,6 +718,23 @@ function TalentDrop.carrying(player)
 	local c = carries[player]
 	if not c then return nil end
 	return { name = c.name, tier = c.tier, deadline = c.deadline, speed = c.speed }
+end
+
+-- v4.3 (Journey): a candidate of one tier (e.g. "genius") this player can recruit right now
+function TalentDrop.candidate(player, tierId, cashValue)
+	local plot = api.plotOf(player)
+	local st = plot and state[plot.index]
+	if not st then return nil end
+	for i, tier in ipairs(Econ.TIERS) do
+		if tier.id == tierId then
+			local e = st.tiers[i]
+			local fee = feeFor(player, tier)
+			if e and e.model and e.model.PrimaryPart and fee and fee <= (cashValue or 0) then
+				return { tier = tier, fee = fee, pos = e.model.PrimaryPart.Position }
+			end
+		end
+	end
+	return nil
 end
 
 -- the best candidate standing for this player that they can afford (spend <= 80% of cash)

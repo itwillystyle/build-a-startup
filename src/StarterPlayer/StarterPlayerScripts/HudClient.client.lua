@@ -366,7 +366,7 @@ local function hqBanner(e, done)
 	UIKit.sfx("levelup")
 	local w = math.min(520, fx.AbsoluteSize.X * 0.92)
 	local card = UIKit.card(fx, {
-		AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, -140), Size = UDim2.new(0, w, 0, 132),
+		AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, -140), Size = UDim2.new(0, w, 0, e.headline and 196 or 132),
 	}, { radius = 18, stroke = UIKit.GOLD, strokeWidth = 4 })
 	local top = UIKit.label(card, ("HQ LEVEL %d"):format(e.level or 2), 18, UIKit.darker(UIKit.GOLD, 0.7), {
 		Position = UDim2.new(0, 0, 0, 10), Size = UDim2.new(1, 0, 0, 22), TextXAlignment = Enum.TextXAlignment.Center,
@@ -374,9 +374,28 @@ local function hqBanner(e, done)
 	local name = UIKit.outlined(card, (e.name or "NEW HQ") .. "!", 38, UIKit.GOLD, {
 		Position = UDim2.new(0, 0, 0, 32), Size = UDim2.new(1, 0, 0, 44), TextXAlignment = Enum.TextXAlignment.Center,
 	})
+	-- v4.3: the ONE new thing this level hands you (Journey.LADDER), then what to do with it
+	if e.headline then
+		local pill = Instance.new("Frame")
+		pill.AnchorPoint = Vector2.new(0.5, 0)
+		pill.Position = UDim2.new(0.5, 0, 0, 80)
+		pill.Size = UDim2.new(0, 0, 0, 34)
+		pill.AutomaticSize = Enum.AutomaticSize.X
+		pill.BackgroundColor3 = UIKit.INK
+		pill.Parent = card
+		Instance.new("UICorner", pill).CornerRadius = UDim.new(1, 0)
+		local pp = Instance.new("UIPadding", pill)
+		pp.PaddingLeft = UDim.new(0, 16); pp.PaddingRight = UDim.new(0, 16)
+		UIKit.label(pill, "NEW: " .. e.headline, 20, UIKit.GOLD, { Size = UDim2.new(0, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.X }, UIKit.HEAD)
+		if e.task then
+			UIKit.label(card, "Next: " .. e.task, 15, UIKit.CARD_MUTED, {
+				Position = UDim2.new(0, 12, 1, -30), Size = UDim2.new(1, -24, 0, 20), TextXAlignment = Enum.TextXAlignment.Center,
+			}, UIKit.HEAD)
+		end
+	end
 	local chips = Instance.new("Frame")
 	chips.BackgroundTransparency = 1
-	chips.Position = UDim2.new(0, 10, 0, 86)
+	chips.Position = UDim2.new(0, 10, 0, e.headline and 124 or 86)
 	chips.Size = UDim2.new(1, -20, 0, 34)
 	chips.Parent = card
 	local cl = Instance.new("UIListLayout", chips)

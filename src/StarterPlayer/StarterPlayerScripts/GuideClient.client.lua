@@ -255,6 +255,63 @@ local price = UIKit.label(meter, "", 15, UIKit.CARD_TEXT, {
 }, UIKit.HEAD)
 local cardScale = Instance.new("UIScale", card)
 
+--[[ v4.3 THE BIG GOAL. His Wilz run: "I don't see that I need the Loft, and
+there are no goals at certain points." The quest card shows the NEXT step
+(often a cheap one), so the thing the whole level is working toward was
+invisible until the moment it became the cheapest buy. This small card sits
+under the quest card all the time: the next HQ level with the apartment it
+needs, then GO PUBLIC, then the spin-off, with a bar toward its full price. ]]
+local big = UIKit.card(column, { Name = "BigGoal", LayoutOrder = 3, Size = UDim2.new(1, 0, 0, 82), Visible = false }, { radius = 14, strokeWidth = 2 })
+local bigTab = Instance.new("Frame")
+bigTab.AnchorPoint = Vector2.new(0, 0.5)
+bigTab.Position = UDim2.new(0, 12, 0, 0)
+bigTab.Size = UDim2.new(0, 74, 0, 18)
+bigTab.BackgroundColor3 = UIKit.BLUE
+bigTab.BorderSizePixel = 0
+bigTab.ZIndex = 4
+bigTab.Parent = big
+Instance.new("UICorner", bigTab).CornerRadius = UDim.new(1, 0)
+UIKit.label(bigTab, "BIG GOAL", 11, UIKit.TEXT, { Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 5 }, UIKit.HEAD)
+local bigTitle = UIKit.label(big, "", 16, UIKit.INK, {
+	Name = "Title", Position = UDim2.new(0, 12, 0, 12), Size = UDim2.new(1, -24, 0, 20), TextTruncate = Enum.TextTruncate.AtEnd,
+}, UIKit.HEAD)
+local bigSub = UIKit.label(big, "", 12, UIKit.CARD_MUTED, {
+	Name = "Sub", Position = UDim2.new(0, 12, 0, 32), Size = UDim2.new(1, -24, 0, 14), TextTruncate = Enum.TextTruncate.AtEnd,
+}, UIKit.HEAD)
+local bigUnlock = UIKit.label(big, "", 12, UIKit.darker(UIKit.GOLD, 0.6), {
+	Name = "Unlock", Position = UDim2.new(0, 12, 0, 48), Size = UDim2.new(1, -24, 0, 14), TextTruncate = Enum.TextTruncate.AtEnd,
+}, UIKit.HEAD)
+local bigBar = Instance.new("Frame")
+bigBar.Name = "Bar"
+bigBar.BackgroundColor3 = UIKit.SURFACE_2
+bigBar.BorderSizePixel = 0
+bigBar.Position = UDim2.new(0, 12, 1, -14)
+bigBar.Size = UDim2.new(1, -24, 0, 6)
+bigBar.Parent = big
+Instance.new("UICorner", bigBar).CornerRadius = UDim.new(1, 0)
+local bigFill = Instance.new("Frame")
+bigFill.BackgroundColor3 = UIKit.BLUE
+bigFill.BorderSizePixel = 0
+bigFill.Size = UDim2.new(0, 0, 1, 0)
+bigFill.Parent = bigBar
+Instance.new("UICorner", bigFill).CornerRadius = UDim.new(1, 0)
+local bigCost
+local function readBig()
+	local t = player:GetAttribute("MilestoneTitle")
+	local unlock = player:GetAttribute("MilestoneUnlock")
+	bigTitle.Text = t or ""
+	bigUnlock.Text = unlock and ("UNLOCKS: " .. unlock) or ""
+	big.Size = UDim2.new(1, 0, 0, unlock and 82 or 66)
+	bigSub.Text = player:GetAttribute("MilestoneSub") or ""
+	bigCost = tonumber(player:GetAttribute("MilestoneCost"))
+	bigBar.Visible = bigCost ~= nil and bigCost > 0
+	big.Visible = t ~= nil and player:GetAttribute("NamingOpen") ~= true
+end
+for _, a in ipairs({ "MilestoneTitle", "MilestoneSub", "MilestoneCost", "MilestoneUnlock", "NamingOpen" }) do
+	player:GetAttributeChangedSignal(a):Connect(readBig)
+end
+task.defer(readBig)
+
 -- a finished goal: confetti bursts out of the tile and falls away
 local function confetti()
 	local colours = { UIKit.GREEN, GOLD, UIKit.BLUE, UIKit.ORANGE, Color3.fromRGB(236, 120, 170) }
@@ -425,6 +482,12 @@ local function bounds(vp)
 end
 
 RunService.RenderStepped:Connect(function()
+	-- v4.3 the big goal's bar
+	if bigCost and bigCost > 0 and big.Visible then
+		local pb = math.clamp(cashNow() / bigCost, 0, 1)
+		bigFill.Size = UDim2.new(pb, 0, 1, 0)
+		bigFill.BackgroundColor3 = pb >= 1 and UIKit.GREEN or UIKit.BLUE
+	end
 	-- the goal meter: cash / price, then READY
 	if cost and cost > 0 and card.Visible then
 		local have = cashNow()

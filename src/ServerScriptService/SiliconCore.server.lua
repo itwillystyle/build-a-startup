@@ -56,6 +56,7 @@ local FurnitureKit = tryRequire(ReplicatedStorage, "FurnitureKit")
 local Telemetry = tryRequire(ServerScriptService, "Telemetry")
 local CampusArch = tryRequire(ServerScriptService, "CampusArch")   -- v2.8 HQ architecture (glass wings, links, grounds)
 local Econ = tryRequire(ServerScriptService, "RoomEconomy")   -- v2.6.0 room economy (stations, caps, fit, wages)
+local Journey = require(ServerScriptService:WaitForChild("Journey"))   -- v4.3 the guided loop (pure, tested offline)
 local Prog = require(ServerScriptService:WaitForChild("Progression"))   -- v4.3 spin-off curve + offline rule (pure, tested offline)
 if not Telemetry then
 	local noop = function() end
@@ -482,6 +483,8 @@ local setMuted = remote("SetMuted")         -- client -> server: remember the mu
 local menuDone = remote("MenuDone")         -- client -> server: PLAY pressed (the SERVER owns the attribute;
                                             -- a client-set attribute never replicates up, so rivals were dead)
 local clientInfo = remote("ClientInfo")     -- client -> server: touch device or not, once
+local goPublicRemote = remote("GoPublic")   -- v4.3 client -> server: ring the bell at HQ 5
+local coachSeen = remote("CoachSeen")       -- v4.3 client -> server: a HUD tip was read
 
 -- ============ DATASTORES ============
 
@@ -1287,6 +1290,47 @@ local function posOf(x)   -- FurnitureKit swaps the laptop for a Model; a Model 
 	if x:IsA("Model") then return x:GetPivot().Position end
 	return nil
 end
+-- v4.3 THE JOURNEY: the plain snapshot Journey.lua (pure, tested offline) decides from
+local function journeyState(player, s, plot)
+	s.jr = s.jr or {}
+	s.tips = s.tips or {}
+	s.tipAt = s.tipAt or (os.clock() - 10)
+	local held = cashOf(player)
+	local cash = held and held.Value or 0
+	local lv = plot.hq.level
+	local nxt = CFG.HQ_LEVELS[lv + 1]
+	local need
+	if Econ and Econ.Apt and nxt then
+		local id = Econ.Apt.need(lv + 1)
+		local t = id > 0 and Econ.Apt.TIERS[id]
+		if t then need = { tier = t.id, name = t.name:sub(1, 1) .. t.name:sub(2):lower(), price = t.price } end
+	end
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	local desk = Econ and Econ.Apt and Econ.Apt.deskPosition and Econ.Apt.deskPosition()
+	local nearRes = (root and desk and (root.Position - desk).Magnitude < 120) or false
+	local seated = (Econ and Econ.Cars and Econ.Cars.driving and Econ.Cars.driving(player)) or false
+	if seated then s.jr.drove = true end
+	if nearRes then s.jr.res = true end
+	local idx = 0
+	for _ in pairs(s.index or {}) do idx += 1 end
+	local items = player:GetAttribute("Items")
+	local cap = capacityOf(player)
+	local gen = Econ and Econ.Drop and Econ.Drop.candidate and Econ.Drop.candidate(player, "genius", cash)
+	return {
+		hq = lv, shipped = s.shipped == true, staff = s.staff or 0, cap = cap, cash = cash, rate = s.rate or 0,
+		apt = s.apt or 0, listed = s.listed == true, spinCost = spinoffCostOf(s),
+		nextMult = (string.format("%.1f", nextSpinMultOf(s)):gsub("%.0$", "")),
+		nextHqCost = nxt and nxt.cost or nil, nextHqName = nxt and nxt.name or nil, need = need,
+		hasCar = (Econ and Econ.Cars and Econ.Cars.hasCar(player)) and true or false, seated = seated, nearRes = nearRes,
+		vipStanding = (Econ and Econ.Drop and Econ.Drop.hasVip and Econ.Drop.hasVip(player)) or false,
+		vipDone = (s.vipDay or 0) ~= 0, geniusAvailable = gen ~= nil and (s.staff or 0) < cap, geniusPos = gen and gen.pos or nil,
+		geniusDone = s.jr.genius == true, seriesA = s.jr.seriesA == true,
+		productReady = s.pendingProduct ~= nil, items = (type(items) == "string" and items ~= "") and 1 or 0,
+		indexCount = idx, dailyReady = player:GetAttribute("DailyReady") == true,
+		carrying = (Econ and Econ.Drop and Econ.Drop.carrying(player) ~= nil) or false,
+		jr = s.jr, tips = s.tips,
+	}
+end
 local function refreshObjective(player)
 	--[[ v3.1 THE QUEST CARD. The guide used to send one string built from
 	middle-dot clauses ("You can afford it!  Upgrade to GLASS TOWER  ·  $225.0K"),
@@ -1298,6 +1342,7 @@ local function refreshObjective(player)
 	local s = sessions[player.UserId]
 	local plot = plotOf(player)
 	if not s or not plot then return end
+	local st = journeyState(player, s, plot)
 	local key, text, pos, sub, cost
 	if not s.shipped then
 		key, text, pos = "code", "Write your first app", posOf(plot.laptop)
@@ -1314,6 +1359,29 @@ local function refreshObjective(player)
 	elseif s.pendingProduct then
 		key, text, pos, sub = "product", "Your app is ready!", nil, "Tap LAUNCH for a payday"
 	else
+		-- v4.3 THE JOURNEY: a story task (the car, the drive, the home, the VIP, the
+		-- first Genius, the Series A, GO PUBLIC) beats the cheapest-next-buy guide
+		local jt = Journey.task(st)
+		if jt then
+			local at
+			if jt.target == "car" then at = Econ and Econ.Cars and Econ.Cars.carPos and Econ.Cars.carPos(player)
+			elseif jt.target == "residences" then at = Econ and Econ.Apt and Econ.Apt.deskPosition and Econ.Apt.deskPosition()
+			elseif jt.target == "vip" then at = Econ and Econ.Drop and Econ.Drop.vipPos and Econ.Drop.vipPos(player)
+			elseif jt.target == "genius" then at = st.geniusPos
+			elseif jt.target == "gopublic" then at = posOf(plot.hqPad)
+			elseif jt.target == "lot" then
+				for _, slot in ipairs(plot.slots) do
+					if not slot.built then at = posOf(slot.pad) break end
+				end
+				at = at or posOf(plot.hqPad)
+			end
+			key, text, pos, sub = jt.key, jt.title, at, jt.sub
+			if jt.key == "apartment" and st.need then cost = st.need.price end
+			if jt.key == "seriesa" and Econ and Econ.Phone and Econ.Phone.seriesA and os.clock() - (s.seriesAt or -1e9) > 90 then
+				s.seriesAt = os.clock()
+				task.spawn(Econ.Phone.seriesA, player)
+			end
+		else
 		local empty
 		local built = 0
 		for _, slot in ipairs(plot.slots) do
@@ -1457,7 +1525,29 @@ local function refreshObjective(player)
 			if not best then best = { k = "wait", t = "Write code", at = nil, sub = "Tap WRITE CODE for cash" } end
 			key, text, pos, sub, cost = best.k, best.t, best.at, best.sub, best.cost or best.c
 		end
+		end
 	end
+	-- v4.3: the BIG goal is always on screen (under the quest card), and one HUD
+	-- tip at a time explains a button the first time it matters
+	local m = Journey.milestone(st)
+	if player:GetAttribute("MilestoneTitle") ~= m.title then player:SetAttribute("MilestoneTitle", m.title) end
+	if player:GetAttribute("MilestoneSub") ~= m.sub then player:SetAttribute("MilestoneSub", m.sub) end
+	local mc = m.cost and math.floor(m.cost) or nil
+	if player:GetAttribute("MilestoneCost") ~= mc then player:SetAttribute("MilestoneCost", mc) end
+	if player:GetAttribute("MilestoneUnlock") ~= m.unlock then player:SetAttribute("MilestoneUnlock", m.unlock) end
+	local tip = Journey.tip(st)
+	local tipId = (tip and (player:GetAttribute("CoachTip") == tip.id or os.clock() - s.tipAt > 25)) and tip.id or nil
+	if player:GetAttribute("CoachTip") ~= tipId then
+		-- the words ride along (Journey lives on the server); the id goes last, it is what the client watches
+		player:SetAttribute("CoachTitle", tipId and tip.title or nil)
+		player:SetAttribute("CoachBody", tipId and tip.body or nil)
+		player:SetAttribute("CoachTarget", tipId and tip.target or nil)
+		player:SetAttribute("CoachTip", tipId)
+	end
+	local canIpo = plot.hq.level >= #CFG.HQ_LEVELS and not s.listed
+	if player:GetAttribute("CanGoPublic") ~= canIpo then player:SetAttribute("CanGoPublic", canIpo) end
+	local res = s.jr.res == true or (s.apt or 0) > 0
+	if player:GetAttribute("JrRes") ~= res then player:SetAttribute("JrRes", res) end
 	-- clients hide verbs that do not exist yet (BUILD button, product bar)
 	if player:GetAttribute("Shipped") ~= (s.shipped == true) then player:SetAttribute("Shipped", s.shipped == true) end
 	if player:GetAttribute("BuildOpen") ~= (s.buildUnlocked == true) then player:SetAttribute("BuildOpen", s.buildUnlocked == true) end
@@ -1472,6 +1562,16 @@ local function refreshObjective(player)
 	cost = cost and math.floor(cost) or nil
 	if player:GetAttribute("ObjectiveCost") ~= cost then player:SetAttribute("ObjectiveCost", cost) end
 end
+
+-- v4.3: a HUD tip was read (GOT IT, or the button it points at was used)
+coachSeen.OnServerEvent:Connect(function(player, id)
+	local s = sessions[player.UserId]
+	if not s or type(id) ~= "string" or not Journey.tipById(id) then return end
+	s.tips = s.tips or {}
+	s.tips[id] = true
+	s.tipAt = os.clock()
+	player:SetAttribute("CoachTip", nil)
+end)
 
 -- v3.0: `recruit` = { floor, fee } when a Talent Row candidate reaches your
 -- door (TalentDrop). The pad itself only hires the free first intern; every
@@ -1501,6 +1601,7 @@ local function hire(player, plot, recruit)
 	Telemetry.step(player, "first_hire")
 	local talent = (cost == 0) and 1 or CFG.TALENT.roll((player:GetAttribute("VibeLuck") or 1) * (recruit and recruit.luck or 1))   -- v3.2.1 vibe x v4.2 a Penthouse VIP
 	if recruit then talent = math.max(talent, recruit.floor or 1) end   -- the tier they wore is a floor
+	if recruit and (recruit.floor or 1) >= 4 then s.jr = s.jr or {}; s.jr.genius = true end   -- v4.3 the HQ 3 task
 	if cost > 0 and Econ and Econ.Inv then talent = Econ.Inv.onHire(player, talent) end   -- v3.2: a Scout Report
 	local indexBefore = 0
 	for _ in pairs(s.index or {}) do indexBefore += 1 end
@@ -1556,6 +1657,7 @@ local function hire(player, plot, recruit)
 end
 
 local spinOff   -- assigned below releasePlot (it needs it); forward-declared like refreshFacade
+local goPublic  -- v4.3 assigned in the IPO section (it needs refreshSign / tickerOf)
 local function refreshHqPad(plot)
 	local nxt = CFG.HQ_LEVELS[plot.hq.level + 1]
 	local s = plot.owner and sessions[plot.owner]
@@ -1565,6 +1667,10 @@ local function refreshHqPad(plot)
 		plot.hqPad.Color = Color3.fromRGB(150, 146, 140)
 	elseif nxt then
 		plot.hqLabel.Text = ("UPGRADE HQ  ·  $%s"):format(fmt(nxt.cost))
+		plot.hqPad.Color = CFG.GOLD
+	elseif s and not s.listed then
+		-- v4.3: HQ 5 first takes the company public; only a listed company spins off
+		plot.hqLabel.Text = "GO PUBLIC  ·  ring the bell on the Valley Exchange"
 		plot.hqPad.Color = CFG.GOLD
 	elseif s then
 		if plot.spinArmed then
@@ -1600,7 +1706,11 @@ local function tryUpgrade(player, plot)
 	local cash = cashOf(player)
 	local nxt = CFG.HQ_LEVELS[plot.hq.level + 1]
 	if not s or not cash then return end
-	if not nxt then if spinOff then spinOff(player, plot) end return end
+	if not nxt then
+		if not s.listed then if goPublic then goPublic(player, plot) end return end   -- v4.3
+		if spinOff then spinOff(player, plot) end
+		return
+	end
 	if not s.shipped then popup(plot.hqPad, "Ship something first", CFG.BAD) return end
 	if s.staff < 1 then popup(plot.hqPad, "Hire someone first", CFG.BAD) return end
 	if Econ and Econ.Apt and (s.apt or 0) < Econ.Apt.need(plot.hq.level + 1) then
@@ -1647,7 +1757,10 @@ local function tryUpgrade(player, plot)
 			if tier.hq == plot.hq.level and tier.hq > 1 then table.insert(chips, tier.name .. " hires on the street") end
 		end
 		if Econ and Econ.celebrate then
-			Econ.celebrate:FireClient(player, { kind = "hq", level = plot.hq.level, name = nxt.name, chips = chips })
+			-- v4.3: the ONE thing this level hands you (none for a car you already own)
+			local head, task1 = Journey.headline(plot.hq.level, { hasCar = Econ and Econ.Cars and Econ.Cars.hasCar(player) })
+			Econ.celebrate:FireClient(player, { kind = "hq", level = plot.hq.level, name = nxt.name, chips = chips,
+				headline = head, task = task1 })
 		end
 	end
 	task.delay(1.4, function() plot.busy = false end)
@@ -2137,6 +2250,10 @@ if Econ then
 			session = function(p) return sessions[p.UserId] end,
 			plotOf = plotOf, cash = cashOf, fmt = fmt, TALENT = CFG.TALENT,
 			grant = function(p, id, n, why) return Econ.Inv and Econ.Inv.grant(p, id, n, why) end,
+			onSeriesA = function(p)   -- v4.3 the HQ 4 task
+				local ss = sessions[p.UserId]
+				if ss then ss.jr = ss.jr or {}; ss.jr.seriesA = true end
+			end,
 		})
 		if not ok then warn("[SV] Phone init failed: " .. tostring(err)); Econ.Phone = nil end
 	else
@@ -2219,6 +2336,7 @@ spinOff = function(player, plot)
 	local s = sessions[player.UserId]
 	local cash = cashOf(player)
 	if not s or not cash or plot.busy or plotOf(player) ~= plot then return end
+	if not s.listed then popup(plot.hqPad, "GO PUBLIC first", CFG.BAD) return end   -- v4.3: every path, not just the pad
 	local cost = spinoffCostOf(s)
 	if cash.Value < cost then popup(plot.hqPad, "Need $" .. fmt(cost), CFG.BAD) return end
 	-- two taps: a one-click reset of an hour of play is not a decision
@@ -2261,6 +2379,8 @@ spinOff = function(player, plot)
 	s.placed = {}; s.placedDesks = 0; s.placedMorale = 0
 	s.work = 0; s.workNeed = math.floor(CFG.WORK_FIRST * (CFG.WORK_GROWTH ^ (s.launches or 0)))
 	s.launch = nil; s.pressure = nil; s.share = 1; s.pendingOffer = nil
+	s.listed = false                   -- v4.3: the new company goes public again at its own HQ 5
+	if s.jr then s.jr.seriesA = nil end  -- ... and raises its own Series A at HQ 4
 	-- v3.1: an app finished before the spin-off belongs to the old company; its
 	-- LAUNCH card used to survive the reset showing the old payday
 	s.pendingProduct = nil
@@ -2454,6 +2574,7 @@ local function launchProduct(player, plot, market, mod, auto)
 			curve = shape and shape.curve, slow = market.slow, marketId = market.id }
 	end
 	s.launches = (s.launches or 0) + 1
+	if not auto then s.jr = s.jr or {}; s.jr.launched = true end   -- v4.3: the LAUNCH lesson is learned
 	Telemetry.step(player, "first_product")
 	s.markets[market.id] = true          -- now a rival can come for this market
 	s.share = 1                          -- shipping takes the share back
@@ -2517,10 +2638,12 @@ local function offerProduct(player, plot)
 		local payday = math.floor((s.rate or 0) * Econ.LAUNCH_PAY * (1 + 0.1 * (s.compute or 0)))
 		-- v3.1: `autoAt` lets the button count down to the half-pay auto-launch
 		productReady:FireClient(player, { { name = "LAUNCH!", blurb = m.name .. " app", launch = true, payday = payday, spike = 1,
-			autoAt = workspace:GetServerTimeNow() + 60 } })
+			autoAt = (s.jr and s.jr.launched) and workspace:GetServerTimeNow() + 60 or nil } })
+		-- v4.3: never auto-launch until the player has launched once (his run: five half-pay
+		-- auto-launches in 19 min, the verb was never learned)
 		task.delay(60, function()
 			local s2 = sessions[player.UserId]
-			if s2 and s2.pendingProduct == picks then launchProduct(player, plot, m, 1, true) end
+			if s2 and s2.pendingProduct == picks and s2.jr and s2.jr.launched then launchProduct(player, plot, m, 1, true) end
 		end)
 		return
 	end
@@ -2738,6 +2861,35 @@ end)
 
 -- ============ IPO + THE TICKER ============
 
+--[[ v4.3 GO PUBLIC: the capstone of every company. It used to happen silently
+at a $250K valuation (early HQ 2), so "going public" was never a moment. Now
+HQ 5 hands you a GO PUBLIC button: ring the bell, list on the Valley Exchange,
+raise Journey.IPO_RAISE seconds of income, everyone in the server hears it,
+and only THEN can the company spin off. Each new company goes public again. ]]
+goPublic = function(player, plot)
+	local s = sessions[player.UserId]
+	if not s or not plot or plotOf(player) ~= plot or s.listed then return end
+	if plot.hq.level < #CFG.HQ_LEVELS then return end
+	s.listed = true
+	s.ipo = true
+	s.ticker = tickerOf(s.name or "Startup")
+	local raise = math.floor((s.rate or 0) * Journey.IPO_RAISE)
+	local cash = cashOf(player)
+	if cash then cash.Value += raise end
+	refreshSign(plot)
+	refreshHqPad(plot)
+	toast:FireAllClients(("%s (%s) just went PUBLIC on the Valley Exchange!"):format(s.name or "A startup", s.ticker), "news")
+	if Econ and Econ.celebrate then
+		Econ.celebrate:FireClient(player, { kind = "ipo", ticker = s.ticker, name = s.name or "Your startup", raise = raise })
+	end
+	pcall(Telemetry.event, player, "ipo", s.spinoffs or 0)
+	refreshObjective(player)
+end
+goPublicRemote.OnServerEvent:Connect(function(player)
+	local plot = plotOf(player)
+	if plot then goPublic(player, plot) end
+end)
+
 local function checkIPO(player, plot)
 	local s = sessions[player.UserId]
 	if not s or s.ipo or (s.valuation or 0) < CFG.IPO_AT then return end
@@ -2785,7 +2937,7 @@ do
 		list.Position = UDim2.new(0, 24, 0, 66)
 		list.Size = UDim2.new(1, -48, 1, -76)
 		list.BackgroundTransparency = 1
-		list.Text = "No company has gone public yet. First to $" .. fmt(CFG.IPO_AT) .. " valuation."
+		list.Text = "No company has gone public yet. Reach HQ 5 and ring the bell."
 		list.TextColor3 = Color3.fromRGB(236, 240, 246)
 		list.TextSize = 26
 		list.Font = Enum.Font.GothamMedium
@@ -2883,7 +3035,6 @@ task.spawn(function()
 		for _, pl in ipairs(Players:GetPlayers()) do
 			local plot = plotOf(pl)
 			if plot then
-				checkIPO(pl, plot)
 				if not (Econ and Econ.Ranks) then pushTicker(pl) end   -- v4.2: the Ranks loop pushes every minute
 			end
 			-- OVERTAKE: the first time your valuation passes a rival, everyone hears
@@ -2911,6 +3062,7 @@ end)
 -- v4.2: the code lives in SaveLoad.lua (moved out to free SiliconCore's top-level
 -- locals). It still runs here, at the same point in the load order.
 local SaveLoad = require(ServerScriptService:WaitForChild("SaveLoad"))({
+	Journey = Journey,
 	Prog = Prog,
 	CFG = CFG,
 	CampusArch = CampusArch,
@@ -3103,6 +3255,7 @@ end)
 if game:GetService("RunService"):IsStudio() then
 	require(ServerScriptService:WaitForChild("DevHook"))({
 		coreScript = script,
+		goPublic = function(p, pl) return goPublic(p, pl) end,
 		CFG = CFG,
 		Econ = Econ,
 		SaveLoad = SaveLoad,
