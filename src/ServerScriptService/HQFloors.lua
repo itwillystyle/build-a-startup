@@ -221,7 +221,7 @@ local function liftDoors(add, g, y, h, d, label, sub, stops, stopId, plotIndex)
 	end
 	local btn = add({ Name = "LiftButton", Size = Vector3.new(0.5, 0.9, 0.2), CFrame = g(X + 3.6, y + 4.3, zf + 0.12), Color = CHARCOAL, CanCollide = false })
 	add({ Name = "LiftButtonLit", Shape = Enum.PartType.Ball, Size = Vector3.new(0.3, 0.3, 0.3), CFrame = g(X + 3.6, y + 4.3, zf + 0.25),
-		Color = Color3.fromRGB(255, 208, 70), Material = Enum.Material.Neon, CanCollide = false, CastShadow = false })
+		Color = Color3.fromRGB(255, 208, 70), Material = Enum.Material.Neon, CanCollide = false, CanQuery = false, CastShadow = false })
 	if H >= 10.5 then
 		wallSign(add, g, X, y + 9.4, zf + 0.12, 8, label, sub)
 	else
@@ -232,7 +232,7 @@ local function liftDoors(add, g, y, h, d, label, sub, stops, stopId, plotIndex)
 	pp.ObjectText = sub or label
 	pp.HoldDuration = 0
 	pp.MaxActivationDistance = 11
-	pp.RequiresLineOfSight = false
+	pp.RequiresLineOfSight = true   -- v4.4 his screenshot: the prompt reached through the back wall from outside
 	pp.KeyboardKeyCode = Enum.KeyCode.E
 	pp.Parent = btn
 	pp.Triggered:Connect(function(player)
@@ -598,13 +598,13 @@ function HQFloors.build(add, g, level, w, d, h, shell, plot)
 		local btn = add({ Name = "LiftButton", Size = Vector3.new(0.5, 0.9, 0.2), CFrame = g(HQFloors.LIFT_X + 3.4, deck + 4.3, -hd + 11.12),
 			Color = CHARCOAL, CanCollide = false })
 		add({ Name = "LiftButtonLit", Shape = Enum.PartType.Ball, Size = Vector3.new(0.3, 0.3, 0.3), CFrame = g(HQFloors.LIFT_X + 3.4, deck + 4.3, -hd + 11.25),
-			Color = Color3.fromRGB(255, 208, 70), Material = Enum.Material.Neon, CanCollide = false, CastShadow = false })
+			Color = Color3.fromRGB(255, 208, 70), Material = Enum.Material.Neon, CanCollide = false, CanQuery = false, CastShadow = false })
 		local pp = Instance.new("ProximityPrompt")
 		pp.ActionText = "Take the lift"
 		pp.ObjectText = "ROOF GARDEN"
 		pp.HoldDuration = 0
 		pp.MaxActivationDistance = 11
-		pp.RequiresLineOfSight = false
+		pp.RequiresLineOfSight = true   -- v4.4 his screenshot: the prompt reached through the back wall from outside
 		pp.Parent = btn
 		pp.Triggered:Connect(function(player)
 			if player:GetAttribute("Carrying") then

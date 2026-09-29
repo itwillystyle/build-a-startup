@@ -127,6 +127,17 @@ function J.milestone(st)
 	return { title = "SPIN OFF", sub = ("Start again with x%s money forever"):format(st.nextMult or "?"), cost = st.spinCost }
 end
 
+-- v4.4 his screenshot: NEXT GOAL "Save up to spin off" over BIG GOAL "SPIN OFF",
+-- the same step twice. When the quest card already IS the big goal, the big card
+-- hides. Takes the quest key (refreshObjective's `key`) and a milestone table.
+function J.sameStep(key, m)
+	if not (key and m and m.title) then return false end
+	if key == "spin" then return m.title == "SPIN OFF" end
+	if key == "gopublic" then return m.title == "GO PUBLIC" end
+	if key == "hq" then return m.title:sub(1, 3) == "HQ " end
+	return false
+end
+
 -- ---------------------------------------------------------------- HUD tips
 -- One at a time, each once for life. The client points at `target` (a path
 -- under PlayerGui) and reports it seen.

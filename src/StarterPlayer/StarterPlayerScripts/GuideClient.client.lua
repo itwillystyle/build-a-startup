@@ -374,6 +374,33 @@ sub:GetPropertyChangedSignal("TextBounds"):Connect(layout)
 sub:GetPropertyChangedSignal("Text"):Connect(layout)
 sub:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() task.defer(layout) end)
 
+--[[ v4.4 a reward reads as a green chip ("+25% money", "Unlocks STAR hires");
+anything else as a hint line. His screenshot: the chip grows with its text and
+nothing capped it, so "Start over with x1.5 money forever" ran out of the card
+("...money forev"). Now the chip shrinks its text to fit (13 down to 10 pt) and
+a line too long even then becomes the wrapped grey hint instead. ]]
+local TextService = game:GetService("TextService")
+local function chipSizeFor(text)
+	local avail = (card.AbsoluteSize.X > 0 and card.AbsoluteSize.X or 250) - 88 - 22
+	for size = 13, 10, -1 do
+		if TextService:GetTextSize(text, size, chipText.Font, Vector2.new(2000, 100)).X <= avail then return size end
+	end
+	return nil
+end
+local function applySub()
+	local subText = words(player:GetAttribute("ObjectiveSub"))
+	local reward = subText ~= "" and (string.sub(subText, 1, 1) == "+" or string.find(subText, "Unlocks", 1, true) ~= nil
+		or string.find(subText, "Room for", 1, true) ~= nil or string.find(subText, "money", 1, true) ~= nil)
+	local size = reward and chipSizeFor(subText)
+	if reward and not size then reward = false end
+	chip.Visible = reward
+	chipText.TextSize = size or 13
+	chipText.Text = reward and subText or ""
+	sub.Text = reward and "" or subText
+	layout()
+end
+card:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() task.defer(applySub) end)
+
 local function readObjective()
 	local key = player:GetAttribute("Objective")
 	local text = player:GetAttribute("ObjectiveText")
@@ -419,14 +446,7 @@ local function readObjective()
 	elseif title.TextColor3 == UIKit.INK then
 		title.Text = words(text)
 	end
-	-- a reward reads as a green chip ("+25% money", "Unlocks STAR hires"); anything else as a hint
-	local subText = words(player:GetAttribute("ObjectiveSub"))
-	local reward = subText ~= "" and (string.sub(subText, 1, 1) == "+" or string.find(subText, "Unlocks", 1, true) ~= nil
-		or string.find(subText, "Room for", 1, true) ~= nil or string.find(subText, "money", 1, true) ~= nil)
-	chip.Visible = reward
-	chipText.Text = reward and subText or ""
-	sub.Text = reward and "" or subText
-	layout()
+	applySub()
 
 	local show = key ~= nil and text ~= nil
 	-- the LAUNCH card says "your app is ready" itself; the name box sits over everything

@@ -344,6 +344,20 @@ local function makeOffer(player, th)
 	send(player, { kind = "offer", id = th.id, amount = amount, item = item })
 end
 
+-- TAKE on a term sheet: the button and the v4.4 pace bot share this one path
+local function takeOffer(player, th)
+	local o = th.offer
+	th.status = "busy"
+	local cash = api.cash(player)
+	if cash then cash.Value += o.amount end
+	if o.item then api.grant(player, o.item, 1, th.persona.first .. " sent a gift") end
+	say(player, th, "them", "Done. Sending it now. Talk soon!")
+	send(player, { kind = "paid", id = th.id, amount = o.amount })
+	if th.series and api.onSeriesA then api.onSeriesA(player) end
+	close(player, th, "deal")
+	return o.amount
+end
+
 -- the investor answers what you said; then the next question, or the offer
 local function respond(player, th, said, verdict, gain)
 	th.interest += gain
@@ -563,16 +577,12 @@ function Phone.init(a)
 			local th = findThread(player, msg.id)
 			if not th or th.status ~= "offer" or not th.offer then return end
 			local o = th.offer
-			th.status = "busy"
 			if msg.choice == "take" then
-				local cash = api.cash(player)
-				if cash then cash.Value += o.amount end
-				if o.item then api.grant(player, o.item, 1, th.persona.first .. " sent a gift") end
-				say(player, th, "them", "Done. Sending it now. Talk soon!")
-				send(player, { kind = "paid", id = th.id, amount = o.amount })
-				if th.series and api.onSeriesA then api.onSeriesA(player) end
-				close(player, th, "deal")
-			elseif msg.choice == "push" then
+				takeOffer(player, th)
+				return
+			end
+			th.status = "busy"
+			if msg.choice == "push" then
 				local ok = o.interest >= 7 or (o.interest >= 4 and math.random() < (o.interest - 3) / 4)
 				say(player, th, "me", "Can you do better?")
 				task.wait(1.2)
@@ -698,6 +708,21 @@ function Phone.devOffer(player, interest)
 	th.interest = interest or 8
 	makeOffer(player, th)
 	return th.offer and th.offer.amount, th.id
+end
+
+-- v4.4 pace bot: a player who reads the texts and takes the term sheet. Returns
+-- the amount paid, or nil while there is no offer yet (it asks for one first).
+function Phone.devTake(player, interest)
+	if not game:GetService("RunService"):IsStudio() then return nil end
+	local st = state[player]
+	local th = st and st.active
+	if not th or th.status == "closed" or th.status == "busy" then return nil end
+	if th.status ~= "offer" or not th.offer then
+		th.interest = interest or 6
+		makeOffer(player, th)
+		if th.status ~= "offer" then return nil end
+	end
+	return takeOffer(player, th), th.series
 end
 
 function Phone._test() return { state = state, calls = calls, startThread = startThread, reply = reply, facts = facts,

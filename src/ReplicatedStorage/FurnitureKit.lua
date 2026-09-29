@@ -97,6 +97,21 @@ local SIZE = {
 	tableCross            = Vector3.new(5.01, 2.04, 2.63),
 	lampSquareFloor       = Vector3.new(0.71, 5.06, 0.71),
 	pottedPlant           = Vector3.new(1.25, 3.85, 1.42),
+	-- v4.4 KayKit (CC0, ReplicatedStorage.KayKit.Furniture, imported at 1/50: these are
+	-- the templates' own sizes, so ScaleTo is 1 unless a piece is shrunk on purpose)
+	rug_oval_A              = Vector3.new(6.0, 0.2, 4.0),
+	rug_rectangle_A         = Vector3.new(6.0, 0.2, 4.0),
+	rug_rectangle_stripes_A = Vector3.new(6.0, 0.2, 4.0),
+	cactus_medium_A         = Vector3.new(1.76, 1.65, 1.67),
+	cactus_small_A          = Vector3.new(1.0, 1.1, 1.0),
+	lamp_standing           = Vector3.new(2.0, 5.04, 2.0),
+	lamp_table              = Vector3.new(1.37, 1.4, 1.37),   -- shrunk: 2 studs tall looked huge on a desk
+	book_set                = Vector3.new(1.56, 1.0, 0.73),
+	pictureframe_standing_A = Vector3.new(0.73, 0.9, 0.55),   -- shrunk for a desk
+	cabinet_medium_decorated = Vector3.new(4.08, 3.65, 2.0),
+	shelf_B_small_decorated = Vector3.new(2.0, 2.02, 1.14),
+	couch_pillows           = Vector3.new(6.0, 2.45, 3.2),
+	armchair_pillows        = Vector3.new(3.6, 2.45, 3.2),
 }
 FurnitureKit.SIZE = SIZE
 
@@ -206,6 +221,22 @@ FurnitureKit.CATALOG = {
 	{ key = "kitchenFridge",       name = "Fridge",         cat = "KITCHEN", price = 80,  morale = 2, needs = "cafe", vibe = 2 },
 	{ key = "kitchenCoffeeMachine", name = "Coffee Maker",  cat = "KITCHEN", price = 35,  morale = 2, surface = true, needs = "cafe", vibe = 2 },
 	{ key = "kitchenMicrowave",    name = "Microwave",      cat = "KITCHEN", price = 30,  morale = 1, surface = true, needs = "cafe", vibe = 1 },
+	-- v4.4 KayKit Furniture Bits (CC0). More kinds of decor = more VIBE (each kind
+	-- counts 3 copies), so variety is the way to five stars, not spam.
+	--   flat = true -> a rug: furniture may stand on it and it may go under furniture
+	{ key = "rug_oval_A",              name = "Oval Rug",       cat = "DECOR",   price = 40,  flat = true, vibe = 2 },
+	{ key = "rug_rectangle_A",         name = "Rug",            cat = "DECOR",   price = 40,  flat = true, vibe = 2 },
+	{ key = "rug_rectangle_stripes_A", name = "Striped Rug",    cat = "DECOR",   price = 45,  flat = true, vibe = 2 },
+	{ key = "cactus_medium_A",         name = "Cactus",         cat = "DECOR",   price = 30,  vibe = 2 },
+	{ key = "cactus_small_A",          name = "Desk Cactus",    cat = "DECOR",   price = 15,  surface = true, vibe = 1 },
+	{ key = "lamp_standing",           name = "Tall Lamp",      cat = "DECOR",   price = 35,  vibe = 2 },
+	{ key = "lamp_table",              name = "Desk Lamp",      cat = "DECOR",   price = 20,  surface = true, vibe = 1 },
+	{ key = "book_set",                name = "Books",          cat = "DECOR",   price = 15,  surface = true, vibe = 1 },
+	{ key = "pictureframe_standing_A", name = "Photo Frame",    cat = "DECOR",   price = 15,  surface = true, vibe = 1 },
+	{ key = "shelf_B_small_decorated", name = "Little Shelf",   cat = "DECOR",   price = 50,  vibe = 2 },
+	{ key = "cabinet_medium_decorated", name = "Display Cabinet", cat = "DECOR", price = 90,  vibe = 3 },
+	{ key = "couch_pillows",           name = "Comfy Couch",    cat = "COMFORT", price = 140, needs = "studio", vibe = 4 },
+	{ key = "armchair_pillows",        name = "Armchair",       cat = "COMFORT", price = 60,  needs = "studio", vibe = 2 },
 }
 FurnitureKit.BY_KEY = {}
 for _, it in ipairs(FurnitureKit.CATALOG) do FurnitureKit.BY_KEY[it.key] = it end
@@ -229,10 +260,19 @@ vertex-coloured MeshPart in ReplicatedStorage.SVFurniture named FK_<key>,
 modelled at its true size and facing +Z like the old pieces. It wins over the
 grey v2.0 import (re-tinted one colour per part); 69 pieces are new. ]]
 local vertexKit
+--[[ v4.4 KayKit (ReplicatedStorage.KayKit.Furniture, Models of one textured
+MeshPart). MEASURED: they front -Z (a couch's backrest is at +Z: top heights
+1.0 at -Z rising to 2.4 at +Z), the same as the vertex kit, so they carry the
+same flip. Third return value = the flip in degrees. ]]
+local kayKit
 local function templateFor(key)
 	vertexKit = vertexKit or ReplicatedStorage:FindFirstChild("SVFurniture")
 	local v = vertexKit and vertexKit:FindFirstChild("FK_" .. key)
-	if v then return v, true end
+	if v then return v, true, VERTEX_FLIP end
+	kayKit = kayKit or ReplicatedStorage:FindFirstChild("KayKit")
+	local kf = kayKit and kayKit:FindFirstChild("Furniture")
+	local k = kf and kf:FindFirstChild(key)
+	if k then return k, false, 180 end
 	if not templates then
 		templates = ReplicatedStorage:FindFirstChild(TEMPLATE_FOLDER)
 	end
@@ -368,7 +408,7 @@ function FurnitureKit.blocked(plot, x, z, w, d)
 end
 
 function FurnitureKit.put(key, cf, parent, opts)
-	local t, vertex = templateFor(key)
+	local t, vertex, flip = templateFor(key)
 	if not t then return nil end
 	opts = opts or {}
 
@@ -378,6 +418,7 @@ function FurnitureKit.put(key, cf, parent, opts)
 	m.Name = opts.name or key
 
 	if m:IsA("Model") then
+		if flip and not vertex then m:SetAttribute("FKFlip", flip) end   -- v4.4 KayKit fronts -Z
 		--[[
 			A Model scales UNIFORMLY only. Height is the dimension to match:
 			human-scale objects are wrong in the eye when they are the wrong
@@ -388,7 +429,9 @@ function FurnitureKit.put(key, cf, parent, opts)
 		]]
 		local _, ext = m:GetBoundingBox()
 		if ext.Y > 0 then
-			m:ScaleTo((target.Y / ext.Y) * (opts.scale or 1))
+			-- v4.4: ScaleTo is ABSOLUTE (relative to the import), and the KayKit
+			-- templates already sit at 0.02, so scale from the current factor
+			m:ScaleTo(m:GetScale() * (target.Y / ext.Y) * (opts.scale or 1))
 		end
 		settle(m, key, opts)
 		m.Parent = parent

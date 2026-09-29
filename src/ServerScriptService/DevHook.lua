@@ -232,17 +232,111 @@ return function(core)
 							B.lastBuy = os.clock()
 						end
 					end
+					--[[ v4.4 THE v4.3 JOURNEY, played like a person. Before this the bot
+					stood still on every Journey key (car, drive, vip, genius, gopublic,
+					seriesa), so the first hour after v4.3 was never measured. Travel is
+					timed from real distances: walking 16 studs/s, driving ~50 (the
+					hatchback tops out at 64; corners and parking eat the rest). ]]
+					local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+					local desk = Econ and Econ.Apt and Econ.Apt.deskPosition and Econ.Apt.deskPosition()
+					local farFromDesk = not (root and desk) or (root.Position - desk).Magnitude > 120
+					if key == "car" then
+						local cp = Econ.Cars and Econ.Cars.carPos and Econ.Cars.carPos(player)
+						if not B.carAt then
+							B.carAt = now + ((root and cp) and (cp - root.Position).Magnitude / 16 or 4) + 1.5
+						elseif now >= B.carAt then
+							B.carAt = nil
+							s.jr = s.jr or {}
+							s.jr.drove = true
+							note("car: walked over and got in")
+						end
+					elseif (key == "drive" or (key == "apartment" and farFromDesk)) and desk and root then
+						if not B.driveAt then
+							B.driveAt = now + (desk - root.Position).Magnitude / 50 + 5
+						elseif now >= B.driveAt then
+							B.driveAt = nil
+							player.Character:PivotTo(CFrame.new(desk + Vector3.new(0, 3, 10)))
+							note(("drove downtown (%s)"):format(key))
+						end
+					elseif key == "vip" and Econ.Drop and Econ.Drop.vipPos and root then
+						local vp = Econ.Drop.vipPos(player)
+						if vp and not B.vipAt then
+							B.vipAt = now + (vp - root.Position).Magnitude / 16 + 1
+						elseif vp and now >= B.vipAt then
+							B.vipAt = nil
+							player.Character:PivotTo(CFrame.new(vp + Vector3.new(0, 1, 3)))
+							Econ.Drop.devPickVip(player)
+							note("picked up the VIP")
+						end
+					elseif key == "genius" and Econ.Drop and Econ.Drop.candidate and root and now - B.lastBuy >= pace then
+						local cand = Econ.Drop.candidate(player, "genius", cash.Value)
+						local gi
+						for i, t in ipairs(Econ.TIERS or {}) do if t.id == "genius" then gi = i end end
+						if cand and gi then
+							local walk = (Vector3.new(cand.pos.X, 0, cand.pos.Z) - Vector3.new(root.Position.X, 0, root.Position.Z)).Magnitude / 16
+							task.wait(walk)
+							player.Character:PivotTo(CFrame.new(cand.pos + Vector3.new(0, 1, 3)))
+							Econ.Drop.devRecruit(player, gi)
+							note(("recruit GENIUS (walked %.0f s)"):format(walk))
+							B.lastBuy = os.clock()
+						end
+					elseif key == "gopublic" and goPublic then
+						if not B.ipoAt then
+							B.ipoAt = now + 3
+						elseif now >= B.ipoAt then
+							B.ipoAt = nil
+							goPublic(player, plot)
+							note("GO PUBLIC")
+						end
+					elseif root and plot.hqPad and key ~= "carry" and key ~= "recruit"
+						and (root.Position - plot.hqPad.Position).Magnitude > 300 then
+						-- anything else happens at home: drive back first
+						if not B.homeAt then
+							B.homeAt = now + (root.Position - plot.hqPad.Position).Magnitude / 50 + 3
+						elseif now >= B.homeAt then
+							B.homeAt = nil
+							player.Character:PivotTo(plot.hqPad.CFrame + Vector3.new(0, 4, 0))
+							note("drove home")
+						end
+					end
+					-- the phone: read the investor's texts (~25 s), then take the term sheet
+					if Econ and Econ.Phone and Econ.Phone.devActive then
+						local a = Econ.Phone.devActive(player)
+						if a and a.status ~= "closed" and a.status ~= "busy" then
+							B.phoneSince = B.phoneSince or now
+							if now - B.phoneSince >= 25 then
+								local paid, series = Econ.Phone.devTake(player, 6)
+								if paid then
+									note(("phone deal%s  +$%d"):format(series and " (SERIES A)" or "", paid))
+									B.phoneSince = nil
+								end
+							end
+						else
+							B.phoneSince = nil
+						end
+					end
 					if now - B.lastBuy >= pace then
 						local before = cash.Value
 						local did
 						if key == "hire" or key == "hire2" then
 							hire(player, plot); did = "hire"
-						elseif key == "build" or key == "wing" then
+						elseif key == "build" or key == "wing" or key == "vipseat" then
 							for i, slot in ipairs(plot.slots) do
 								if not slot.built then
 									local rid = (Econ and Econ.V3) and Econ.nextRoom(plot) or "office"
 									if buildWing(player, plot, i, rid, false) then did = "build " .. rid end
 									break
+								end
+							end
+							-- v4.4 "make room for your VIP": every open lot is built, so a level adds the seats
+							if not did and key == "vipseat" then
+								for _, slot in ipairs(plot.slots) do
+									if slot.built and not wingMaxed(s, slot) then
+										local lv = slot.level or 1
+										upgradeWing(player, plot, slot)
+										if (slot.level or 1) > lv then did = ("level %s -> %d (VIP seat)"):format(slot.room.id, slot.level) end
+										break
+									end
 								end
 							end
 						elseif key == "wingup" then
@@ -269,7 +363,7 @@ return function(core)
 						elseif key == "hq" then
 							local nxt = CFG.HQ_LEVELS[plot.hq.level + 1]
 							if nxt and cash.Value >= nxt.cost then tryUpgrade(player, plot); did = "hq" end
-						elseif key == "apartment" and Econ and Econ.Apt and Econ.Apt.botBuy then
+						elseif key == "apartment" and Econ and Econ.Apt and Econ.Apt.botBuy and not farFromDesk then
 							if Econ.Apt.botBuy(player) then did = "apartment" end
 						elseif key == "spin" then
 							if cash.Value >= spinoffCostOf(s) then

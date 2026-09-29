@@ -81,6 +81,18 @@ test("at HQ 5 GO PUBLIC wins even with the Series A skipped (live test: two goal
 	assert(t and t.key == "gopublic", "got " .. tostring(t and t.key))
 end)
 
+test("the big goal hides when the quest card already says the same step", function()
+	local spin = J.milestone(st({ hq = 5, apt = 3, listed = true, spinCost = 4e6, nextMult = "1.5" }))
+	assert(J.sameStep("spin", spin), "spin quest + SPIN OFF goal = the same step (his screenshot)")
+	local ipo = J.milestone(st({ hq = 5, apt = 3, listed = false }))
+	assert(J.sameStep("gopublic", ipo), "GO PUBLIC twice")
+	local hq = J.milestone(st({ hq = 3, apt = 2 }))
+	assert(J.sameStep("hq", hq), "HQ upgrade quest + HQ goal")
+	-- different steps keep both cards: saving for the Loft is not the HQ upgrade itself
+	assert(not J.sameStep("apartment", hq), "the apartment quest keeps the HQ goal as context")
+	assert(not J.sameStep("hire", spin) and not J.sameStep(nil, spin) and not J.sameStep("spin", nil), "no false positives")
+end)
+
 test("HQ 5 asks you to GO PUBLIC before the spin-off", function()
 	local t = J.task(st({ hq = 5, apt = 3, jr = { drove = true, res = true }, geniusDone = true, seriesA = true }))
 	assert(t and t.key == "gopublic", "got " .. tostring(t and t.key))

@@ -1541,6 +1541,9 @@ local function refreshObjective(player)
 	-- v4.3: the BIG goal is always on screen (under the quest card), and one HUD
 	-- tip at a time explains a button the first time it matters
 	local m = Journey.milestone(st)
+	-- v4.4: when the quest card IS the big goal (spin off / go public / the HQ
+	-- upgrade itself), the big card hides instead of repeating it
+	if Journey.sameStep(key, m) then m = {} end
 	if player:GetAttribute("MilestoneTitle") ~= m.title then player:SetAttribute("MilestoneTitle", m.title) end
 	if player:GetAttribute("MilestoneSub") ~= m.sub then player:SetAttribute("MilestoneSub", m.sub) end
 	local mc = m.cost and math.floor(m.cost) or nil
@@ -2062,7 +2065,7 @@ local function placeAt(player, plot, key, px, pz, yawDeg, free, forcedPrice)
 
 	for _, e in ipairs(plot.fixed) do
 		if rectsOverlap(x, z, w, d, e.x, e.z, e.w, e.d) then
-			if not (item.tuck or onSurface == e or e.y ~= y) then
+			if not (item.tuck or item.flat or onSurface == e or e.y ~= y) then
 				if not free then popup(plot.hirePad, "The workbench is there", CFG.BAD) end
 				return false
 			end
@@ -2073,7 +2076,9 @@ local function placeAt(player, plot, key, px, pz, yawDeg, free, forcedPrice)
 			local tucking = item.tuck and DESK_FAMILY[e.key]
 			local surfacePair = onSurface and (e == onSurface)
 			local stacked = (e.y or 0) ~= y
-			if not (tucking or surfacePair or stacked) then
+			-- v4.4 a rug (flat) goes under anything, and anything may stand on it
+			local rug = item.flat or (FurnitureKit.BY_KEY[e.key] and FurnitureKit.BY_KEY[e.key].flat)
+			if not (tucking or surfacePair or stacked or rug) then
 				if not free then popup(plot.hirePad, "Something is already there", CFG.BAD) end
 				return false
 			end
@@ -2082,7 +2087,8 @@ local function placeAt(player, plot, key, px, pz, yawDeg, free, forcedPrice)
 	-- v3.5: never on someone's seat (36 lamps around the office desks put three
 	-- inside seated staff) and never inside a room's own furniture. A saved item
 	-- that breaks either rule is refunded on load, like a refused station.
-	if not onSurface then
+	-- (A rug is flat: it may lie under a seat or a room's table.)
+	if not onSurface and not item.flat then
 		local clash
 		for _, h in ipairs(deskHomes(s, plot)) do
 			local hp = h.cf.Position

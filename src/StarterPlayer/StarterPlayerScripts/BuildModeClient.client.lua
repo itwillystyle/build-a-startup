@@ -545,7 +545,9 @@ local function previewLegal(x, z, w, d, item)
 			if overl then
 				local pkey = m:GetAttribute("key")
 				local pit = FK.BY_KEY[pkey]
-				if item.surface and pit and pit.surfaceTop then
+				if item.flat or (pit and pit.flat) then
+					-- v4.4 a rug: under anything, and anything may stand on it
+				elseif item.surface and pit and pit.surfaceTop then
 					surfaceY = pit.surfaceTop           -- rides the desk: legal
 				elseif item.tuck and pit and (pit.surfaceTop or pit.desk) then
 					-- chair tucking under desk family: legal

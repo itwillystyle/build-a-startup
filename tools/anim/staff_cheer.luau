@@ -19,14 +19,17 @@ local ServerStorage = game:GetService("ServerStorage")
 local function A(x, y, z) return CFrame.Angles(x or 0, y or 0, z or 0) end
 
 -- time, waist, neck, lShoulder, lElbow, rShoulder, rElbow
+-- v2 (29 Sep): waist/neck signs flipped. Measured on the hunter preview: -X LEANS FORWARD
+-- on an upward part, so v1 dipped the head at the arms-up key. Now: gather = lean in,
+-- arms up = lean back and look up.
 local KEYS = {
 	{ 0.00, A(0), A(0), A(0.05, 0, 0.12), A(0.15), A(0.05, 0, -0.12), A(0.15) },
-	{ 0.16, A(0.12), A(0.18), A(-0.35, 0, 0.05), A(0.7), A(-0.35, 0, -0.05), A(0.7) },     -- gather
-	{ 0.26, A(0.02), A(0), A(1.25, 0, -0.25), A(0.45), A(1.25, 0, 0.25), A(0.45) },        -- swing (in-between)
-	{ 0.36, A(-0.14), A(-0.22), A(2.85, 0, -0.42), A(0.12), A(2.85, 0, 0.42), A(0.12) },  -- arms up
-	{ 0.54, A(-0.06), A(-0.12), A(2.25, 0, -0.30), A(1.05), A(2.25, 0, 0.30), A(1.05) },  -- pump
-	{ 0.72, A(-0.16), A(-0.25), A(2.95, 0, -0.46), A(0.08), A(2.95, 0, 0.46), A(0.08) },  -- up again
-	{ 0.90, A(-0.08), A(-0.10), A(2.40, 0, -0.30), A(0.50), A(2.40, 0, 0.30), A(0.50) },
+	{ 0.16, A(-0.12), A(-0.18), A(-0.35, 0, 0.05), A(0.7), A(-0.35, 0, -0.05), A(0.7) },     -- gather
+	{ 0.26, A(-0.02), A(0), A(1.25, 0, -0.25), A(0.45), A(1.25, 0, 0.25), A(0.45) },        -- swing (in-between)
+	{ 0.36, A(0.14), A(0.22), A(2.85, 0, -0.42), A(0.12), A(2.85, 0, 0.42), A(0.12) },  -- arms up
+	{ 0.54, A(0.06), A(0.12), A(2.25, 0, -0.30), A(1.05), A(2.25, 0, 0.30), A(1.05) },  -- pump
+	{ 0.72, A(0.16), A(0.25), A(2.95, 0, -0.46), A(0.08), A(2.95, 0, 0.46), A(0.08) },  -- up again
+	{ 0.90, A(0.08), A(0.1), A(2.40, 0, -0.30), A(0.50), A(2.40, 0, 0.30), A(0.50) },
 	{ 1.20, A(0), A(0), A(0.05, 0, 0.12), A(0.15), A(0.05, 0, -0.12), A(0.15) },
 }
 

@@ -41,10 +41,47 @@ local CHEER_TIME = 0.7
 local CHEER_ANIM = "rbxassetid://73484143829468"
 local cheerAnim = Instance.new("Animation")
 cheerAnim.AnimationId = CHEER_ANIM
+-- v4.4 the headhunter's windup and lunge, keyed (tools/anim/hunter.luau), played
+-- when the server flips the rig's Windup / Lunging attribute. Full body: while
+-- one plays, this script writes nothing to that rig. Empty id = procedural only.
+local HUNTER_ANIM = { windup = "", lunge = "" }
+local hunterAnims = {}
+for which, id in pairs(HUNTER_ANIM) do
+	if id ~= "" then
+		local a = Instance.new("Animation")
+		a.AnimationId = id
+		hunterAnims[which] = a
+	end
+end
 -- measured: without this the FIRST cheer started ~1.1 s late (the download)
 task.spawn(function()
-	pcall(function() game:GetService("ContentProvider"):PreloadAsync({ cheerAnim }) end)
+	local list = { cheerAnim }
+	for _, a in pairs(hunterAnims) do table.insert(list, a) end
+	pcall(function() game:GetService("ContentProvider"):PreloadAsync(list) end)
 end)
+
+local function playKeyed(model, st, which)
+	local anim = hunterAnims[which]
+	if not anim then return end
+	st.tracks = st.tracks or {}
+	local tr = st.tracks[which]
+	if not tr then
+		local hum = model:FindFirstChildOfClass("Humanoid")
+		if not hum then return end
+		local animator = hum:FindFirstChildOfClass("Animator") or Instance.new("Animator", hum)
+		local ok, t = pcall(animator.LoadAnimation, animator, anim)
+		if not ok then return end
+		t.Priority = Enum.AnimationPriority.Action
+		t.Looped = false
+		st.tracks[which] = t
+		tr = t
+	end
+	for k, other in pairs(st.tracks) do
+		if k ~= which and other.IsPlaying then other:Stop(0.05) end
+	end
+	tr:Play(0.05)
+	st.keyedTrack = tr
+end
 
 local rigs = {}                -- model -> state
 local hidden = {}              -- model -> true while culled by distance (v3.5)
@@ -99,6 +136,12 @@ local function add(model)
 				st.cheerTrack = track
 			end
 			st.cheerTrack:Play(0.05)
+		end)
+		model:GetAttributeChangedSignal("Windup"):Connect(function()
+			if model:GetAttribute("Windup") == true then playKeyed(model, st, "windup") end
+		end)
+		model:GetAttributeChangedSignal("Lunging"):Connect(function()
+			if model:GetAttribute("Lunging") == true then playKeyed(model, st, "lunge") end
 		end)
 		-- a halo or accessory added while the body is culled stays hidden with it
 		model.DescendantAdded:Connect(function(d)
@@ -269,7 +312,8 @@ RunService.PreSimulation:Connect(function()
 	for model, st in pairs(rigs) do
 		if not model.Parent then
 			rigs[model] = nil
-		elseif (st.hrp.Position - camPos).Magnitude <= RANGE then
+		elseif (st.hrp.Position - camPos).Magnitude <= RANGE
+			and not (st.keyedTrack and st.keyedTrack.IsPlaying and st.keyedTrack.Length > 0) then   -- v4.4 a keyed move owns the body
 			local t = now + st.seed
 			--[[ v3.0.3 POSES, with elbows and knees. Sign convention (measured on
 			these rigs): +X on a shoulder or hip swings the limb FORWARD, -X on a

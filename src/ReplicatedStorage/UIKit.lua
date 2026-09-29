@@ -381,6 +381,35 @@ end
 -- phone screen from y 64: 4 x (66 + 8) = 296
 UIKit.RAIL = 66
 
+--[[ v4.4 FIT TO THE SCREEN. His screenshot (a short Studio window): the fifth
+rail button (RANKS, added in v4.2) ran off the bottom, which the v3.2 sum above
+never counted. A column now shrinks as one piece (UIScale) until everything
+visible fits between `top` and `bottom` reserved pixels, never below minScale.
+Measured from the children, so a button that appears later (DECOR at HQ 2,
+RANKS once shipped) is counted when it shows. ]]
+local function fitColumn(gui, frame, layout, top, bottom, minScale)
+	local sc = Instance.new("UIScale")
+	sc.Name = "FitScale"
+	sc.Parent = frame
+	task.spawn(function()
+		while frame.Parent do
+			local s = sc.Scale
+			local total, n = 0, 0
+			for _, c in ipairs(frame:GetChildren()) do
+				if c:IsA("GuiObject") and c.Visible then
+					total += c.AbsoluteSize.Y / s
+					n += 1
+				end
+			end
+			total += math.max(0, n - 1) * layout.Padding.Offset
+			local room = gui.AbsoluteSize.Y - top - bottom
+			local want = (total > 0 and room > 0) and math.clamp(room / total, minScale, 1) or 1
+			if math.abs(want - s) > 0.01 then sc.Scale = want end
+			task.wait(0.5)
+		end
+	end)
+end
+
 function UIKit.rail()
 	local pg = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
 	local g = pg:FindFirstChild("Rail")
@@ -402,6 +431,7 @@ function UIKit.rail()
 		l.Padding = UDim.new(0, 8)
 		l.SortOrder = Enum.SortOrder.LayoutOrder
 		l.Parent = f
+		fitColumn(g, f, l, 64, 10, 0.55)
 	end
 	return g:WaitForChild("Column")
 end
@@ -571,6 +601,8 @@ function UIKit.column()
 		local function fit() f.Size = UDim2.new(0, math.clamp(math.floor(cam.ViewportSize.X * 0.34), 200, 260), 1, -200) end
 		fit()
 		cam:GetPropertyChangedSignal("ViewportSize"):Connect(fit)
+		-- v4.4 and never taller than the screen: the WRITE CODE bar owns the bottom ~110
+		fitColumn(g, f, l, 60, 110, 0.7)
 	end
 	return g:WaitForChild("Column")
 end

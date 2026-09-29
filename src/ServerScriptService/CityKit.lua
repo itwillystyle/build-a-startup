@@ -189,6 +189,41 @@ function CityKit.buildStreet(parent, opts)
 		end
 	end
 
+	-- v4.4 KayKit street furniture (CC0, ReplicatedStorage.KayKit.City) midway
+	-- between the planters: a bench, then a fire hydrant at the kerb, alternating
+	-- down the road and swapped across it. Clear of the cross streets and the
+	-- campus entrance paths, like the palms. Scenery never collides (a bench is
+	-- the height a humanoid snags on).
+	local kk = game:GetService("ReplicatedStorage"):FindFirstChild("KayKit")
+	local kkCity = kk and kk:FindFirstChild("City")
+	if kkCity then
+		local n = 0
+		for x = x1 + 60, x2 - 60, 60 do
+			local clear = true
+			for _, crx in ipairs(CityKit.CROSS_X or {}) do if math.abs(x - crx) < 40 then clear = false end end
+			for _, px in ipairs(opts.plotX or { -360, 0, 360 }) do if math.abs(x - px) < 20 then clear = false end end
+			if clear then
+				n += 1
+				for _, side in ipairs({ -1, 1 }) do
+					-- measured: the bench is backless (flat 1.2 top), so only its long axis matters: along the road
+					local bench = (n + (side > 0 and 1 or 0)) % 2 == 0
+					local t = kkCity:FindFirstChild(bench and "bench" or "firehydrant")
+					if t then
+						local m = t:Clone()
+						if bench then m:ScaleTo(m:GetScale() * 1.3) end   -- a 1.2-stud seat is child height; 1.56 fits a 5-stud avatar
+						local _, ext = m:GetBoundingBox()
+						m:PivotTo(CFrame.new(x, groundY + 0.85 + ext.Y / 2, z + side * (bench and 25 or 22.5)))
+						for _, d in ipairs(m:GetDescendants()) do
+							if d:IsA("BasePart") then d.CanCollide = false; d.CanQuery = false; d.CanTouch = false end
+						end
+						m.Parent = folder
+						made.props += 1
+					end
+				end
+			end
+		end
+	end
+
 	-- DOWNTOWN at the east end, both sides of the road, glass facing the road
 	-- (v4.0: replaced by Downtown.lua when it is installed)
 	if opts.noTowers then return folder, made end
