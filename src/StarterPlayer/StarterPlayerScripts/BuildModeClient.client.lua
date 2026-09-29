@@ -67,7 +67,7 @@ local BAD = UIKit.RED
 local CATS = { "OFFICE", "COMFORT", "DECOR", "KITCHEN" }
 local CAT_NAME = { OFFICE = "Office", COMFORT = "Lounge", DECOR = "Plants", KITCHEN = "Kitchen" }
 local NEEDS_NAME = { cafe = "Needs a CAFE", studio = "Needs a STUDIO" }
-local SHEET_H = 196
+local SHEET_H = 204            -- v5: +8 for the 54 px header (44 px tabs)
 local ACTION_H = 64            -- v3.2.1: the slim bar you place and remove from
 local AIM_Y = 0.52             -- touch: the reticle sits mid-world, above the action bar
 
@@ -114,10 +114,12 @@ local toggle = UIKit.railButton("home", "DECOR", UIKit.GREEN, {
 	Name = "BuildToggle", LayoutOrder = 5, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
 }, { iconSize = 28 })
 if not isTouch then
-	local cap = UIKit.panel(toggle, { Name = "KeyCap", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -4, 0, 4),
-		Size = UDim2.new(0, 24, 0, 24), ZIndex = toggle.ZIndex + 2 }, { radius = 7, color = UIKit.INK, stroke = UIKit.TEXT, strokeWidth = 1.5 })
-	UIKit.heading(cap, "B", 15, UIKit.TEXT, { Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center,
-		TextStrokeTransparency = 1, ZIndex = toggle.ZIndex + 3 })
+	-- v5: a paper keycap at the top-LEFT (the top-right corner is where red count
+	-- badges live, and a dark "B" there read as a notification)
+	local cap = UIKit.panel(toggle, { Name = "KeyCap", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, 6, 0, 6),
+		Size = UDim2.new(0, 24, 0, 24), ZIndex = toggle.ZIndex + 2 }, { radius = 6, color = UIKit.PAPER, stroke = UIKit.INK_SOFT, strokeWidth = 2 })
+	UIKit.label(cap, "B", 14, UIKit.INK, { Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center,
+		ZIndex = toggle.ZIndex + 3 }, UIKit.HEAD)
 end
 
 -- a verb that does nothing yet is noise. Decor unlocks at HQ 2 (about minute 4).
@@ -161,14 +163,16 @@ player:GetAttributeChangedSignal("HQLevel"):Connect(syncToggle)
 -- the catalog sheet: rises from the bottom, the world stays visible above it
 -- right of the left rail, so DAILY / INDEX / DECOR stay visible and tappable
 local RAIL_R = 12 + UIKit.RAIL + 12
+-- v5: on a phone it also stops short of the right corner, where the jump button lives
+local SHEET_R = isTouch and 170 or 12
 local bar, body, closeBtn, title = UIKit.menu(gui, "", UIKit.BLUE, {
-	Name = "CatalogBar", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -12, 1, SHEET_H + 40),
-	Size = UDim2.new(1, -(RAIL_R + 12), 0, SHEET_H), Visible = false,
-}, { headerHeight = 44 })
+	Name = "CatalogBar", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -SHEET_R, 1, SHEET_H + 40),
+	Size = UDim2.new(1, -(RAIL_R + SHEET_R), 0, SHEET_H), Visible = false,
+}, { headerHeight = 54 })
 local cap = Instance.new("UISizeConstraint", bar)
 cap.MaxSize = Vector2.new(860, SHEET_H)
-body.Position = UDim2.new(0, 12, 0, 44 + 8)
-body.Size = UDim2.new(1, -24, 1, -(44 + 16))
+body.Position = UDim2.new(0, 12, 0, 54 + 8)
+body.Size = UDim2.new(1, -24, 1, -(54 + 16))
 title.Size = UDim2.new(0.32, 0, 1, 0)
 title.TextSize = 20
 title.TextScaled = true
@@ -194,7 +198,7 @@ vrl.SortOrder = Enum.SortOrder.LayoutOrder
 UIKit.heading(vibeRow, "VIBE", 18, UIKit.TEXT, { Name = "Word", LayoutOrder = 0, Size = UDim2.new(0, 46, 1, 0), ZIndex = 3 })
 local starIcons = {}
 for i = 1, 5 do
-	starIcons[i] = UIKit.icon(vibeRow, "star", 17, UIKit.TEXT, { Name = "Star" .. i, LayoutOrder = i, ZIndex = 3 })
+	starIcons[i] = UIKit.icon(vibeRow, "star", 18, UIKit.TEXT, { Name = "Star" .. i, LayoutOrder = i, ZIndex = 3 })
 end
 local luckLabel = UIKit.heading(vibeRow, "x1.0", 16, UIKit.TEXT, { Name = "Luck", LayoutOrder = 6, Size = UDim2.new(0, 44, 1, 0), ZIndex = 3 })
 
@@ -203,7 +207,7 @@ local tabRow = Instance.new("Frame")
 tabRow.Name = "Tabs"
 tabRow.AnchorPoint = Vector2.new(0, 0.5)
 tabRow.Position = UDim2.new(0.34, 0, 0.5, 0)
-tabRow.Size = UDim2.new(0.66, -112, 0, 34)
+tabRow.Size = UDim2.new(0.66, -112, 0, 44)      -- v5: 44 px tabs (34 was under the thumb minimum)
 tabRow.BackgroundTransparency = 1
 tabRow.ZIndex = 3
 tabRow.Parent = bar:FindFirstChild("Header")
@@ -218,8 +222,8 @@ delTab.Name = "Delete"
 delTab.Text = ""
 delTab.AutoButtonColor = false
 delTab.AnchorPoint = Vector2.new(1, 0.5)
-delTab.Position = UDim2.new(1, -54, 0.5, 0)
-delTab.Size = UDim2.new(0, 40, 0, 40)
+delTab.Position = UDim2.new(1, -58, 0.5, -1)
+delTab.Size = UDim2.new(0, 44, 0, 44)
 delTab.BackgroundColor3 = UIKit.TEXT
 delTab.ZIndex = 3
 delTab.Parent = bar:FindFirstChild("Header")
@@ -246,8 +250,8 @@ shelfLayout.SortOrder = Enum.SortOrder.LayoutOrder
 -- v3.2.1 the first card answers "why would I place this?" in one breath
 local info = UIKit.panel(shelf, { Name = "WhyDecor", LayoutOrder = 0, Size = UDim2.new(0, 184, 1, -8) },
 	{ radius = 12, color = UIKit.GOLD, stroke = UIKit.darker(UIKit.GOLD, 0.7), strokeWidth = 2 })
-UIKit.label(info, "Decor = VIBE", 17, UIKit.CARD_TEXT, { Position = UDim2.new(0, 10, 0, 8), Size = UDim2.new(1, -20, 0, 20) }, UIKit.HEAD)
-UIKit.label(info, "More stars, more rare hires. Place pieces inside your buildings.", 13, UIKit.CARD_TEXT, {
+UIKit.label(info, "Decor = VIBE", 18, UIKit.INK, { Position = UDim2.new(0, 10, 0, 8), Size = UDim2.new(1, -20, 0, 20) }, UIKit.HEAD)
+UIKit.label(info, "More stars, more rare hires. Place pieces inside your buildings.", 16, UIKit.INK, {
 	Position = UDim2.new(0, 10, 0, 30), Size = UDim2.new(1, -20, 0, 52), TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top }, UIKit.BODY)
 local infoNext = UIKit.label(info, "", 14, UIKit.CARD_TEXT, { Name = "Next", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 10, 1, -8),
 	Size = UDim2.new(1, -20, 0, 36), TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Bottom }, UIKit.HEAD)
@@ -273,10 +277,10 @@ abCap.MaxSize = Vector2.new(620, ACTION_H)
 local backBtn = UIKit.button(actionBar, "", UIKit.BLUE, { Name = "Back", AnchorPoint = Vector2.new(0, 0.5),
 	Position = UDim2.new(0, 8, 0.5, 0), Size = UDim2.new(0, 48, 0, 48) }, { radius = 12 })
 UIKit.icon(backBtn, "up", 24, UIKit.TEXT, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, -2), Rotation = -90, ZIndex = backBtn.ZIndex + 2 })
-local actName = UIKit.label(actionBar, "", 17, UIKit.CARD_TEXT, { Name = "ItemName", Position = UDim2.new(0, 66, 0, 9),
+local actName = UIKit.label(actionBar, "", 18, UIKit.INK, { Name = "ItemName", Position = UDim2.new(0, 66, 0, 9),
 	Size = UDim2.new(1, -66 - (isTouch and 250 or 136), 0, 22), TextTruncate = Enum.TextTruncate.AtEnd }, UIKit.HEAD)
-local actSub = UIKit.label(actionBar, "", 14, UIKit.CARD_MUTED, { Name = "Hint", Position = UDim2.new(0, 66, 0, 33),
-	Size = UDim2.new(1, -66 - (isTouch and 250 or 136), 0, 20), TextTruncate = Enum.TextTruncate.AtEnd }, UIKit.HEAD)
+local actSub = UIKit.label(actionBar, "", 16, UIKit.MUTED_TEXT, { Name = "Hint", Position = UDim2.new(0, 66, 0, 33),
+	Size = UDim2.new(1, -66 - (isTouch and 250 or 136), 0, 20), TextTruncate = Enum.TextTruncate.AtEnd }, UIKit.BODY)
 local placeBtn, placeLabel = UIKit.button(actionBar, "PLACE", GOOD, {
 	Name = "PlaceButton", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0),
 	Size = UDim2.new(0, 116, 0, 48), Visible = isTouch,
@@ -394,11 +398,11 @@ local function makeCard(item, order)
 
 	local vpf = thumbnail(btn, item.key)
 
-	local nm = UIKit.label(btn, item.name, 15, UIKit.CARD_TEXT, {
+	local nm = UIKit.label(btn, item.name, 16, UIKit.INK, {
 		Name = "ItemName", Position = UDim2.new(0, 8, 1, -40), Size = UDim2.new(1, -16, 0, 17),
 		TextTruncate = Enum.TextTruncate.AtEnd,
 	}, UIKit.HEAD)
-	local pr = UIKit.label(btn, "", 16, GOOD, {
+	local pr = UIKit.label(btn, "", 16, UIKit.GREEN_DEEP, {
 		Name = "Price", Position = UDim2.new(0, 8, 1, -22), Size = UDim2.new(1, -16, 0, 18),
 		TextTruncate = Enum.TextTruncate.AtEnd,
 	}, UIKit.HEAD)
@@ -411,12 +415,12 @@ local function makeCard(item, order)
 		chip.Name = "Bonus"
 		chip.Position = UDim2.new(0, 6, 0, 6)
 		chip.Size = UDim2.new(0, 66, 0, 22)
-		chip.BackgroundColor3 = GOOD
+		chip.BackgroundColor3 = UIKit.GREEN_LIGHT
 		chip.BorderSizePixel = 0
 		chip.ZIndex = 3
 		chip.Parent = btn
 		Instance.new("UICorner", chip).CornerRadius = UDim.new(1, 0)
-		chipLabel = UIKit.label(chip, bt, 14, UIKit.TEXT, { Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 4 }, UIKit.HEAD)
+		chipLabel = UIKit.label(chip, bt, 14, UIKit.GREEN_DEEP, { Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 4 }, UIKit.HEAD)
 	end
 	local lock = UIKit.icon(btn, "lock", 28, UIKit.CARD_MUTED, {
 		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, -18), ZIndex = 3, Visible = false,
@@ -684,8 +688,9 @@ local function refreshTitle()
 	local luck = player:GetAttribute("VibeLuck") or 1
 	local pts = player:GetAttribute("VibePoints") or 0
 	for i, icon in ipairs(starIcons) do
-		icon.ImageColor3 = (i <= stars) and UIKit.GOLD or UIKit.TEXT
-		icon.ImageTransparency = (i <= stars) and 0 or 0.55
+		-- v5: an empty star is a clear slot, not a faint white ghost
+		icon.ImageColor3 = (i <= stars) and UIKit.GOLD or UIKit.BLUE_DEEP
+		icon.ImageTransparency = 0
 	end
 	luckLabel.Text = ("x%.1f"):format(luck)
 	local _, _, nextAt = FK.vibe(pts)
@@ -707,17 +712,20 @@ local function refreshShelf()
 			c.chip.Visible = not locked
 			-- the first VIBE_PER_KEY copies count; after that the card says so
 			local full = countOf(c.item.key) >= (FK.VIBE_PER_KEY or 3)
-			c.chip.BackgroundColor3 = full and UIKit.CARD_MUTED or GOOD
-			if c.chipLabel then c.chipLabel.Text = full and "max" or benefitText(c.item) end
+			c.chip.BackgroundColor3 = full and UIKit.SURFACE_2 or UIKit.GREEN_LIGHT
+			if c.chipLabel then
+				c.chipLabel.Text = full and "max" or benefitText(c.item)
+				c.chipLabel.TextColor3 = full and UIKit.MUTED_TEXT or UIKit.GREEN_DEEP
+			end
 		end
 		if locked then
 			c.price.Text = NEEDS_NAME[c.item.needs] or ("Needs a " .. string.upper(c.item.needs))
-			c.price.TextColor3 = UIKit.ORANGE
+			c.price.TextColor3 = UIKit.ORANGE_DEEP
 			c.price.TextSize = 14
 			c.btn.BackgroundColor3 = UIKit.SURFACE_2
 		else
 			c.price.Text = UIKit.money(p)
-			c.price.TextColor3 = afford and GOOD or UIKit.CARD_MUTED
+			c.price.TextColor3 = afford and UIKit.GREEN_DEEP or UIKit.MUTED_TEXT
 			c.price.TextSize = 16
 			c.btn.BackgroundColor3 = UIKit.CARD
 		end
@@ -741,7 +749,7 @@ for i, cat in ipairs(CATS) do
 	t.TextScaled = true
 	local tc = Instance.new("UITextSizeConstraint", t)
 	tc.MaxTextSize = 16
-	tc.MinTextSize = 13
+	tc.MinTextSize = 14
 	tabBtns[cat] = { btn = b, label = t }
 	b.MouseButton1Click:Connect(function()
 		activeCat = cat
@@ -819,10 +827,15 @@ local function setOpen(v)
 	player:SetAttribute("BuildModeOpen", v)   -- client-local: ProductClient holds its panels while this is true
 	UIKit.setRailActive(toggle, v)
 	if v then
+		-- v5: start right of the rail's REAL edge (on a phone it is a 2-wide grid)
+		local rr = math.floor(UIKit.railRight() + 12)
+		bar.Size = UDim2.new(1, -(rr + SHEET_R), 0, SHEET_H)
+		actionBar.Position = UDim2.new(0, rr, 1, -12)
+		actionBar.Size = UDim2.new(1, -(rr + 150), 0, ACTION_H)
 		rescanFloors()
 		refreshShelf()
-		bar.Position = UDim2.new(1, -12, 1, SHEET_H + 40)
-		TweenService:Create(bar, TweenInfo.new(0.25, Enum.EasingStyle.Quint), { Position = UDim2.new(1, -12, 1, -12) }):Play()
+		bar.Position = UDim2.new(1, -SHEET_R, 1, SHEET_H + 40)
+		TweenService:Create(bar, TweenInfo.new(0.25, Enum.EasingStyle.Quint), { Position = UDim2.new(1, -SHEET_R, 1, -12) }):Play()
 		heartbeatConn = RunService.Heartbeat:Connect(function()
 			-- GetMouseLocation includes the top GUI inset; ScreenPointToRay
 			-- expects viewport coordinates without it (skipping this aimed ~36 px high)

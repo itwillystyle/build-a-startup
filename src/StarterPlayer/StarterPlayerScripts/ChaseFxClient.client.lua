@@ -81,7 +81,7 @@ local btn = UIKit.button(gui, "", UIKit.ORANGE, {
 local btnText = UIKit.outlined(btn, "BOOST", 26, UIKit.TEXT, {
 	Position = UDim2.new(0, 0, 0, 10), Size = UDim2.new(1, 0, 0, 30), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = btn.ZIndex + 2,
 })
-UIKit.label(btn, UserInputService.KeyboardEnabled and "SHIFT" or "TAP", 13, UIKit.INK, {
+UIKit.label(btn, UserInputService.KeyboardEnabled and "SHIFT" or "TAP", 14, UIKit.INK, {
 	Position = UDim2.new(0, 0, 0, 46), Size = UDim2.new(1, 0, 0, 18), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = btn.ZIndex + 2,
 }, UIKit.HEAD)
 local cdFill = Instance.new("Frame")

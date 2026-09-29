@@ -579,8 +579,8 @@ end)
 local function bounds(vp)
 	local pg = player.PlayerGui
 	local left, right = 60, vp.X - 60
-	local rail = pg:FindFirstChild("Rail") and pg.Rail:FindFirstChild("Column")
-	if rail then left = math.max(left, rail.AbsolutePosition.X + 90 + 44) end
+	-- the rail can be one column or a 2-wide grid (phones): use its real right edge
+	if pg:FindFirstChild("Rail") then left = math.max(left, UIKit.railRight() + 44) end
 	local col = pg:FindFirstChild("RightColumn") and pg.RightColumn:FindFirstChild("Column")
 	local colBottom = 0
 	if col then

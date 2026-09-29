@@ -121,7 +121,7 @@ for d = 1, 7 do
 	local itemVpf = Instance.new("ViewportFrame")
 	itemVpf.Name = "Item"
 	itemVpf.AnchorPoint = Vector2.new(0.5, 0.5)
-	itemVpf.Position = UDim2.new(0.74, 0, 0, 44)
+	itemVpf.Position = UDim2.new(0.78, 0, 0, 44)
 	itemVpf.Size = UDim2.new(0, 30, 0, 30)
 	itemVpf.BackgroundColor3 = UIKit.SURFACE
 	itemVpf.BackgroundTransparency = 0
@@ -183,7 +183,10 @@ local function refresh()
 	local items = string.split(player:GetAttribute("DailyItems") or "", ",")
 	for d, t in ipairs(tiles) do
 		local id = items[d]
-		t.coins.Position = UDim2.new((id and id ~= "" and Items.BY_ID[id]) and 0.36 or 0.5, 0, 0, 28)
+		local withItem = id and id ~= "" and Items.BY_ID[id] and true or false
+		t.coins.Position = UDim2.new(withItem and 0.34 or 0.5, 0, 0, 28)
+		local cs = t.coins:FindFirstChildOfClass("UIScale") or Instance.new("UIScale", t.coins)
+		cs.Scale = withItem and 0.82 or 1
 		if id and id ~= "" and Items.BY_ID[id] then
 			if t.itemId ~= id then
 				t.item:ClearAllChildren()
@@ -204,7 +207,7 @@ end
 the phone (PHONE > Daily > SEE THE WEEK), sharing the phone's badge with
 investor texts. Now it has the first rail slot: a red "!" and a wiggle when a
 gift is waiting, quiet when today's is claimed. ]]
-local railBtn = UIKit.railButton("medal", "DAILY", UIKit.GREEN, {
+local railBtn = UIKit.railButton("gift", "DAILY", UIKit.GREEN, {
 	Name = "DailyButton", LayoutOrder = 1, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
 }, { iconSize = 28 })
 local railBadge, railBadgeText = UIKit.badge(railBtn)

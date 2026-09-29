@@ -157,7 +157,7 @@ local danger = UIKit.card(gui, {
 	Size = UDim2.new(0, 330, 0, 50), Visible = false,
 }, { radius = 999, strokeWidth = 3 })
 local dangerStroke = danger:FindFirstChildOfClass("UIStroke")
-local dangerIcon = UIKit.icon(danger, "alert", 28, UIKit.GOLD, { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 14, 0.5, 0) })
+local dangerIcon = UIKit.icon(danger, "alert", 28, UIKit.ORANGE, { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 14, 0.5, 0) })
 local dangerText = UIKit.label(danger, "", 20, UIKit.CARD_TEXT, {
 	Position = UDim2.new(0, 50, 0, 0), Size = UDim2.new(1, -64, 1, 0), TextTruncate = Enum.TextTruncate.AtEnd,
 }, UIKit.HEAD)
@@ -181,7 +181,7 @@ lcap.MaxSize = Vector2.new(440, 74)
 local lostTitle = UIKit.outlined(lostCard, "LOST!", 26, UIKit.RED, {
 	Position = UDim2.new(0, 16, 0, 6), Size = UDim2.new(1, -32, 0, 32),
 })
-local lostText = UIKit.label(lostCard, "", 17, UIKit.CARD_TEXT, {
+local lostText = UIKit.label(lostCard, "", 18, UIKit.INK, {
 	Position = UDim2.new(0, 16, 0, 40), Size = UDim2.new(1, -32, 0, 24), TextTruncate = Enum.TextTruncate.AtEnd,
 }, UIKit.HEAD)
 local lostEdges = {}
@@ -211,7 +211,7 @@ local function centreWidth(maxW, card)
 	local railCol = pg:FindFirstChild("Rail") and pg.Rail:FindFirstChild("Column")
 	local rightCol = pg:FindFirstChild("RightColumn") and pg.RightColumn:FindFirstChild("Column")
 	local vpX = workspace.CurrentCamera.ViewportSize.X
-	local l = railCol and (railCol.AbsolutePosition.X + 86) or 12
+	local l = railCol and (UIKit.railRight() + 8) or 12
 	local r = rightCol and rightCol.AbsolutePosition.X or vpX - 12
 	local centred = 2 * math.min(vpX / 2 - l, r - vpX / 2) - 16
 	local cx, w = vpX / 2, centred
@@ -297,10 +297,11 @@ RunService.RenderStepped:Connect(function(dt)
 			local close = dashing or nearest < 20
 			if close and not wasClose then UIKit.sfx("thunk", 1.4, 0.5) end
 			wasClose = close
-			local col = close and UIKit.RED or UIKit.GOLD
+			-- v5: orange while it is far, red when it is on you (gold on paper did not read)
+			local col = close and UIKit.RED or UIKit.ORANGE
 			dangerIcon.ImageColor3 = col
 			dangerStroke.Color = col
-			dangerText.TextColor3 = close and UIKit.RED or UIKit.CARD_TEXT
+			dangerText.TextColor3 = close and UIKit.RED_DEEP or UIKit.INK
 			local keyboard = game:GetService("UserInputService").KeyboardEnabled
 			dangerText.Text = dashing and (keyboard and "It's lunging! BOOST now (Shift)" or "It's lunging! BOOST now!")
 				or ("Headhunter %dm behind"):format(math.floor(nearest / 3.5 + 0.5))

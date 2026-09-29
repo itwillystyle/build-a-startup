@@ -120,7 +120,7 @@ local cashText = UIKit.outlined(pill, "$0", 44, UIKit.MONEY, {
 -- income line (tap it for the per-building breakdown)
 local rateText = UIKit.outlined(gui, "", 18, UIKit.MONEY, {
 	Name = "Rate", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 64),
-	Size = UDim2.new(0, 300, 0, 22), TextXAlignment = Enum.TextXAlignment.Center,
+	Size = UDim2.new(0, 220, 0, 22), TextXAlignment = Enum.TextXAlignment.Center,
 })
 local rateHit = Instance.new("TextButton")
 rateHit.Name = "RateHit"
@@ -128,7 +128,7 @@ rateHit.BackgroundTransparency = 1
 rateHit.Text = ""
 rateHit.AnchorPoint = Vector2.new(0.5, 0)
 rateHit.Position = UDim2.new(0.5, 0, 0, 54)
-rateHit.Size = UDim2.new(0, 300, 0, 44)
+rateHit.Size = UDim2.new(0, 200, 0, 44)      -- v5: 200 wide (300 reached the goal card on a phone)
 rateHit.Parent = gui
 
 local breakdown = UIKit.card(gui, {
@@ -574,7 +574,7 @@ local function spinAsk(e)
 		Instance.new("UICorner", f).CornerRadius = UDim.new(0, 12)
 		UIKit.label(f, title, 17, color, { Position = UDim2.new(0, 12, 0, 8), Size = UDim2.new(1, -24, 0, 22) }, UIKit.HEAD)
 		for i, line in ipairs(lines) do
-			local l = UIKit.label(f, line, 15, UIKit.CARD_TEXT, { Position = UDim2.new(0, 12, 0, 8 + i * 26), Size = UDim2.new(1, -24, 0, 24), TextWrapped = true }, UIKit.HEAD)
+			UIKit.label(f, line, 16, UIKit.INK_SOFT, { Position = UDim2.new(0, 12, 0, 8 + i * 26), Size = UDim2.new(1, -24, 0, 24), TextWrapped = true }, UIKit.BODY)
 		end
 	end
 	local function m(v) return (string.format("%.1f", v)):gsub("%.0$", "") end

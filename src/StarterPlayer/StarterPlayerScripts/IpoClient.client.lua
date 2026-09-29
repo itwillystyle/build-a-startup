@@ -117,11 +117,11 @@ local function moment(e, done)
 	Instance.new("UICorner", tick).CornerRadius = UDim.new(1, 0)
 	UIKit.label(tick, tostring(e.ticker or "?"), 24, UIKit.GOLD, { Size = UDim2.fromScale(1, 1),
 		TextXAlignment = Enum.TextXAlignment.Center }, UIKit.HEAD)
-	UIKit.outlined(card, ("+%s raised"):format(UIKit.money(e.raise or 0)), 30, UIKit.GREEN, {
+	UIKit.outlined(card, ("+%s raised"):format(UIKit.money(e.raise or 0)), 30, UIKit.MONEY, {
 		Position = UDim2.new(0, 0, 0, 146), Size = UDim2.new(1, 0, 0, 38), TextXAlignment = Enum.TextXAlignment.Center })
-	UIKit.label(card, "Your next goal: SPIN OFF a new company, with more money forever.", 13, UIKit.CARD_MUTED, {
-		Position = UDim2.new(0, 20, 1, -44), Size = UDim2.new(1, -40, 0, 32), TextWrapped = true,
-		TextXAlignment = Enum.TextXAlignment.Center }, UIKit.HEAD)
+	UIKit.label(card, "Next: SPIN OFF a new company for more money, forever.", 16, UIKit.INK_SOFT, {
+		Position = UDim2.new(0, 20, 1, -46), Size = UDim2.new(1, -40, 0, 36), TextWrapped = true,
+		TextXAlignment = Enum.TextXAlignment.Center }, UIKit.BODY)
 	confetti(gui)
 	task.delay(1.2, function() confetti(gui) end)
 	UIKit.sfx("levelup", 1, 0.6)

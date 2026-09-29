@@ -61,16 +61,16 @@ gui.Enabled = false
 UIKit.safe(gui)
 gui.Parent = player:WaitForChild("PlayerGui")
 
-local PW, PH = 560, 300
+local PW, PH = 560, 320
 local panel, body, closeBtn = UIKit.menu(gui, "BAG", UIKit.ORANGE, {
-	Name = "Panel", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 24, 0.5, 20), Size = UDim2.new(0, PW, 0, PH),
+	Name = "Panel", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 24, 0.5, 0), Size = UDim2.new(0, PW, 0, PH),
 }, { headerHeight = 44 })
 body.Position = UDim2.new(0, 12, 0, 54)
 body.Size = UDim2.new(1, -24, 1, -64)
 local fit = Instance.new("UIScale", panel)
 local function refit()
 	local vp = workspace.CurrentCamera.ViewportSize
-	fit.Scale = math.min(1, (vp.X - 130) / PW, (vp.Y - 96) / PH)
+	fit.Scale = math.min(1, (vp.X - 130) / PW, (vp.Y - 24) / PH)
 end
 refit()
 workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(refit)
@@ -82,7 +82,7 @@ grid.BackgroundTransparency = 1
 grid.Size = UDim2.new(0, 300, 1, 0)
 grid.Parent = body
 local gl = Instance.new("UIGridLayout", grid)
-gl.CellSize = UDim2.new(0, 94, 0, 110)
+gl.CellSize = UDim2.new(0, 94, 0, 120)
 gl.CellPadding = UDim2.new(0, 8, 0, 8)
 gl.SortOrder = Enum.SortOrder.LayoutOrder
 
@@ -118,13 +118,19 @@ local function slot(it)
 	if m then table.insert(spin, { m = m, base = m:GetPivot(), phase = it.order * 1.3 }) end
 	UIKit.label(b, it.name, 14, UIKit.CARD_TEXT, { Position = UDim2.new(0, 4, 0, 70), Size = UDim2.new(1, -8, 0, 18),
 		TextXAlignment = Enum.TextXAlignment.Center, TextTruncate = Enum.TextTruncate.AtEnd }, UIKit.HEAD)
-	local rar = Instance.new("Frame")
+	-- v5: rarity in words on its colour (a 6 px underline was colour as the only signal)
+	local rc = Items.RARITY[it.rarity].color
+	local rar = Instance.new("TextLabel")
 	rar.Name = "Rarity"
 	rar.AnchorPoint = Vector2.new(0.5, 1)
 	rar.Position = UDim2.new(0.5, 0, 1, -6)
-	rar.Size = UDim2.new(0, 40, 0, 6)
-	rar.BackgroundColor3 = Items.RARITY[it.rarity].color
+	rar.Size = UDim2.new(1, -16, 0, 20)
+	rar.BackgroundColor3 = UIKit.light(rc)
 	rar.BorderSizePixel = 0
+	rar.Text = Items.RARITY[it.rarity].name
+	rar.TextColor3 = UIKit.darker(rc, 0.5)
+	rar.TextSize = 14
+	rar.Font = UIKit.HEAD
 	rar.Parent = b
 	Instance.new("UICorner", rar).CornerRadius = UDim.new(1, 0)
 	local cnt = Instance.new("Frame")
@@ -173,14 +179,14 @@ drawDetail = function()
 	if not it then return end
 	local n = counts()[it.id] or 0
 	local r = Items.RARITY[it.rarity]
-	UIKit.label(detail, it.name, 20, UIKit.CARD_TEXT, { Size = UDim2.new(1, 0, 0, 24) }, UIKit.HEAD)
-	UIKit.label(detail, r.name, 14, UIKit.darker(r.color, 0.8), { Position = UDim2.new(0, 0, 0, 24), Size = UDim2.new(1, 0, 0, 18) }, UIKit.HEAD)
-	UIKit.label(detail, it.desc, 15, UIKit.CARD_TEXT, { Position = UDim2.new(0, 0, 0, 48), Size = UDim2.new(1, 0, 0, 58),
+	UIKit.label(detail, it.name, 22, UIKit.INK, { Size = UDim2.new(1, 0, 0, 26) }, UIKit.HEAD)
+	UIKit.label(detail, r.name, 14, UIKit.darker(r.color, 0.55), { Position = UDim2.new(0, 0, 0, 26), Size = UDim2.new(1, 0, 0, 18) }, UIKit.HEAD)
+	UIKit.label(detail, it.desc, 16, UIKit.INK_SOFT, { Position = UDim2.new(0, 0, 0, 50), Size = UDim2.new(1, 0, 0, 62),
 		TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top }, UIKit.BODY)
 	if n == 0 then
-		UIKit.label(detail, "GET MORE", 14, UIKit.CARD_MUTED, { Position = UDim2.new(0, 0, 0, 110), Size = UDim2.new(1, 0, 0, 18) }, UIKit.HEAD)
-		UIKit.label(detail, WHERE[it.id] or "", 14, UIKit.CARD_MUTED, { Position = UDim2.new(0, 0, 0, 128), Size = UDim2.new(1, 0, 0, 40),
-			TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top }, UIKit.HEAD)
+		UIKit.label(detail, "HOW TO GET IT", 14, UIKit.MUTED_TEXT, { Position = UDim2.new(0, 0, 0, 118), Size = UDim2.new(1, 0, 0, 18) }, UIKit.HEAD)
+		UIKit.label(detail, WHERE[it.id] or "", 16, UIKit.INK_SOFT, { Position = UDim2.new(0, 0, 0, 138), Size = UDim2.new(1, 0, 0, 60),
+			TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top }, UIKit.BODY)
 		return
 	end
 	-- the USE button says what will happen; some items only work at their moment
@@ -212,8 +218,6 @@ local function setOpen(v)
 	gui.Enabled = v
 	if v then
 		if itemsSeen then itemsSeen:FireServer() end
-		panel.Position = UDim2.new(0.5, 24, 0.5, 60)
-		TweenService:Create(panel, TweenInfo.new(0.25, Enum.EasingStyle.Quint), { Position = UDim2.new(0.5, 24, 0.5, 20) }):Play()
 		-- open on something you have
 		local c = counts()
 		if (c[selected] or 0) == 0 then
@@ -250,7 +254,7 @@ local function boostRow(id)
 	vpf.Size = UDim2.new(0, 28, 0, 28)
 	vpf.Parent = row
 	Items.icon(id, vpf)
-	local t = UIKit.label(row, "", 15, UIKit.CARD_TEXT, { Position = UDim2.new(0, 34, 0, 0), Size = UDim2.new(1, -34, 1, 0),
+	local t = UIKit.label(row, "", 16, UIKit.INK_SOFT, { Position = UDim2.new(0, 34, 0, 0), Size = UDim2.new(1, -34, 1, 0),
 		TextTruncate = Enum.TextTruncate.AtEnd }, UIKit.HEAD)
 	boostRows[id] = { row = row, text = t }
 end
@@ -398,7 +402,7 @@ local function gotCard(id, n, source, done)
 	local base = m and m:GetPivot()
 	UIKit.label(card, ("+%d %s"):format(n or 1, it.name), 20, UIKit.CARD_TEXT, { Position = UDim2.new(0, 96, 0, 12), Size = UDim2.new(1, -104, 0, 24),
 		TextTruncate = Enum.TextTruncate.AtEnd }, UIKit.HEAD)
-	UIKit.label(card, it.short, 15, UIKit.darker(Items.RARITY[it.rarity].color, 0.8), { Position = UDim2.new(0, 96, 0, 38), Size = UDim2.new(1, -104, 0, 18) }, UIKit.HEAD)
+	UIKit.label(card, it.short, 16, UIKit.darker(Items.RARITY[it.rarity].color, 0.55), { Position = UDim2.new(0, 96, 0, 38), Size = UDim2.new(1, -104, 0, 18) }, UIKit.HEAD)
 	UIKit.label(card, source or "", 14, UIKit.CARD_MUTED, { Position = UDim2.new(0, 96, 0, 60), Size = UDim2.new(1, -104, 0, 18),
 		TextTruncate = Enum.TextTruncate.AtEnd }, UIKit.HEAD)
 	local sc = Instance.new("UIScale", card)

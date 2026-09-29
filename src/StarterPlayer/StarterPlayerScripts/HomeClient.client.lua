@@ -75,25 +75,25 @@ local function showMenu(st)
 		Instance.new("UICorner", band).CornerRadius = UDim.new(0, 12)
 		UIKit.art(c, "key", 46, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 14) })
 		UIKit.label(c, t.name, 22, UIKit.CARD_TEXT, { Size = UDim2.new(1, -16, 0, 26), Position = UDim2.new(0, 8, 0, 66), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.HEAD)
-		UIKit.label(c, ("+%d%% money, for good"):format(t.bonus or 10), 14, Color3.fromRGB(40, 150, 80), {
+		UIKit.label(c, ("+%d%% money, for good"):format(t.bonus or 10), 16, UIKit.GREEN_DEEP, {
 			Size = UDim2.new(1, -16, 0, 18), Position = UDim2.new(0, 8, 0, 94), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.BOLD)
-		UIKit.label(c, ("Unlocks HQ level %d"):format(t.gate or 0), 13, UIKit.CARD_MUTED, {
+		UIKit.label(c, ("Unlocks HQ level %d"):format(t.gate or 0), 14, UIKit.MUTED_TEXT, {
 			Size = UDim2.new(1, -16, 0, 16), Position = UDim2.new(0, 8, 0, 113), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.BOLD)
-		UIKit.label(c, t.blurb or "", 13, UIKit.CARD_MUTED, {
-			Size = UDim2.new(1, -20, 0, 54), Position = UDim2.new(0, 10, 0, 134), TextWrapped = true,
+		UIKit.label(c, t.blurb or "", 14, UIKit.INK_SOFT, {
+			Size = UDim2.new(1, -20, 0, 44), Position = UDim2.new(0, 10, 0, 134), TextWrapped = true,
 			TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Top }, UIKit.BODY)
 		local label, color, enabled
-		if t.state == "owned" then label, color, enabled = "YOURS", Color3.fromRGB(200, 206, 216), false
-		elseif t.state == "locked" then label, color, enabled = "LOCKED", Color3.fromRGB(200, 206, 216), false
+		if t.state == "owned" then label, color, enabled = "YOURS", UIKit.MUTED, false
+		elseif t.state == "locked" then label, color, enabled = "LOCKED", UIKit.MUTED, false
 		elseif st.cash >= t.price then label, color, enabled = "BUY " .. UIKit.money(t.price), UIKit.GREEN, true
-		else label, color, enabled = UIKit.money(t.price), Color3.fromRGB(200, 206, 216), false end
+		else label, color, enabled = UIKit.money(t.price), UIKit.MUTED, false end
 		local b = UIKit.button(c, label, color, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Size = UDim2.new(1, -20, 0, 42) },
-			{ textSize = 17, dark = not enabled })
+			{ textSize = 18 })
 		if t.why then
-			UIKit.label(c, t.why, 12, Color3.fromRGB(200, 90, 70), { AnchorPoint = Vector2.new(0.5, 1), Size = UDim2.new(1, -16, 0, 16),
+			UIKit.label(c, t.why, 14, UIKit.RED_DEEP, { AnchorPoint = Vector2.new(0.5, 1), Size = UDim2.new(1, -16, 0, 16),
 				Position = UDim2.new(0.5, 0, 1, -56), TextXAlignment = Enum.TextXAlignment.Center, TextWrapped = true }, UIKit.BOLD)
 		elseif t.state == "buy" and st.cash < t.price then
-			UIKit.label(c, ("Need %s more"):format(UIKit.money(t.price - st.cash)), 12, UIKit.CARD_MUTED, { AnchorPoint = Vector2.new(0.5, 1),
+			UIKit.label(c, ("Need %s more"):format(UIKit.money(t.price - st.cash)), 14, UIKit.MUTED_TEXT, { AnchorPoint = Vector2.new(0.5, 1),
 				Size = UDim2.new(1, -16, 0, 16), Position = UDim2.new(0.5, 0, 1, -56), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.BOLD)
 		end
 		if enabled then

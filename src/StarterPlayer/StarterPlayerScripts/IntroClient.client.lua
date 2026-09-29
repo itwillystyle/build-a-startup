@@ -157,6 +157,13 @@ local function runIntro()
 		}, { fov = 58 })
 		return
 	end
+	-- v5: a first impression is never night. The flyover runs at bright afternoon
+	-- (SkyClient's own clock override, client-side), then the sky eases back to the
+	-- server's hour over 5 s (it reads as the sun going down, not a jump)
+	local Lighting = game:GetService("Lighting")
+	local realAt, realHour = os.clock(), Lighting.ClockTime
+	local SHOW_HOUR = 13.5
+	workspace:SetAttribute("SVClockOverride", SHOW_HOUR)
 	local ok = Cine.play({
 		{ pos = Vector3.new(-980, 250, 420), look = Vector3.new(-200, 40, 0), t = 0,
 			title = "SILICON VALLEY", sub = "Every giant started in a garage." },
@@ -171,6 +178,19 @@ local function runIntro()
 	}, { fov = 60, hold = 0.7 })
 	local _ = ok
 	lightTheLaptop(pf)
+	task.spawn(function()
+		-- the day cycle is 22 minutes for 24 hours (SkyClient): where the real sun is now
+		local target = (realHour + (os.clock() - realAt) * 24 / (22 * 60)) % 24
+		local delta = ((target - SHOW_HOUR + 12) % 24) - 12       -- the short way round the clock
+		local t0 = os.clock()
+		while os.clock() - t0 < 5 do
+			local k = (os.clock() - t0) / 5
+			k = 1 - (1 - k) ^ 3
+			workspace:SetAttribute("SVClockOverride", (SHOW_HOUR + delta * k) % 24)
+			task.wait(0.1)
+		end
+		workspace:SetAttribute("SVClockOverride", nil)
+	end)
 end
 
 task.spawn(runIntro)

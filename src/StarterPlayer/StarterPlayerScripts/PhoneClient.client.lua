@@ -41,8 +41,21 @@ if not ev or not act then return end
 local isTouch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 local W, H = 600, 330                    -- the phone's design size; a UIScale fits it to the screen
 local SIDE = 78
-local BODY = Enum.Font.Gotham
-local BUBBLE_TEXT = 15
+local BODY = UIKit.BODY               -- v5: Nunito ExtraBold (thin Gotham was the "web app" text)
+local BUBBLE_TEXT = 16
+-- the one-line width of a text in the body font (GetTextSize only takes the old Font enum)
+local function lineWidth(text, size)
+	local ok, v = pcall(function()
+		local p = Instance.new("GetTextBoundsParams")
+		p.Text = text
+		p.Font = BODY
+		p.Size = size
+		p.Width = 10000
+		return TextService:GetTextBoundsAsync(p)
+	end)
+	if ok and v then return v.X end
+	return TextService:GetTextSize(text, size, Enum.Font.GothamBold, Vector2.new(10000, 10000)).X
+end
 
 -- ============ STATE ============
 
@@ -83,7 +96,7 @@ rim.Thickness = 2
 local fit = Instance.new("UIScale", bezel)
 local function refit()
 	local vp = workspace.CurrentCamera.ViewportSize
-	fit.Scale = math.min(1, (vp.X - 130) / W, (vp.Y - 96) / H)
+	fit.Scale = math.min(1, (vp.X - 130) / W, (vp.Y - 24) / H)
 end
 refit()
 workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(refit)
@@ -113,31 +126,9 @@ island.BackgroundColor3 = Color3.fromRGB(24, 26, 34)
 island.BorderSizePixel = 0
 island.Parent = status
 Instance.new("UICorner", island).CornerRadius = UDim.new(1, 0)
-for k = 1, 4 do
-	local b = Instance.new("Frame")
-	b.AnchorPoint = Vector2.new(0, 1)
-	b.Position = UDim2.new(1, -86 + (k - 1) * 5, 0, 18)
-	b.Size = UDim2.new(0, 3, 0, 3 + k * 2)
-	b.BackgroundColor3 = UIKit.CARD_TEXT
-	b.BorderSizePixel = 0
-	b.Parent = status
-end
-local batt = Instance.new("Frame")
-batt.Position = UDim2.new(1, -56, 0, 7)
-batt.Size = UDim2.new(0, 24, 0, 12)
-batt.BackgroundTransparency = 1
-batt.Parent = status
-local bst = Instance.new("UIStroke", batt)
-bst.Color = UIKit.CARD_TEXT
-bst.Thickness = 1.5
-Instance.new("UICorner", batt).CornerRadius = UDim.new(0, 3)
-local bfill = Instance.new("Frame")
-bfill.Position = UDim2.new(0, 2, 0, 2)
-bfill.Size = UDim2.new(0.72, -3, 1, -4)
-bfill.BackgroundColor3 = UIKit.GREEN
-bfill.BorderSizePixel = 0
-bfill.Parent = batt
-Instance.new("UICorner", bfill).CornerRadius = UDim.new(0, 2)
+-- (v5: the drawn signal bars and battery are gone: decoration with no information,
+-- and a green battery borrowed the colour that means "go". The clock and the
+-- island are what make it read as a phone.)
 
 -- the side dock: three apps
 local dock = Instance.new("Frame")
@@ -176,16 +167,16 @@ closeBtn.Name = "Close"
 closeBtn.Text = ""
 closeBtn.AutoButtonColor = false
 closeBtn.AnchorPoint = Vector2.new(1, 0)
-closeBtn.Position = UDim2.new(1, -10, 0, 30)
-closeBtn.Size = UDim2.new(0, 38, 0, 38)
+closeBtn.Position = UDim2.new(1, -10, 0, 28)
+closeBtn.Size = UDim2.new(0, 44, 0, 44)
 closeBtn.BackgroundColor3 = UIKit.CARD
 closeBtn.ZIndex = 20
 closeBtn.Parent = screen
 Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(1, 0)
 local cst = Instance.new("UIStroke", closeBtn)
-cst.Color = UIKit.CARD_LINE
-cst.Thickness = 1.5
-UIKit.icon(closeBtn, "cross", 16, UIKit.CARD_TEXT, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), ZIndex = 21 })
+cst.Color = UIKit.INK_SOFT
+cst.Thickness = 2.5
+UIKit.icon(closeBtn, "cross", 18, UIKit.INK_SOFT, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), ZIndex = 21 })
 
 local apps = {}
 local render   -- forward: draws the current view (defined below)
@@ -266,19 +257,20 @@ local function avatar(parent, th, size)
 	a.Parent = parent
 	Instance.new("UICorner", a).CornerRadius = UDim.new(1, 0)
 	local initials = (th.name or "?"):gsub("(%a)%a*%s*", "%1"):sub(1, 2):upper()
-	UIKit.label(a, initials, math.floor(size * 0.42), UIKit.TEXT, { Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.HEAD)
+	local ini = UIKit.label(a, initials, math.floor(size * 0.42), UIKit.TEXT, { Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.HEAD)
+	UIKit.paintLabel(ini, a.BackgroundColor3)   -- v5: ink on a light face, outlined white on a dark one
 	-- v4.2: a scripted sender (the front desk) is not AI, so it gets no badge
 	if not th.system then
 		-- the AI label rides on every investor's face (Roblox asks for disclosure; so does honesty)
 		local tag = Instance.new("Frame")
 		tag.AnchorPoint = Vector2.new(1, 1)
 		tag.Position = UDim2.new(1, 4, 1, 2)
-		tag.Size = UDim2.new(0, 22, 0, 14)
+		tag.Size = UDim2.new(0, 26, 0, 18)
 		tag.BackgroundColor3 = UIKit.INK
 		tag.BorderSizePixel = 0
 		tag.Parent = a
 		Instance.new("UICorner", tag).CornerRadius = UDim.new(1, 0)
-		UIKit.label(tag, "AI", 11, UIKit.TEXT, { Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.HEAD)
+		UIKit.label(tag, "AI", 14, UIKit.TEXT, { Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.HEAD)
 	end
 	return a
 end
@@ -328,8 +320,7 @@ local typingRow
 local function bubble(m, maxW)
 	local mine = m.from == "me"
 	local text = m.text or ""
-	local one = TextService:GetTextSize(text, BUBBLE_TEXT, BODY, Vector2.new(10000, 10000))
-	local w = math.min(maxW - 26, one.X + 6)
+	local w = math.min(maxW - 26, lineWidth(text, BUBBLE_TEXT) + 6)
 	local row = Instance.new("Frame")
 	row.Name = "Row"
 	row.BackgroundTransparency = 1
@@ -433,7 +424,7 @@ local function itemLine(parent, id, y)
 	vpf.Size = UDim2.new(0, 34, 0, 34)
 	vpf.Parent = row
 	Items.icon(id, vpf)
-	UIKit.label(row, "+ " .. it.name, 15, UIKit.CARD_TEXT, { Position = UDim2.new(0, 40, 0, 0), Size = UDim2.new(1, -40, 1, 0) }, UIKit.HEAD)
+	UIKit.label(row, "+ " .. it.name, 16, UIKit.INK, { Position = UDim2.new(0, 40, 0, 0), Size = UDim2.new(1, -40, 1, 0) }, UIKit.HEAD)
 end
 
 drawReplies = function(th)
@@ -443,13 +434,13 @@ drawReplies = function(th)
 	end
 	if th.status == "offer" and th.offer then
 		UIKit.label(replyPanel, "TERM SHEET", 14, UIKit.CARD_MUTED, { Size = UDim2.new(1, 0, 0, 18) }, UIKit.HEAD)
-		UIKit.label(replyPanel, th.firm or "", 15, UIKit.CARD_TEXT, { Position = UDim2.new(0, 0, 0, 18), Size = UDim2.new(1, 0, 0, 18),
+		UIKit.label(replyPanel, th.firm or "", 16, UIKit.INK, { Position = UDim2.new(0, 0, 0, 18), Size = UDim2.new(1, 0, 0, 18),
 			TextTruncate = Enum.TextTruncate.AtEnd }, UIKit.HEAD)
 		UIKit.outlined(replyPanel, UIKit.money(th.offer.amount), 30, UIKit.GREEN, { Position = UDim2.new(0, 0, 0, 36), Size = UDim2.new(1, 0, 0, 34) })
 		if th.offer.item then itemLine(replyPanel, th.offer.item, 70) end
 		local take = UIKit.button(replyPanel, "TAKE IT", UIKit.GREEN, { Name = "Take", Position = UDim2.new(0, 0, 1, -94), Size = UDim2.new(1, 0, 0, 46) }, { textSize = 20, silent = true })
-		local push = UIKit.button(replyPanel, "PUSH FOR MORE", UIKit.GOLD, { Name = "Push", Position = UDim2.new(0, 0, 1, -44), Size = UDim2.new(0.62, -4, 0, 44) }, { textSize = 15, dark = true })
-		local pass = UIKit.button(replyPanel, "PASS", UIKit.MUTED, { Name = "Pass", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 1, -44), Size = UDim2.new(0.38, -4, 0, 44) }, { textSize = 15 })
+		local push = UIKit.button(replyPanel, "PUSH FOR MORE", UIKit.GOLD, { Name = "Push", Position = UDim2.new(0, 0, 1, -44), Size = UDim2.new(0.62, -4, 0, 44) }, { textSize = 16, dark = true })
+		local pass = UIKit.button(replyPanel, "PASS", UIKit.MUTED, { Name = "Pass", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 1, -44), Size = UDim2.new(0.38, -4, 0, 44) }, { textSize = 16 })
 		take.MouseButton1Click:Connect(function()
 			UIKit.sfx("coins")
 			if _G.SVCoinStream then pcall(_G.SVCoinStream, take.AbsolutePosition + take.AbsoluteSize / 2, 12) end
@@ -466,24 +457,25 @@ drawReplies = function(th)
 		if good and th.paid then
 			UIKit.outlined(replyPanel, "+" .. UIKit.money(th.paid), 30, UIKit.GREEN, { Position = UDim2.new(0, 0, 0, 22), Size = UDim2.new(1, 0, 0, 36) })
 		end
-		UIKit.label(replyPanel, "Another investor will text you in a few minutes. What you build is what you can tell them.", 14, UIKit.CARD_MUTED, {
+		UIKit.label(replyPanel, "Another investor will text you soon. Build more, and you have more to tell them.", 16, UIKit.MUTED_TEXT, {
 			Position = UDim2.new(0, 0, 0, good and 64 or 24), Size = UDim2.new(1, 0, 0, 80), TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top,
-		}, UIKit.HEAD)
+		}, UIKit.BODY)
 		return
 	end
 	if th.status ~= "wait" or not th.chips then
-		UIKit.label(replyPanel, ("Waiting for %s..."):format(th.first or "them"), 15, UIKit.CARD_MUTED, { Size = UDim2.new(1, 0, 0, 20) }, UIKit.HEAD)
+		UIKit.label(replyPanel, ("Waiting for %s..."):format(th.first or "them"), 16, UIKit.MUTED_TEXT, { Size = UDim2.new(1, 0, 0, 20) }, UIKit.BODY)
 		return
 	end
-	UIKit.label(replyPanel, ("YOUR REPLY  %d of 3"):format(math.min(th.round or 1, 3)), 14, UIKit.CARD_MUTED, { Size = UDim2.new(1, 0, 0, 18) }, UIKit.HEAD)
-	local y = 22
+	UIKit.label(replyPanel, ("YOUR REPLY  %d of 3"):format(math.min(th.round or 1, 3)), 14, UIKit.MUTED_TEXT, { Size = UDim2.new(1, 0, 0, 18) }, UIKit.HEAD)
+	-- v5: the replies are real buttons (paper, outline, lip), 44 px, in the reading font
+	local y = 20
 	for i, text in ipairs(th.chips) do
 		local b, lbl = UIKit.button(replyPanel, text, UIKit.CARD, { Name = "Reply" .. i, Position = UDim2.new(0, 0, 0, y), Size = UDim2.new(1, 0, 0, 44) },
-			{ textSize = 14, dark = true, radius = 12 })
+			{ textSize = 15, dark = true, radius = 12, stroke = UIKit.BLUE })
 		lbl.TextWrapped = true
 		lbl.TextXAlignment = Enum.TextXAlignment.Left
-		lbl.Font = BODY
-		lbl.TextSize = 14
+		UIKit.setFont(lbl, BODY)
+		lbl.TextSize = 15
 		lbl.Position = UDim2.new(0, 10, 0, 0)
 		lbl.Size = UDim2.new(1, -20, 1, -5)
 		b.MouseButton1Click:Connect(function()
@@ -493,22 +485,22 @@ drawReplies = function(th)
 			drawReplies(th)
 			send({ a = "reply", id = th.id, chip = i })
 		end)
-		y += 48
+		y += 46
 	end
 	-- or type it yourself (the power move: the model reads it)
 	local box = Instance.new("TextBox")
 	box.Name = "Type"
 	-- pinned to the panel's floor: three chips + the box fit the 204 px inside
-	box.Position = UDim2.new(0, 0, 1, -36)
-	box.Size = UDim2.new(1, -50, 0, 36)
+	box.Position = UDim2.new(0, 0, 1, -44)
+	box.Size = UDim2.new(1, -52, 0, 44)
 	box.BackgroundColor3 = UIKit.CARD
 	box.ClearTextOnFocus = false
 	box.PlaceholderText = "Or type your own..."
 	box.PlaceholderColor3 = UIKit.CARD_MUTED
 	box.Text = ""
 	box.TextColor3 = UIKit.CARD_TEXT
-	box.TextSize = 15
-	box.Font = BODY
+	box.TextSize = 16
+	box.FontFace = BODY
 	box.TextXAlignment = Enum.TextXAlignment.Left
 	box.TextTruncate = Enum.TextTruncate.AtEnd
 	box.Parent = replyPanel
@@ -520,7 +512,7 @@ drawReplies = function(th)
 	bs.Color = UIKit.CARD_LINE
 	bs.Thickness = 1.5
 	box:GetPropertyChangedSignal("Text"):Connect(function() if #box.Text > 120 then box.Text = box.Text:sub(1, 120) end end)
-	local sendBtn = UIKit.button(replyPanel, "", UIKit.BLUE, { Name = "Send", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 1, -36), Size = UDim2.new(0, 44, 0, 36) }, { radius = 12 })
+	local sendBtn = UIKit.button(replyPanel, "", UIKit.BLUE, { Name = "Send", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 1, -44), Size = UDim2.new(0, 46, 0, 44) }, { radius = 12 })
 	UIKit.icon(sendBtn, "up", 22, UIKit.TEXT, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, -2), Rotation = 90, ZIndex = sendBtn.ZIndex + 2 })
 	sendBtn.MouseButton1Click:Connect(function() if th.status == "wait" then sendTyped(th, box) end end)
 	box.FocusLost:Connect(function(enter) if enter and th.status == "wait" then sendTyped(th, box) end end)
@@ -538,15 +530,15 @@ local function openThread(th)
 	back.Text = "‹"
 	back.Font = UIKit.HEAD
 	back.TextSize = 34
-	back.TextColor3 = UIKit.BLUE
+	back.TextColor3 = UIKit.BLUE_DEEP
 	back.BackgroundTransparency = 1
-	back.Position = UDim2.new(0, 6, 0, 4)
-	back.Size = UDim2.new(0, 40, 0, 42)
+	back.Position = UDim2.new(0, 4, 0, 3)
+	back.Size = UDim2.new(0, 44, 0, 44)
 	back.Parent = top
 	back.MouseButton1Click:Connect(function() view.thread = nil; render() end)
 	local av = avatar(top, th, 36)
 	av.Position = UDim2.new(0, 48, 0, 7)
-	UIKit.label(top, th.name or "", 17, UIKit.CARD_TEXT, { Position = UDim2.new(0, 94, 0, 6), Size = UDim2.new(0.6, 0, 0, 22),
+	UIKit.label(top, th.name or "", 18, UIKit.INK, { Position = UDim2.new(0, 94, 0, 6), Size = UDim2.new(0.6, 0, 0, 22),
 		TextTruncate = Enum.TextTruncate.AtEnd }, UIKit.HEAD)
 	UIKit.label(top, ("AI investor  ·  %s"):format(th.firm or ""), 14, UIKit.CARD_MUTED, { Position = UDim2.new(0, 94, 0, 27), Size = UDim2.new(0.6, 0, 0, 18),
 		TextTruncate = Enum.TextTruncate.AtEnd }, UIKit.HEAD)
@@ -732,10 +724,10 @@ local function callScreen()
 	hs.Position = UDim2.new(0.5, 0, 0, 14)
 	UIKit.label(content, call.name or (other and other.DisplayName) or "", 22, UIKit.CARD_TEXT, { AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, 112), Size = UDim2.new(1, -20, 0, 26), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.HEAD)
-	callTimer = UIKit.label(content, "", 15, UIKit.CARD_MUTED, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 138),
+	callTimer = UIKit.label(content, "", 16, UIKit.MUTED_TEXT, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 138),
 		Size = UDim2.new(1, -20, 0, 20), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.HEAD)
 	if call.note then
-		UIKit.label(content, call.note, 13, UIKit.darker(UIKit.RED, 0.8), { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 262),
+		UIKit.label(content, call.note, 14, UIKit.RED_DEEP, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 262),
 			Size = UDim2.new(1, -20, 0, 18), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.HEAD)
 	end
 	if call.state == "ringing" then
@@ -800,7 +792,7 @@ local function callList()
 	local others = {}
 	for _, p in ipairs(Players:GetPlayers()) do if p ~= player then table.insert(others, p) end end
 	if #others == 0 then
-		local empty = UIKit.label(list, "Nobody else is in this server right now. When another founder joins, they show up here and you can call them.", 15, UIKit.CARD_MUTED, {
+		local empty = UIKit.label(list, "Nobody else is in this server right now. When another founder joins, they show up here and you can call them.", 16, UIKit.MUTED_TEXT, {
 			Size = UDim2.new(1, -40, 0, 60), TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top }, UIKit.HEAD)
 		local ep = Instance.new("UIPadding", empty)
 		ep.PaddingLeft = UDim.new(0, 10)
@@ -896,7 +888,7 @@ bnAvatarHolder.BackgroundTransparency = 1
 bnAvatarHolder.Position = UDim2.new(0, 12, 0.5, -20)
 bnAvatarHolder.Size = UDim2.new(0, 40, 0, 40)
 bnAvatarHolder.Parent = banner
-local bnTitle = UIKit.label(banner, "", 15, UIKit.CARD_TEXT, { Position = UDim2.new(0, 62, 0, 10), Size = UDim2.new(1, -74, 0, 20),
+local bnTitle = UIKit.label(banner, "", 16, UIKit.INK, { Position = UDim2.new(0, 62, 0, 10), Size = UDim2.new(1, -74, 0, 20),
 	TextTruncate = Enum.TextTruncate.AtEnd }, UIKit.HEAD)
 local bnText = UIKit.label(banner, "", 14, UIKit.CARD_MUTED, { Position = UDim2.new(0, 62, 0, 32), Size = UDim2.new(1, -74, 0, 36),
 	TextTruncate = Enum.TextTruncate.AtEnd, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top }, BODY)
@@ -971,7 +963,7 @@ ringBlock.Position = UDim2.new(0, 70, 0, 54)
 ringBlock.Size = UDim2.new(0, 110, 0, 20)
 ringBlock.BackgroundTransparency = 1
 ringBlock.Font = UIKit.HEAD
-ringBlock.TextSize = 13
+ringBlock.TextSize = 14
 ringBlock.TextXAlignment = Enum.TextXAlignment.Left
 ringBlock.TextColor3 = UIKit.darker(UIKit.RED, 0.8)
 ringBlock.Text = "Block caller"

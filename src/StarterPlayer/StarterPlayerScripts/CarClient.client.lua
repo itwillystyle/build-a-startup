@@ -276,10 +276,11 @@ UIKit.safe(gui)
 gui.Parent = player:WaitForChild("PlayerGui")
 
 -- the CAR button, bottom-right, left of where a phone's jump button sits
-local carBtn = UIKit.iconButton(gui, "car", "CAR", UIKit.GREEN, {
+-- v5: a paper tile like the rail's (green was a second "loud" next to WRITE CODE)
+local carBtn = UIKit.iconButton(gui, "car", "CAR", UIKit.PAPER, {
 	Name = "CarButton", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -190, 1, -20),
 	Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
-}, { iconSize = 28 })
+}, { iconSize = 28, dark = true, stroke = UIKit.INK_SOFT, captionSize = 14 })
 local function call()
 	if driving then return end
 	callCar:FireServer()
@@ -290,20 +291,23 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	if input.KeyCode == Enum.KeyCode.C and carBtn.Visible then call() end
 end)
 local function refreshBtn()
-	carBtn.Visible = player:GetAttribute("CarOwned") == true and not driving
+	-- v5: the decor sheet owns the bottom edge while it is open (it covered this button)
+	carBtn.Visible = player:GetAttribute("CarOwned") == true and not driving and player:GetAttribute("BuildModeOpen") ~= true
 end
 player:GetAttributeChangedSignal("CarOwned"):Connect(refreshBtn)
+player:GetAttributeChangedSignal("BuildModeOpen"):Connect(refreshBtn)
 
 -- the speedometer while driving
 local speedo = UIKit.card and UIKit.card(gui, {
-	Name = "Speedo", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -24), Size = UDim2.new(0, 190, 0, 56), Visible = false,
+	Name = "Speedo", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -24), Size = UDim2.new(0, 210, 0, 64), Visible = false,
 }) or Instance.new("Frame")
-local speedText = UIKit.label(speedo, "0", 30, UIKit.CARD_TEXT, {
-	Size = UDim2.new(0, 90, 1, 0), Position = UDim2.new(0, 14, 0, 0), TextXAlignment = Enum.TextXAlignment.Right,
+-- v5: two rows, so nothing overlaps: the key hints on top, the speed under them
+local speedText = UIKit.label(speedo, "0", 30, UIKit.INK, {
+	Size = UDim2.new(0, 96, 0, 34), Position = UDim2.new(0, 10, 0, 24), TextXAlignment = Enum.TextXAlignment.Right,
 }, UIKit.HEAD)
-UIKit.label(speedo, "MPH", 14, UIKit.CARD_MUTED, { Size = UDim2.new(0, 40, 1, -6), Position = UDim2.new(0, 108, 0, 4) }, UIKit.BOLD)
-local exitHint = UIKit.label(speedo, UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled and "JUMP = OUT" or "SPACE = OUT", 11, UIKit.CARD_MUTED, {
-	Size = UDim2.new(1, -16, 0, 14), Position = UDim2.new(0, 8, 1, -16), TextXAlignment = Enum.TextXAlignment.Right,
+UIKit.label(speedo, "MPH", 14, UIKit.MUTED_TEXT, { Size = UDim2.new(0, 40, 0, 24), Position = UDim2.new(0, 110, 0, 32) }, UIKit.BOLD)
+local exitHint = UIKit.label(speedo, UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled and "JUMP = OUT" or "SPACE = OUT", 14, UIKit.MUTED_TEXT, {
+	Size = UDim2.new(1, -16, 0, 16), Position = UDim2.new(0, 8, 0, 5), TextXAlignment = Enum.TextXAlignment.Right,
 }, UIKit.BOLD)
 local _ = exitHint
 -- v4.3 NITRO: a bar on the speedometer, and a button for phones
@@ -321,8 +325,8 @@ nitroFill.BorderSizePixel = 0
 nitroFill.Size = UDim2.new(1, 0, 1, 0)
 nitroFill.Parent = nitroBar
 Instance.new("UICorner", nitroFill).CornerRadius = UDim.new(1, 0)
-local nitroLbl = UIKit.label(speedo, UserInputService.KeyboardEnabled and "SHIFT = NITRO" or "NITRO", 11, UIKit.CARD_MUTED, {
-	Size = UDim2.new(1, -16, 0, 14), Position = UDim2.new(0, 8, 0, 2), TextXAlignment = Enum.TextXAlignment.Left,
+local nitroLbl = UIKit.label(speedo, UserInputService.KeyboardEnabled and "SHIFT = NITRO" or "NITRO", 14, UIKit.MUTED_TEXT, {
+	Size = UDim2.new(1, -16, 0, 16), Position = UDim2.new(0, 8, 0, 5), TextXAlignment = Enum.TextXAlignment.Left,
 }, UIKit.BOLD)
 local nitroBtn = UIKit.button(gui, "NITRO", UIKit.BLUE, {
 	Name = "NitroButton", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -190, 1, -20), Size = UDim2.new(0, 110, 0, 70),
@@ -338,7 +342,7 @@ RunService.RenderStepped:Connect(function()
 		local ready = math.clamp(1 - (nitroReadyAt - os.clock()) / NITRO.recharge, 0, 1)
 		nitroFill.Size = UDim2.new(os.clock() < nitroUntil and math.clamp((nitroUntil - os.clock()) / NITRO.time, 0, 1) or ready, 0, 1, 0)
 		nitroFill.BackgroundColor3 = (os.clock() < nitroUntil and UIKit.ORANGE) or (ready >= 1 and UIKit.BLUE or UIKit.CARD_MUTED)
-		nitroLbl.TextColor3 = ready >= 1 and UIKit.BLUE or UIKit.CARD_MUTED
+		nitroLbl.TextColor3 = ready >= 1 and UIKit.BLUE_DEEP or UIKit.MUTED_TEXT
 		-- 1 stud = 0.28 m; mph for the feel of it
 		speedText.Text = tostring(math.floor(math.abs(driving.v) * 0.28 * 2.237 * 1.6 + 0.5))
 	end
@@ -364,7 +368,7 @@ local panel, body, closeBtn = UIKit.menu(dg, "VALLEY MOTORS", Color3.fromRGB(38,
 local fit = Instance.new("UIScale", panel)
 local function refit()
 	local vp = camera.ViewportSize
-	fit.Scale = math.min(1, (vp.Y - 40) / 380, (vp.X * 0.55) / 360)
+	fit.Scale = math.min(1, (vp.Y - 24) / math.max(1, panel.Size.Y.Offset), (vp.X * 0.55) / 360)
 end
 camera:GetPropertyChangedSignal("ViewportSize"):Connect(refit)
 refit()
@@ -384,18 +388,18 @@ local function showDealer(st)
 			local row = Instance.new("Frame")
 			row.Name = "Car_" .. c.id
 			row.LayoutOrder = i
-			row.Size = UDim2.new(1, 0, 0, 50)
-			row.BackgroundColor3 = c.id == st.focus and Color3.fromRGB(255, 244, 214) or UIKit.CARD
+			row.Size = UDim2.new(1, 0, 0, 54)
+			row.BackgroundColor3 = c.id == st.focus and UIKit.GOLD_LIGHT or UIKit.CARD
 			row.Parent = body
 			Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
 			local stroke = Instance.new("UIStroke", row)
 			stroke.Color = UIKit.CARD_LINE
-			UIKit.label(row, c.name, 17, UIKit.CARD_TEXT, { Size = UDim2.new(0, 170, 0, 22), Position = UDim2.new(0, 10, 0, 5) }, UIKit.HEAD)
+			UIKit.label(row, c.name, 18, UIKit.INK, { Size = UDim2.new(0, 170, 0, 22), Position = UDim2.new(0, 10, 0, 5) }, UIKit.HEAD)
 			-- top speed as a bar
 			local bar = Instance.new("Frame")
-			bar.BackgroundColor3 = Color3.fromRGB(226, 230, 238)
+			bar.BackgroundColor3 = UIKit.SURFACE_2
 			bar.Size = UDim2.new(0, 150, 0, 6)
-			bar.Position = UDim2.new(0, 10, 0, 33)
+			bar.Position = UDim2.new(0, 10, 0, 36)
 			bar.BorderSizePixel = 0
 			bar.Parent = row
 			Instance.new("UICorner", bar).CornerRadius = UDim.new(1, 0)
@@ -405,11 +409,11 @@ local function showDealer(st)
 			fill.Position = UDim2.new(0, 0, 0, 0)
 			fill.Parent = bar
 			local label, color, enabled
-			if c.driving then label, color, enabled = "DRIVING", Color3.fromRGB(200, 206, 216), false
+			if c.driving then label, color, enabled = "DRIVING", UIKit.MUTED, false
 			elseif c.owned then label, color, enabled = "DRIVE", UIKit.BLUE, true
 			elseif st.cash >= c.price then label, color, enabled = money(c.price), UIKit.GREEN, true
-			else label, color, enabled = money(c.price), Color3.fromRGB(200, 206, 216), false end
-			local b, t = UIKit.button(row, label, color, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.new(0, 116, 0, 38) })
+			else label, color, enabled = money(c.price), UIKit.MUTED, false end
+			local b, t = UIKit.button(row, label, color, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.new(0, 124, 0, 44) }, { textSize = 18 })
 			if t then t.Text = label end
 			if not t then UIKit.label(b, label, 16, UIKit.TEXT, { Size = UDim2.new(1, 0, 1, -5), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.HEAD) end
 			if enabled then
@@ -430,6 +434,11 @@ local function showDealer(st)
 			end
 		end
 	end
+	-- v5: as tall as its rows (a fixed 380 px ran off a phone), then fit to the screen
+	local rows = 0
+	for _, ch in ipairs(body:GetChildren()) do if ch:IsA("GuiObject") then rows += 1 end end
+	panel.Size = UDim2.new(0, 360, 0, 52 + 26 + rows * 60)
+	refit()
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 	openedAt = root and root.Position
 	dg.Enabled = true

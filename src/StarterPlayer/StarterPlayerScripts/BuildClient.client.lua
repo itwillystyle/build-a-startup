@@ -112,7 +112,7 @@ local function makeRow(room, i)
 		Name = "RoomName", Position = UDim2.new(0, ROW_H + 2, 0, 7), Size = UDim2.new(1, -(ROW_H + 132), 0, 22),
 		TextTruncate = Enum.TextTruncate.AtEnd,
 	}, UIKit.HEAD)
-	local blurb = UIKit.label(row, room.blurb or "", 15, UIKit.CARD_MUTED, {
+	local blurb = UIKit.label(row, room.blurb or "", 16, UIKit.MUTED_TEXT, {
 		Name = "RoomBlurb", Position = UDim2.new(0, ROW_H + 2, 0, 30), Size = UDim2.new(1, -(ROW_H + 132), 0, 20),
 		TextTruncate = Enum.TextTruncate.AtEnd,
 	}, UIKit.HEAD)

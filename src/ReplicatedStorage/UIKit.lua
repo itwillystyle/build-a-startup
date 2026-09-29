@@ -29,7 +29,7 @@ UIKit.LINE_LIGHT = rgb(220, 212, 196)   -- dividers and card outlines on paper
 UIKit.MUTED_TEXT = rgb(106, 100, 86)    -- secondary text on paper (5.6:1)
 
 UIKit.GREEN = rgb(60, 203, 108)         -- GO: the next action, money gained, ready
-UIKit.GREEN_DEEP = rgb(29, 134, 69)
+UIKit.GREEN_DEEP = rgb(22, 118, 58)       -- 5:1 on the menu surface (29,134,69 was 4.1)
 UIKit.GREEN_LIGHT = rgb(221, 247, 230)
 UIKit.MONEY = rgb(91, 227, 142)         -- the cash number (always ink-outlined)
 UIKit.GOLD = rgb(255, 200, 61)          -- rewards, goals, your own row
@@ -417,6 +417,9 @@ UIKit.ART = {
 	cafe = "rbxassetid://85094953360524",
 	servers = "rbxassetid://85225022240505",
 	check = "rbxassetid://73092520537968",
+	-- v5 (29 Sep UI pass): the two rail/corner buttons that were still flat glyphs
+	gift = "rbxassetid://101002817721964",      -- DAILY
+	trophy = "rbxassetid://110913338783631",    -- RANKS
 }
 
 -- a rendered icon (never tinted: it carries its own colour); falls back to the glyph
@@ -502,8 +505,10 @@ function UIKit.setRailActive(b, on)
 	UIKit.setButtonColor(b, on and UIKit.light(accent) or UIKit.PAPER)
 	local st = b:FindFirstChildOfClass("UIStroke")
 	if st then st.Color = on and UIKit.deep(accent) or UIKit.INK_SOFT end
+	-- the caption stays ink: the tint and the outline say "open" (a deep-orange
+	-- caption on light orange measured 4.3:1)
 	local t = b:FindFirstChild("Label")
-	if t then t.TextColor3 = on and UIKit.deep(accent) or UIKit.INK end
+	if t then t.TextColor3 = UIKit.INK end
 end
 
 -- the tile shows "open" exactly while its menu is (every close path, including
@@ -554,6 +559,42 @@ local function fitColumn(gui, frame, layout, top, bottom, minScale)
 	end)
 end
 
+--[[ v5 THE RAIL ON A PHONE. Measured in Studio's iPhone XR simulator (801 x 392):
+a single column of five tiles ran down to y 381 and shrank to 0.88 (12 px
+captions), and its bottom tiles sat exactly on the movement thumbstick's resting
+spot (x 29-103, y 299-373), where a thumb lands to walk. On a short screen the
+rail is a 2-column grid at full size instead: three rows end at y ~262, clear of
+the thumbstick. A tall screen keeps the single column. The layout follows the
+screen (a phone can rotate, a desktop window can be resized). ]]
+local RAIL_GRID_BELOW = 520     -- viewport height under which the rail becomes a grid
+local function railLayout(g, f)
+	local cam = workspace.CurrentCamera
+	local grid = cam.ViewportSize.Y < RAIL_GRID_BELOW
+	local want = grid and "UIGridLayout" or "UIListLayout"
+	local cur = f:FindFirstChildWhichIsA("UIGridStyleLayout")
+	if cur and cur.ClassName == want then return end
+	if cur then cur:Destroy() end
+	local fs = f:FindFirstChild("FitScale")
+	if grid then
+		local l = Instance.new("UIGridLayout")
+		l.CellSize = UDim2.new(0, UIKit.RAIL - 2, 0, UIKit.RAIL - 2)
+		l.CellPadding = UDim2.new(0, 8, 0, 8)
+		l.FillDirectionMaxCells = 2
+		l.SortOrder = Enum.SortOrder.LayoutOrder
+		l.Parent = f
+		f.Size = UDim2.new(0, 2 * (UIKit.RAIL - 2) + 8, 1, -76)
+		if fs then fs.Scale = 1 end
+		f:SetAttribute("Grid", true)
+	else
+		local l = Instance.new("UIListLayout")
+		l.Padding = UDim.new(0, 8)
+		l.SortOrder = Enum.SortOrder.LayoutOrder
+		l.Parent = f
+		f.Size = UDim2.new(0, 90, 1, -76)
+		f:SetAttribute("Grid", false)
+	end
+end
+
 function UIKit.rail()
 	local pg = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
 	local g = pg:FindFirstChild("Rail")
@@ -568,18 +609,54 @@ function UIKit.rail()
 		local f = Instance.new("Frame")
 		f.Name = "Column"
 		f.BackgroundTransparency = 1
-		f.Position = UDim2.new(0, 12, 0, 64)
+		f.Position = UDim2.new(0, 12, 0, 66)      -- v5: 66, so a first-row badge clears the 58 px top bar
 		f.Size = UDim2.new(0, 90, 1, -76)
 		f.Parent = g
-		local l = Instance.new("UIListLayout")
-		l.Padding = UDim.new(0, 8)
-		l.SortOrder = Enum.SortOrder.LayoutOrder
-		l.Parent = f
-		fitColumn(g, f, l, 64, 10, 0.8)     -- v5: never below 0.8 (0.55 made 14 px captions 8 px)
+		railLayout(g, f)
+		workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function() railLayout(g, f) end)
+		-- the single column still shrinks as one piece if it runs out of room (never below 0.8);
+		-- the grid never needs to
+		local sc = Instance.new("UIScale")
+		sc.Name = "FitScale"
+		sc.Parent = f
+		task.spawn(function()
+			while f.Parent do
+				local l = f:FindFirstChildWhichIsA("UIGridStyleLayout")
+				if l and l:IsA("UIListLayout") then
+					local s = sc.Scale
+					local total, n = 0, 0
+					for _, c in ipairs(f:GetChildren()) do
+						if c:IsA("GuiObject") and c.Visible then total += c.AbsoluteSize.Y / s; n += 1 end
+					end
+					total += math.max(0, n - 1) * l.Padding.Offset
+					local room = g.AbsoluteSize.Y - 64 - 10
+					local want = (total > 0 and room > 0) and math.clamp(room / total, 0.8, 1) or 1
+					if math.abs(want - s) > 0.01 then sc.Scale = want end
+				elseif sc.Scale ~= 1 then
+					sc.Scale = 1
+				end
+				task.wait(0.5)
+			end
+		end)
 	end
 	return g:WaitForChild("Column")
 end
 
+-- the rail's right edge in screen pixels (other pieces keep clear of it)
+function UIKit.railRight()
+	local pg = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
+	local col = pg and pg:FindFirstChild("Rail") and pg.Rail:FindFirstChild("Column")
+	if not col then return 12 + UIKit.RAIL end
+	local sc = col:FindFirstChild("FitScale")
+	local w = 0
+	for _, c in ipairs(col:GetChildren()) do
+		if c:IsA("GuiObject") and c.Visible then
+			w = math.max(w, c.AbsolutePosition.X + c.AbsoluteSize.X - col.AbsolutePosition.X)
+		end
+	end
+	if w == 0 then w = UIKit.RAIL * (sc and sc.Scale or 1) end
+	return col.AbsolutePosition.X + w
+end
 -- a red count badge on a button's top-right corner (both references use one)
 function UIKit.badge(button)
 	local b = Instance.new("Frame")
@@ -798,6 +875,25 @@ function UIKit.menu(parent, title, accent, props, opts)
 		TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 2,
 	}, UIKit.HEAD)
 	paintLabel(t, accent)
+	--[[ v5: on a phone a full-height menu reaches the top of the screen, where
+	Roblox draws its own logo / menu / chat buttons (top-left, ~170 x 58) above
+	every game GUI. Shrinking the menu to dodge them would push its text under
+	14 px, so instead the title steps right of that corner whenever the menu
+	reaches it. ]]
+	local GuiService = game:GetService("GuiService")
+	local function dodge()
+		local inset = GuiService:GetGuiInset().Y
+		local pos = f.AbsolutePosition
+		local sc = f:FindFirstChildOfClass("UIScale")
+		local k = (sc and sc.Scale > 0) and sc.Scale or 1
+		local shift = 0
+		if pos.Y + inset < 58 and pos.X < 176 then shift = math.max(0, (176 - pos.X) / k - 6) end
+		t.Position = UDim2.new(0, 18 + shift, 0, 0)
+		t.Size = UDim2.new(1, -(84 + shift), 1, -3)
+	end
+	f:GetPropertyChangedSignal("AbsolutePosition"):Connect(dodge)
+	f:GetPropertyChangedSignal("AbsoluteSize"):Connect(dodge)
+	task.defer(dodge)
 	local close
 	if not opts.noClose then
 		close = Instance.new("TextButton")

@@ -62,8 +62,10 @@ if popupRemote then
 		local at = anchorPos(anchor)
 		local cam = workspace.CurrentCamera
 		if at and cam and (cam.CFrame.Position - at).Magnitude > NEAR then return end
+		-- v5: a sticker outline (a 1 px TextStroke vanished over a bright floor), and
+		-- room for a whole sentence ("No free seat · build or upgrade a room" was cut off at 240 px)
 		local bb = Instance.new("BillboardGui")
-		bb.Size = UDim2.new(0, 240, 0, 44)
+		bb.Size = UDim2.new(0, 420, 0, 72)
 		bb.StudsOffset = Vector3.new(0, 3.5, 0)
 		bb.AlwaysOnTop = true
 		bb.MaxDistance = NEAR
@@ -73,13 +75,20 @@ if popupRemote then
 		t.BackgroundTransparency = 1
 		t.Text = tostring(text)
 		t.TextColor3 = typeof(color) == "Color3" and color or GOOD
-		t.TextStrokeTransparency = 0.15
+		t.TextStrokeTransparency = 1
 		t.TextSize = 28
+		t.TextWrapped = true
 		t.Font = Enum.Font.FredokaOne
 		t.Parent = bb
+		local st = Instance.new("UIStroke")
+		st.Color = Color3.fromRGB(20, 22, 30)
+		st.Thickness = 3
+		st.LineJoinMode = Enum.LineJoinMode.Round
+		st.Parent = t
 		bb.Parent = anchor
 		TweenService:Create(bb, TweenInfo.new(1.1), { StudsOffset = Vector3.new(0, 6.5, 0) }):Play()
-		TweenService:Create(t, TweenInfo.new(1.1), { TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
+		TweenService:Create(t, TweenInfo.new(1.1), { TextTransparency = 1 }):Play()
+		TweenService:Create(st, TweenInfo.new(1.1), { Transparency = 1 }):Play()
 		task.delay(1.2, function() bb:Destroy() end)
 	end)
 end

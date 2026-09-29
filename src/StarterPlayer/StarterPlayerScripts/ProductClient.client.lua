@@ -111,7 +111,7 @@ for i = 1, 3 do
 	bl.BackgroundTransparency = 1
 	bl.TextColor3 = MUTED
 	bl.TextSize = 14
-	bl.Font = Enum.Font.Gotham
+	UIKit.setFont(bl, UIKit.BODY)
 	bl.TextWrapped = true
 	bl.Parent = b
 
@@ -122,8 +122,8 @@ for i = 1, 3 do
 	shp.Size = UDim2.new(1, -16, 0, 32)
 	shp.BackgroundTransparency = 1
 	shp.TextColor3 = INK
-	shp.TextSize = 13
-	shp.Font = Enum.Font.GothamBold
+	shp.TextSize = 14
+	UIKit.setFont(shp, UIKit.BOLD)
 	shp.TextWrapped = true
 	shp.RichText = true
 	shp.Parent = b
@@ -133,8 +133,8 @@ for i = 1, 3 do
 	fit.Position = UDim2.new(0, 8, 0, 122)
 	fit.Size = UDim2.new(1, -16, 0, 26)
 	fit.BackgroundTransparency = 1
-	fit.TextSize = 13
-	fit.Font = Enum.Font.GothamBold
+	fit.TextSize = 14
+	UIKit.setFont(fit, UIKit.BOLD)
 	fit.TextWrapped = true
 	fit.Parent = b
 
@@ -219,8 +219,8 @@ productReady.OnClientEvent:Connect(function(options)
 		c.nm.TextXAlignment = launchCard and Enum.TextXAlignment.Left or Enum.TextXAlignment.Center
 		c.shp.Position = launchCard and UDim2.new(0, 70, 0, 40) or UDim2.new(0, 8, 0, 88)
 		c.shp.Size = launchCard and UDim2.new(1, -82, 0, 22) or UDim2.new(1, -16, 0, 32)
-		c.shp.Font = launchCard and UIKit.HEAD or Enum.Font.GothamBold
-		c.shp.TextSize = launchCard and 17 or 13
+		UIKit.setFont(c.shp, launchCard and UIKit.HEAD or UIKit.BOLD)
+		c.shp.TextSize = launchCard and 17 or 14
 		c.ic.Size = launchCard and UDim2.new(0, 42, 0, 42) or c.ic.Size
 		c.ic.Position = launchCard and UDim2.new(0, 14, 0.5, 0) or c.ic.Position
 		c.shp.TextXAlignment = launchCard and Enum.TextXAlignment.Left or Enum.TextXAlignment.Center

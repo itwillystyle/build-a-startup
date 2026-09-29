@@ -118,14 +118,14 @@ tsc.MaxTextSize = 30
 tsc.MinTextSize = 18
 local titleScale = Instance.new("UIScale", title)
 
-local who = UIKit.label(card, "", 19, UIKit.CARD_TEXT, {
+local who = UIKit.label(card, "", 20, UIKit.INK, {
 	Name = "Who", Position = UDim2.new(0, TEXT_X, 0, 50), Size = UDim2.new(1, -(TEXT_X + 12), 0, 24),
 	TextScaled = true,
 }, UIKit.HEAD)
 local wsc = Instance.new("UITextSizeConstraint", who)
-wsc.MaxTextSize = 19
+wsc.MaxTextSize = 20
 wsc.MinTextSize = 14
-local odds = UIKit.label(card, "", 15, UIKit.CARD_MUTED, {
+local odds = UIKit.label(card, "", 16, UIKit.MUTED_TEXT, {
 	Name = "Odds", Position = UDim2.new(0, TEXT_X, 0, 76), Size = UDim2.new(1, -(TEXT_X + 12), 0, 18),
 	TextTruncate = Enum.TextTruncate.AtEnd,
 }, UIKit.HEAD)

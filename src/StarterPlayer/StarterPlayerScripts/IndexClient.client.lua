@@ -71,16 +71,19 @@ gui.Enabled = false
 UIKit.safe(gui)
 gui.Parent = player:WaitForChild("PlayerGui")
 
--- LANDSCAPE LAYOUT: a phone held sideways is ~390 px tall, so the grid sits
--- on the left and the reward text in a column on the right (a footer made
--- the panel 554 px tall and shrank every word to 10 px on a phone)
-local CELL, GAP, ROW_W, CHECK_W = 50, 5, 118, 26
-local COLHEAD_H = 56
-local GRID_W = ROW_W + 5 * (CELL + GAP) + CHECK_W
-local SIDE_W = 190
-local HEAD_H = 44
-local W = GRID_W + 16 + SIDE_W + 28
-local H = HEAD_H + 10 + COLHEAD_H + 5 * (CELL + GAP) + 22 + 10
+-- LANDSCAPE LAYOUT (v5). A phone held sideways is 360-390 px tall and every
+-- menu taller than that is scaled down (the v4 Index shrank its 14 px words to
+-- 11 px). So: 46 px rows, column heads that are the talent's own pill (sized so
+-- the longest name fits at 14 px) with its worth under it, the odds on tap
+-- instead of in a legend, and the reward in a short side column.
+local CELL_W, CELL_H, GAP, ROW_W = 62, 46, 4, 124
+local PILL_H, MULT_H = 24, 18
+local COLHEAD_H = PILL_H + 2 + MULT_H + 6
+local GRID_W = ROW_W + 5 * (CELL_W + GAP)
+local SIDE_W = 196
+local HEAD_H = 48
+local W = GRID_W + 14 + SIDE_W + 28
+local H = HEAD_H + 10 + COLHEAD_H + 5 * (CELL_H + GAP) + 10
 
 local panel, body, close, title = UIKit.menu(gui, "TALENT INDEX", UIKit.BLUE, {
 	Name = "Panel", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0),
@@ -88,52 +91,41 @@ local panel, body, close, title = UIKit.menu(gui, "TALENT INDEX", UIKit.BLUE, {
 }, { headerHeight = HEAD_H })
 body.Position = UDim2.new(0, 14, 0, HEAD_H + 10)
 body.Size = UDim2.new(1, -28, 1, -(HEAD_H + 20))
-local fit = Instance.new("UIScale", panel)   -- shrink to fit a phone
+local fit = Instance.new("UIScale", panel)   -- shrink to fit a small phone (only below ~360 px tall)
 local function refit()
 	local vp = workspace.CurrentCamera.ViewportSize
-	fit.Scale = math.min(1, (vp.X - 24) / W, (vp.Y - 24) / H)
+	fit.Scale = math.min(1, (vp.X - 24) / W, (vp.Y - 16) / H)
 end
 refit()
 workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(refit)
 
-local count = UIKit.label(panel:FindFirstChild("Header"), "0 / 25", 20, UIKit.TEXT, {
-	Name = "Count", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -60, 0.5, 0), Size = UDim2.new(0, 90, 0, 28),
+local count = UIKit.label(panel:FindFirstChild("Header"), "0 / 25", 22, UIKit.TEXT, {
+	Name = "Count", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -62, 0.5, -1), Size = UDim2.new(0, 90, 0, 28),
 	TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 3,
 }, UIKit.HEAD)
+UIKit.paintLabel(count, UIKit.BLUE)
 
--- column heads: the talent as a coloured pill, then its worth and its odds
+-- column heads: the talent's pill, then what it is worth; a full column ticks its pill
 local colChecks = {}
 for c, t in ipairs(TALENTS) do
-	local x = ROW_W + (c - 1) * (CELL + GAP)
+	local x = ROW_W + (c - 1) * (CELL_W + GAP)
 	local pill = Instance.new("Frame")
 	pill.Name = "Head_" .. t.name
 	pill.Position = UDim2.new(0, x, 0, 0)
-	pill.Size = UDim2.new(0, CELL, 0, 22)
+	pill.Size = UDim2.new(0, CELL_W, 0, PILL_H)
 	pill.BackgroundColor3 = t.color
 	pill.BorderSizePixel = 0
 	pill.Parent = body
 	Instance.new("UICorner", pill).CornerRadius = UDim.new(1, 0)
-	local lbl = UIKit.label(pill, t.name, 14, UIKit.INK, { Size = UDim2.new(1, -4, 1, 0), Position = UDim2.new(0, 2, 0, 0),
-		TextXAlignment = Enum.TextXAlignment.Center, TextScaled = true }, UIKit.HEAD)
-	local lc = Instance.new("UITextSizeConstraint", lbl)
-	lc.MaxTextSize = 14
-	local multLbl = UIKit.label(body, t.mult, 14, UIKit.darker(UIKit.GREEN, 0.75), {
-		Position = UDim2.new(0, x - 3, 0, 23), Size = UDim2.new(0, CELL + 6, 0, 16), TextXAlignment = Enum.TextXAlignment.Center,
-		TextScaled = true,
-	}, UIKit.HEAD)
-	local oddsLbl = UIKit.label(body, t.odds, 14, UIKit.CARD_MUTED, {
-		Position = UDim2.new(0, x - 3, 0, 39), Size = UDim2.new(0, CELL + 6, 0, 16), TextXAlignment = Enum.TextXAlignment.Center,
-		TextScaled = true,
-	}, UIKit.HEAD)
-	for _, l in ipairs({ oddsLbl, multLbl }) do
-		local c = Instance.new("UITextSizeConstraint", l)
-		c.MaxTextSize = 14
-		c.MinTextSize = 11
-	end
-	-- under the grid: a tick when the whole column is filled
-	colChecks[c] = UIKit.icon(body, "check", 22, UIKit.GREEN, {
-		AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0, x + CELL / 2, 0, COLHEAD_H + 5 * (CELL + GAP)), Visible = false,
-	})
+	local ps = Instance.new("UIStroke", pill)
+	ps.Color = UIKit.darker(t.color, 0.6)
+	ps.Thickness = 2
+	ps.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	UIKit.label(pill, t.name, 14, UIKit.INK, { Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.HEAD)
+	UIKit.label(body, t.mult .. " money", 14, UIKit.GREEN_DEEP, {
+		Position = UDim2.new(0, x - 4, 0, PILL_H + 2), Size = UDim2.new(0, CELL_W + 8, 0, MULT_H), TextXAlignment = Enum.TextXAlignment.Center,
+	}, UIKit.BODY)
+	colChecks[c] = UIKit.art(pill, "check", 26, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -2, 0, 2), ZIndex = 3, Visible = false })
 end
 
 local cells = {}
@@ -141,94 +133,98 @@ local rowChecks = {}
 local hint     -- assigned below; cell taps write to it
 local showHint
 for r, role in ipairs(ROLES) do
-	local y = COLHEAD_H + (r - 1) * (CELL + GAP)
-	UIKit.icon(body, UIKit.ROLE_ICON[role.key] or "person", 24, UIKit.CARD_TEXT, {
-		AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, 0, y + CELL / 2),
+	local y = COLHEAD_H + (r - 1) * (CELL_H + GAP)
+	UIKit.icon(body, UIKit.ROLE_ICON[role.key] or "person", 24, UIKit.INK_SOFT, {
+		AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, 0, y + CELL_H / 2),
 	})
-	UIKit.label(body, role.name, 16, UIKit.CARD_TEXT, {
-		Position = UDim2.new(0, 32, 0, y), Size = UDim2.new(0, ROW_W - 34, 0, CELL), TextTruncate = Enum.TextTruncate.AtEnd,
+	UIKit.label(body, role.name, 16, UIKit.INK, {
+		Position = UDim2.new(0, 30, 0, y), Size = UDim2.new(0, ROW_W - 34, 0, CELL_H), TextTruncate = Enum.TextTruncate.AtEnd,
 	}, UIKit.HEAD)
-	rowChecks[r] = UIKit.icon(body, "check", 22, UIKit.GREEN, {
-		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, ROW_W + 5 * (CELL + GAP) + CHECK_W / 2 - 2, 0, y + CELL / 2), Visible = false,
+	rowChecks[r] = UIKit.art(body, "check", 26, {
+		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, ROW_W - 12, 0, y + 10), ZIndex = 3, Visible = false,
 	})
 	for c, t in ipairs(TALENTS) do
 		local cell = Instance.new("TextButton")
 		cell.Name = role.key .. ":" .. c
 		cell.Text = ""
 		cell.AutoButtonColor = false
-		cell.Position = UDim2.new(0, ROW_W + (c - 1) * (CELL + GAP), 0, y)
-		cell.Size = UDim2.new(0, CELL, 0, CELL)
+		cell.Position = UDim2.new(0, ROW_W + (c - 1) * (CELL_W + GAP), 0, y)
+		cell.Size = UDim2.new(0, CELL_W, 0, CELL_H)
 		cell.BackgroundColor3 = UIKit.SURFACE_2
 		cell.BorderSizePixel = 0
 		cell.Parent = body
-		Instance.new("UICorner", cell).CornerRadius = UDim.new(0, 10)
+		Instance.new("UICorner", cell).CornerRadius = UDim.new(0, UIKit.RADIUS.md)
 		local st = Instance.new("UIStroke", cell)
 		st.Thickness = 2
 		st.Color = UIKit.CARD_LINE
 		st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-		local ic = UIKit.icon(cell, UIKit.ROLE_ICON[role.key] or "person", 28, UIKit.CARD_MUTED, {
+		local ic = UIKit.icon(cell, UIKit.ROLE_ICON[role.key] or "person", 26, UIKit.CARD_MUTED, {
 			AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0),
 		})
+		local sc = Instance.new("UIScale", cell)
 		cells[cell.Name] = { frame = cell, stroke = st, icon = ic, talent = t, role = role }
-		cell.MouseButton1Down:Connect(function() UIKit.sfx("tap") end)
+		cell.MouseButton1Down:Connect(function()
+			UIKit.sfx("tap")
+			sc.Scale = 0.92
+			TweenService:Create(sc, TweenInfo.new(0.18, Enum.EasingStyle.Quint), { Scale = 1 }):Play()
+		end)
 		cell.MouseButton1Click:Connect(function()
 			local on = cells[cell.Name].on
 			if on then
-				showHint(("You have hired a %s %s. They make %s money."):format(t.name, string.upper(role.name), t.mult))
+				showHint(("You have a %s %s. %s money."):format(t.name, string.upper(role.name), t.mult), t.color)
 			else
-				showHint(("%s %s: %s"):format(t.name, string.upper(role.name), t.where))
+				showHint(("%s %s: %s"):format(t.name, string.upper(role.name), t.where), t.color)
 			end
 		end)
 	end
 end
 
--- the side column: what the collection pays now, and the next thing to do
+-- the side column: what the collection pays you now, and the next line to finish
 local side = Instance.new("Frame")
 side.Name = "Side"
-side.Position = UDim2.new(0, GRID_W + 16, 0, 0)
+side.Position = UDim2.new(0, GRID_W + 14, 0, 0)
 side.Size = UDim2.new(0, SIDE_W, 1, 0)
 side.BackgroundColor3 = UIKit.CARD
 side.BorderSizePixel = 0
 side.Parent = body
-Instance.new("UICorner", side).CornerRadius = UDim.new(0, 12)
+Instance.new("UICorner", side).CornerRadius = UDim.new(0, UIKit.RADIUS.md)
 local sst = Instance.new("UIStroke", side)
 sst.Color = UIKit.CARD_LINE
-sst.Thickness = 1.5
+sst.Thickness = 2
 local spad = Instance.new("UIPadding", side)
 spad.PaddingLeft, spad.PaddingRight, spad.PaddingTop = UDim.new(0, 12), UDim.new(0, 12), UDim.new(0, 12)
-UIKit.label(side, "FULL ROW OR COLUMN", 14, UIKit.CARD_MUTED, { Size = UDim2.new(1, 0, 0, 16) }, UIKit.HEAD)
-UIKit.outlined(side, ("+%d%% money"):format(LINE_BONUS), 24, UIKit.GREEN, { Position = UDim2.new(0, 0, 0, 18), Size = UDim2.new(1, 0, 0, 30) })
-UIKit.label(side, "forever, for each one", 14, UIKit.CARD_MUTED, { Position = UDim2.new(0, 0, 0, 48), Size = UDim2.new(1, 0, 0, 16) }, UIKit.HEAD)
-local bonus = UIKit.label(side, "", 17, UIKit.darker(UIKit.GREEN, 0.75), {
-	Name = "Bonus", Position = UDim2.new(0, 0, 0, 80), Size = UDim2.new(1, 0, 0, 44), TextWrapped = true,
-	TextYAlignment = Enum.TextYAlignment.Top,
+UIKit.label(side, "EVERY FULL LINE", 14, UIKit.MUTED_TEXT, { Size = UDim2.new(1, 0, 0, 18) }, UIKit.HEAD)
+UIKit.outlined(side, ("+%d%% money"):format(LINE_BONUS), 26, UIKit.MONEY, { Position = UDim2.new(0, 0, 0, 20), Size = UDim2.new(1, 0, 0, 32) })
+local bonus = UIKit.label(side, "", 16, UIKit.GREEN_DEEP, {
+	Name = "Bonus", Position = UDim2.new(0, 0, 0, 58), Size = UDim2.new(1, 0, 0, 22),
 }, UIKit.HEAD)
--- the legend for the column heads, pinned to the bottom of the side column
-UIKit.label(side, "x2.5 = the money they make\n1 in 25 = how rare\nTap a square to learn more", 14, UIKit.CARD_MUTED, {
-	Name = "Legend", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, -10), Size = UDim2.new(1, 0, 0, 72),
-	TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Bottom,
-}, UIKit.HEAD)
-hint = UIKit.label(side, "", 15, UIKit.CARD_TEXT, {
-	Name = "Hint", Position = UDim2.new(0, 0, 0, 124), Size = UDim2.new(1, 0, 1, -216),
+local rule = Instance.new("Frame")
+rule.BackgroundColor3 = UIKit.LINE_LIGHT
+rule.BorderSizePixel = 0
+rule.Position = UDim2.new(0, 0, 0, 88)
+rule.Size = UDim2.new(1, 0, 0, 2)
+rule.Parent = side
+hint = UIKit.label(side, "", 16, UIKit.INK_SOFT, {
+	Name = "Hint", Position = UDim2.new(0, 0, 0, 100), Size = UDim2.new(1, 0, 1, -112),
 	TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top,
-}, UIKit.HEAD)
+}, UIKit.BODY)
 
 -- ============ STATE ============
 
 local nextLine = ""
 local hintSerial = 0
 local hintActive = false
-showHint = function(text)
+showHint = function(text, color)
 	hintSerial += 1
 	local mine = hintSerial
 	hintActive = true
 	hint.Text = text
-	hint.TextColor3 = UIKit.BLUE
+	hint.TextColor3 = color and UIKit.darker(color, 0.55) or UIKit.BLUE_DEEP
 	task.delay(5, function()
 		if hintSerial == mine then
 			hintActive = false
 			hint.Text = nextLine
-			hint.TextColor3 = UIKit.CARD_TEXT
+			hint.TextColor3 = UIKit.INK_SOFT
 		end
 	end)
 end
@@ -243,9 +239,9 @@ local function refresh()
 		local on = have[key] == true
 		c.on = on
 		c.frame.BackgroundColor3 = on and c.talent.color or UIKit.SURFACE_2
-		c.stroke.Color = on and UIKit.darker(c.talent.color, 0.7) or UIKit.CARD_LINE
+		c.stroke.Color = on and UIKit.darker(c.talent.color, 0.6) or UIKit.CARD_LINE
 		c.icon.ImageColor3 = on and UIKit.INK or UIKit.CARD_MUTED
-		c.icon.ImageTransparency = on and 0 or 0.55
+		c.icon.ImageTransparency = on and 0 or 0.6
 	end
 	-- full rows and columns (the server counts the same way: RoomEconomy.indexLines)
 	local lines = 0
@@ -265,9 +261,8 @@ local function refresh()
 		elseif missing < bestMissing then best, bestMissing = ("the %s column"):format(t.name), missing end
 	end
 	count.Text = ("%d / 25"):format(n)
-	bonus.Text = lines > 0 and ("You have +%d%% money  (%d of 10 lines)"):format(lines * LINE_BONUS, lines)
-		or "No full lines yet"
-	nextLine = best and ("%d more to finish %s  (+%d%% money)"):format(bestMissing, best, LINE_BONUS)
+	bonus.Text = lines > 0 and ("You have +%d%%"):format(lines * LINE_BONUS) or "No full lines yet"
+	nextLine = best and ("%d more to finish %s."):format(bestMissing, best)
 		or "Every line is full. You found them all!"
 	if not hintActive then hint.Text = nextLine end
 	btn.Visible = n > 0
@@ -284,9 +279,6 @@ local function setOpen(v)
 	gui.Enabled = v
 	if v then
 		if seen then seen:FireServer() end
-		-- the fit scale owns size; opening only slides
-		panel.Position = UDim2.new(0.5, 0, 0.54, 0)
-		TweenService:Create(panel, TweenInfo.new(0.22, Enum.EasingStyle.Quint), { Position = UDim2.new(0.5, 0, 0.5, 0) }):Play()
 	end
 	refresh()
 end

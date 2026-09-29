@@ -52,8 +52,10 @@ gui.Enabled = false
 UIKit.safe(gui)
 gui.Parent = player:WaitForChild("PlayerGui")
 
-local W, HEAD_H, TAB_H, ROW_H, MINE_H = 440, 44, 40, 30, 58
-local ROWS_H = 7 * ROW_H
+-- v5: sized to a 360 px phone at full scale (it was 394 px and shrank everywhere):
+-- five rows show, the rest scroll; 44 px tabs
+local W, HEAD_H, TAB_H, ROW_H, MINE_H = 440, 44, 44, 34, 54
+local ROWS_H = 5 * ROW_H
 local H = HEAD_H + 12 + TAB_H + 8 + ROWS_H + 8 + MINE_H + 14
 local panel, body, close = UIKit.menu(gui, "RANKS", UIKit.GOLD, {
 	Name = "Panel", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), Size = UDim2.new(0, W, 0, H),
@@ -113,18 +115,18 @@ mine.BorderSizePixel = 0
 mine.Parent = body
 Instance.new("UICorner", mine).CornerRadius = UDim.new(0, 12)
 local mineStroke = Instance.new("UIStroke", mine)
-mineStroke.Color = UIKit.darker(UIKit.GOLD, 0.6)
+mineStroke.Color = UIKit.GOLD_DEEP
 mineStroke.Thickness = 2
 local mineTop = UIKit.label(mine, "", 18, UIKit.CARD_TEXT, {
 	Name = "Top", Position = UDim2.new(0, 14, 0, 6), Size = UDim2.new(1, -28, 0, 24), TextTruncate = Enum.TextTruncate.AtEnd,
 }, UIKit.HEAD)
-local mineSub = UIKit.label(mine, "", 15, UIKit.CARD_TEXT, {
-	Name = "Sub", Position = UDim2.new(0, 14, 0, 30), Size = UDim2.new(1, -28, 0, 20), TextTruncate = Enum.TextTruncate.AtEnd,
-}, UIKit.HEAD)
+local mineSub = UIKit.label(mine, "", 16, UIKit.INK_SOFT, {
+	Name = "Sub", Position = UDim2.new(0, 14, 0, 28), Size = UDim2.new(1, -28, 0, 20), TextTruncate = Enum.TextTruncate.AtEnd,
+}, UIKit.BODY)
 
 -- ============ DRAW ============
 local data
-local RANK_COLOR = { UIKit.darker(UIKit.GOLD, 0.8), Color3.fromRGB(150, 158, 172), Color3.fromRGB(196, 124, 70) }
+local RANK_COLOR = { UIKit.GOLD_DEEP, Color3.fromRGB(96, 104, 120), Color3.fromRGB(158, 92, 40) }   -- v5: readable on paper
 
 local function row(i, r, me)
 	local f = Instance.new("Frame")
@@ -147,14 +149,14 @@ local function row(i, r, me)
 		local tag = Instance.new("Frame")
 		tag.AnchorPoint = Vector2.new(1, 0.5)
 		tag.Position = UDim2.new(1, -124, 0.5, 0)
-		tag.Size = UDim2.new(0, 32, 0, 18)
+		tag.Size = UDim2.new(0, 34, 0, 20)
 		tag.BackgroundColor3 = UIKit.CARD_MUTED
 		tag.BorderSizePixel = 0
 		tag.Parent = f
 		Instance.new("UICorner", tag).CornerRadius = UDim.new(1, 0)
-		UIKit.label(tag, "AI", 12, UIKit.TEXT, { Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.HEAD)
+		UIKit.label(tag, "AI", 14, UIKit.TEXT, { Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.HEAD)
 	end
-	UIKit.label(f, UIKit.money(r.value or 0), 16, UIKit.darker(UIKit.GREEN, 0.7), {
+	UIKit.label(f, UIKit.money(r.value or 0), 16, (r.key == me) and UIKit.INK or UIKit.GREEN_DEEP, {
 		AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, 0), Size = UDim2.new(0, 110, 1, 0),
 		TextXAlignment = Enum.TextXAlignment.Right,
 	}, UIKit.HEAD)
@@ -231,8 +233,6 @@ local function setOpen(v)
 	if v then
 		render()
 		task.spawn(fetch)
-		panel.Position = UDim2.new(0.5, 0, 0.54, 0)
-		TweenService:Create(panel, TweenInfo.new(0.22, Enum.EasingStyle.Quint), { Position = UDim2.new(0.5, 0, 0.5, 0) }):Play()
 	end
 end
 btn.MouseButton1Click:Connect(function() setOpen(not gui.Enabled) end)
