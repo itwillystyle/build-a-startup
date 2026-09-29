@@ -18,6 +18,7 @@ return function(core)
 	local deskHomes = core.deskHomes
 	local hire = core.hire
 	local hqMultOf = core.hqMultOf
+	local hqCostOf = core.hqCostOf
 	local launchProduct = core.launchProduct
 	local loaded = core.loaded
 	local offerAmountOf = core.offerAmountOf
@@ -163,8 +164,10 @@ return function(core)
 			and makes one guide purchase every `pace` seconds when it can afford
 			it. Logs HQ times, spin-off, waits, and launch share. Read with
 			"botlog". Studio only, like the rest of this hook. ]]
-			local pace = tonumber(arg) or 20
-			s.bot = { t0 = os.clock(), log = {}, pace = pace, paid = 0, earnedStart = s.earned or 0, lastBuy = os.clock(), longest = 0, buys = 0, fails = 0, running = true }
+			-- v4.5: "20 2" = pace 20 s, play 2 companies (spin off, keep going)
+			local pace = tonumber(tostring(arg or ""):match("^%s*(%d+)")) or 20
+			local runs = tonumber(tostring(arg or ""):match("^%s*%d+%s+(%d+)")) or 1
+			s.bot = { runs = runs, t0 = os.clock(), log = {}, pace = pace, paid = 0, earnedStart = s.earned or 0, lastBuy = os.clock(), longest = 0, buys = 0, fails = 0, running = true }
 			local B = s.bot
 			local function note(ev)
 				local line = ("%5.1f min  %s"):format((os.clock() - B.t0) / 60, ev)
@@ -379,8 +382,8 @@ return function(core)
 								end
 							end
 						elseif key == "hq" then
-							local nxt = CFG.HQ_LEVELS[plot.hq.level + 1]
-							if nxt and cash.Value >= nxt.cost then tryUpgrade(player, plot); did = "hq" end
+							local c = hqCostOf(s, plot.hq.level + 1)   -- v4.5 the scaled price
+							if c and cash.Value >= c then tryUpgrade(player, plot); did = "hq" end
 						elseif key == "apartment" and Econ and Econ.Apt and Econ.Apt.botBuy and not farFromDesk then
 							if Econ.Apt.botBuy(player) then did = "apartment" end
 						elseif key == "spin" then
@@ -421,7 +424,7 @@ return function(core)
 								capacityOf(player), tostring(key), tostring(player:GetAttribute("ObjectiveText"))))
 						end
 					end
-					if now - B.t0 > 45 * 60 then note("TIMEOUT 45 min"); B.running = false end
+					if now - B.t0 > 45 * 60 * B.runs then note("TIMEOUT"); B.running = false end
 					task.wait(0.25)
 				end
 				note(("end  buys %d  longest wait %.0f s  refused %d  boosts %d"):format(B.buys, B.longest, B.fails, B.boosts or 0))

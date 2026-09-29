@@ -70,6 +70,7 @@ return function(core)
 			weekBase = s.weekBase and math.floor(s.weekBase) or nil,
 			ipo = s.ipo or false,
 			launches = s.launches or 0,
+			rl = s.runLaunches or 0,   -- v4.5: this company's launches (the work need)
 			rate = s.rate,
 			lastSeen = os.time(),
 			tiers = (function()
@@ -148,6 +149,7 @@ return function(core)
 		s.weekBase = data.weekBase ~= nil and clampInt(data.weekBase, 0, 1e13, 0) or nil
 		s.ipo = data.ipo == true and s.name ~= nil
 		s.launches = clampInt(data.launches, 0, 1e6, 0)
+		s.runLaunches = clampInt(data.rl, 0, 1e6, 0)
 
 		-- offline earnings: a quarter rate, capped at 8 hours. A returning player
 		-- should find something waiting, not a fortune (Roblox 2026 discovery
@@ -164,7 +166,7 @@ return function(core)
 			local apt = clampInt(data.apt, 0, 3, 0)
 			local spins = clampInt(data.spinoffs, 0, Prog.SPIN_CAP, 0)
 			local nxt, aft = Econ.Apt.ladder(clampInt(data.hq, 1, #CFG.HQ_LEVELS, 1), apt,
-				function(l) return CFG.HQ_LEVELS[l] and CFG.HQ_LEVELS[l].cost or 0 end,
+				function(l) return CFG.HQ_LEVELS[l] and Prog.scaled(CFG.HQ_LEVELS[l].cost, spins) or 0 end,   -- v4.5 the clock
 				Prog.spinCost(spins, SPINOFF_BASE))
 			offline = Econ.Apt.offline(clampInt(data.rate, 0, 1e9, 0), away, apt, cash and cash.Value or 0, nxt, aft)
 			player:SetAttribute("OfflineApt", apt)
@@ -263,7 +265,7 @@ return function(core)
 		s.alumni = clampInt(data.alumni, 0, CFG.ALUMNI_CAP, 0)
 		player:SetAttribute("Alumni", s.alumni)
 		s.work = clampInt(data.work, 0, 1e9, 0)
-		s.workNeed = math.floor(CFG.WORK_FIRST * (CFG.WORK_GROWTH ^ (s.launches or 0)))
+		s.workNeed = math.floor(CFG.WORK_FIRST * (CFG.WORK_GROWTH ^ ((Econ and Econ.V3) and s.runLaunches or s.launches or 0)))
 		s.spinoffs = clampInt(data.spinoffs, 0, Prog.SPIN_CAP, 0)
 		-- pre-v2.4 saves have no `earned`; valuation is the closest honest proxy
 		s.earned = data.earned ~= nil and clampInt(data.earned, 0, 1e15, 0) or clampInt(data.valuation, 0, 1e15, 0)

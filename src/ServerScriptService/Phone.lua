@@ -325,6 +325,13 @@ local function close(player, th, reason)
 	send(player, { kind = "closed", id = th.id, reason = reason })
 end
 
+-- v4.5 THE ECONOMY CLOCK: an offer is a share of what you are saving for, never all of it
+local Prog = require(script.Parent:WaitForChild("Progression"))
+local function capped(player, kind, amount)
+	local goal = api.nextGoal and api.nextGoal(player)
+	return Prog.capWindfall(kind, amount, goal)
+end
+
 local function makeOffer(player, th)
 	local s = api.session(player)
 	local rate = s and s.rate or 0
@@ -336,6 +343,7 @@ local function makeOffer(player, th)
 		return
 	end
 	local amount = niceMoney(math.max(200 * f.hq, rate * (20 + 12 * interest)) * (th.boost or 1))   -- v4.3 a Series A is x3
+	amount = capped(player, th.series and "series" or "phone", amount)
 	local item = (interest >= 8 and "frontpage") or (interest >= 6 and anyOf({ "scout", "noncompete" }))
 		or (interest >= 4 and anyOf({ "coffee", "energy" })) or nil
 	th.offer = { amount = amount, item = item, interest = interest, canPush = true }
@@ -587,7 +595,7 @@ function Phone.init(a)
 				say(player, th, "me", "Can you do better?")
 				task.wait(1.2)
 				if ok then
-					local amount = niceMoney(o.amount * 1.5)
+					local amount = capped(player, th.series and "seriesPush" or "push", niceMoney(o.amount * 1.5))
 					local cash = api.cash(player)
 					if cash then cash.Value += amount end
 					if o.item then api.grant(player, o.item, 1, th.persona.first .. " sent a gift") end

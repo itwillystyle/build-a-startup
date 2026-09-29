@@ -42,9 +42,12 @@ local function nextDay(s)
 	return 1                                                       -- first ever, or a missed day
 end
 
-function DailyReward.amountFor(s, day)
+-- v4.5 THE ECONOMY CLOCK: day d pays at most DAILY_SHARE[d] of the next goal (5% .. 35%)
+local Prog = require(script.Parent:WaitForChild("Progression"))
+function DailyReward.amountFor(s, day, goal)
 	local rate = s.rate or 0
-	return math.max(DailyReward.FLOOR[day] or 0, math.floor(rate * (DailyReward.SECONDS[day] or 60)))
+	local raw = math.max(DailyReward.FLOOR[day] or 0, math.floor(rate * (DailyReward.SECONDS[day] or 60)))
+	return Prog.capWindfall("daily", raw, goal, day)
 end
 
 function DailyReward.refresh(player)
@@ -55,7 +58,8 @@ function DailyReward.refresh(player)
 	player:SetAttribute("DailyStreak", day or math.max(1, s.streak or 1))
 	-- the whole ladder, so the card can show every day's reward
 	local amounts = {}
-	for d = 1, 7 do amounts[d] = DailyReward.amountFor(s, d) end
+	local goal = api.nextGoal and api.nextGoal(player)
+	for d = 1, 7 do amounts[d] = DailyReward.amountFor(s, d, goal) end
 	player:SetAttribute("DailyAmounts", table.concat(amounts, ","))
 	local items = {}
 	for d = 1, 7 do items[d] = DailyReward.ITEMS[d] or "" end
@@ -68,7 +72,7 @@ function DailyReward.claim(player)
 	if not s or not cash or not s.shipped then return end
 	local day = nextDay(s)
 	if not day then return end
-	local amount = DailyReward.amountFor(s, day)
+	local amount = DailyReward.amountFor(s, day, api.nextGoal and api.nextGoal(player))
 	s.dailyDay = today()
 	s.streak = day
 	cash.Value += amount

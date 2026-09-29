@@ -40,6 +40,69 @@ function P.spinCost(n, base)
 	return math.floor(base * P.spinMult(k) * math.min(P.SPIN_STRETCH ^ k, P.SPIN_STRETCH_MAX))
 end
 
+-- ---------------------------------------------------------------- the economy clock
+--[[ v4.5 THE ECONOMY CLOCK (docs/superpowers/specs/2026-09-29-economy-clock-design.md,
+sim/clock_sim.py). Prices were fixed ladders while a spin-off multiplied income
+(the spin-off bonus, the homes, kept rare hires, the Index, milestones): company 3
+reached HQ 5 in 6 minutes, one investor offer could pay the whole next goal, and
+day 7's reward was 3x the spin-off price.
+
+ONE NUMBER PER COMPANY scales every price inside it (hires, recruits, rooms, room
+levels, HQ upgrades, decor): the spin-off price's own scale, x1.3 from company 2 on
+for the +30% the three homes pay forever (they are bought once, in company 1).
+Company 1 is x1: the first hour does not change. The spin-off price, homes and cars
+are NOT scaled (the spin-off IS the clock; homes and cars are one ladder for life).
+
+EVERY WINDFALL is capped at a share of the next goal (the next HQ, or the spin-off
+at HQ 5), and a capped amount rounds down to a clean number. ]]
+P.RUN_HOMES = 1.3
+P.CAPS = { phone = 0.12, push = 0.18, series = 0.25, seriesPush = 0.35, launch = 0.25, gopublic = 0.10 }
+P.DAILY_SHARE = { 0.05, 0.08, 0.12, 0.16, 0.20, 0.25, 0.35 }   -- streak day 1..7
+
+-- the price scale of company n+1 (n = spin-offs done so far)
+function P.runScale(n)
+	local k = spins(n)
+	if k == 0 then return 1 end
+	return P.spinMult(k) * math.min(P.SPIN_STRETCH ^ k, P.SPIN_STRETCH_MAX) * P.RUN_HOMES
+end
+
+-- a base price in company n+1, in whole dollars
+function P.scaled(price, n)
+	return math.floor((price or 0) * P.runScale(n))
+end
+
+-- round DOWN to two significant figures (11,407 -> 11,000; 987 -> 980)
+function P.niceDown(v)
+	v = math.floor(math.max(0, v or 0))
+	local digits = #tostring(v)
+	if digits <= 2 then return v end
+	local mag = 10 ^ (digits - 2)
+	return math.floor(v / mag) * mag
+end
+
+-- what you are saving for: the next HQ level (scaled), or the spin-off at HQ 5
+-- hqCosts = the base ladder { [1] = 0, [2] = 3750, ... }
+function P.nextGoal(level, n, hqCosts, spinCost)
+	local c = hqCosts[(level or 1) + 1]
+	if c then return P.scaled(c, n) end
+	return spinCost
+end
+
+-- a windfall of `kind` (P.CAPS key, or "daily" with its streak day) against the next goal
+function P.capWindfall(kind, amount, nextGoal, day)
+	amount = math.floor(math.max(0, amount or 0))
+	local share
+	if kind == "daily" then
+		share = P.DAILY_SHARE[math.clamp(math.floor(day or 1), 1, #P.DAILY_SHARE)]
+	else
+		share = P.CAPS[kind]
+	end
+	if not share or not nextGoal or nextGoal <= 0 then return amount end
+	local cap = math.floor(nextGoal * share)
+	if amount <= cap then return amount end
+	return P.niceDown(cap)
+end
+
 -- ---------------------------------------------------------------- apartments
 -- gateHQ: the HQ level you can't build without owning this apartment
 P.APARTMENTS = {

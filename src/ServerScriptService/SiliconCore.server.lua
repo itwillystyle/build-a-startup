@@ -89,6 +89,8 @@ if Econ and Econ.V3 then for i, c in ipairs(Econ.HQ_COST) do if CFG.HQ_LEVELS[i]
 	is a cash source, not just a valuation number.
 ]]
 
+local sessions = {}   -- userId -> session (v4.5: declared here, the price helpers read it)
+
 local function hqMultOf(plot)
 	return CFG.HQ_MULT[plot and plot.hq and plot.hq.level or 1] or 1
 end
@@ -107,6 +109,18 @@ local function spinMultOf(s) return Prog.spinMult(s and s.spinoffs or 0) end
 local function nextSpinMultOf(s) return Prog.spinMult((s and s.spinoffs or 0) + 1) end
 local function milestoneMultOf(s) return 1 + CFG.MILESTONE_STEP * (s and s.milestones or 0) end
 local function spinoffCostOf(s) return Prog.spinCost(s and s.spinoffs or 0, SPINOFF_BASE) end
+-- v4.5 THE ECONOMY CLOCK (Progression.runScale): every price inside company n+1 is
+-- scaled by one number, so a spin-off's richer company still climbs a real ladder
+local function scaleOf(s) return Prog.runScale(s and s.spinoffs or 0) end
+local function plotScale(plot) return scaleOf(plot and plot.owner and sessions[plot.owner]) end
+local function hqCostOf(s, level)
+	local L = CFG.HQ_LEVELS[level]
+	return L and math.floor(L.cost * scaleOf(s)) or nil
+end
+-- what the player is saving for: the next HQ level, or the spin-off at HQ 5 (windfalls are capped against it)
+local function nextGoalOf(s, plot)
+	return hqCostOf(s, (plot and plot.hq and plot.hq.level or 1) + 1) or spinoffCostOf(s)
+end
 local function milestonesFromEarned(earned)
 	if (earned or 0) < CFG.MILESTONE_BASE then return 0 end
 	return math.min(CFG.MILESTONE_MAX, math.floor(math.log10(earned / CFG.MILESTONE_BASE)) + 1)
@@ -129,20 +143,20 @@ end
 -- the 18 Sep playtest: $64 per hire while holding $8K made the talent roll a
 -- free slot machine. The old curve stays as the floor for new players.
 local function hireCostOf(s, plot)   -- floor: 15 s of current income
-	if Econ and Econ.V3 then return math.floor(s.hireCost) end   -- v2.7.0: a fixed ladder you outgrow
+	if Econ and Econ.V3 then return math.floor(s.hireCost * scaleOf(s)) end   -- v2.7.0: a fixed ladder you outgrow (v4.5 x the company's scale)
 	return math.max(math.floor(s.hireCost * hqMultOf(plot)), math.floor((s.rate or 0) * 15))
 end
 local function wingCostOf(room, plot, rate)
 	local built = 0
 	for _, slot in ipairs(plot.slots or {}) do if slot.built then built += 1 end end
-	if Econ and Econ.V3 then return math.floor(room.cost * (Econ.WING_GROWTH ^ built)) end
+	if Econ and Econ.V3 then return math.floor(room.cost * (Econ.WING_GROWTH ^ built) * plotScale(plot)) end
 	local base = math.floor(room.cost * hqMultOf(plot) * (1 + CFG.WING_STEP * built))
 	-- v2.6.4: never cheaper than N seconds of this company's income
 	local secs = Econ and Econ.WING_SECONDS and Econ.WING_SECONDS[room.id] or 0
 	return math.max(base, math.floor((rate or 0) * secs))
 end
 local function furniturePriceOf(item, s, plot)
-	local mult = hqMultOf(plot) * (1 + CFG.FURNITURE_INFLATION * #(s.placed or {}))
+	local mult = hqMultOf(plot) * (1 + CFG.FURNITURE_INFLATION * #(s.placed or {})) * scaleOf(s)
 	if FurnitureKit and FurnitureKit.priceFor then
 		-- v2.6.3: rounded exactly like the PriceMult attribute the client reads
 		-- v2.7.0: no income floor -- furniture is decoration now
@@ -170,7 +184,7 @@ end
 local WING_MAX_LEVEL = (Econ and Econ.V3) and Econ.MAX_LEVEL or 5
 
 local function wingUpgradeCostOf(room, level, plot, rate)
-	if Econ and Econ.V3 then return math.floor(room.cost * Econ.LEVEL_FIRST * (Econ.LEVEL_GROWTH ^ (level - 1))) end
+	if Econ and Econ.V3 then return math.floor(room.cost * Econ.LEVEL_FIRST * (Econ.LEVEL_GROWTH ^ (level - 1)) * plotScale(plot)) end
 	local base = math.floor(room.cost * CFG.WING_UP_BASE * (CFG.WING_UP_GROWTH ^ (level - 1)) * hqMultOf(plot))
 	local secs = CFG.WING_UP_SECONDS[level] or CFG.WING_UP_SECONDS[#CFG.WING_UP_SECONDS]
 	return math.max(base, math.floor((rate or 0) * secs))
@@ -440,7 +454,7 @@ end
 
 -- ============ SESSIONS ============
 
-local sessions = {}   -- userId -> session
+-- (sessions is declared above the price helpers)
 local plots = {}      -- index -> plot
 
 local function plotOf(player)
@@ -1032,7 +1046,7 @@ local function recompute(player)
 	player:SetAttribute("Prestige", math.floor(spinMultOf(s) * milestoneMultOf(s) * ((Econ and Econ.indexMult) and Econ.indexMult(s.index) or 1) * 100 + 0.5) / 100)
 	player:SetAttribute("Spinoffs", s.spinoffs or 0)
 	-- the client shows catalog prices; tell it what to multiply them by
-	local priceMult = hqMultOf(plot) * (1 + CFG.FURNITURE_INFLATION * #(s.placed or {}))
+	local priceMult = hqMultOf(plot) * (1 + CFG.FURNITURE_INFLATION * #(s.placed or {})) * scaleOf(s)
 	player:SetAttribute("PriceMult", math.floor(priceMult * 100 + 0.5) / 100)
 	player:SetAttribute("IncomeRate", (Econ and Econ.V3) and 0 or (s.rate or 0))   -- v2.6.3 floor; v2.7.0 none
 	if Econ and Econ.V3 then player:SetAttribute("EconV3", true) end
@@ -1333,7 +1347,7 @@ local function journeyState(player, s, plot)
 		hq = lv, shipped = s.shipped == true, staff = s.staff or 0, cap = cap, cash = cash, rate = s.rate or 0,
 		apt = s.apt or 0, listed = s.listed == true, spinCost = spinoffCostOf(s),
 		nextMult = (string.format("%.1f", nextSpinMultOf(s)):gsub("%.0$", "")),
-		nextHqCost = nxt and nxt.cost or nil, nextHqName = nxt and nxt.name or nil, need = need,
+		nextHqCost = nxt and hqCostOf(s, lv + 1) or nil, nextHqName = nxt and nxt.name or nil, need = need,
 		hasCar = (Econ and Econ.Cars and Econ.Cars.hasCar(player)) and true or false, seated = seated, nearRes = nearRes,
 		vipStanding = (Econ and Econ.Drop and Econ.Drop.hasVip and Econ.Drop.hasVip(player)) or false,
 		vipDone = (s.vipDay or 0) ~= 0, geniusAvailable = gen ~= nil and (s.staff or 0) < cap, geniusPos = gen and gen.pos or nil,
@@ -1406,6 +1420,7 @@ local function refreshObjective(player)
 		end
 		local cap = capacityOf(player)
 		local nxtHq = CFG.HQ_LEVELS[plot.hq.level + 1]
+		local nxtCost = nxtHq and hqCostOf(s, plot.hq.level + 1)
 		local upWing
 		for _, slot in ipairs(plot.slots) do
 			if slot.built and not wingMaxed(s, slot) then upWing = slot break end
@@ -1469,7 +1484,7 @@ local function refreshObjective(player)
 				if plant then decorOffer = { c = furniturePriceOf(plant, s, plot), k = "decor", t = "Decorate your office", at = nil, sub = "Tap DECOR: nicer office, rarer hires" } end
 			end
 			if nxtHq then
-				offer(nxtHq.cost, "hq", ("Upgrade to %s"):format(nxtHq.name), posOf(plot.hqPad), hqTease())
+				offer(nxtCost, "hq", ("Upgrade to %s"):format(nxtHq.name), posOf(plot.hqPad), hqTease())
 			else
 				offer(spinoffCostOf(s), "spin", "Spin off", posOf(plot.hqPad), ("Start a new company: x%s money"):format((string.format("%.1f", nextSpinMultOf(s))):gsub("%.0$", "")))
 			end
@@ -1501,12 +1516,12 @@ local function refreshObjective(player)
 					best = { c = wc, k = "wing", t = ("Build %s %s"):format((r.name:match("^[AEIOU]") and "an" or "a"), (r.name:lower():gsub("(%a)(%w*)", function(a, b) return a:upper() .. b end))), at = posOf(empty.pad), sub = r.blurb, roomsFirst = true }
 				end
 			end
-			if nxtHq and held and held.Value >= nxtHq.cost then
-				best = { c = nxtHq.cost, k = "hq", t = ("Upgrade to %s"):format(nxtHq.name), at = posOf(plot.hqPad), sub = hqTease() }
+			if nxtHq and held and held.Value >= nxtCost then
+				best = { c = nxtCost, k = "hq", t = ("Upgrade to %s"):format(nxtHq.name), at = posOf(plot.hqPad), sub = hqTease() }
 			elseif nxtHq and held and Econ and Econ.V3 and (s.rate or 0) > 0 and not (best and best.roomsFirst)
-				and (nxtHq.cost - held.Value) / s.rate <= Econ.SAVE_WINDOW then
+				and (nxtCost - held.Value) / s.rate <= Econ.SAVE_WINDOW then
 				-- v2.7.0: the big goal is close; stop spending on small things (the old guide never saved)
-				best = { c = nxtHq.cost, k = "hq", t = ("Save up for %s"):format(nxtHq.name), at = posOf(plot.hqPad), sub = hqTease() }
+				best = { c = nxtCost, k = "hq", t = ("Save up for %s"):format(nxtHq.name), at = posOf(plot.hqPad), sub = hqTease() }
 			end
 			-- v2.8: at HQ 5 the spin-off is the big goal, with the same afford / save-up treatment
 			if not nxtHq and held and Econ and Econ.V3 then
@@ -1681,12 +1696,14 @@ local goPublic  -- v4.3 assigned in the IPO section (it needs refreshSign / tick
 local function refreshHqPad(plot)
 	local nxt = CFG.HQ_LEVELS[plot.hq.level + 1]
 	local s = plot.owner and sessions[plot.owner]
+	local owner = plot.owner and Players:GetPlayerByUserId(plot.owner)
+	if owner and Econ and Econ.Daily and Econ.Daily.refresh then pcall(Econ.Daily.refresh, owner) end   -- v4.5 the goal moved
 	local needApt = nxt and s and Econ and Econ.Apt and (s.apt or 0) < Econ.Apt.need(plot.hq.level + 1)
 	if needApt then
 		plot.hqLabel.Text = ("UPGRADE HQ  ·  needs a %s downtown"):format(Econ.Apt.TIERS[Econ.Apt.need(plot.hq.level + 1)].name)
 		plot.hqPad.Color = Color3.fromRGB(150, 146, 140)
 	elseif nxt then
-		plot.hqLabel.Text = ("UPGRADE HQ  ·  $%s"):format(fmt(nxt.cost))
+		plot.hqLabel.Text = ("UPGRADE HQ  ·  $%s"):format(fmt(hqCostOf(s, plot.hq.level + 1)))
 		plot.hqPad.Color = CFG.GOLD
 	elseif s and not s.listed then
 		-- v4.3: HQ 5 first takes the company public; only a listed company spins off
@@ -1738,9 +1755,10 @@ local function tryUpgrade(player, plot)
 		popup(plot.hqPad, ("Buy your %s downtown first"):format(t.name), CFG.BAD)
 		return
 	end
-	if cash.Value < nxt.cost then popup(plot.hqPad, "Need $" .. fmt(nxt.cost), CFG.BAD) return end
+	local cost = hqCostOf(s, plot.hq.level + 1)
+	if cash.Value < cost then popup(plot.hqPad, "Need $" .. fmt(cost), CFG.BAD) return end
 	plot.busy = true
-	cash.Value -= nxt.cost
+	cash.Value -= cost
 	s.lastBuy = os.clock()
 	buildShell(plot, plot.hq.level + 1, true)
 	-- the new shell grows around whoever is inside. v5: only someone actually
@@ -2236,6 +2254,10 @@ if Econ then
 	if Econ.Daily and Econ.Daily.init then
 		local ok, err = pcall(Econ.Daily.init, {
 			session = function(p) return sessions[p.UserId] end, cash = cashOf, remote = remote, fmt = fmt,
+			nextGoal = function(p)   -- v4.5 the clock: windfalls are capped against this
+				local ss, pl = sessions[p.UserId], plotOf(p)
+				return ss and pl and nextGoalOf(ss, pl) or nil
+			end,
 			grant = function(p, id, n, why) return Econ.Inv and Econ.Inv.grant(p, id, n, why) end,   -- v3.2 (Inv loads later; read at claim time)
 		})
 		if not ok then warn("[SV] DailyReward init failed: " .. tostring(err)); Econ.Daily = nil end
@@ -2250,6 +2272,7 @@ if Econ and Econ.RECRUIT then
 			plots = plots, TALENT = CFG.TALENT, RIVALS = CFG.RIVALS, BAD = CFG.BAD, fmt = fmt, popup = popup,
 			session = function(p) return sessions[p.UserId] end,
 			plotOf = plotOf, cash = cashOf, capacity = capacityOf,
+			priceScale = function(p) return scaleOf(sessions[p.UserId]) end,   -- v4.5 recruit minimums follow the clock
 			ladder = function(p)
 				local ss, pl = sessions[p.UserId], plotOf(p)
 				return ss and pl and hireCostOf(ss, pl) or nil
@@ -2280,6 +2303,10 @@ if Econ then
 		local ok, err = pcall(Econ.Phone.init, {
 			session = function(p) return sessions[p.UserId] end,
 			plotOf = plotOf, cash = cashOf, fmt = fmt, TALENT = CFG.TALENT,
+			nextGoal = function(p)   -- v4.5 the clock: windfalls are capped against this
+				local ss, pl = sessions[p.UserId], plotOf(p)
+				return ss and pl and nextGoalOf(ss, pl) or nil
+			end,
 			grant = function(p, id, n, why) return Econ.Inv and Econ.Inv.grant(p, id, n, why) end,
 			onSeriesA = function(p)   -- v4.3 the HQ 4 task
 				local ss = sessions[p.UserId]
@@ -2408,7 +2435,7 @@ spinOff = function(player, plot)
 	s.staff = 0; s.rigs = {}; s.desks = 0; s.hireCost = CFG.HIRE_BASE
 	s.quality = 0; s.morale = 0; s.compute = 0
 	s.placed = {}; s.placedDesks = 0; s.placedMorale = 0
-	s.work = 0; s.workNeed = math.floor(CFG.WORK_FIRST * (CFG.WORK_GROWTH ^ (s.launches or 0)))
+	s.work = 0; s.runLaunches = 0; s.workNeed = CFG.WORK_FIRST   -- v4.5: each company's first product is quick again
 	s.launch = nil; s.pressure = nil; s.share = 1; s.pendingOffer = nil
 	s.listed = false                   -- v4.3: the new company goes public again at its own HQ 5
 	if s.jr then s.jr.seriesA = nil end  -- ... and raises its own Series A at HQ 4
@@ -2605,6 +2632,7 @@ local function launchProduct(player, plot, market, mod, auto)
 			curve = shape and shape.curve, slow = market.slow, marketId = market.id }
 	end
 	s.launches = (s.launches or 0) + 1
+	s.runLaunches = (s.runLaunches or 0) + 1   -- v4.5: this company's launches (the work need)
 	if not auto then s.jr = s.jr or {}; s.jr.launched = true end   -- v4.3: the LAUNCH lesson is learned
 	Telemetry.step(player, "first_product")
 	s.markets[market.id] = true          -- now a rival can come for this market
@@ -2615,6 +2643,7 @@ local function launchProduct(player, plot, market, mod, auto)
 	local payday = math.floor(s.rate * (shape and shape.pay or CFG.PAYDAY_SECONDS) * spike * (auto and 0.5 or 1))
 	if Econ and Econ.V3 then
 		payday = math.floor(s.rate * Econ.LAUNCH_PAY * (1 + 0.1 * (s.compute or 0)) * (auto and 0.5 or 1))
+		payday = Prog.capWindfall("launch", payday, nextGoalOf(s, plot))   -- v4.5 the clock
 	end
 	if Econ and Econ.Inv then payday = math.floor(payday * Econ.Inv.launchMult(player)) end   -- v3.2: a Front Page doubles it
 	local cash = cashOf(player)
@@ -2622,7 +2651,7 @@ local function launchProduct(player, plot, market, mod, auto)
 	if Econ and Econ.Inv then pcall(Econ.Inv.onLaunch, player, s) end
 	s.pendingProduct = nil
 	s.work = 0
-	s.workNeed = math.floor(CFG.WORK_FIRST * (CFG.WORK_GROWTH ^ s.launches))
+	s.workNeed = math.floor(CFG.WORK_FIRST * (CFG.WORK_GROWTH ^ ((Econ and Econ.V3) and s.runLaunches or s.launches)))
 	-- the room reacts: everyone cheers, one of them says something
 	for i, r in ipairs(s.rigs or {}) do
 		task.delay(0.1 * i, function() if StaffRig then StaffRig.cheer(r.rig) end end)
@@ -2666,7 +2695,7 @@ local function offerProduct(player, plot)
 		local picks = { m }
 		s.pendingProduct = picks
 		s.pendingMods = { 1 }
-		local payday = math.floor((s.rate or 0) * Econ.LAUNCH_PAY * (1 + 0.1 * (s.compute or 0)))
+		local payday = Prog.capWindfall("launch", math.floor((s.rate or 0) * Econ.LAUNCH_PAY * (1 + 0.1 * (s.compute or 0))), nextGoalOf(s, plot))
 		-- v3.1: `autoAt` lets the button count down to the half-pay auto-launch
 		productReady:FireClient(player, { { name = "LAUNCH!", blurb = m.name .. " app", launch = true, payday = payday, spike = 1,
 			autoAt = (s.jr and s.jr.launched) and workspace:GetServerTimeNow() + 60 or nil } })
@@ -2904,7 +2933,7 @@ goPublic = function(player, plot)
 	s.listed = true
 	s.ipo = true
 	s.ticker = tickerOf(s.name or "Startup")
-	local raise = math.floor((s.rate or 0) * Journey.IPO_RAISE)
+	local raise = Prog.capWindfall("gopublic", math.floor((s.rate or 0) * Journey.IPO_RAISE), spinoffCostOf(s))   -- v4.5 the clock
 	local cash = cashOf(player)
 	if cash then cash.Value += raise end
 	refreshSign(plot)
@@ -3303,6 +3332,7 @@ if game:GetService("RunService"):IsStudio() then
 		deskHomes = deskHomes,
 		hire = hire,
 		hqMultOf = hqMultOf,
+		hqCostOf = hqCostOf,
 		launchProduct = launchProduct,
 		loaded = loaded,
 		offerAmountOf = offerAmountOf,

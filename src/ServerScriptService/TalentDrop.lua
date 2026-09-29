@@ -130,7 +130,8 @@ end
 
 local function feeFor(player, tier)
 	local ladder = api.ladder(player)
-	return ladder and math.max(math.floor(ladder * tier.fee), tier.minFee or 0) or nil
+	local scale = api.priceScale and api.priceScale(player) or 1   -- v4.5 the clock
+	return ladder and math.max(math.floor(ladder * tier.fee), math.floor((tier.minFee or 0) * scale)) or nil
 end
 
 local function refreshTag(plot, entry, tier)
@@ -432,6 +433,10 @@ recruit = function(player, plot, i)
 	local entry = st and st.tiers[i]
 	if not (entry and entry.model and entry.model.Parent) then return end
 	if plot.owner ~= player.UserId then return end                    -- your candidates, not someone else's
+	if (plot.hq and plot.hq.level or 1) < (tier.hq or 1) then       -- v4.5: the HQ gate, on the server
+		api.popup(entry.model.PrimaryPart, ("Unlocks at HQ %d"):format(tier.hq), api.BAD)
+		return
+	end
 	if carries[player] then api.popup(entry.model.PrimaryPart, "Take one home first", api.BAD) return end
 	local s = api.session(player)
 	if not s or not s.shipped or (s.staff or 0) < 1 then return end
@@ -610,7 +615,13 @@ function TalentDrop.init(a)
 					for i, tier in ipairs(Econ.TIERS) do
 						local e = st.tiers[i]
 						if (plot.hq and plot.hq.level or 1) < (tier.hq or 1) then
-							-- locked until this HQ level (v3.0.1)
+							-- locked until this HQ level (v3.0.1). v4.5: a spin-off drops you to HQ 1
+							-- while last company's higher tiers still stand here: they leave
+							if e and e.model then
+								if e.prompt then e.prompt:Destroy(); e.prompt = nil end
+								e.model:Destroy(); e.model = nil
+								e.readyAt = 0
+							end
 						elseif not e or (not e.model and now() >= (e.readyAt or 0)) then
 							local ok, err = pcall(spawnCandidate, plot, i)
 							if not ok then warn("[SV] TalentDrop spawn: " .. tostring(err)) end
