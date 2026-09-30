@@ -1,0 +1,3698 @@
+{
+ "pieces": [
+  {
+   "level": 1,
+   "kind": "garage",
+   "wafer": 0,
+   "storey": 0,
+   "seg": 0
+  },
+  {
+   "level": 2,
+   "kind": "segment",
+   "wafer": 1,
+   "storey": 0,
+   "seg": 1
+  },
+  {
+   "level": 3,
+   "kind": "segment",
+   "wafer": 1,
+   "storey": 0,
+   "seg": 2
+  },
+  {
+   "level": 4,
+   "kind": "segment",
+   "wafer": 1,
+   "storey": 0,
+   "seg": 8
+  },
+  {
+   "level": 5,
+   "kind": "segment",
+   "wafer": 1,
+   "storey": 0,
+   "seg": 3
+  },
+  {
+   "level": 6,
+   "kind": "segment",
+   "wafer": 1,
+   "storey": 0,
+   "seg": 7
+  },
+  {
+   "level": 7,
+   "kind": "segment",
+   "wafer": 1,
+   "storey": 0,
+   "seg": 4
+  },
+  {
+   "level": 8,
+   "kind": "segment",
+   "wafer": 1,
+   "storey": 0,
+   "seg": 6
+  },
+  {
+   "level": 9,
+   "kind": "segment",
+   "wafer": 1,
+   "storey": 0,
+   "seg": 5
+  },
+  {
+   "level": 10,
+   "kind": "segment",
+   "wafer": 1,
+   "storey": 1,
+   "seg": 1
+  },
+  {
+   "level": 11,
+   "kind": "segment",
+   "wafer": 1,
+   "storey": 1,
+   "seg": 2
+  },
+  {
+   "level": 12,
+   "kind": "segment",
+   "wafer": 1,
+   "storey": 1,
+   "seg": 8
+  },
+  {
+   "level": 13,
+   "kind": "segment",
+   "wafer": 1,
+   "storey": 1,
+   "seg": 3
+  },
+  {
+   "level": 14,
+   "kind": "segment",
+   "wafer": 1,
+   "storey": 1,
+   "seg": 7
+  },
+  {
+   "level": 15,
+   "kind": "segment",
+   "wafer": 1,
+   "storey": 1,
+   "seg": 4
+  },
+  {
+   "level": 16,
+   "kind": "segment",
+   "wafer": 1,
+   "storey": 1,
+   "seg": 6
+  },
+  {
+   "level": 17,
+   "kind": "segment",
+   "wafer": 1,
+   "storey": 1,
+   "seg": 5
+  },
+  {
+   "level": 18,
+   "kind": "deck",
+   "wafer": 1,
+   "storey": 2,
+   "seg": 0
+  },
+  {
+   "level": 19,
+   "kind": "segment",
+   "wafer": 2,
+   "storey": 3,
+   "seg": 1
+  },
+  {
+   "level": 20,
+   "kind": "segment",
+   "wafer": 2,
+   "storey": 3,
+   "seg": 2
+  },
+  {
+   "level": 21,
+   "kind": "segment",
+   "wafer": 2,
+   "storey": 3,
+   "seg": 8
+  },
+  {
+   "level": 22,
+   "kind": "segment",
+   "wafer": 2,
+   "storey": 3,
+   "seg": 3
+  },
+  {
+   "level": 23,
+   "kind": "segment",
+   "wafer": 2,
+   "storey": 3,
+   "seg": 7
+  },
+  {
+   "level": 24,
+   "kind": "segment",
+   "wafer": 2,
+   "storey": 3,
+   "seg": 4
+  },
+  {
+   "level": 25,
+   "kind": "segment",
+   "wafer": 2,
+   "storey": 3,
+   "seg": 6
+  },
+  {
+   "level": 26,
+   "kind": "segment",
+   "wafer": 2,
+   "storey": 3,
+   "seg": 5
+  },
+  {
+   "level": 27,
+   "kind": "segment",
+   "wafer": 2,
+   "storey": 4,
+   "seg": 1
+  },
+  {
+   "level": 28,
+   "kind": "segment",
+   "wafer": 2,
+   "storey": 4,
+   "seg": 2
+  },
+  {
+   "level": 29,
+   "kind": "segment",
+   "wafer": 2,
+   "storey": 4,
+   "seg": 8
+  },
+  {
+   "level": 30,
+   "kind": "segment",
+   "wafer": 2,
+   "storey": 4,
+   "seg": 3
+  },
+  {
+   "level": 31,
+   "kind": "segment",
+   "wafer": 2,
+   "storey": 4,
+   "seg": 7
+  },
+  {
+   "level": 32,
+   "kind": "segment",
+   "wafer": 2,
+   "storey": 4,
+   "seg": 4
+  },
+  {
+   "level": 33,
+   "kind": "segment",
+   "wafer": 2,
+   "storey": 4,
+   "seg": 6
+  },
+  {
+   "level": 34,
+   "kind": "segment",
+   "wafer": 2,
+   "storey": 4,
+   "seg": 5
+  },
+  {
+   "level": 35,
+   "kind": "segment",
+   "wafer": 2,
+   "storey": 5,
+   "seg": 1
+  },
+  {
+   "level": 36,
+   "kind": "segment",
+   "wafer": 2,
+   "storey": 5,
+   "seg": 2
+  },
+  {
+   "level": 37,
+   "kind": "segment",
+   "wafer": 2,
+   "storey": 5,
+   "seg": 8
+  },
+  {
+   "level": 38,
+   "kind": "segment",
+   "wafer": 2,
+   "storey": 5,
+   "seg": 3
+  },
+  {
+   "level": 39,
+   "kind": "segment",
+   "wafer": 2,
+   "storey": 5,
+   "seg": 7
+  },
+  {
+   "level": 40,
+   "kind": "segment",
+   "wafer": 2,
+   "storey": 5,
+   "seg": 4
+  },
+  {
+   "level": 41,
+   "kind": "segment",
+   "wafer": 2,
+   "storey": 5,
+   "seg": 6
+  },
+  {
+   "level": 42,
+   "kind": "segment",
+   "wafer": 2,
+   "storey": 5,
+   "seg": 5
+  },
+  {
+   "level": 43,
+   "kind": "deck",
+   "wafer": 2,
+   "storey": 6,
+   "seg": 0
+  },
+  {
+   "level": 44,
+   "kind": "segment",
+   "wafer": 3,
+   "storey": 7,
+   "seg": 1
+  },
+  {
+   "level": 45,
+   "kind": "segment",
+   "wafer": 3,
+   "storey": 7,
+   "seg": 2
+  },
+  {
+   "level": 46,
+   "kind": "segment",
+   "wafer": 3,
+   "storey": 7,
+   "seg": 8
+  },
+  {
+   "level": 47,
+   "kind": "segment",
+   "wafer": 3,
+   "storey": 7,
+   "seg": 3
+  },
+  {
+   "level": 48,
+   "kind": "segment",
+   "wafer": 3,
+   "storey": 7,
+   "seg": 7
+  },
+  {
+   "level": 49,
+   "kind": "segment",
+   "wafer": 3,
+   "storey": 7,
+   "seg": 4
+  },
+  {
+   "level": 50,
+   "kind": "segment",
+   "wafer": 3,
+   "storey": 7,
+   "seg": 6
+  },
+  {
+   "level": 51,
+   "kind": "segment",
+   "wafer": 3,
+   "storey": 7,
+   "seg": 5
+  },
+  {
+   "level": 52,
+   "kind": "segment",
+   "wafer": 3,
+   "storey": 8,
+   "seg": 1
+  },
+  {
+   "level": 53,
+   "kind": "segment",
+   "wafer": 3,
+   "storey": 8,
+   "seg": 2
+  },
+  {
+   "level": 54,
+   "kind": "segment",
+   "wafer": 3,
+   "storey": 8,
+   "seg": 8
+  },
+  {
+   "level": 55,
+   "kind": "segment",
+   "wafer": 3,
+   "storey": 8,
+   "seg": 3
+  },
+  {
+   "level": 56,
+   "kind": "segment",
+   "wafer": 3,
+   "storey": 8,
+   "seg": 7
+  },
+  {
+   "level": 57,
+   "kind": "segment",
+   "wafer": 3,
+   "storey": 8,
+   "seg": 4
+  },
+  {
+   "level": 58,
+   "kind": "segment",
+   "wafer": 3,
+   "storey": 8,
+   "seg": 6
+  },
+  {
+   "level": 59,
+   "kind": "segment",
+   "wafer": 3,
+   "storey": 8,
+   "seg": 5
+  },
+  {
+   "level": 60,
+   "kind": "segment",
+   "wafer": 3,
+   "storey": 9,
+   "seg": 1
+  },
+  {
+   "level": 61,
+   "kind": "segment",
+   "wafer": 3,
+   "storey": 9,
+   "seg": 2
+  },
+  {
+   "level": 62,
+   "kind": "segment",
+   "wafer": 3,
+   "storey": 9,
+   "seg": 8
+  },
+  {
+   "level": 63,
+   "kind": "segment",
+   "wafer": 3,
+   "storey": 9,
+   "seg": 3
+  },
+  {
+   "level": 64,
+   "kind": "segment",
+   "wafer": 3,
+   "storey": 9,
+   "seg": 7
+  },
+  {
+   "level": 65,
+   "kind": "segment",
+   "wafer": 3,
+   "storey": 9,
+   "seg": 4
+  },
+  {
+   "level": 66,
+   "kind": "segment",
+   "wafer": 3,
+   "storey": 9,
+   "seg": 6
+  },
+  {
+   "level": 67,
+   "kind": "segment",
+   "wafer": 3,
+   "storey": 9,
+   "seg": 5
+  },
+  {
+   "level": 68,
+   "kind": "deck",
+   "wafer": 3,
+   "storey": 10,
+   "seg": 0
+  },
+  {
+   "level": 69,
+   "kind": "segment",
+   "wafer": 4,
+   "storey": 11,
+   "seg": 1
+  },
+  {
+   "level": 70,
+   "kind": "segment",
+   "wafer": 4,
+   "storey": 11,
+   "seg": 2
+  },
+  {
+   "level": 71,
+   "kind": "segment",
+   "wafer": 4,
+   "storey": 11,
+   "seg": 8
+  },
+  {
+   "level": 72,
+   "kind": "segment",
+   "wafer": 4,
+   "storey": 11,
+   "seg": 3
+  },
+  {
+   "level": 73,
+   "kind": "segment",
+   "wafer": 4,
+   "storey": 11,
+   "seg": 7
+  },
+  {
+   "level": 74,
+   "kind": "segment",
+   "wafer": 4,
+   "storey": 11,
+   "seg": 4
+  },
+  {
+   "level": 75,
+   "kind": "segment",
+   "wafer": 4,
+   "storey": 11,
+   "seg": 6
+  },
+  {
+   "level": 76,
+   "kind": "segment",
+   "wafer": 4,
+   "storey": 11,
+   "seg": 5
+  },
+  {
+   "level": 77,
+   "kind": "segment",
+   "wafer": 4,
+   "storey": 12,
+   "seg": 1
+  },
+  {
+   "level": 78,
+   "kind": "segment",
+   "wafer": 4,
+   "storey": 12,
+   "seg": 2
+  },
+  {
+   "level": 79,
+   "kind": "segment",
+   "wafer": 4,
+   "storey": 12,
+   "seg": 8
+  },
+  {
+   "level": 80,
+   "kind": "segment",
+   "wafer": 4,
+   "storey": 12,
+   "seg": 3
+  },
+  {
+   "level": 81,
+   "kind": "segment",
+   "wafer": 4,
+   "storey": 12,
+   "seg": 7
+  },
+  {
+   "level": 82,
+   "kind": "segment",
+   "wafer": 4,
+   "storey": 12,
+   "seg": 4
+  },
+  {
+   "level": 83,
+   "kind": "segment",
+   "wafer": 4,
+   "storey": 12,
+   "seg": 6
+  },
+  {
+   "level": 84,
+   "kind": "segment",
+   "wafer": 4,
+   "storey": 12,
+   "seg": 5
+  },
+  {
+   "level": 85,
+   "kind": "segment",
+   "wafer": 4,
+   "storey": 13,
+   "seg": 1
+  },
+  {
+   "level": 86,
+   "kind": "segment",
+   "wafer": 4,
+   "storey": 13,
+   "seg": 2
+  },
+  {
+   "level": 87,
+   "kind": "segment",
+   "wafer": 4,
+   "storey": 13,
+   "seg": 8
+  },
+  {
+   "level": 88,
+   "kind": "segment",
+   "wafer": 4,
+   "storey": 13,
+   "seg": 3
+  },
+  {
+   "level": 89,
+   "kind": "segment",
+   "wafer": 4,
+   "storey": 13,
+   "seg": 7
+  },
+  {
+   "level": 90,
+   "kind": "segment",
+   "wafer": 4,
+   "storey": 13,
+   "seg": 4
+  },
+  {
+   "level": 91,
+   "kind": "segment",
+   "wafer": 4,
+   "storey": 13,
+   "seg": 6
+  },
+  {
+   "level": 92,
+   "kind": "segment",
+   "wafer": 4,
+   "storey": 13,
+   "seg": 5
+  },
+  {
+   "level": 93,
+   "kind": "roof",
+   "wafer": 4,
+   "storey": 14,
+   "seg": 0
+  },
+  {
+   "level": 94,
+   "kind": "pavilion",
+   "wafer": 4,
+   "storey": 14,
+   "seg": 1
+  },
+  {
+   "level": 95,
+   "kind": "pavilion",
+   "wafer": 4,
+   "storey": 14,
+   "seg": 2
+  },
+  {
+   "level": 96,
+   "kind": "pavilion",
+   "wafer": 4,
+   "storey": 14,
+   "seg": 3
+  },
+  {
+   "level": 97,
+   "kind": "pavilion",
+   "wafer": 4,
+   "storey": 14,
+   "seg": 4
+  },
+  {
+   "level": 98,
+   "kind": "halo",
+   "wafer": 4,
+   "storey": 15,
+   "seg": 0
+  },
+  {
+   "level": 99,
+   "kind": "lantern",
+   "wafer": 4,
+   "storey": 15,
+   "seg": 0
+  },
+  {
+   "level": 100,
+   "kind": "mast",
+   "wafer": 4,
+   "storey": 15,
+   "seg": 0
+  }
+ ],
+ "blueprint": [
+  18,
+  30,
+  43,
+  55,
+  68,
+  80,
+  93,
+  100
+ ],
+ "rebuild": 0.025,
+ "batches": [
+  {
+   "level": 2,
+   "record": 18,
+   "scale": 2.535,
+   "last": 9,
+   "price": 911
+  },
+  {
+   "level": 5,
+   "record": 18,
+   "scale": 2.535,
+   "last": 9,
+   "price": 889
+  },
+  {
+   "level": 10,
+   "record": 18,
+   "scale": 1.0,
+   "last": 17,
+   "price": 34277
+  },
+  {
+   "level": 17,
+   "record": 43,
+   "scale": 4.394,
+   "last": 17,
+   "price": 67069
+  },
+  {
+   "level": 18,
+   "record": 43,
+   "scale": 4.394,
+   "last": 18,
+   "price": 248158
+  },
+  {
+   "level": 19,
+   "record": 30,
+   "scale": 4.394,
+   "last": 26,
+   "price": 1162430
+  },
+  {
+   "level": 27,
+   "record": 30,
+   "scale": 7.14,
+   "last": 30,
+   "price": 1158220
+  },
+  {
+   "level": 30,
+   "record": 30,
+   "scale": 7.14,
+   "last": 30,
+   "price": 304663
+  },
+  {
+   "level": 31,
+   "record": 30,
+   "scale": 7.14,
+   "last": 31,
+   "price": 12613088
+  },
+  {
+   "level": 94,
+   "record": 100,
+   "scale": 292.5,
+   "last": 94,
+   "price": 112831758
+  },
+  {
+   "level": 2,
+   "record": 1,
+   "scale": 1.0,
+   "last": 2,
+   "price": 60
+  }
+ ],
+ "base": [
+  0,
+  60,
+  111,
+  205,
+  759,
+  702,
+  1300,
+  2405,
+  8899,
+  8232,
+  15229,
+  28175,
+  104248,
+  96429,
+  178395,
+  330031,
+  610558,
+  2259065,
+  1169066,
+  1209983,
+  1252333,
+  1296165,
+  1341530,
+  1388484,
+  1437081,
+  1487379,
+  1539437,
+  1593317,
+  1649083,
+  1706801,
+  1766539,
+  1828368,
+  1892361,
+  1958594,
+  2027145,
+  2098095,
+  2171528,
+  2247532,
+  2326195,
+  2407612,
+  2491878,
+  2579094,
+  5338726,
+  2762790,
+  2859488,
+  2959570,
+  3063155,
+  3170365,
+  3281328,
+  3396175,
+  3515041,
+  3638067,
+  3765400,
+  3897189,
+  4033590,
+  4174766,
+  4320883,
+  4472114,
+  4628638,
+  4790640,
+  4958313,
+  5131854,
+  5311468,
+  5497370,
+  5689778,
+  5888920,
+  6095032,
+  12616717,
+  6529151,
+  6757671,
+  6994190,
+  7238986,
+  7492351,
+  7754583,
+  8025994,
+  8306904,
+  8597645,
+  8898563,
+  9210012,
+  9532363,
+  9865996,
+  10211306,
+  10568701,
+  10938606,
+  11321457,
+  11717708,
+  12127828,
+  12552302,
+  12991632,
+  13446340,
+  13916961,
+  14404055,
+  29816395,
+  15429984,
+  15970033,
+  16528985,
+  17107499,
+  17706262,
+  18325981,
+  37934781
+ ],
+ "mult": [
+  1.0,
+  1.0,
+  1.0,
+  1.0,
+  1.6,
+  1.6,
+  1.6,
+  1.6,
+  2.6,
+  2.6,
+  2.6,
+  2.6,
+  4.2,
+  4.2,
+  4.2,
+  4.2,
+  4.2,
+  7.0,
+  7.07,
+  7.1407,
+  7.212107000000001,
+  7.28422807,
+  7.357070350700001,
+  7.430641054207001,
+  7.504947464749071,
+  7.579996939396562,
+  7.655796908790526,
+  7.732354877878432,
+  7.809678426657216,
+  7.887775210923788,
+  7.9666529630330265,
+  8.046319492663358,
+  8.12678268758999,
+  8.208050514465892,
+  8.290131019610548,
+  8.373032329806655,
+  8.456762653104722,
+  8.541330279635769,
+  8.626743582432127,
+  8.713011018256449,
+  8.800141128439012,
+  8.888142539723404,
+  11.221279956400796,
+  11.333492755964805,
+  11.446827683524454,
+  11.561295960359697,
+  11.676908919963296,
+  11.793678009162928,
+  11.911614789254557,
+  12.030730937147103,
+  12.151038246518572,
+  12.27254862898376,
+  12.395274115273596,
+  12.519226856426332,
+  12.644419124990598,
+  12.7708633162405,
+  12.898571949402909,
+  13.027557668896936,
+  13.157833245585906,
+  13.289411578041765,
+  13.422305693822183,
+  13.556528750760407,
+  13.69209403826801,
+  13.829014978650688,
+  13.967305128437197,
+  14.106978179721569,
+  14.248047961518784,
+  17.988160551417465,
+  18.16804215693164,
+  18.34972257850096,
+  18.533219804285967,
+  18.718552002328824,
+  18.90573752235212,
+  19.09479489757564,
+  19.285742846551393,
+  19.47860027501691,
+  19.67338627776708,
+  19.87012014054475,
+  20.068821341950198,
+  20.269509555369698,
+  20.472204650923395,
+  20.676926697432627,
+  20.883695964406957,
+  21.092532924051028,
+  21.303458253291538,
+  21.51649283582445,
+  21.731657764182696,
+  21.948974341824528,
+  22.168464085242768,
+  22.390148726095198,
+  22.61405021335615,
+  22.84019071548971,
+  28.835740778305755,
+  29.124098186088823,
+  29.415339167949703,
+  29.709492559629204,
+  30.006587485225495,
+  30.306653360077753,
+  30.60971989367853,
+  38.64477136576915
+ ],
+ "cap": [
+  8,
+  8,
+  8,
+  8,
+  14,
+  14,
+  14,
+  14,
+  20,
+  20,
+  20,
+  20,
+  26,
+  26,
+  26,
+  26,
+  26,
+  30,
+  30,
+  30,
+  30,
+  30,
+  30,
+  30,
+  30,
+  30,
+  30,
+  30,
+  30,
+  30,
+  30,
+  30,
+  30,
+  30,
+  30,
+  30,
+  30,
+  30,
+  30,
+  30,
+  30,
+  30,
+  32,
+  32,
+  32,
+  32,
+  32,
+  32,
+  32,
+  32,
+  32,
+  32,
+  32,
+  32,
+  32,
+  32,
+  32,
+  32,
+  32,
+  32,
+  32,
+  32,
+  32,
+  32,
+  32,
+  32,
+  32,
+  34,
+  34,
+  34,
+  34,
+  34,
+  34,
+  34,
+  34,
+  34,
+  34,
+  34,
+  34,
+  34,
+  34,
+  34,
+  34,
+  34,
+  34,
+  34,
+  34,
+  34,
+  34,
+  34,
+  34,
+  34,
+  36,
+  36,
+  36,
+  36,
+  36,
+  38,
+  38,
+  40
+ ],
+ "allowed": [
+  [],
+  [
+   "lobby"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers"
+  ],
+  [],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs"
+  ],
+  [],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs",
+   "board"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs",
+   "board"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs",
+   "board"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs",
+   "board"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs",
+   "board"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs",
+   "board"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs",
+   "board"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs",
+   "board"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs",
+   "board"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs",
+   "board"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs",
+   "board"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs",
+   "board"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs",
+   "board"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs",
+   "board"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs",
+   "board"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs",
+   "board"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs",
+   "board"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs",
+   "board"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs",
+   "board"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs",
+   "board"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs",
+   "board"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs",
+   "board"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs",
+   "board"
+  ],
+  [
+   "eng",
+   "studio",
+   "cafe",
+   "servers",
+   "labs",
+   "board"
+  ],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  []
+ ],
+ "apt": [
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  1,
+  1,
+  1,
+  1,
+  2,
+  2,
+  2,
+  2,
+  2,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3
+ ],
+ "recommend": [
+  {
+   "level": 2,
+   "counts": {},
+   "free": 2,
+   "pick": "lobby"
+  },
+  {
+   "level": 3,
+   "counts": {
+    "lobby": 1
+   },
+   "free": 1,
+   "pick": "studio"
+  },
+  {
+   "level": 4,
+   "counts": {
+    "lobby": 1,
+    "studio": 1
+   },
+   "free": 0,
+   "pick": "cafe"
+  },
+  {
+   "level": 5,
+   "counts": {
+    "lobby": 1,
+    "studio": 1,
+    "cafe": 1
+   },
+   "free": 3,
+   "pick": "servers"
+  },
+  {
+   "level": 6,
+   "counts": {
+    "lobby": 1,
+    "studio": 1,
+    "cafe": 1,
+    "servers": 1
+   },
+   "free": 2,
+   "pick": "studio"
+  },
+  {
+   "level": 7,
+   "counts": {
+    "lobby": 1,
+    "studio": 2,
+    "cafe": 1,
+    "servers": 1
+   },
+   "free": 1,
+   "pick": "eng"
+  },
+  {
+   "level": 8,
+   "counts": {
+    "lobby": 1,
+    "studio": 2,
+    "cafe": 1,
+    "servers": 1,
+    "eng": 1
+   },
+   "free": 0,
+   "pick": "eng"
+  },
+  {
+   "level": 9,
+   "counts": {
+    "lobby": 1,
+    "studio": 2,
+    "cafe": 1,
+    "servers": 1,
+    "eng": 2
+   },
+   "free": 3,
+   "pick": "cafe"
+  },
+  {
+   "level": 10,
+   "counts": {
+    "lobby": 1,
+    "studio": 2,
+    "cafe": 2,
+    "servers": 1,
+    "eng": 2
+   },
+   "free": 2,
+   "pick": "studio"
+  },
+  {
+   "level": 11,
+   "counts": {
+    "lobby": 1,
+    "studio": 3,
+    "cafe": 2,
+    "servers": 1,
+    "eng": 2
+   },
+   "free": 1,
+   "pick": "eng"
+  },
+  {
+   "level": 12,
+   "counts": {
+    "lobby": 1,
+    "studio": 3,
+    "cafe": 2,
+    "servers": 1,
+    "eng": 3
+   },
+   "free": 0,
+   "pick": "eng"
+  },
+  {
+   "level": 13,
+   "counts": {
+    "lobby": 1,
+    "studio": 3,
+    "cafe": 2,
+    "servers": 1,
+    "eng": 4
+   },
+   "free": 3,
+   "pick": "cafe"
+  },
+  {
+   "level": 14,
+   "counts": {
+    "lobby": 1,
+    "studio": 3,
+    "cafe": 3,
+    "servers": 1,
+    "eng": 4
+   },
+   "free": 2,
+   "pick": "studio"
+  },
+  {
+   "level": 15,
+   "counts": {
+    "lobby": 1,
+    "studio": 4,
+    "cafe": 3,
+    "servers": 1,
+    "eng": 4
+   },
+   "free": 1,
+   "pick": "eng"
+  },
+  {
+   "level": 16,
+   "counts": {
+    "lobby": 1,
+    "studio": 4,
+    "cafe": 3,
+    "servers": 1,
+    "eng": 5
+   },
+   "free": 0,
+   "pick": "eng"
+  },
+  {
+   "level": 17,
+   "counts": {
+    "lobby": 1,
+    "studio": 4,
+    "cafe": 3,
+    "servers": 1,
+    "eng": 6
+   },
+   "free": 3,
+   "pick": "cafe"
+  },
+  {
+   "level": 19,
+   "counts": {
+    "lobby": 1,
+    "studio": 4,
+    "cafe": 4,
+    "servers": 1,
+    "eng": 6
+   },
+   "free": 1,
+   "pick": "labs"
+  },
+  {
+   "level": 20,
+   "counts": {
+    "lobby": 1,
+    "studio": 4,
+    "cafe": 4,
+    "servers": 1,
+    "eng": 6,
+    "labs": 1
+   },
+   "free": 0,
+   "pick": "eng"
+  },
+  {
+   "level": 21,
+   "counts": {
+    "lobby": 1,
+    "studio": 4,
+    "cafe": 4,
+    "servers": 1,
+    "eng": 7,
+    "labs": 1
+   },
+   "free": 3,
+   "pick": "studio"
+  },
+  {
+   "level": 22,
+   "counts": {
+    "lobby": 1,
+    "studio": 5,
+    "cafe": 4,
+    "servers": 1,
+    "eng": 7,
+    "labs": 1
+   },
+   "free": 2,
+   "pick": "cafe"
+  },
+  {
+   "level": 23,
+   "counts": {
+    "lobby": 1,
+    "studio": 5,
+    "cafe": 5,
+    "servers": 1,
+    "eng": 7,
+    "labs": 1
+   },
+   "free": 1,
+   "pick": "eng"
+  },
+  {
+   "level": 24,
+   "counts": {
+    "lobby": 1,
+    "studio": 5,
+    "cafe": 5,
+    "servers": 1,
+    "eng": 8,
+    "labs": 1
+   },
+   "free": 0,
+   "pick": "eng"
+  },
+  {
+   "level": 25,
+   "counts": {
+    "lobby": 1,
+    "studio": 5,
+    "cafe": 5,
+    "servers": 1,
+    "eng": 9,
+    "labs": 1
+   },
+   "free": 3,
+   "pick": "studio"
+  },
+  {
+   "level": 26,
+   "counts": {
+    "lobby": 1,
+    "studio": 6,
+    "cafe": 5,
+    "servers": 1,
+    "eng": 9,
+    "labs": 1
+   },
+   "free": 2,
+   "pick": "cafe"
+  },
+  {
+   "level": 27,
+   "counts": {
+    "lobby": 1,
+    "studio": 6,
+    "cafe": 6,
+    "servers": 1,
+    "eng": 9,
+    "labs": 1
+   },
+   "free": 1,
+   "pick": "eng"
+  },
+  {
+   "level": 28,
+   "counts": {
+    "lobby": 1,
+    "studio": 6,
+    "cafe": 6,
+    "servers": 1,
+    "eng": 10,
+    "labs": 1
+   },
+   "free": 0,
+   "pick": "eng"
+  },
+  {
+   "level": 29,
+   "counts": {
+    "lobby": 1,
+    "studio": 6,
+    "cafe": 6,
+    "servers": 1,
+    "eng": 11,
+    "labs": 1
+   },
+   "free": 3,
+   "pick": "studio"
+  },
+  {
+   "level": 30,
+   "counts": {
+    "lobby": 1,
+    "studio": 7,
+    "cafe": 6,
+    "servers": 1,
+    "eng": 11,
+    "labs": 1
+   },
+   "free": 2,
+   "pick": "cafe"
+  },
+  {
+   "level": 31,
+   "counts": {
+    "lobby": 1,
+    "studio": 7,
+    "cafe": 7,
+    "servers": 1,
+    "eng": 11,
+    "labs": 1
+   },
+   "free": 1,
+   "pick": "eng"
+  },
+  {
+   "level": 32,
+   "counts": {
+    "lobby": 1,
+    "studio": 7,
+    "cafe": 7,
+    "servers": 1,
+    "eng": 12,
+    "labs": 1
+   },
+   "free": 0,
+   "pick": "eng"
+  },
+  {
+   "level": 33,
+   "counts": {
+    "lobby": 1,
+    "studio": 7,
+    "cafe": 7,
+    "servers": 1,
+    "eng": 13,
+    "labs": 1
+   },
+   "free": 3,
+   "pick": "studio"
+  },
+  {
+   "level": 34,
+   "counts": {
+    "lobby": 1,
+    "studio": 8,
+    "cafe": 7,
+    "servers": 1,
+    "eng": 13,
+    "labs": 1
+   },
+   "free": 2,
+   "pick": "cafe"
+  },
+  {
+   "level": 35,
+   "counts": {
+    "lobby": 1,
+    "studio": 8,
+    "cafe": 8,
+    "servers": 1,
+    "eng": 13,
+    "labs": 1
+   },
+   "free": 1,
+   "pick": "eng"
+  },
+  {
+   "level": 36,
+   "counts": {
+    "lobby": 1,
+    "studio": 8,
+    "cafe": 8,
+    "servers": 1,
+    "eng": 14,
+    "labs": 1
+   },
+   "free": 0,
+   "pick": "eng"
+  },
+  {
+   "level": 37,
+   "counts": {
+    "lobby": 1,
+    "studio": 8,
+    "cafe": 8,
+    "servers": 1,
+    "eng": 15,
+    "labs": 1
+   },
+   "free": 3,
+   "pick": "studio"
+  },
+  {
+   "level": 38,
+   "counts": {
+    "lobby": 1,
+    "studio": 9,
+    "cafe": 8,
+    "servers": 1,
+    "eng": 15,
+    "labs": 1
+   },
+   "free": 2,
+   "pick": "cafe"
+  },
+  {
+   "level": 39,
+   "counts": {
+    "lobby": 1,
+    "studio": 9,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 15,
+    "labs": 1
+   },
+   "free": 1,
+   "pick": "eng"
+  },
+  {
+   "level": 40,
+   "counts": {
+    "lobby": 1,
+    "studio": 9,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 16,
+    "labs": 1
+   },
+   "free": 0,
+   "pick": "eng"
+  },
+  {
+   "level": 41,
+   "counts": {
+    "lobby": 1,
+    "studio": 9,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 17,
+    "labs": 1
+   },
+   "free": 3,
+   "pick": "studio"
+  },
+  {
+   "level": 42,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 17,
+    "labs": 1
+   },
+   "free": 2,
+   "pick": "labs"
+  },
+  {
+   "level": 44,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 17,
+    "labs": 2
+   },
+   "free": 0,
+   "pick": "eng"
+  },
+  {
+   "level": 45,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 18,
+    "labs": 2
+   },
+   "free": 3,
+   "pick": "labs"
+  },
+  {
+   "level": 46,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 18,
+    "labs": 3
+   },
+   "free": 2,
+   "pick": "labs"
+  },
+  {
+   "level": 47,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 18,
+    "labs": 4
+   },
+   "free": 1,
+   "pick": "eng"
+  },
+  {
+   "level": 48,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 19,
+    "labs": 4
+   },
+   "free": 0,
+   "pick": "eng"
+  },
+  {
+   "level": 49,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 20,
+    "labs": 4
+   },
+   "free": 3,
+   "pick": "labs"
+  },
+  {
+   "level": 50,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 20,
+    "labs": 5
+   },
+   "free": 2,
+   "pick": "labs"
+  },
+  {
+   "level": 51,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 20,
+    "labs": 6
+   },
+   "free": 1,
+   "pick": "eng"
+  },
+  {
+   "level": 52,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 21,
+    "labs": 6
+   },
+   "free": 0,
+   "pick": "eng"
+  },
+  {
+   "level": 53,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 22,
+    "labs": 6
+   },
+   "free": 3,
+   "pick": "labs"
+  },
+  {
+   "level": 54,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 22,
+    "labs": 7
+   },
+   "free": 2,
+   "pick": "labs"
+  },
+  {
+   "level": 55,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 22,
+    "labs": 8
+   },
+   "free": 1,
+   "pick": "eng"
+  },
+  {
+   "level": 56,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 23,
+    "labs": 8
+   },
+   "free": 0,
+   "pick": "eng"
+  },
+  {
+   "level": 57,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 24,
+    "labs": 8
+   },
+   "free": 3,
+   "pick": "labs"
+  },
+  {
+   "level": 58,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 24,
+    "labs": 9
+   },
+   "free": 2,
+   "pick": "labs"
+  },
+  {
+   "level": 59,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 24,
+    "labs": 10
+   },
+   "free": 1,
+   "pick": "eng"
+  },
+  {
+   "level": 60,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 25,
+    "labs": 10
+   },
+   "free": 0,
+   "pick": "eng"
+  },
+  {
+   "level": 61,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 26,
+    "labs": 10
+   },
+   "free": 3,
+   "pick": "labs"
+  },
+  {
+   "level": 62,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 26,
+    "labs": 11
+   },
+   "free": 2,
+   "pick": "labs"
+  },
+  {
+   "level": 63,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 26,
+    "labs": 12
+   },
+   "free": 1,
+   "pick": "eng"
+  },
+  {
+   "level": 64,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 27,
+    "labs": 12
+   },
+   "free": 0,
+   "pick": "eng"
+  },
+  {
+   "level": 65,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 28,
+    "labs": 12
+   },
+   "free": 3,
+   "pick": "labs"
+  },
+  {
+   "level": 66,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 28,
+    "labs": 13
+   },
+   "free": 2,
+   "pick": "labs"
+  },
+  {
+   "level": 67,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 28,
+    "labs": 14
+   },
+   "free": 1,
+   "pick": "eng"
+  },
+  {
+   "level": 69,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 29,
+    "labs": 14
+   },
+   "free": 3,
+   "pick": "board"
+  },
+  {
+   "level": 70,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 29,
+    "labs": 14,
+    "board": 1
+   },
+   "free": 2,
+   "pick": "labs"
+  },
+  {
+   "level": 71,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 29,
+    "labs": 15,
+    "board": 1
+   },
+   "free": 1,
+   "pick": "eng"
+  },
+  {
+   "level": 72,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 30,
+    "labs": 15,
+    "board": 1
+   },
+   "free": 0,
+   "pick": "eng"
+  },
+  {
+   "level": 73,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 31,
+    "labs": 15,
+    "board": 1
+   },
+   "free": 3,
+   "pick": "labs"
+  },
+  {
+   "level": 74,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 1,
+    "eng": 31,
+    "labs": 16,
+    "board": 1
+   },
+   "free": 2,
+   "pick": "servers"
+  },
+  {
+   "level": 75,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 2,
+    "eng": 31,
+    "labs": 16,
+    "board": 1
+   },
+   "free": 1,
+   "pick": "eng"
+  },
+  {
+   "level": 76,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 2,
+    "eng": 32,
+    "labs": 16,
+    "board": 1
+   },
+   "free": 0,
+   "pick": "eng"
+  },
+  {
+   "level": 77,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 2,
+    "eng": 33,
+    "labs": 16,
+    "board": 1
+   },
+   "free": 3,
+   "pick": "labs"
+  },
+  {
+   "level": 78,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 2,
+    "eng": 33,
+    "labs": 17,
+    "board": 1
+   },
+   "free": 2,
+   "pick": "servers"
+  },
+  {
+   "level": 79,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 3,
+    "eng": 33,
+    "labs": 17,
+    "board": 1
+   },
+   "free": 1,
+   "pick": "eng"
+  },
+  {
+   "level": 80,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 3,
+    "eng": 34,
+    "labs": 17,
+    "board": 1
+   },
+   "free": 0,
+   "pick": "eng"
+  },
+  {
+   "level": 81,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 3,
+    "eng": 35,
+    "labs": 17,
+    "board": 1
+   },
+   "free": 3,
+   "pick": "labs"
+  },
+  {
+   "level": 82,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 3,
+    "eng": 35,
+    "labs": 18,
+    "board": 1
+   },
+   "free": 2,
+   "pick": "servers"
+  },
+  {
+   "level": 83,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 4,
+    "eng": 35,
+    "labs": 18,
+    "board": 1
+   },
+   "free": 1,
+   "pick": "eng"
+  },
+  {
+   "level": 84,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 4,
+    "eng": 36,
+    "labs": 18,
+    "board": 1
+   },
+   "free": 0,
+   "pick": "eng"
+  },
+  {
+   "level": 85,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 4,
+    "eng": 37,
+    "labs": 18,
+    "board": 1
+   },
+   "free": 3,
+   "pick": "labs"
+  },
+  {
+   "level": 86,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 4,
+    "eng": 37,
+    "labs": 19,
+    "board": 1
+   },
+   "free": 2,
+   "pick": "servers"
+  },
+  {
+   "level": 87,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 5,
+    "eng": 37,
+    "labs": 19,
+    "board": 1
+   },
+   "free": 1,
+   "pick": "eng"
+  },
+  {
+   "level": 88,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 5,
+    "eng": 38,
+    "labs": 19,
+    "board": 1
+   },
+   "free": 0,
+   "pick": "eng"
+  },
+  {
+   "level": 89,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 5,
+    "eng": 39,
+    "labs": 19,
+    "board": 1
+   },
+   "free": 3,
+   "pick": "labs"
+  },
+  {
+   "level": 90,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 5,
+    "eng": 39,
+    "labs": 20,
+    "board": 1
+   },
+   "free": 2,
+   "pick": "servers"
+  },
+  {
+   "level": 91,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 6,
+    "eng": 39,
+    "labs": 20,
+    "board": 1
+   },
+   "free": 1,
+   "pick": "eng"
+  },
+  {
+   "level": 92,
+   "counts": {
+    "lobby": 1,
+    "studio": 10,
+    "cafe": 9,
+    "servers": 6,
+    "eng": 40,
+    "labs": 20,
+    "board": 1
+   },
+   "free": 0,
+   "pick": "eng"
+  },
+  {
+   "level": 24,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 1,
+    "eng": 4,
+    "labs": 1
+   },
+   "free": 3,
+   "pick": "labs"
+  },
+  {
+   "level": 24,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 1,
+    "eng": 4,
+    "labs": 2
+   },
+   "free": 3,
+   "pick": "servers"
+  },
+  {
+   "level": 24,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 1,
+    "eng": 6,
+    "labs": 3
+   },
+   "free": 3,
+   "pick": "servers"
+  },
+  {
+   "level": 24,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 2,
+    "eng": 4,
+    "labs": 1
+   },
+   "free": 3,
+   "pick": "labs"
+  },
+  {
+   "level": 24,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 2,
+    "eng": 4,
+    "labs": 2
+   },
+   "free": 3,
+   "pick": "eng"
+  },
+  {
+   "level": 24,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 2,
+    "eng": 6,
+    "labs": 3
+   },
+   "free": 3,
+   "pick": "eng"
+  },
+  {
+   "level": 36,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 2,
+    "eng": 4,
+    "labs": 1
+   },
+   "free": 3,
+   "pick": "labs"
+  },
+  {
+   "level": 36,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 2,
+    "eng": 4,
+    "labs": 2
+   },
+   "free": 3,
+   "pick": "servers"
+  },
+  {
+   "level": 36,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 2,
+    "eng": 6,
+    "labs": 3
+   },
+   "free": 3,
+   "pick": "servers"
+  },
+  {
+   "level": 36,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 3,
+    "eng": 4,
+    "labs": 1
+   },
+   "free": 3,
+   "pick": "labs"
+  },
+  {
+   "level": 36,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 3,
+    "eng": 4,
+    "labs": 2
+   },
+   "free": 3,
+   "pick": "eng"
+  },
+  {
+   "level": 36,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 3,
+    "eng": 6,
+    "labs": 3
+   },
+   "free": 3,
+   "pick": "eng"
+  },
+  {
+   "level": 48,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 3,
+    "eng": 4,
+    "labs": 1
+   },
+   "free": 3,
+   "pick": "labs"
+  },
+  {
+   "level": 48,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 3,
+    "eng": 4,
+    "labs": 2
+   },
+   "free": 3,
+   "pick": "servers"
+  },
+  {
+   "level": 48,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 3,
+    "eng": 6,
+    "labs": 3
+   },
+   "free": 3,
+   "pick": "servers"
+  },
+  {
+   "level": 48,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 4,
+    "eng": 4,
+    "labs": 1
+   },
+   "free": 3,
+   "pick": "labs"
+  },
+  {
+   "level": 48,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 4,
+    "eng": 4,
+    "labs": 2
+   },
+   "free": 3,
+   "pick": "eng"
+  },
+  {
+   "level": 48,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 4,
+    "eng": 6,
+    "labs": 3
+   },
+   "free": 3,
+   "pick": "eng"
+  },
+  {
+   "level": 60,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 4,
+    "eng": 4,
+    "labs": 1
+   },
+   "free": 3,
+   "pick": "labs"
+  },
+  {
+   "level": 60,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 4,
+    "eng": 4,
+    "labs": 2
+   },
+   "free": 3,
+   "pick": "servers"
+  },
+  {
+   "level": 60,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 4,
+    "eng": 6,
+    "labs": 3
+   },
+   "free": 3,
+   "pick": "servers"
+  },
+  {
+   "level": 60,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 5,
+    "eng": 4,
+    "labs": 1
+   },
+   "free": 3,
+   "pick": "labs"
+  },
+  {
+   "level": 60,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 5,
+    "eng": 4,
+    "labs": 2
+   },
+   "free": 3,
+   "pick": "eng"
+  },
+  {
+   "level": 60,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 5,
+    "eng": 6,
+    "labs": 3
+   },
+   "free": 3,
+   "pick": "eng"
+  },
+  {
+   "level": 72,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 5,
+    "eng": 4,
+    "labs": 1
+   },
+   "free": 3,
+   "pick": "labs"
+  },
+  {
+   "level": 72,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 5,
+    "eng": 4,
+    "labs": 2
+   },
+   "free": 3,
+   "pick": "servers"
+  },
+  {
+   "level": 72,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 5,
+    "eng": 6,
+    "labs": 3
+   },
+   "free": 3,
+   "pick": "servers"
+  },
+  {
+   "level": 72,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 6,
+    "eng": 4,
+    "labs": 1
+   },
+   "free": 3,
+   "pick": "labs"
+  },
+  {
+   "level": 72,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 6,
+    "eng": 4,
+    "labs": 2
+   },
+   "free": 3,
+   "pick": "eng"
+  },
+  {
+   "level": 72,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 6,
+    "eng": 6,
+    "labs": 3
+   },
+   "free": 3,
+   "pick": "eng"
+  },
+  {
+   "level": 84,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 6,
+    "eng": 4,
+    "labs": 1
+   },
+   "free": 3,
+   "pick": "labs"
+  },
+  {
+   "level": 84,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 6,
+    "eng": 4,
+    "labs": 2
+   },
+   "free": 3,
+   "pick": "servers"
+  },
+  {
+   "level": 84,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 6,
+    "eng": 6,
+    "labs": 3
+   },
+   "free": 3,
+   "pick": "servers"
+  },
+  {
+   "level": 84,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 7,
+    "eng": 4,
+    "labs": 1
+   },
+   "free": 3,
+   "pick": "labs"
+  },
+  {
+   "level": 84,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 7,
+    "eng": 4,
+    "labs": 2
+   },
+   "free": 3,
+   "pick": "eng"
+  },
+  {
+   "level": 84,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 7,
+    "eng": 6,
+    "labs": 3
+   },
+   "free": 3,
+   "pick": "eng"
+  },
+  {
+   "level": 90,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 6,
+    "eng": 4,
+    "labs": 1
+   },
+   "free": 3,
+   "pick": "labs"
+  },
+  {
+   "level": 90,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 6,
+    "eng": 4,
+    "labs": 2
+   },
+   "free": 3,
+   "pick": "servers"
+  },
+  {
+   "level": 90,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 6,
+    "eng": 6,
+    "labs": 3
+   },
+   "free": 3,
+   "pick": "servers"
+  },
+  {
+   "level": 90,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 7,
+    "eng": 4,
+    "labs": 1
+   },
+   "free": 3,
+   "pick": "labs"
+  },
+  {
+   "level": 90,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 7,
+    "eng": 4,
+    "labs": 2
+   },
+   "free": 3,
+   "pick": "eng"
+  },
+  {
+   "level": 90,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 20,
+    "board": 1,
+    "servers": 7,
+    "eng": 6,
+    "labs": 3
+   },
+   "free": 3,
+   "pick": "eng"
+  },
+  {
+   "level": 12,
+   "counts": {
+    "lobby": 1,
+    "studio": 2,
+    "cafe": 2,
+    "servers": 1
+   },
+   "free": 3,
+   "pick": "studio"
+  },
+  {
+   "level": 12,
+   "counts": {
+    "lobby": 1,
+    "studio": 3,
+    "cafe": 2,
+    "servers": 1
+   },
+   "free": 3,
+   "pick": "cafe"
+  },
+  {
+   "level": 12,
+   "counts": {
+    "lobby": 1,
+    "studio": 2,
+    "cafe": 2,
+    "servers": 1
+   },
+   "free": 1,
+   "pick": "eng"
+  },
+  {
+   "level": 12,
+   "counts": {
+    "lobby": 1,
+    "studio": 2,
+    "cafe": 2,
+    "servers": 1
+   },
+   "free": 2,
+   "pick": "studio"
+  },
+  {
+   "level": 12,
+   "counts": {
+    "lobby": 1,
+    "studio": 20,
+    "cafe": 3,
+    "servers": 1
+   },
+   "free": 3,
+   "pick": "cafe"
+  }
+ ],
+ "effects": [
+  {
+   "counts": {},
+   "quality": 0.0,
+   "morale": 0.0,
+   "compute": 0,
+   "labs": 0,
+   "board": 0
+  },
+  {
+   "counts": {
+    "studio": 1
+   },
+   "quality": 0.25,
+   "morale": 0.0,
+   "compute": 0,
+   "labs": 0,
+   "board": 0
+  },
+  {
+   "counts": {
+    "studio": 3,
+    "cafe": 2
+   },
+   "quality": 0.45,
+   "morale": 0.28,
+   "compute": 0,
+   "labs": 0,
+   "board": 0
+  },
+  {
+   "counts": {
+    "studio": 20,
+    "cafe": 20,
+    "servers": 4,
+    "labs": 3,
+    "board": 1
+   },
+   "quality": 1.5,
+   "morale": 0.8,
+   "compute": 4,
+   "labs": 3,
+   "board": 1
+  }
+ ],
+ "prices": [
+  {
+   "level": 2,
+   "scale": 1.0,
+   "record": 1,
+   "price": 60
+  },
+  {
+   "level": 18,
+   "scale": 1.0,
+   "record": 1,
+   "price": 2259065
+  },
+  {
+   "level": 18,
+   "scale": 2.535,
+   "record": 18,
+   "price": 143168
+  },
+  {
+   "level": 30,
+   "scale": 4.394,
+   "record": 18,
+   "price": 7499683
+  },
+  {
+   "level": 100,
+   "scale": 292.5,
+   "record": 100,
+   "price": 277398086
+  },
+  {
+   "level": 55,
+   "scale": 16.89,
+   "record": 43,
+   "price": 68127335
+  }
+ ]
+}
