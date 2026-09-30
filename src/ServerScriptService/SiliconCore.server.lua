@@ -1517,6 +1517,7 @@ local function refreshObjective(player)
 			end
 			if Econ and Econ.V3 then
 				-- v2.7.0: rooms are furnished; no station step. Hire, build, level, HQ.
+				s.guideRecruit = nil
 				if s.staff < cap then
 					local hc = hireCostOf(s, plot)
 					-- v3.0: ranked at the walk-in fee (the sim's rule), pointed at the best
@@ -1525,6 +1526,8 @@ local function refreshObjective(player)
 					if cand then
 						offer(hc, "recruit", ("Recruit a %s hire"):format(cand.tier.name), cand.pos, "They wait on the sidewalk")
 						best.cost = cand.fee
+						s.guideRecruit = { c = hc, k = "recruit", t = ("Recruit a %s hire"):format(cand.tier.name), at = cand.pos,
+							sub = "They wait on the sidewalk", cost = cand.fee }
 					elseif not (Econ.RECRUIT and Econ.Drop) then
 						offer(hc, "hire2", "Hire someone new", posOf(plot.hirePad), "Every hire could be rare")
 						best.cost = hc
@@ -1624,6 +1627,9 @@ local function refreshObjective(player)
 				local nice = t.name:sub(1, 1) .. t.name:sub(2):lower()
 				best = { c = t.price, k = "apartment", t = has and ("Buy a %s"):format(nice) or ("Save for a %s"):format(nice),
 					at = deskAt, sub = nearDesk and "Sales desk, in the lobby" or (drive and "Drive downtown: CAR button" or "The Residences, downtown") }
+				-- v4.6: while the home is out of reach, keep growing the team (the sim's rule:
+				-- a home when affordable, else a recruit). The BIG GOAL card still names the home.
+				if not has and Econ.WAFERS and s.guideRecruit then best = s.guideRecruit end
 			end
 			if not best then best = { k = "wait", t = "Write code", at = nil, sub = "Tap WRITE CODE for cash" } end
 			key, text, pos, sub, cost = best.k, best.t, best.at, best.sub, best.cost or best.c
@@ -3565,6 +3571,7 @@ if game:GetService("RunService"):IsStudio() then
 		hqMultOf = hqMultOf,
 		hqCostOf = hqCostOf,
 		wafersNext = wafersNext,
+		refreshHqPad = refreshHqPad,
 		launchProduct = launchProduct,
 		loaded = loaded,
 		offerAmountOf = offerAmountOf,

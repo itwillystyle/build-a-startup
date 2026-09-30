@@ -61,6 +61,11 @@ local CHARCOAL = Color3.fromRGB(46, 50, 58)
 local LAWN = Color3.fromRGB(122, 170, 80)
 local GOLD = Color3.fromRGB(255, 194, 61)
 
+-- tinted glass for the kit's glass meshes (they are vertex white)
+local function glassOf(color, t)
+	return { Material = Enum.Material.Glass, Transparency = t or 0.45, CastShadow = false, Color = color }
+end
+
 -- ---------------------------------------------------------------- geometry
 local RAD45 = math.rad(45)
 local DECK_TOP = -G.SLAB + 0.3     -- a deck / roof surface, relative to its storey's floor top
@@ -108,6 +113,9 @@ local function clearFootprint(plot)
 	if not (grounds and plot.pivot) then return end
 	local function inside(pos)
 		local lp = plot.pivot:PointToObjectSpace(pos)
+		-- the lobby's entrance canopy reaches out over the plaza (W_Lobby: to z ~72, x +-23)
+		local w1 = G.WAFER[1]
+		if math.abs(lp.X - w1.cx) <= 25 and lp.Z - w1.cz >= w1.r - G.DEPTH and lp.Z - w1.cz <= 76 then return true end
 		for _, w in pairs(G.WAFER) do
 			local r = Vector2.new(lp.X - w.cx, lp.Z - w.cz).Magnitude
 			if r >= w.r - G.DEPTH - 3 and r <= w.r + 4 then return true end
@@ -203,12 +211,20 @@ local function placeAll(model, anchor, list)
 	return parts
 end
 
--- the imported mesh named `name`, placed in the piece's local frame (HQMeta.Wafers)
-local function mesh(model, anchor, name, color, props)
+-- the imported template for `name`, or nil (the metadata ships with the code; the
+-- meshes arrive with a Bulk Import, so "has a mesh" means the template is in the place)
+local function template(name)
 	local lib = RS:FindFirstChild("SVMeshes")
 	local tpl = lib and (lib:FindFirstChild(name) or lib:FindFirstChild(name, true))
+	if tpl and META[name] then return tpl end
+	return nil
+end
+
+-- the imported mesh named `name`, placed in the piece's local frame (HQMeta.Wafers)
+local function mesh(model, anchor, name, color, props)
+	local tpl = template(name)
 	local m = META[name]
-	if not tpl or not m then return nil end
+	if not tpl then return nil end
 	local mp = tpl:IsA("Model") and tpl:FindFirstChildWhichIsA("MeshPart", true) or tpl
 	if not mp then return nil end
 	mp = mp:Clone()
@@ -287,7 +303,7 @@ end
 -- the money sign on the courtyard face of a segment
 local function sign(model, anchor, rin, dept)
 	local p = add(model, { Name = "DeptSign", Size = Vector3.new(12, 1.6, 0.2),
-		CFrame = anchor * CFrame.new(0, G.H - 3.2, rin + 0.9),
+		CFrame = anchor * CFrame.new(0, G.H - 3.2, math.sqrt(rin * rin - 36) - 0.45),
 		Color = CHARCOAL, CanCollide = false, CanQuery = false, CastShadow = false })
 	local sg = Instance.new("SurfaceGui")
 	sg.Face = Enum.NormalId.Front
@@ -317,7 +333,7 @@ local function buildSegment(plot, L, dept, model)
 	local wallH = G.H - G.SLAB
 	local tint = Wafers.TINT[dept] or PAPER
 	-- collision (and the fallback look when the mesh kit is missing)
-	local hasMesh = META["W_Seg_" .. pc.wafer] ~= nil and RS:FindFirstChild("SVMeshes") ~= nil
+	local hasMesh = template("W_Seg_" .. pc.wafer) ~= nil
 	local slabProps = { Name = "Floor", Color = PAPER, Material = Enum.Material.SmoothPlastic, CastShadow = not hasMesh,
 		Transparency = hasMesh and 1 or 0 }
 	local glassProps = { Name = "Wall", Color = tint, Material = hasMesh and Enum.Material.SmoothPlastic or Enum.Material.Glass,
@@ -359,6 +375,19 @@ local function buildSegment(plot, L, dept, model)
 		if shell then table.insert(visual, shell) end
 		if glass then table.insert(visual, glass) end
 	end
+	-- the columns from the deck below up to this wafer: with its first piece, so a
+	-- finished deck never shows columns holding up nothing
+	local below = pc.wafer - 1
+	if pc.seg == 1 and below >= 1 then
+		for _, q in ipairs(P.PIECES) do
+			if q.kind == "deck" and q.wafer == below and q.storey + 1 == pc.storey then
+				local bx, bz = centre(below)
+				local deckA = plot.pivot * CFrame.new(bx, Wafers.floorY(q.storey) - G.SLAB, bz)
+				local cols = mesh(model, deckA, "W_DeckCols_" .. below, nil, { CastShadow = true })
+				if cols then table.insert(visual, cols) end
+			end
+		end
+	end
 	local seats = furnish(model, anchor, dept, r)
 	local label = (dept ~= "lobby") and sign(model, anchor, rin, dept) or nil
 	return parts, visual, seats, label
@@ -370,7 +399,7 @@ local function buildRing(plot, L, model, planted)
 	local anchor = Wafers.anchor(plot, L)
 	local _, _, r = centre(pc.wafer)
 	local rin = r - G.DEPTH
-	local hasMesh = META["W_Deck_1"] ~= nil
+	local hasMesh = template(pc.kind == "roof" and "W_Roof" or ("W_Deck_" .. pc.wafer)) ~= nil
 	local list = {}
 	local n = 16
 	local deckProps = { Name = "Deck", Color = planted and LAWN or PAPER, Material = Enum.Material.SmoothPlastic,
@@ -383,29 +412,46 @@ local function buildRing(plot, L, model, planted)
 			Size = Vector3.new(chord(r + 0.5, 2 * math.pi / n) + 0.4, 0.3, G.DEPTH + 0.5),
 			CFrame = CFrame.Angles(0, a, 0) * CFrame.new(0, DECK_TOP - 0.15, rin + G.DEPTH / 2), CastShadow = false })
 		for _, rr in ipairs({ r - 0.3, rin + 0.3 }) do
-			table.insert(list, { Name = railProps.Name, Color = railProps.Color, Material = railProps.Material, Transparency = railProps.Transparency,
-				CastShadow = false, Size = Vector3.new(chord(rr, 2 * math.pi / n) + 0.3, 3.2, 0.3),
-				CFrame = CFrame.Angles(0, a, 0) * CFrame.new(0, DECK_TOP + 1.6, rr) })
+			-- the back of the ring (angle pi) is where the lift bridge lands: the
+			-- inner rail leaves a 7-stud doorway there
+			local a0, a1 = (k - 1) * (2 * math.pi / n), k * (2 * math.pi / n)
+			local spans = { { a0, a1 } }
+			local gapA = 3.5 / rr
+			if rr < r - 1 and a0 < math.pi + gapA and a1 > math.pi - gapA then
+				spans = {}
+				if a0 < math.pi - gapA then table.insert(spans, { a0, math.pi - gapA }) end
+				if a1 > math.pi + gapA then table.insert(spans, { math.pi + gapA, a1 }) end
+			end
+			for _, sp in ipairs(spans) do
+				local am = (sp[1] + sp[2]) / 2
+				table.insert(list, { Name = railProps.Name, Color = railProps.Color, Material = railProps.Material, Transparency = railProps.Transparency,
+					CastShadow = false, Size = Vector3.new(chord(rr, sp[2] - sp[1]) + 0.3, 3.2, 0.3),
+					CFrame = CFrame.Angles(0, am, 0) * CFrame.new(0, DECK_TOP + 1.6, rr) })
+			end
 		end
 	end
 	local parts = placeAll(model, anchor, list)
 	local visual = {}
 	local name = (pc.kind == "deck" and "W_Deck_" .. pc.wafer) or (pc.kind == "roof" and "W_Roof") or nil
 	if name then
-		local v = mesh(model, anchor * CFrame.new(0, -G.SLAB, 0), name, nil, { CastShadow = true })
+		local frame = anchor * CFrame.new(0, -G.SLAB, 0)
+		local v = mesh(model, frame, name, nil, { CastShadow = true })
 		if v then table.insert(visual, v) end
+		local gname = (pc.kind == "deck" and "W_DeckGlass_" .. pc.wafer) or "W_RoofGlass"
+		local gv = mesh(model, frame, gname, nil, glassOf(Color3.fromRGB(200, 222, 232), 0.5))
+		if gv then table.insert(visual, gv) end
 	end
 	return parts, visual
 end
 
 local function buildPavilion(plot, L, model)
 	local anchor = Wafers.anchor(plot, L)
-	local hasMesh = META["W_Pav"] ~= nil
+	local hasMesh = template("W_Pav") ~= nil
 	local list = {}
 	local props = { Name = "PavWall", Color = Color3.fromRGB(236, 224, 196), Material = hasMesh and Enum.Material.SmoothPlastic or Enum.Material.Glass,
 		Transparency = hasMesh and 1 or 0.4, CastShadow = false }
 	for _, p in ipairs(arcBoxes(-math.rad(45), math.rad(45), 5, G.PAVILION.rout, 0.8, DECK_TOP, 9, props, 6)) do table.insert(list, p) end
-	for _, p in ipairs(arcBoxes(-math.rad(45), math.rad(45), 5, G.PAVILION.rin, 0.8, DECK_TOP, 9, props)) do table.insert(list, p) end
+	for _, p in ipairs(arcBoxes(-math.rad(45), math.rad(45), 5, G.PAVILION.rin, 0.8, DECK_TOP, 9, props, 6)) do table.insert(list, p) end
 	local parts = placeAll(model, anchor, list)
 	local visual = {}
 	for _, nm in ipairs({ "W_Pav", "W_PavGlass" }) do
@@ -420,6 +466,8 @@ local function buildCrown(plot, L, model)
 	local pc = P.PIECES[L]
 	local visual = {}
 	local top = Wafers.floorY(14)
+	local coreTop = top - G.SLAB + G.H          -- the top of the lift's highest storey (the roof's)
+	local LANTERN_H = 11.2
 	if pc.kind == "halo" then
 		local cx, cz = centre(4)
 		local a = plot.pivot * CFrame.new(cx, top + 8, cz)
@@ -433,15 +481,19 @@ local function buildCrown(plot, L, model)
 			end
 		end
 	elseif pc.kind == "lantern" then
-		local a = plot.pivot * CFrame.new(G.CORE.x, top, G.CORE.z)
+		local a = plot.pivot * CFrame.new(G.CORE.x, coreTop, G.CORE.z)
 		local v = mesh(model, a, "W_Lantern", nil, {})
-		if v then table.insert(visual, v) else
+		if v then
+			table.insert(visual, v)
+			local gv = mesh(model, a, "W_LanternGlass", nil, glassOf(Color3.fromRGB(255, 236, 190), 0.3))
+			if gv then table.insert(visual, gv) end
+		else
 			table.insert(visual, add(model, { Name = "Lantern", Shape = Enum.PartType.Cylinder, Size = Vector3.new(9, 12, 12),
 				CFrame = a * CFrame.new(0, 4.5, 0) * CFrame.Angles(0, 0, math.rad(90)), Color = Color3.fromRGB(255, 236, 190),
 				Material = Enum.Material.Glass, Transparency = 0.3, CanCollide = false, CanQuery = false }))
 		end
 	elseif pc.kind == "mast" then
-		local a = plot.pivot * CFrame.new(G.CORE.x, top + 9, G.CORE.z)
+		local a = plot.pivot * CFrame.new(G.CORE.x, coreTop + LANTERN_H, G.CORE.z)
 		local v = mesh(model, a, "W_Mast", nil, {})
 		if v then table.insert(visual, v) else
 			table.insert(visual, add(model, { Name = "Mast", Size = Vector3.new(1.2, 60, 1.2), CFrame = a * CFrame.new(0, 30, 0),
@@ -483,12 +535,21 @@ local function waferAt(s)
 	return nil
 end
 
-local function liftButton(plot, st, s, stand)
+-- a storey whose lift stop is a deck or the roof: people walk on it DECK_TOP below the floor top
+local function deckStorey(s)
+	for L = 2, P.MAX do
+		local pc = P.PIECES[L]
+		if pc.storey == s and (pc.kind == "deck" or pc.kind == "roof") then return true end
+	end
+	return false
+end
+
+-- `core` is the storey's lift frame (its -Z faces that storey's bridge; the ground's +Z faces the garage)
+local function liftButton(plot, st, s, core, stand)
 	local HQ = api.HQFloors
-	local c = plot.pivot * CFrame.new(G.CORE.x, Wafers.floorY(s), G.CORE.z)
 	local side = (s == 0) and 1 or -1           -- ground: facing the garage; above: at the bridge
 	local btn = add(st.folder, { Name = "LiftCall", Size = Vector3.new(1.2, 2, 0.4),
-		CFrame = c * CFrame.new(3.2 * side, 4.2, side * (G.CORE.r + 0.3)) * CFrame.Angles(0, side > 0 and 0 or math.pi, 0),
+		CFrame = core * CFrame.new(3.2 * side, 4.2, side * (G.CORE.r + 1.0)) * CFrame.Angles(0, side > 0 and 0 or math.pi, 0),
 		Color = CHARCOAL, CanCollide = false, CastShadow = false })
 	add(st.folder, { Name = "LiftCallLit", Shape = Enum.PartType.Ball, Size = Vector3.new(0.5, 0.5, 0.5), CFrame = btn.CFrame * CFrame.new(0, 0.3, -0.25),
 		Color = GOLD, Material = Enum.Material.Neon, CanCollide = false, CanQuery = false, CastShadow = false })
@@ -507,6 +568,39 @@ local function liftButton(plot, st, s, stand)
 	table.insert(st.core, btn)
 end
 
+-- a glass walkway from `from` to `to` (plot space, on the walking surface): the kit's
+-- bridge stretched to length, or a visible slab and rails without it
+local function bridgeBetween(st, from, to)
+	local flat = Vector3.new(to.X - from.X, 0, to.Z - from.Z)
+	local len = math.max(2, flat.Magnitude)
+	local dir = flat.Unit
+	local frame = CFrame.lookAt(from, from - dir)       -- +Z runs along the bridge
+	local tpl = template("W_Bridge")
+	local mid = frame * CFrame.new(0, 0, len / 2)
+	-- collision: the deck and two rails (the look when the kit is missing)
+	local walk = add(st.folder, { Name = "Bridge", Size = Vector3.new(5, 0.6, len), CFrame = mid * CFrame.new(0, -0.3, 0),
+		Color = Color3.fromRGB(200, 220, 230), Material = Enum.Material.Glass, Transparency = tpl and 1 or 0.3, CastShadow = false })
+	table.insert(st.core, walk)
+	for _, sx in ipairs({ -2.6, 2.6 }) do
+		table.insert(st.core, add(st.folder, { Name = "BridgeRail", Size = Vector3.new(0.2, 3.2, len), CFrame = mid * CFrame.new(sx, 1.6, 0),
+			Color = Color3.fromRGB(200, 220, 230), Material = Enum.Material.Glass, Transparency = tpl and 1 or 0.5, CastShadow = false }))
+	end
+	if tpl then
+		for _, nm in ipairs({ "W_Bridge", "W_BridgeGlass" }) do
+			local m = META[nm]
+			local v = mesh(st.folder, frame, nm, nm == "W_BridgeGlass" and Color3.fromRGB(200, 222, 232) or nil,
+				nm == "W_BridgeGlass" and glassOf(Color3.fromRGB(200, 222, 232), 0.5) or { CastShadow = true })
+			if v and m then
+				-- the kit's bridge is 10 long: stretch it (size and centre) to this one
+				local k = len / m.s.Z
+				v.Size = Vector3.new(v.Size.X, v.Size.Y, v.Size.Z * k)
+				v.CFrame = frame * CFrame.new(m.c.X, m.c.Y, m.c.Z * k)
+				table.insert(st.core, v)
+			end
+		end
+	end
+end
+
 -- (re)build the glass lift up to the top storey, with a bridge and a stop on each one
 local function buildCore(plot)
 	local st = stateOf(plot)
@@ -518,40 +612,51 @@ local function buildCore(plot)
 		if api.HQFloors and api.HQFloors.register then api.HQFloors.register(plot.index, plot, {}) end
 		return
 	end
-	local hasMesh = META["W_Core"] ~= nil
+	local coreCentre = plot.pivot * CFrame.new(G.CORE.x, 0, G.CORE.z)
 	-- the ground stop: in the courtyard, in front of the core (facing the garage)
-	liftButton(plot, st, 0, plot.pivot * CFrame.new(G.CORE.x, G.FLOOR_Y + 0.1, G.CORE.z + G.CORE.r + 3))
+	liftButton(plot, st, 0, coreCentre + Vector3.new(0, Wafers.floorY(0), 0),
+		plot.pivot * CFrame.new(G.CORE.x, G.FLOOR_Y + 0.1, G.CORE.z + G.CORE.r + 3))
 	for s = 0, top do
 		local y = Wafers.floorY(s)
-		local base = plot.pivot * CFrame.new(G.CORE.x, y, G.CORE.z)
-		local tube = hasMesh and mesh(st.folder, base * CFrame.new(0, -G.SLAB, 0), "W_Core", nil, { Transparency = 0 })
-		if not tube then
-			tube = add(st.folder, { Name = "LiftTube", Shape = Enum.PartType.Cylinder, Size = Vector3.new(G.H, G.CORE.r * 2, G.CORE.r * 2),
-				CFrame = base * CFrame.new(0, G.H / 2 - G.SLAB, 0) * CFrame.Angles(0, 0, math.rad(90)), Color = Color3.fromRGB(190, 214, 226),
-				Material = Enum.Material.Glass, Transparency = 0.45, CanCollide = true, CastShadow = false })
-		end
-		table.insert(st.core, tube)
+		local walkY = deckStorey(s) and (y + DECK_TOP) or y
+		-- this storey's bridge: from the core to the door at the back of that storey's ring
+		-- (the middle of segment 5, which faces -Z from its wafer's centre)
+		local w = waferAt(s)
+		local frame = coreCentre + Vector3.new(0, y, 0)
+		local door
 		if s >= 1 then
-			-- the bridge: from the core toward the back (-Z) to the ring's inner face
-			local w = waferAt(s)
-			local cx, cz, r
-			if w then cx, cz, r = centre(w) else cx, cz, r = centre(1) end
+			local cx, cz, r = centre(w or 1)
 			local rin = r - G.DEPTH
-			-- where x = core.x meets the inner circle behind the core
-			local dx = G.CORE.x - cx
-			local zEdge = cz - math.sqrt(math.max(0, rin * rin - dx * dx))
-			local z0 = G.CORE.z - G.CORE.r
-			local len = math.max(2, z0 - zEdge + 1.0)
-			local bridge = add(st.folder, { Name = "Bridge", Size = Vector3.new(5, 0.6, len),
-				CFrame = plot.pivot * CFrame.new(G.CORE.x, y - 0.3, z0 - len / 2), Color = Color3.fromRGB(200, 220, 230),
-				Material = Enum.Material.Glass, Transparency = 0.3, CastShadow = false })
-			table.insert(st.core, bridge)
-			for _, sx in ipairs({ -2.6, 2.6 }) do
-				table.insert(st.core, add(st.folder, { Name = "BridgeRail", Size = Vector3.new(0.2, 3.2, len),
-					CFrame = plot.pivot * CFrame.new(G.CORE.x + sx, y + 1.6, z0 - len / 2), Color = Color3.fromRGB(200, 220, 230),
-					Material = Enum.Material.Glass, Transparency = 0.5, CastShadow = false }))
+			door = (plot.pivot * CFrame.new(cx, walkY, cz - rin - 0.5)).Position
+			local here = (coreCentre + Vector3.new(0, walkY, 0)).Position
+			local dir = Vector3.new(door.X - here.X, 0, door.Z - here.Z).Unit
+			frame = CFrame.lookAt(frame.Position, frame.Position + dir)   -- -Z (the bridge door) faces the bridge
+		end
+		local base = frame * CFrame.new(0, -G.SLAB, 0)
+		local tube = mesh(st.folder, base, "W_Core", nil, { CastShadow = true })
+		if tube then
+			table.insert(st.core, tube)
+			local gl = mesh(st.folder, base, "W_CoreGlass", nil, glassOf(Color3.fromRGB(190, 214, 226), 0.45))
+			if gl then table.insert(st.core, gl) end
+			if s == top then
+				local cap = mesh(st.folder, base, "W_CoreCap", nil, { CastShadow = true })
+				if cap then table.insert(st.core, cap) end
 			end
-			liftButton(plot, st, s, plot.pivot * CFrame.new(G.CORE.x, y + 0.1, z0 - 3) * CFrame.Angles(0, math.pi, 0))
+			-- the kit's tube has no collision: a plain cylinder keeps people out of the shaft
+			table.insert(st.core, add(st.folder, { Name = "LiftShaft", Shape = Enum.PartType.Cylinder, Size = Vector3.new(G.H, G.CORE.r * 2, G.CORE.r * 2),
+				CFrame = frame * CFrame.new(0, G.H / 2 - G.SLAB, 0) * CFrame.Angles(0, 0, math.rad(90)), Transparency = 1,
+				CanCollide = true, CastShadow = false }))
+		else
+			table.insert(st.core, add(st.folder, { Name = "LiftTube", Shape = Enum.PartType.Cylinder, Size = Vector3.new(G.H, G.CORE.r * 2, G.CORE.r * 2),
+				CFrame = frame * CFrame.new(0, G.H / 2 - G.SLAB, 0) * CFrame.Angles(0, 0, math.rad(90)), Color = Color3.fromRGB(190, 214, 226),
+				Material = Enum.Material.Glass, Transparency = 0.45, CanCollide = true, CastShadow = false }))
+		end
+		if s >= 1 then
+			local from = (frame * CFrame.new(0, walkY - y, -(G.CORE.r + 0.6))).Position
+			bridgeBetween(st, from, door)
+			local stand = CFrame.lookAt((frame * CFrame.new(0, walkY - y + 0.1, -(G.CORE.r + 3.5))).Position,
+				(frame * CFrame.new(0, walkY - y + 0.1, -(G.CORE.r + 9))).Position)
+			liftButton(plot, st, s, frame + Vector3.new(0, walkY - y, 0), stand)
 		end
 	end
 	if api.HQFloors and api.HQFloors.register then api.HQFloors.register(plot.index, plot, st.stops) end
