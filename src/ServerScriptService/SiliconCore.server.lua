@@ -92,6 +92,7 @@ if Econ and Econ.V3 then for i, c in ipairs(Econ.HQ_COST) do if CFG.HQ_LEVELS[i]
 local sessions = {}   -- userId -> session (v4.5: declared here, the price helpers read it)
 
 local function hqMultOf(plot)
+	if plot and plot.wafer and Econ and Econ.WAFERS then return Econ.Wafers.Plan.multAt(plot.wafer.level) end   -- v4.6
 	return CFG.HQ_MULT[plot and plot.hq and plot.hq.level or 1] or 1
 end
 --[[
@@ -118,7 +119,17 @@ local function hqCostOf(s, level)
 	return L and math.floor(L.cost * scaleOf(s)) or nil
 end
 -- what the player is saving for: the next HQ level, or the spin-off at HQ 5 (windfalls are capped against it)
+-- v4.6 THE WAFERS: the next BUILD tap for this company: first level, last level (a rebuilt
+-- storey is several), price. nil at the top of the blueprint.
+local function wafersNext(s, plot)
+	if not (Econ and Econ.WAFERS and plot and plot.wafer and s) then return nil end
+	return Econ.Wafers.nextBuild(plot, s.record or 1, scaleOf(s), Econ.Wafers.Plan.blueprint(s.spinoffs or 0))
+end
 local function nextGoalOf(s, plot)
+	if Econ and Econ.WAFERS and plot and plot.wafer then
+		local L, _, price = wafersNext(s, plot)
+		return L and price or spinoffCostOf(s)
+	end
 	return hqCostOf(s, (plot and plot.hq and plot.hq.level or 1) + 1) or spinoffCostOf(s)
 end
 local function milestonesFromEarned(earned)
@@ -888,7 +899,12 @@ local function buildPlot(index, def)
 	end
 
 	buildShell(plot, 1, false)
-	buildSlots(plot)
+	if Econ and Econ.WAFERS then
+		plot.slots = {}
+		Econ.Wafers.stateOf(plot)   -- v4.6: the building grows round the garage
+	else
+		buildSlots(plot)
+	end
 
 	local garage = plot.garage
 	part({ Name = "Shelf", Size = Vector3.new(6, 4, 1.2), CFrame = g(-14, 2.5, -13.5),
@@ -1004,6 +1020,11 @@ end
 local function recompute(player)
 	local s = sessions[player.UserId]
 	if not s then return end
+	local plotW = Econ and Econ.WAFERS and plotOf(player)
+	if plotW and plotW.wafer then   -- v4.6: the departments built ARE the studio / cafe / servers
+		local e = Econ.Wafers.effects(plotW)
+		s.quality, s.morale, s.compute, s.labs, s.board = e.quality, e.morale, e.compute, e.labs, e.board
+	end
 	local q = math.min(s.quality or 0, CFG.QUALITY_CAP)
 	local mo = math.min(s.morale or 0, CFG.MORALE_CAP)
 	local mult = (1 + q) * (1 + mo)
@@ -1022,13 +1043,15 @@ local function recompute(player)
 	-- v2.6.0 ROOM ECONOMY: only SEATED people earn (the waiting line earns 0),
 	-- a seat in the room that fits your job pays x1.5, bigger stations are more
 	-- efficient per seat, and everyone draws a wage by seniority (not talent)
-	local base, wages, perRoom = 0, 0, {}
+	local base, wages, perRoom, perSeg = 0, 0, {}, {}
 	for _, r in ipairs(s.rigs or {}) do
 		if not (Econ and Econ.V3) then wages += Econ and Econ.wageOf(r.tier) or 0 end
 		if r.seated then
 			local v = CFG.TIER_RATE[r.tier or 1] * talentMultOf(r) * ((r.fit and Econ) and Econ.FIT_MULT or 1) * (r.eff or 1)
 			base += v
-			perRoom[r.room or "hq"] = (perRoom[r.room or "hq"] or 0) + v
+			local roomKey = (r.dept and Econ and Econ.Wafers and Econ.Wafers.NAME[r.dept]) or r.room or "hq"
+			perRoom[roomKey] = (perRoom[roomKey] or 0) + v
+			if r.seg then perSeg[r.seg] = (perSeg[r.seg] or 0) + v end
 		end
 	end
 	if #(s.rigs or {}) == 0 then base = s.staff * CFG.INTERN_RATE end   -- rigs missing (no StaffRig)
@@ -1042,6 +1065,10 @@ local function recompute(player)
 	if Econ then
 		for k, v in pairs(perRoom) do perRoom[k] = v * F end
 		player:SetAttribute("IncomeRooms", Econ.breakdown(perRoom, wageTotal))
+		if plotW and plotW.wafer then
+			for k, v in pairs(perSeg) do perSeg[k] = v * F end
+			pcall(Econ.Wafers.refreshSigns, plotW, perSeg, fmt)
+		end
 	end
 	player:SetAttribute("Prestige", math.floor(spinMultOf(s) * milestoneMultOf(s) * ((Econ and Econ.indexMult) and Econ.indexMult(s.index) or 1) * 100 + 0.5) / 100)
 	player:SetAttribute("Spinoffs", s.spinoffs or 0)
@@ -1067,6 +1094,10 @@ end
 
 local function capacityOf(player)
 	local s = sessions[player.UserId]
+	if s and Econ and Econ.WAFERS then   -- v4.6: the floors you built, up to the staff cap
+		local plot = plotOf(player)
+		return plot and plot.wafer and Econ.Wafers.capacity(plot) or 1
+	end
 	if s and Econ and Econ.V3 then
 		local plot = plotOf(player)
 		return plot and Econ.capacity(plot) or 1
@@ -1165,6 +1196,12 @@ local function deskHomes(s, plot)
 	-- v2.6.0: every seat knows its ROOM and its station's efficiency
 	-- the garage bench, right-hand desk: seat in front, looking at the desk
 	local homes = { { cf = plot.g(2.46, 3.4, -6.4), room = "hq", eff = 1 } }
+	if Econ and Econ.WAFERS and plot.wafer then   -- v4.6: the Wafers' desks and tables, floor by floor
+		for _, seat in ipairs(Econ.Wafers.seats(plot)) do
+			table.insert(homes, { cf = seat.cf, room = seat.room, eff = 1, seg = seat.seg, dept = seat.dept })
+		end
+		return homes
+	end
 	if Econ and Econ.V3 then
 		-- v2.7.0: rooms come furnished; placed furniture is decoration
 		for _, slot in ipairs(plot.slots or {}) do
@@ -1227,6 +1264,8 @@ local function assignDesks(player)
 		r.room = h and h.room or nil
 		r.fit = h and fitSet[h.room] or false
 		r.eff = h and h.eff or 1
+		r.seg = h and h.seg or nil      -- v4.6: which floor they sit on (its money sign)
+		r.dept = h and h.dept or nil
 		if StaffRig.setSeated then StaffRig.setSeated(r.rig, r.seated) end
 		if not home then
 			-- no desk: stand in a line beside the hire pad, facing the room
@@ -1342,7 +1381,23 @@ local function journeyState(player, s, plot)
 	local items = player:GetAttribute("Items")
 	local cap = capacityOf(player)
 	local gen = Econ and Econ.Drop and Econ.Drop.candidate and Econ.Drop.candidate(player, "genius", cash)
+	local wlevel, wcap, msLevel, msCost, atCap
+	if Econ and Econ.WAFERS and plot.wafer then   -- v4.6
+		local WP = Econ.Wafers.Plan
+		wlevel, wcap = plot.wafer.level, WP.blueprint(s.spinoffs or 0)
+		atCap = wlevel >= wcap
+		for _, m in ipairs({ 5, 9, 13, 18 }) do if m > wlevel and not msLevel then msLevel = m end end
+		if not msLevel or msLevel > wcap then msLevel = (not atCap) and wcap or nil end
+		if msLevel then
+			msCost = 0
+			for L = wlevel + 1, msLevel do msCost += WP.price(L, scaleOf(s), s.record or 1) end
+		end
+		local id = WP.aptRequired(msLevel or wlevel)
+		local t = id > (s.apt or 0) and Econ.Apt and Econ.Apt.TIERS[id]
+		need = t and { tier = t.id, name = t.name:sub(1, 1) .. t.name:sub(2):lower(), price = t.price } or nil
+	end
 	return {
+		level = wlevel, capLevel = wcap, msLevel = msLevel, msCost = msCost, atCap = atCap,
 		touch = player:GetAttribute("Touch") == true,
 		hq = lv, shipped = s.shipped == true, staff = s.staff or 0, cap = cap, cash = cash, rate = s.rate or 0,
 		apt = s.apt or 0, listed = s.listed == true, spinCost = spinoffCostOf(s),
@@ -1421,6 +1476,19 @@ local function refreshObjective(player)
 		local cap = capacityOf(player)
 		local nxtHq = CFG.HQ_LEVELS[plot.hq.level + 1]
 		local nxtCost = nxtHq and hqCostOf(s, plot.hq.level + 1)
+		local wTease
+		if Econ and Econ.WAFERS and plot.wafer then   -- v4.6: the next floor (or rebuilt storey)
+			local L, last, price = wafersNext(s, plot)
+			nxtHq, nxtCost = nil, nil
+			if L then
+				local rec = player:GetAttribute("WaferRec")
+				local name = (last > L) and ("levels %d-%d"):format(L, last)
+					or (rec and rec ~= "" and ("level %d: %s"):format(L, Econ.Wafers.NAME[rec] or rec)) or ("level %d"):format(L)
+				nxtHq = { name = name }
+				nxtCost = price
+				wTease = (last > L) and "Rebuild a whole storey in one tap" or (rec and Econ.Wafers.BLURB[rec]) or "A new piece of your HQ"
+			end
+		end
 		local upWing
 		for _, slot in ipairs(plot.slots) do
 			if slot.built and not wingMaxed(s, slot) then upWing = slot break end
@@ -1428,6 +1496,7 @@ local function refreshObjective(player)
 		-- what the next HQ level unlocks: the reason to save for it
 		local function hqTease()
 			if not nxtHq then return nil end
+			if wTease then return wTease end
 			for _, tier in ipairs(Econ and Econ.RECRUIT and Econ.TIERS or {}) do
 				if tier.hq == plot.hq.level + 1 then return ("Unlocks %s hires"):format(tier.name) end
 			end
@@ -1484,7 +1553,7 @@ local function refreshObjective(player)
 				if plant then decorOffer = { c = furniturePriceOf(plant, s, plot), k = "decor", t = "Decorate your office", at = nil, sub = "Tap DECOR: nicer office, rarer hires" } end
 			end
 			if nxtHq then
-				offer(nxtCost, "hq", ("Upgrade to %s"):format(nxtHq.name), posOf(plot.hqPad), hqTease())
+				offer(nxtCost, "hq", ((Econ and Econ.WAFERS) and "Build %s" or "Upgrade to %s"):format(nxtHq.name), posOf(plot.hqPad), hqTease())
 			else
 				offer(spinoffCostOf(s), "spin", "Spin off", posOf(plot.hqPad), ("Start a new company: x%s money"):format((string.format("%.1f", nextSpinMultOf(s))):gsub("%.0$", "")))
 			end
@@ -1517,7 +1586,7 @@ local function refreshObjective(player)
 				end
 			end
 			if nxtHq and held and held.Value >= nxtCost then
-				best = { c = nxtCost, k = "hq", t = ("Upgrade to %s"):format(nxtHq.name), at = posOf(plot.hqPad), sub = hqTease() }
+				best = { c = nxtCost, k = "hq", t = ((Econ and Econ.WAFERS) and "Build %s" or "Upgrade to %s"):format(nxtHq.name), at = posOf(plot.hqPad), sub = hqTease() }
 			elseif nxtHq and held and Econ and Econ.V3 and (s.rate or 0) > 0 and not (best and best.roomsFirst)
 				and (nxtCost - held.Value) / s.rate <= Econ.SAVE_WINDOW then
 				-- v2.7.0: the big goal is close; stop spending on small things (the old guide never saved)
@@ -1543,8 +1612,10 @@ local function refreshObjective(player)
 			end
 			-- v4.0 THE APARTMENT RUNG: whenever the guide would send you to the HQ pad
 			-- and the next level needs a home, it sends you downtown instead
-			if best and best.k == "hq" and Econ and Econ.Apt and (s.apt or 0) < Econ.Apt.need(plot.hq.level + 1) then
-				local t = Econ.Apt.TIERS[(s.apt or 0) + 1] or Econ.Apt.TIERS[Econ.Apt.need(plot.hq.level + 1)]   -- the next rung you can buy
+			local aptNeed = Econ and Econ.Apt and Econ.Apt.need(plot.hq.level + 1) or 0
+			if Econ and Econ.WAFERS and plot.wafer then aptNeed = Econ.Wafers.Plan.aptRequired(plot.wafer.level + 1) end   -- v4.6
+			if best and best.k == "hq" and Econ and Econ.Apt and (s.apt or 0) < aptNeed then
+				local t = Econ.Apt.TIERS[(s.apt or 0) + 1] or Econ.Apt.TIERS[aptNeed]   -- the next rung you can buy
 				local has = held and held.Value >= t.price
 				local drive = Econ.Cars and Econ.Cars.hasCar(player)
 				local deskAt = Econ.Apt.deskPosition()
@@ -1580,6 +1651,7 @@ local function refreshObjective(player)
 		player:SetAttribute("CoachTip", tipId)
 	end
 	local canIpo = plot.hq.level >= #CFG.HQ_LEVELS and not s.listed
+	if Econ and Econ.WAFERS and plot.wafer then canIpo = plot.wafer.level >= Econ.Wafers.Plan.blueprint(s.spinoffs or 0) and not s.listed end
 	if player:GetAttribute("CanGoPublic") ~= canIpo then player:SetAttribute("CanGoPublic", canIpo) end
 	local res = s.jr.res == true or (s.apt or 0) > 0
 	if player:GetAttribute("JrRes") ~= res then player:SetAttribute("JrRes", res) end
@@ -1698,6 +1770,45 @@ local function refreshHqPad(plot)
 	local s = plot.owner and sessions[plot.owner]
 	local owner = plot.owner and Players:GetPlayerByUserId(plot.owner)
 	if owner and Econ and Econ.Daily and Econ.Daily.refresh then pcall(Econ.Daily.refresh, owner) end   -- v4.5 the goal moved
+	if Econ and Econ.WAFERS and plot.wafer then
+		-- v4.6 THE WAFERS: the pad (and the BUILD card) say what the next tap builds
+		local WP = Econ.Wafers.Plan
+		local L, last, price
+		if s then L, last, price = wafersNext(s, plot) end
+		local rec, allowed = "", ""
+		if L then
+			local list = WP.allowed(L)
+			allowed = table.concat(list, ",")
+			local bp = s and s.blueprint and s.blueprint[L]
+			if L <= ((s and s.record) or 1) and bp then rec = bp
+			elseif #list > 0 then rec = WP.recommend(L, Econ.Wafers.counts(plot), (owner and capacityOf(owner) or 1) - ((s and s.staff) or 0)) end
+		end
+		if owner then
+			owner:SetAttribute("WaferLevel", plot.wafer.level)
+			owner:SetAttribute("WaferCap", WP.blueprint((s and s.spinoffs) or 0))
+			owner:SetAttribute("WaferNext", L or 0)
+			owner:SetAttribute("WaferLast", last or 0)
+			owner:SetAttribute("WaferPrice", price or 0)
+			owner:SetAttribute("WaferRec", rec)
+			owner:SetAttribute("WaferAllowed", allowed)
+			owner:SetAttribute("WaferNeed", L and WP.aptRequired(L) > ((s and s.apt) or 0) and WP.aptRequired(L) or 0)
+		end
+		if L then
+			local need = WP.aptRequired(L)
+			if s and (s.apt or 0) < need and Econ.Apt then
+				plot.hqLabel.Text = ("BUILD  ·  needs a %s downtown"):format(Econ.Apt.TIERS[need].name)
+				plot.hqPad.Color = Color3.fromRGB(150, 146, 140)
+			elseif last > L then
+				plot.hqLabel.Text = ("REBUILD LEVELS %d-%d  ·  $%s"):format(L, last, fmt(price))
+				plot.hqPad.Color = CFG.GOLD
+			else
+				plot.hqLabel.Text = ("BUILD LEVEL %d%s  ·  $%s"):format(L, rec ~= "" and ("  ·  " .. (Econ.Wafers.NAME[rec] or rec)) or "", fmt(price))
+				plot.hqPad.Color = CFG.GOLD
+			end
+			return
+		end
+		nxt = nil   -- the top of the blueprint: GO PUBLIC, then SPIN OFF (below)
+	end
 	local needApt = nxt and s and Econ and Econ.Apt and (s.apt or 0) < Econ.Apt.need(plot.hq.level + 1)
 	if needApt then
 		plot.hqLabel.Text = ("UPGRADE HQ  ·  needs a %s downtown"):format(Econ.Apt.TIERS[Econ.Apt.need(plot.hq.level + 1)].name)
@@ -1737,10 +1848,109 @@ local function checkMilestones(player, s)
 	end
 end
 
-local function tryUpgrade(player, plot)
+-- v4.6 THE WAFERS: one BUILD tap. The next floor (the department you chose, else the
+-- guide's pick), or below your record the rest of that storey as you had it last time.
+-- A new stage (levels 5 / 9 / 13 / 18 = the old HQ 2-5) plays the old level-up: the
+-- banner, the car, new recruit tiers; later decks get the banner too.
+local WAFER_BANNERS = { [43] = true, [68] = true, [93] = true, [100] = true }
+local function wafersBuild(player, plot, s, cash, chosen)
+	local WP = Econ.Wafers.Plan
+	local cap = WP.blueprint(s.spinoffs or 0)
+	if plot.wafer.level >= cap then
+		if not s.listed then if goPublic then goPublic(player, plot) end return end
+		if spinOff then spinOff(player, plot) end
+		return
+	end
+	if not s.shipped then popup(plot.hqPad, "Ship something first", CFG.BAD) return end
+	if s.staff < 1 then popup(plot.hqPad, "Hire someone first", CFG.BAD) return end
+	local L, last, price = wafersNext(s, plot)
+	if not L then return end
+	local need = WP.aptRequired(L)
+	if (s.apt or 0) < need and Econ.Apt then
+		popup(plot.hqPad, ("Buy your %s downtown first"):format(Econ.Apt.TIERS[need].name), CFG.BAD)
+		return
+	end
+	-- a home gate inside a rebuilt storey stops the storey there
+	if WP.aptRequired(last) > (s.apt or 0) then
+		while last > L and WP.aptRequired(last) > (s.apt or 0) do last -= 1 end
+		price = 0
+		for x = L, last do price += WP.price(x, scaleOf(s), s.record or 1) end
+	end
+	if cash.Value < price then popup(plot.hqPad, "Need $" .. fmt(price), CFG.BAD) return end
+	plot.busy = true
+	cash.Value -= price
+	s.lastBuy = os.clock()
+	local stageBefore = plot.hq.level
+	s.blueprint = s.blueprint or {}
+	local freeSeats = capacityOf(player) - (s.staff or 0)
+	local firstDept
+	Econ.Wafers.buildUpTo(plot, last, function(x)
+		local ok = {}
+		for _, d in ipairs(WP.allowed(x)) do ok[d] = true end
+		local pick
+		if x == L and chosen and ok[chosen] then pick = chosen
+		elseif x <= (s.record or 1) and ok[s.blueprint[x] or ""] then pick = s.blueprint[x]
+		else pick = WP.recommend(x, Econ.Wafers.counts(plot), freeSeats) end
+		s.blueprint[x] = pick
+		firstDept = firstDept or pick
+		return pick
+	end, true)
+	s.record = math.max(s.record or 1, plot.wafer.level)
+	plot.hq.level = Econ.Wafers.stage(plot.wafer.level)
+	s.hqLevel = plot.hq.level
+	-- anyone the new walls closed round goes to the door (the HQ death fix, same rule)
+	task.delay(0.3, function()
+		local solid = {}
+		for x = L, last do
+			local piece = plot.wafer.pieces[x]
+			for _, d in ipairs(piece and piece.model:GetDescendants() or {}) do
+				if d:IsA("BasePart") and d.CanCollide then solid[d] = true end
+			end
+		end
+		for _, pl in ipairs(Players:GetPlayers()) do
+			local root = pl.Character and pl.Character:FindFirstChild("HumanoidRootPart")
+			if root and plot.spawn then
+				for _, hit in ipairs(workspace:GetPartsInPart(root)) do
+					if solid[hit] then pl.Character:PivotTo(plot.spawn.CFrame + Vector3.new(0, 3, 0)) break end
+				end
+			end
+		end
+	end)
+	assignDesks(player)
+	refreshSign(plot)
+	refreshHqPad(plot)
+	updateHirePad(player)
+	local stage = plot.hq.level
+	local lvl = plot.wafer.level
+	if stage ~= stageBefore or WAFER_BANNERS[lvl] then
+		plot.hqUpAt = os.clock()   -- v4.3: the Series A text waits for the level-up moment to pass
+		if stage == 2 and stageBefore < 2 and Econ.Cars then
+			task.delay(3.5, function() pcall(Econ.Cars.grant, player, "hatch", "COMPANY CAR!") end)
+		end
+		local chips = { ("Money x%s"):format((string.format("%.1f", hqMultOf(plot))):gsub("%.0$", "")) }
+		table.insert(chips, ("Up to %d staff"):format(WP.capAt(lvl)))
+		for _, tier in ipairs(Econ.RECRUIT and Econ.TIERS or {}) do
+			if tier.hq == stage and tier.hq > 1 and stage ~= stageBefore then table.insert(chips, tier.name .. " hires on the street") end
+		end
+		if Econ.celebrate then
+			local head, task1
+			if stage ~= stageBefore then head, task1 = Journey.headline(stage, { hasCar = Econ.Cars and Econ.Cars.hasCar(player) }) end
+			Econ.celebrate:FireClient(player, { kind = "hq", level = stage, name = ("LEVEL %d"):format(lvl), chips = chips,
+				headline = head or ((lvl == 100) and "THE CROWN" or "GARDEN DECK"), task = task1 })
+		end
+	else
+		local what = (last > L) and ("LEVELS %d-%d REBUILT"):format(L, last)
+			or ("LEVEL %d  ·  %s"):format(L, (firstDept and Econ.Wafers.NAME[firstDept]) or "")
+		popup(plot.hqPad, what, CFG.GOLD)
+	end
+	task.delay(0.6, function() plot.busy = false end)
+end
+
+local function tryUpgrade(player, plot, chosen)
 	if plotOf(player) ~= plot or plot.busy then return end
 	local s = sessions[player.UserId]
 	local cash = cashOf(player)
+	if Econ and Econ.WAFERS and plot.wafer and s and cash then return wafersBuild(player, plot, s, cash, chosen) end
 	local nxt = CFG.HQ_LEVELS[plot.hq.level + 1]
 	if not s or not cash then return end
 	if not nxt then
@@ -2343,6 +2553,20 @@ if Econ then
 	else
 		Econ.Cars = nil
 	end
+	-- v4.6 THE WAFERS (docs/superpowers/specs/2026-09-30-wafers-hq-design.md): the one-building HQ
+	Econ.Wafers = tryRequire(ServerScriptService, "Wafers")
+	if Econ.Wafers and Econ.Wafers.init and Econ.V3 then
+		local ok, err = pcall(Econ.Wafers.init, {
+			part = part, rise = rise, FK = FurnitureKit, HQFloors = tryRequire(ServerScriptService, "HQFloors"),
+		})
+		if ok then Econ.WAFERS = true else warn("[SV] Wafers init failed: " .. tostring(err)); Econ.Wafers = nil end
+	else
+		Econ.Wafers = nil
+	end
+	remote("WaferBuild").OnServerEvent:Connect(function(player, dept)
+		local plot = plotOf(player)
+		if plot and Econ.WAFERS then tryUpgrade(player, plot, type(dept) == "string" and dept or nil) end
+	end)
 end
 
 -- ============ WIRING + ASSIGNMENT ============
@@ -2382,7 +2606,12 @@ local function releasePlot(plot)
 	if prod then prod:Destroy() end
 	plot.doorOpened = false
 	buildShell(plot, 1, false)
-	buildSlots(plot)
+	if Econ and Econ.WAFERS then
+		Econ.Wafers.clear(plot)
+		plot.slots = {}
+	else
+		buildSlots(plot)
+	end
 	plot.hireLabel.Text = ""
 	plot.hirePad.Color = CFG.TRIM
 	refreshHqPad(plot)
@@ -2454,7 +2683,7 @@ spinOff = function(player, plot)
 		spawnStaff(player, plot, i, k.talent, k.who)
 	end
 	if #keep > 0 then
-		task.delay(2.2, function() popup(plot.hirePad, ("%d rare hire%s came with you  ·  build an office to seat them"):format(#keep, #keep == 1 and "" or "s"), CFG.GOLD) end)
+		task.delay(2.2, function() popup(plot.hirePad, ("%d rare hire%s came with you  ·  build %s to seat them"):format(#keep, #keep == 1 and "" or "s", (Econ and Econ.WAFERS) and "a floor" or "an office"), CFG.GOLD) end)
 	end
 	recompute(player)
 	refreshSign(plot)
@@ -2560,7 +2789,7 @@ task.spawn(function()
 						end
 					end
 				end
-				s.work = (s.work or 0) + work * afk      -- AFK: products slow too (no free paydays)
+				s.work = (s.work or 0) + work * afk * (1 + (Econ and Econ.WAFERS and (s.labs or 0) * 0.15 or 0))      -- AFK: products slow too; v4.6 AI Labs speed them
 				s.workNeed = s.workNeed or CFG.WORK_FIRST
 				player:SetAttribute("ProductProgress", math.clamp(s.work / s.workNeed, 0, 1))
 				s.playtime = (s.playtime or 0) + 1
@@ -2929,7 +3158,9 @@ and only THEN can the company spin off. Each new company goes public again. ]]
 goPublic = function(player, plot)
 	local s = sessions[player.UserId]
 	if not s or not plot or plotOf(player) ~= plot or s.listed then return end
-	if plot.hq.level < #CFG.HQ_LEVELS then return end
+	if Econ and Econ.WAFERS and plot.wafer then
+		if plot.wafer.level < Econ.Wafers.Plan.blueprint(s.spinoffs or 0) then return end   -- v4.6: the top of the blueprint
+	elseif plot.hq.level < #CFG.HQ_LEVELS then return end
 	s.listed = true
 	s.ipo = true
 	s.ticker = tickerOf(s.name or "Startup")
@@ -3333,6 +3564,7 @@ if game:GetService("RunService"):IsStudio() then
 		hire = hire,
 		hqMultOf = hqMultOf,
 		hqCostOf = hqCostOf,
+		wafersNext = wafersNext,
 		launchProduct = launchProduct,
 		loaded = loaded,
 		offerAmountOf = offerAmountOf,

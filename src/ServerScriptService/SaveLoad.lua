@@ -39,6 +39,23 @@ return function(core)
 	local updateHirePad = core.updateHirePad
 
 
+	-- v4.6 THE WAFERS: one letter per level ("-" for fixed pieces), both for the building
+	-- (wd) and for the record building's departments (bp: a rebuild lays them out again)
+	local DEPT_CODE = { lobby = "L", eng = "E", studio = "S", cafe = "C", servers = "V", labs = "A", board = "B" }
+	local CODE_DEPT = {}
+	for d, c in pairs(DEPT_CODE) do CODE_DEPT[c] = d end
+	local function encodeDepts(t, n)
+		local out = {}
+		for L = 1, n do out[L] = DEPT_CODE[t[L] or ""] or "-" end
+		return table.concat(out)
+	end
+	local function decodeDepts(str)
+		local t = {}
+		if type(str) ~= "string" then return t end
+		for L = 1, math.min(#str, 100) do t[L] = CODE_DEPT[str:sub(L, L)] end
+		return t
+	end
+
 	local function serialize(player)
 		local s = sessions[player.UserId]
 		local plot = plotOf(player)
@@ -61,6 +78,10 @@ return function(core)
 			cash = cash and cash.Value or 0,
 			hq = plot.hq.level,
 			wings = wings,
+			wl = plot.wafer and plot.wafer.level or nil,                        -- v4.6 the Wafers: level,
+			wd = plot.wafer and encodeDepts(plot.wafer.depts, plot.wafer.level) or nil,   -- its departments,
+			rec = s.record,                                                     -- the record (lifetime),
+			bp = s.blueprint and encodeDepts(s.blueprint, s.record or 1) or nil,   -- and the record's layout
 			placed = placed,
 			staff = s.staff,
 			shipped = s.shipped,
@@ -168,6 +189,15 @@ return function(core)
 			local nxt, aft = Econ.Apt.ladder(clampInt(data.hq, 1, #CFG.HQ_LEVELS, 1), apt,
 				function(l) return CFG.HQ_LEVELS[l] and Prog.scaled(CFG.HQ_LEVELS[l].cost, spins) or 0 end,   -- v4.5 the clock
 				Prog.spinCost(spins, SPINOFF_BASE))
+			if Econ.WAFERS and Econ.Wafers then   -- v4.6: the next two floors
+				local WP = Econ.Wafers.Plan
+				local capw = WP.blueprint(spins)
+				local lvw = clampInt(data.wl, 1, WP.MAX, 0)
+				if lvw == 0 then lvw = ({ 1, 5, 9, 13, 18 })[clampInt(data.hq, 1, 5, 1)] end
+				local recw = math.max(clampInt(data.rec, 1, WP.MAX, 1), lvw)
+				local function step(L) return L > capw and Prog.spinCost(spins, SPINOFF_BASE) or WP.price(L, Prog.runScale(spins), recw) end
+				nxt, aft = step(lvw + 1), step(lvw + 2)
+			end
 			offline = Econ.Apt.offline(clampInt(data.rate, 0, 1e9, 0), away, apt, cash and cash.Value or 0, nxt, aft)
 			player:SetAttribute("OfflineApt", apt)
 		end
@@ -177,7 +207,29 @@ return function(core)
 		end
 
 		local level = clampInt(data.hq, 1, #CFG.HQ_LEVELS, 1)
-		if level > 1 then buildShell(plot, level, false) end
+		if Econ and Econ.WAFERS and Econ.Wafers and plot.wafer then
+			-- v4.6 THE WAFERS: rebuild the saved building (an old HQ 1-5 save becomes level 1/5/9/13/18)
+			local WP = Econ.Wafers.Plan
+			local spins = s.spinoffs or clampInt(data.spinoffs, 0, Prog.SPIN_CAP, 0)
+			local capw = WP.blueprint(spins)
+			local lvw = clampInt(data.wl, 1, WP.MAX, 0)
+			if lvw == 0 then lvw = ({ 1, 5, 9, 13, 18 })[level] end
+			lvw = math.min(lvw, capw)
+			s.record = math.max(clampInt(data.rec, 1, WP.MAX, 1), lvw)
+			s.blueprint = decodeDepts(data.bp)
+			local saved = decodeDepts(data.wd)
+			for L, d in pairs(saved) do s.blueprint[L] = s.blueprint[L] or d end
+			Econ.Wafers.buildUpTo(plot, lvw, function(x)
+				local ok = {}
+				for _, d in ipairs(WP.allowed(x)) do ok[d] = true end
+				local pick = (ok[saved[x] or ""] and saved[x]) or (ok[s.blueprint[x] or ""] and s.blueprint[x])
+					or WP.recommend(x, Econ.Wafers.counts(plot), 99)
+				s.blueprint[x] = pick
+				return pick
+			end, false)
+			level = Econ.Wafers.stage(lvw)
+			plot.hq.level = level
+		elseif level > 1 then buildShell(plot, level, false) end
 		s.hqLevel = level
 		if s.shipped then
 			s.buildUnlocked = true

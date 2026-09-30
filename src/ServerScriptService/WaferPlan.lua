@@ -28,6 +28,25 @@ W.MULT = { 1.0, 1.0, 1.0, 1.0, 1.6, 1.6, 1.6, 1.6, 2.6, 2.6, 2.6, 2.6, 4.2, 4.2,
 W.CAP = { 8, 8, 8, 8, 14, 14, 14, 14, 20, 20, 20, 20, 26, 26, 26, 26, 26, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 36, 36, 36, 36, 36, 38, 38, 40 }
 -- END GENERATED
 
+-- ---------------------------------------------------------------- the shape
+--[[ One geometry, shared with blender/wafers.py (the mesh kit) so meshes and
+collision agree. Plot-local studs: the garage stays at the origin, +Z faces the
+road. Storey s of the building has its floor TOP at FLOOR_Y + s * H (storey 0's
+slab sits on the plot floor). Every wafer is a ring DEPTH deep: segments are 45
+degrees each, segment 1 centred on +Z (the road), then clockwise seen from
+above (CFrame.Angles(0, (seg - 1) * 45deg, 0) turns +Z toward +X). ]]
+W.GEO = {
+	H = 13, SLAB = 1.5, FLOOR_Y = 1.0, DEPTH = 20,
+	WAFER = {
+		[1] = { cx = 0, cz = 0, r = 60 },      -- round the garage: the courtyard is 80 across
+		[2] = { cx = 8, cz = -5, r = 64 },     -- each wafer shifted on the one below (Samsung's cantilevers)
+		[3] = { cx = -6, cz = -6, r = 58 },
+		[4] = { cx = 3, cz = -8, r = 54 },
+	},
+	CORE = { x = 0, z = -26, r = 6 },          -- the glass lift, in the courtyard behind the garage
+	PAVILION = { rin = 36, rout = 44 },         -- on wafer 4's roof, 4 quarter pieces
+}
+
 -- ---------------------------------------------------------------- the plan
 local SEG_ORDER = { 1, 2, 8, 3, 7, 4, 6, 5 }       -- segment 1 faces the road, then round both sides
 local WAFERS = { { 1, { 0, 1 } }, { 2, { 3, 4, 5 } }, { 3, { 7, 8, 9 } }, { 4, { 11, 12, 13 } } }

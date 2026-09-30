@@ -82,7 +82,7 @@ function J.task(st)
 	if (st.apt or 0) >= 1 and st.vipStanding and not st.vipDone then
 		if (st.staff or 0) >= (st.cap or 0) then
 			-- a VIP you can't seat would just refuse at the pickup: make room first
-			return { key = "vipseat", title = "Make room for your VIP", sub = "Every seat is taken: build or upgrade a room", target = "lot" }
+			return { key = "vipseat", title = "Make room for your VIP", sub = st.level and "Every seat is taken: BUILD a floor with desks" or "Every seat is taken: build or upgrade a room", target = "lot" }
 		end
 		return { key = "vip", title = "Pick up your VIP recruit", sub = "Outside The Residences. Bring them home!", target = "vip" }
 	end
@@ -91,7 +91,7 @@ function J.task(st)
 		return { key = "genius", title = "Recruit your first GENIUS", sub = "Far end of the street. Their headhunter is fast!", target = "genius" }
 	end
 	-- HQ 5: go public before anything else (a Series A you skipped is still in the phone)
-	if hq >= 5 and not st.listed then
+	if hq >= 5 and not st.listed and st.atCap ~= false then   -- v4.6: the Wafers go public at the top of the blueprint
 		return { key = "gopublic", title = "GO PUBLIC!", sub = "Tap GO PUBLIC and ring the bell", target = "gopublic" }
 	end
 	-- HQ 4: the Series A pitch
@@ -112,6 +112,16 @@ end
 -- { title, sub, cost } always: what the whole run is working toward next
 function J.milestone(st)
 	local hq = st.hq or 1
+	-- v4.6 THE WAFERS: the big goal is the next milestone LEVEL (5 / 9 / 13 / 18, then the top of the blueprint)
+	if st.msLevel then
+		local need = st.need
+		local owns = not need or (st.apt or 0) >= need.tier
+		local cost = (st.msCost or 0) + (owns and 0 or need.price)
+		local head = (hq < 5) and J.headline(hq + 1, st) or "GO PUBLIC"
+		local sub = owns and ("Build %d more floor%s: %s"):format(st.msLevel - (st.level or 1), (st.msLevel - (st.level or 1)) == 1 and "" or "s", money(st.msCost or 0))
+			or ("Needs a %s (%s) + the floors"):format(need.name, money(need.price))
+		return { title = ("LEVEL %d: %s"):format(st.msLevel, head or "NEXT"), sub = sub, cost = cost, unlock = head }
+	end
 	if hq < 5 and st.nextHqCost then
 		local need = st.need
 		local owns = not need or (st.apt or 0) >= need.tier

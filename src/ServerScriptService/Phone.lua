@@ -433,7 +433,10 @@ local function startThread(player, opts)
 	table.insert(recent, P.id)
 	if #recent > 3 then table.remove(recent, 1) end
 	serial += 1
-	local th = { id = serial, persona = P, thesis = P.thesis, round = 1, interest = 0, status = "wait", msgs = {}, said = {},
+	-- v4.6 the Wafers' Boardroom floors: every boardroom starts an investor one interest keener (max 2)
+	local sess = api.session and api.session(player)
+	local keen = math.clamp(math.floor(tonumber(sess and sess.board) or 0), 0, 2)
+	local th = { id = serial, persona = P, thesis = P.thesis, round = 1, interest = keen, status = "wait", msgs = {}, said = {},
 		deadline = os.clock() + 180, boost = opts and opts.boost or 1, series = opts and opts.series or nil }
 	table.insert(st.threads, 1, th)
 	while #st.threads > 6 do table.remove(st.threads) end

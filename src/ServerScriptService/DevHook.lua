@@ -60,6 +60,23 @@ return function(core)
 		elseif action == "upgrade" then
 			if plot then tryUpgrade(player, plot) end
 			return "ok"
+		elseif action == "wlevel" then
+			-- v4.6 test hook: build the Wafers free up to level n (the guide's departments)
+			local E = core.Econ
+			if not (plot and plot.wafer and E and E.Wafers) then return "no wafers" end
+			local n = math.clamp(math.floor(tonumber(arg) or 1), 1, E.Wafers.Plan.blueprint(s.spinoffs or 0))
+			s.blueprint = s.blueprint or {}
+			E.Wafers.buildUpTo(plot, n, function(x)
+				local d = E.Wafers.Plan.recommend(x, E.Wafers.counts(plot), 3)
+				s.blueprint[x] = d
+				return d
+			end, false)
+			s.record = math.max(s.record or 1, plot.wafer.level)
+			plot.hq.level = E.Wafers.stage(plot.wafer.level)
+			s.hqLevel = plot.hq.level
+			core.recompute(player)
+			if core.refreshHqPad then core.refreshHqPad(plot) end
+			return ("level %d, stage %d, capacity %d"):format(plot.wafer.level, plot.hq.level, core.capacityOf(player))
 		elseif action == "spinoff" then
 			if not plot then return "no plot" end
 			plot.spinArmed = os.clock() - 1        -- skip the confirm tap
@@ -341,6 +358,10 @@ return function(core)
 						local did
 						if key == "hire" or key == "hire2" then
 							hire(player, plot); did = "hire"
+						elseif key == "vipseat" and Econ and Econ.WAFERS and plot.wafer and core.wafersNext then
+							-- v4.6: the Wafers add seats by floors (there are no lots)
+							local L, _, p = core.wafersNext(s, plot)
+							if L and p and cash.Value >= p then tryUpgrade(player, plot); did = ("build level %d (VIP seat)"):format(L) end
 						elseif key == "build" or key == "wing" or key == "vipseat" then
 							for i, slot in ipairs(plot.slots) do
 								if not slot.built then
@@ -383,7 +404,13 @@ return function(core)
 							end
 						elseif key == "hq" then
 							local c = hqCostOf(s, plot.hq.level + 1)   -- v4.5 the scaled price
-							if c and cash.Value >= c then tryUpgrade(player, plot); did = "hq" end
+							local wl
+							if Econ and Econ.WAFERS and plot.wafer and core.wafersNext then   -- v4.6 the next BUILD tap
+								local L, last, p = core.wafersNext(s, plot)
+								c = p
+								if L then wl = (last > L) and ("levels %d-%d"):format(L, last) or ("level %d"):format(L) end
+							end
+							if c and cash.Value >= c then tryUpgrade(player, plot); did = wl and ("build " .. wl) or "hq" end
 						elseif key == "apartment" and Econ and Econ.Apt and Econ.Apt.botBuy and not farFromDesk then
 							if Econ.Apt.botBuy(player) then did = "apartment" end
 						elseif key == "spin" then

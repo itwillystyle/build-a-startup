@@ -63,7 +63,7 @@ Econ.STATION_HINT = {
 -- which rooms a role belongs in
 Econ.FIT = {
 	engineer = { office = true, hq = true },
-	research = { office = true },
+	research = { office = true, labs = true },   -- v4.6: AI LABS floors in the Wafers
 	designer = { studio = true },
 	sales = { cafe = true },
 	recruiter = { cafe = true },

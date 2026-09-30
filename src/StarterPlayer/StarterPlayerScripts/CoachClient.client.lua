@@ -208,7 +208,7 @@ local function goalBusy()
 	if os.clock() - goalSince < 20 then return true end
 	local guide = player.PlayerGui:FindFirstChild("Guide")
 	local edge = guide and guide.Enabled and guide:FindFirstChild("EdgeArrow")
-	return edge ~= nil and edge.Visible
+	return (edge and edge.Visible) == true   -- edge is `false` while the guide is hidden (a cutscene)
 end
 local calmSince
 local function setShown(c, on)

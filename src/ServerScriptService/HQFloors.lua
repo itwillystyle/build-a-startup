@@ -621,6 +621,23 @@ function HQFloors.build(add, g, level, w, d, h, shell, plot)
 	end
 end
 
+-- v4.6 THE WAFERS: the one-building HQ has its own lift (Wafers.lua) and uses this
+-- registry and these remotes, so LiftClient is unchanged
+function HQFloors.register(plotIndex, plot, stops)
+	HQFloors.lifts[plotIndex] = { plot = plot, stops = stops }
+end
+function HQFloors.menu(player, plotIndex, here)
+	local reg = HQFloors.lifts[plotIndex]
+	if not reg or not liftMenu then return end
+	if player:GetAttribute("Carrying") then
+		liftMenu:FireClient(player, { blocked = "Drop off your recruit first" })
+		return
+	end
+	local list = {}
+	for _, st in ipairs(reg.stops) do table.insert(list, { id = st.id, name = st.name, sub = st.sub }) end
+	liftMenu:FireClient(player, { plot = plotIndex, here = here, stops = list })
+end
+
 -- v4.4 make the lift remotes at load: LiftClient waits for LiftMenu, and on a
 -- fresh save (HQ 1, no lift yet) that wait printed "Infinite yield possible"
 initRemotes()

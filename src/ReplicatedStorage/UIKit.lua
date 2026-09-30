@@ -1076,7 +1076,7 @@ end
 
 -- one big menu at a time: opening one closes the others (the phone over the
 -- daily card over the bag was three stacked panels)
-UIKit.MENUS = { "Phone", "Daily", "Bag", "TalentIndex", "Lift", "Apartments", "Dealer", "Ranks" }
+UIKit.MENUS = { "Phone", "Daily", "Bag", "TalentIndex", "Lift", "Apartments", "Dealer", "Ranks", "WaferBuild" }
 
 -- v5: is a menu, or a decision card (ModalOpen: spin-off, while-away), on
 -- screen? The HUD's own buttons step aside for it: one thing at a time, and a
