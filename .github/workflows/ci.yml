@@ -1,0 +1,45 @@
+name: CI
+
+# The same two checks the local pre-commit hook runs, moved somewhere a stranger
+# can see them pass. selene catches the forward-reference bug class that bit this
+# codebase seven times (a local function called above its definition reads as
+# `undefined_variable`), and the Lune suite covers the pure modules.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rokit
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/rojo-rbx/rokit/main/scripts/install.sh | bash
+          echo "$HOME/.rokit/bin" >> "$GITHUB_PATH"
+
+      - name: Install pinned tools
+        run: rokit install --no-trust-check
+
+      - name: Generate the Roblox std for selene
+        # selene.toml sets std = "roblox", which needs roblox.yml. It is generated
+        # rather than committed so it tracks the current API dump.
+        run: selene generate-roblox-std
+
+      - name: Lint
+        # Packages/ is Wally-vendored third-party code and is not ours to lint.
+        # Warnings pass, errors fail: same rule as the pre-commit hook.
+        run: selene --allow-warnings src tests tools
+
+      - name: Offline tests
+        run: lune run tests/offline/run
+
+      - name: Formatting
+        # Informational for now: `stylua src` has never been run on this codebase,
+        # so failing the build on it would just be noise. Flip --check to a real
+        # gate once the formatting commit lands.
+        run: stylua --check src || echo "::warning::stylua would reformat files (not gating)"

@@ -1,3 +1,7 @@
+--[[ Studio-only live harness for the Notify director. Run it as a LocalScript
+during Play; DURATION is injected as a global by whoever starts it, which is why
+selene is told to allow it here rather than in the config. ]]
+-- selene: allow(undefined_variable)
 local DURATION = DURATION or 14
 local pg = game.Players.LocalPlayer.PlayerGui
 local function vis(path)
