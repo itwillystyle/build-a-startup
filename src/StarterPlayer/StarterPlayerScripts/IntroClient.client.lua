@@ -164,18 +164,24 @@ local function runIntro()
 	local realAt, realHour = os.clock(), Lighting.ClockTime
 	local SHOW_HOUR = 13.5
 	workspace:SetAttribute("SVClockOverride", SHOW_HOUR)
+	--[[ v4.7 LAYER 1. The flyover was six shots, 10.5 s, before the camera came
+	back -- and three of them (SILICON VALLEY / SIX FOUNDERS / DOWNTOWN) were mood
+	and a promise about apartments the player cannot act on for half an hour. The
+	playbook's first-minute rule is "spawn inside the world, no cutscene", and
+	first-play bounce under 60 s is one of Roblox's top-tier ranking signals, so
+	every second here is paid for twice. Now ONE continuous 3.3 s descent from the
+	valley to the laptop, keeping only the two beats that teach: this is yours,
+	start here. The scale shot is not cut, it is the start of the same move. ]]
 	local ok = Cine.play({
-		{ pos = Vector3.new(-980, 250, 420), look = Vector3.new(-200, 40, 0), t = 0,
-			title = "SILICON VALLEY", sub = "Every giant started in a garage." },
-		{ pos = Vector3.new(-420, 170, 230), look = Vector3.new(200, 20, 0), t = 2.3,
-			title = ("SIX FOUNDERS. ONE VALLEY."), sub = ("Welcome, %s."):format(player.DisplayName) },
-		{ pos = Vector3.new(430, 120, 150), look = Vector3.new(720, 80, 0), t = 2.3,
-			title = "DOWNTOWN", sub = "Where you'll buy your first apartment." },
-		{ pos = P(80, 60, 120), look = hq, t = 2.4, title = "THIS LOT IS YOURS", sub = "A garage, a laptop, and zero dollars." },
-		{ pos = P(0, 7.5, 26), look = laptop, t = 1.7 },
-		{ pos = P(6, 6.5, 6), look = laptop, t = 1.1, title = "START HERE",
+		-- framed by eye: at 260/150/330 the garage was one box among many and the
+		-- caption lied; this height still shows the hills and the road but the lot
+		-- is unmistakably the subject
+		{ pos = P(140, 80, 180), look = P(0, 10, 0), t = 0,
+			title = "THIS LOT IS YOURS", sub = "A garage, a laptop, and zero dollars." },
+		{ pos = P(50, 30, 78), look = hq, t = 2.0 },
+		{ pos = P(6, 6.5, 6), look = laptop, t = 1.3, title = "START HERE",
 			sub = isTouch and "Tap the laptop to write your first app." or "Click the laptop to write your first app." },
-	}, { fov = 60, hold = 0.7 })
+	}, { fov = 60, hold = 0.4 })
 	local _ = ok
 	lightTheLaptop(pf)
 	task.spawn(function()

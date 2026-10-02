@@ -13,8 +13,14 @@
 	  Cine.busy()              true while a cinematic owns the camera
 
 	Rules kept from the card shop and the intro: never restore a Scriptable
-	camera (always hand back Custom + the humanoid); touch skips only with the
-	visible SKIP button (a drag is the phone camera); nothing blocks input.
+	camera (always hand back Custom + the humanoid); nothing blocks input.
+
+	v4.7 LAYER 1 ("let me play"): skipping must be reachable on a phone.
+	The SKIP button sat 22 px off the bottom-right corner, which on touch is
+	where Roblox draws the jump button -- the one escape from a cinematic was
+	under the player's thumb-stop. On touch it now sits above that zone, AND a
+	TAP anywhere skips. A tap is a press and release inside 0.4 s and 12 px; a
+	drag is still the phone camera, which is why tap-anywhere was refused before.
 ]]
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -75,15 +81,31 @@ local function ensure()
 		Name = "Sub", Size = UDim2.new(1, 0, 0, 30), Position = UDim2.new(0, 2, 0, 54), ZIndex = 6, TextWrapped = true,
 	}, UIKit.HEAD)
 	subL.TextStrokeTransparency = 0.5
+	-- JUMP_ZONE: Roblox's touch jump button owns the bottom-right corner, so on a
+	-- phone the button clears it (the same 150-stud rule the build bar already uses)
+	local JUMP_ZONE = 150
 	skipBtn = UIKit.button(gui, "SKIP", Color3.fromRGB(240, 240, 236), {
-		Name = "Skip", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -24, 1, -22), Size = UDim2.new(0, 104, 0, 44), Visible = false, ZIndex = 8,
+		Name = "Skip", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -24, 1, isTouch and -JUMP_ZONE or -22),
+		Size = UDim2.new(0, 104, 0, 48), Visible = false, ZIndex = 8,
 	}, { textSize = 18, dark = true })
 	skipBtn.MouseButton1Click:Connect(function() skipped = true end)
+	local tapAt, tapPos
 	UserInputService.InputBegan:Connect(function(input, processed)
-		if not playing or isTouch or processed then return end
+		if not playing or processed then return end
+		if input.UserInputType == Enum.UserInputType.Touch then
+			tapAt, tapPos = os.clock(), input.Position       -- decided on release: tap or drag
+			return
+		end
+		if isTouch then return end
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Keyboard then
 			skipped = true
 		end
+	end)
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType ~= Enum.UserInputType.Touch or not tapAt then return end
+		local held, moved = os.clock() - tapAt, (input.Position - tapPos).Magnitude
+		tapAt = nil
+		if playing and held < 0.4 and moved < 12 then skipped = true end
 	end)
 end
 
