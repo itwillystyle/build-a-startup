@@ -110,7 +110,7 @@ player:GetAttributeChangedSignal("MenuDone"):Connect(function() gui.Enabled = tr
 gui.Parent = player:WaitForChild("PlayerGui")
 
 -- the rail button. Home icon + one word; desktop gets a small key cap.
-local toggle = UIKit.railButton("home", "DECOR", UIKit.GREEN, {
+local toggle = UIKit.railButton("home", "DECOR", UIKit.PURPLE, {
 	Name = "BuildToggle", LayoutOrder = 4, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
 }, { iconSize = 28 })
 if not isTouch then

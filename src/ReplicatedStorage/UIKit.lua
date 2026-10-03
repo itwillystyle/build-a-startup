@@ -494,7 +494,37 @@ function UIKit.railButton(key, caption, accent, props, opts)
 	opts.iconSize = opts.iconSize or 30
 	opts.captionSize = opts.captionSize or 14
 	local b, t, ic = UIKit.iconButton(UIKit.rail(), key, caption, UIKit.PAPER, props, opts)
-	b:SetAttribute("Accent", accent or UIKit.BLUE)
+	accent = accent or UIKit.BLUE
+	b:SetAttribute("Accent", accent)
+
+	--[[ v7: a quiet accent at rest.
+
+	The rail was five identical paper tiles, so finding one meant reading five
+	captions. Military Tycoon floods each of its rail tiles with its own colour
+	and you can find Shop or Rebirth without reading anything -- but flooding
+	five tiles here would undo the reason they went paper in the first place
+	(DESIGN.md principle 1: one loud thing, and that is the next action).
+
+	So: a 3px underline in the tile's own colour. Enough to find a tile by
+	colour on the second visit, nowhere near loud enough to compete with the
+	button that is actually asking to be pressed. The accent still FLOODS when
+	the menu is open, which is what it has always meant.
+
+	Four of six accents were the same green, so the colour-coding was not coded.
+	They are distinct now: BUILD green, INDEX blue, BAG orange, PHONE red,
+	DECOR purple, DAILY gold. ]]
+	local line = Instance.new("Frame")
+	line.Name = "AccentLine"
+	line.AnchorPoint = Vector2.new(0.5, 1)
+	line.Position = UDim2.new(0.5, 0, 1, -3)
+	line.Size = UDim2.new(0, 26, 0, 3)
+	line.BackgroundColor3 = accent
+	line.BorderSizePixel = 0
+	line.ZIndex = b.ZIndex + 2
+	line.Parent = b
+	local lc = Instance.new("UICorner", line)
+	lc.CornerRadius = UDim.new(1, 0)
+
 	return b, t, ic
 end
 
@@ -509,6 +539,10 @@ function UIKit.setRailActive(b, on)
 	-- caption on light orange measured 4.3:1)
 	local t = b:FindFirstChild("Label")
 	if t then t.TextColor3 = UIKit.INK end
+	-- the open tile is already flooded with the accent; the underline would
+	-- just be a second copy of the same signal
+	local line = b:FindFirstChild("AccentLine")
+	if line then line.Visible = not on end
 end
 
 -- the tile shows "open" exactly while its menu is (every close path, including

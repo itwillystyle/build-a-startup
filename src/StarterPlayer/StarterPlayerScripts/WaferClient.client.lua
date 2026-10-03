@@ -7,6 +7,8 @@ one tap still builds); below your record it re-lays the rest of a storey the
 way you had it, in one tap. The server checks everything (WaferBuild). ]]
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 local UIKit = require(RS:WaitForChild("UIKit"))
@@ -172,10 +174,20 @@ changes, and the reward is immediate: the next floor goes up in that style.
 
 The server owns whether the offer is still open (HQPathChosen); this card is
 only ever an offer. ]]
+--[[ Each path's colour is taken OFF THE BUILDING -- the Wafers' garden decks,
+the Terrafab's wafer track, the Dome's lit clerestory -- not picked from a
+palette. It appears as a thin bar under the name, never as a flood fill: the
+building is the content, and a tile washed in colour buries it.
+
+`tag` is one word of character. A sentence is for reading; one word is for
+choosing, and this is a choice made in about two seconds. ]]
 local PATHS = {
-	{ key = "W_", name = "WAFERS", blurb = "Stacked rings, garden floors", col = Color3.fromRGB(122, 170, 80) },
-	{ key = "T_", name = "TERRAFAB", blurb = "A chip fab. Watch the wafer track", col = Color3.fromRGB(236, 170, 70) },
-	{ key = "D_", name = "DOME", blurb = "Layered canopies, lit seams", col = Color3.fromRGB(150, 166, 188) },
+	{ key = "W_", name = "WAFERS",   tag = "GREEN",      blurb = "Stacked rings with garden floors between them",
+	  col = Color3.fromRGB(122, 170, 80) },
+	{ key = "T_", name = "TERRAFAB", tag = "INDUSTRIAL", blurb = "A chip fab. Your wafers ride the track outside",
+	  col = Color3.fromRGB(236, 170, 70) },
+	{ key = "D_", name = "DOME",     tag = "LIGHT",      blurb = "Layered canopies with a lit seam at every tier",
+	  col = Color3.fromRGB(150, 166, 188) },
 }
 
 local pathGui = Instance.new("ScreenGui")
@@ -210,29 +222,62 @@ end
 
 for i, def in ipairs(PATHS) do
 	local w = 1 / #PATHS
-	local tile = UIKit.button(qBody, "", def.col, {
+	local tile = UIKit.button(qBody, "", UIKit.PAPER, {
 		Name = "Path_" .. def.key:sub(1, 1),
-		Size = UDim2.new(w, -10, 0, 180),
-		Position = UDim2.new((i - 1) * w, 5, 0, 30),
+		Size = UDim2.new(w, -10, 0, 196),
+		Position = UDim2.new((i - 1) * w, 5, 0, 24),
 	})
 	local lbl = tile:FindFirstChild("Label")
 	if lbl then lbl.Text = "" end
-	UIKit.label(tile, def.name, 19, UIKit.INK, {
-		Name = "Name", Size = UDim2.new(1, -10, 0, 24), Position = UDim2.new(0, 5, 0, 108),
-		TextXAlignment = Enum.TextXAlignment.Center,
-	})
-	UIKit.label(tile, def.blurb, 13, UIKit.INK, {
-		Name = "Blurb", Size = UDim2.new(1, -14, 0, 44), Position = UDim2.new(0, 7, 0, 132),
-		TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Center,
-	})
-	-- a 3D thumbnail of the real building, so the choice is between buildings
-	-- and not between three words
+
+	-- the building gets the top two thirds: it is what is being chosen
 	local vpf = Instance.new("ViewportFrame")
 	vpf.Name = "Shot"
-	vpf.BackgroundTransparency = 1
-	vpf.Size = UDim2.new(1, -20, 0, 100)
-	vpf.Position = UDim2.new(0, 10, 0, 6)
+	vpf.BackgroundColor3 = UIKit.SURFACE_2
+	vpf.BackgroundTransparency = 0
+	vpf.BorderSizePixel = 0
+	vpf.Size = UDim2.new(1, -12, 0, 118)
+	vpf.Position = UDim2.new(0, 6, 0, 6)
+	vpf.ZIndex = tile.ZIndex + 1
 	vpf.Parent = tile
+	local vc = Instance.new("UICorner", vpf)
+	vc.CornerRadius = UDim.new(0, 10)
+
+	-- the accent bar: the building's own colour, a line not a wash
+	local bar = Instance.new("Frame")
+	bar.Name = "Accent"
+	bar.BackgroundColor3 = def.col
+	bar.BorderSizePixel = 0
+	bar.Size = UDim2.new(1, -12, 0, 4)
+	bar.Position = UDim2.new(0, 6, 0, 128)
+	bar.ZIndex = tile.ZIndex + 2
+	bar.Parent = tile
+	local bc = Instance.new("UICorner", bar)
+	bc.CornerRadius = UDim.new(1, 0)
+
+	UIKit.label(tile, def.tag, 11, UIKit.MUTED_TEXT, {
+		Name = "Tag", Size = UDim2.new(1, -10, 0, 14), Position = UDim2.new(0, 5, 0, 136),
+		TextXAlignment = Enum.TextXAlignment.Center,
+	})
+	UIKit.label(tile, def.name, 19, UIKit.INK, {
+		Name = "Name", Size = UDim2.new(1, -10, 0, 24), Position = UDim2.new(0, 5, 0, 150),
+		TextXAlignment = Enum.TextXAlignment.Center,
+	})
+	UIKit.label(tile, def.blurb, 12, UIKit.MUTED_TEXT, {
+		Name = "Blurb", Size = UDim2.new(1, -14, 0, 30), Position = UDim2.new(0, 7, 0, 172),
+		TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Center,
+	})
+
+	-- a press state. Without one the card just vanishes and the choice has no
+	-- beat; the tile lifts, the accent floods for a moment, then the floor goes up.
+	local lift = Instance.new("UIScale", tile)
+	tile.MouseEnter:Connect(function()
+		TweenService:Create(lift, TweenInfo.new(0.12), { Scale = 1.03 }):Play()
+	end)
+	tile.MouseLeave:Connect(function()
+		TweenService:Create(lift, TweenInfo.new(0.12), { Scale = 1.0 }):Play()
+	end)
+	tile:SetAttribute("Accent", def.col)
 	task.spawn(function()
 		local lib = RS:WaitForChild("SVMeshes", 30)
 		local tpl = lib and lib:FindFirstChild(def.key .. "Seg_1")
@@ -250,7 +295,7 @@ for i, def in ipairs(PATHS) do
 		framed tower rather than an empty box. ]]
 		local RADIUS = { W_ = 48.414, T_ = 46.194, D_ = 45.577 }
 		local world = Instance.new("Model")
-		for k = 0, 2 do
+		for k = 0, 0 do
 			for seg = 1, 8 do
 				local c = src:Clone()
 				c.Anchored = true
@@ -259,6 +304,27 @@ for i, def in ipairs(PATHS) do
 				c.Parent = world
 			end
 		end
+
+		--[[ THE DECK IS THE WHOLE POINT.
+
+		The first version showed two storeys of plain wall and the three
+		previews came out identical -- three grey rings. Everything that tells
+		the paths apart lives on the DECK: the Wafers' garden, the Terrafab's
+		wafer track, the Dome's canopy. A preview without one is a preview of
+		the part they share, which is why it is ONE storey and then the deck:
+		two courses of wall only dilute the piece doing the work.
+
+		Deck meshes are centred on their own axis, so no radial push -- only the
+		height of the two storeys under them, plus the piece's own y. ]]
+		local DECK_Y = { W_ = 2.053, T_ = 5.650, D_ = 9.206 }
+		local dtpl = lib:FindFirstChild(def.key .. "Deck_1")
+		local dsrc = dtpl and (dtpl:IsA("Model") and dtpl:FindFirstChildWhichIsA("MeshPart", true) or dtpl)
+		if dsrc then
+			local dc = dsrc:Clone()
+			dc.Anchored = true
+			dc.CFrame = CFrame.new(0, 13 + (DECK_Y[def.key] or 2), 0)
+			dc.Parent = world
+		end
 		world.Parent = vpf
 
 		local _, size = world:GetBoundingBox()
@@ -266,15 +332,40 @@ for i, def in ipairs(PATHS) do
 		local centre = cf.Position
 		local reach = math.max(size.X, size.Y, size.Z)
 		local cam = Instance.new("Camera")
-		cam.CFrame = CFrame.lookAt(centre + Vector3.new(0.8, 0.52, 0.8).Unit * reach * 1.5, centre)
 		cam.Parent = vpf
 		vpf.CurrentCamera = cam
+		-- a slow orbit: a still render reads as a picture of a building, a
+		-- turning one reads as the building itself
+		-- low and close: a silhouette is read from near eye level. Looking down
+		-- on a ring from above flattens every path into the same circle.
+		local dist = reach * 0.92
+		local t0 = os.clock() + i * 1.3        -- the three tiles are out of phase
+		RunService.RenderStepped:Connect(function()
+			if not vpf.Visible or not pathGui.Enabled then return end
+			local a = (os.clock() - t0) * 0.36
+			cam.CFrame = CFrame.lookAt(
+				centre + Vector3.new(math.cos(a) * dist, reach * 0.34, math.sin(a) * dist), centre)
+		end)
 	end)
 
 	tile.MouseButton1Click:Connect(function()
 		pickRemote:FireServer(def.key)
 		UIKit.sfx("ding", 1.1, 0.5)
-		pathGui.Enabled = false
+		-- the beat: the chosen tile floods with its own colour and the other two
+		-- fall back, so the choice is confirmed on screen before the card goes
+		for _, other in ipairs(qBody:GetChildren()) do
+			if other:IsA("GuiObject") and other.Name:match("^Path_") then
+				local sc = other:FindFirstChildOfClass("UIScale")
+				if other == tile then
+					UIKit.setButtonColor(other, UIKit.light(def.col))
+					if sc then TweenService:Create(sc, TweenInfo.new(0.16, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1.08 }):Play() end
+				elseif sc then
+					TweenService:Create(sc, TweenInfo.new(0.16), { Scale = 0.94 }):Play()
+					other.BackgroundTransparency = 0.4
+				end
+			end
+		end
+		task.delay(0.42, function() pathGui.Enabled = false end)
 		-- the server builds the floor off the back of this; opening the BUILD
 		-- card here would flash a card for something already happening
 	end)

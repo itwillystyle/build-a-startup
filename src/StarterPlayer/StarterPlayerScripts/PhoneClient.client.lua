@@ -65,7 +65,7 @@ local call = {}                          -- { state, with, name, id, since, mute
 
 -- ============ THE RAIL BUTTON ============
 
-local railBtn = UIKit.railButton("phone", "PHONE", UIKit.GREEN, {
+local railBtn = UIKit.railButton("phone", "PHONE", UIKit.RED, {
 	Name = "PhoneButton", LayoutOrder = 3, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
 }, { iconSize = 28 })
 local railBadge, railBadgeText = UIKit.badge(railBtn)

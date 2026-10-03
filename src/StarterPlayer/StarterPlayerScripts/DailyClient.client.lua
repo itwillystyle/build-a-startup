@@ -223,7 +223,7 @@ end
 the phone (PHONE > Daily > SEE THE WEEK), sharing the phone's badge with
 investor texts. Now it has the first rail slot: a red "!" and a wiggle when a
 gift is waiting, quiet when today's is claimed. ]]
-local railBtn = UIKit.railButton("gift", "DAILY", UIKit.GREEN, {
+local railBtn = UIKit.railButton("gift", "DAILY", UIKit.GOLD, {
 	Name = "DailyButton", LayoutOrder = 5, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
 }, { iconSize = 28 })
 local railBadge, railBadgeText = UIKit.badge(railBtn)
