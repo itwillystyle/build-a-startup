@@ -37,11 +37,29 @@ degrees each, segment 1 centred on +Z (the road), then clockwise seen from
 above (CFrame.Angles(0, (seg - 1) * 45deg, 0) turns +Z toward +X). ]]
 W.GEO = {
 	H = 13, SLAB = 1.5, FLOOR_Y = 1.0, DEPTH = 20,
+	--[[ THE LEAN (v7). The old numbers were r 60, 64, 58, 54 with centres that
+	zig-zagged +8x, -6x, +3x: wafer 2 was BIGGER than wafer 1 and the stack
+	swung both ways, which is why it read as a pile rather than a building.
+
+	Samsung's San Jose HQ -- the building this is named after -- is three
+	stacked "wafers" of office separated by open garden floors, with 180ft
+	cantilevered trusses. The silhouette works because the steps are even and
+	the overhang goes ONE way.
+
+	So: radius -4 per wafer, centre +6x -4z per wafer. Both constant. The lean
+	vector is 7.2 studs per step, so the leading edge reaches 3.2 further out
+	each time (a real cantilever) while the trailing edge sets back 11 (a deep
+	shadowed underside). Over ~182 studs of height that is an 8.7 degree lean:
+	readable from the plaza, nowhere near falling over.
+
+	The lift core stays vertical at (0, -26). Gaps from the core to each ring
+	are 14.0, 13.2, 10.4, 5.2 -- all positive, and bridgeBetween stretches the
+	bridge mesh to whatever the gap is. ]]
 	WAFER = {
 		[1] = { cx = 0, cz = 0, r = 60 },      -- round the garage: the courtyard is 80 across
-		[2] = { cx = 8, cz = -5, r = 64 },     -- each wafer shifted on the one below (Samsung's cantilevers)
-		[3] = { cx = -6, cz = -6, r = 58 },
-		[4] = { cx = 3, cz = -8, r = 54 },
+		[2] = { cx = 6, cz = -4, r = 56 },
+		[3] = { cx = 12, cz = -8, r = 52 },
+		[4] = { cx = 18, cz = -12, r = 48 },
 	},
 	CORE = { x = 0, z = -26, r = 6 },          -- the glass lift, in the courtyard behind the garage
 	PAVILION = { rin = 36, rout = 44 },         -- on wafer 4's roof, 4 quarter pieces
