@@ -1072,6 +1072,14 @@ local function recompute(player)
 	end
 	player:SetAttribute("Prestige", math.floor(spinMultOf(s) * milestoneMultOf(s) * ((Econ and Econ.indexMult) and Econ.indexMult(s.index) or 1) * 100 + 0.5) / 100)
 	player:SetAttribute("Spinoffs", s.spinoffs or 0)
+	-- THE HQ STYLE. The session owns it; the plot is what the mesh placer reads,
+	-- so they are synced here, where both are in scope and which runs on every
+	-- state change. HQPathChosen tells the client whether to offer the picker.
+	if plot and Econ and Econ.Wafers then
+		plot.hqPath = s.hqPath or plot.hqPath
+		player:SetAttribute("HQPath", Econ.Wafers.pathOf(plot))
+		player:SetAttribute("HQPathChosen", s.hqPath ~= nil)
+	end
 	-- the client shows catalog prices; tell it what to multiply them by
 	local priceMult = hqMultOf(plot) * (1 + CFG.FURNITURE_INFLATION * #(s.placed or {})) * scaleOf(s)
 	player:SetAttribute("PriceMult", math.floor(priceMult * 100 + 0.5) / 100)
@@ -1272,6 +1280,7 @@ local function assignDesks(player)
 			home = plot.g(-15 + waiting * 3, 3.62, 9) * CFrame.Angles(0, math.rad(180), 0)   -- floor top 1.0 + root-to-sole 2.61
 			waiting += 1
 		end
+		r.home = home        -- remembered so the tilt sweep can put a rig back exactly
 		StaffRig.rehome(r.rig, home)
 	end
 	s.waitingStaff = waiting
@@ -2564,6 +2573,10 @@ if Econ then
 	if Econ.Wafers and Econ.Wafers.init and Econ.V3 then
 		local ok, err = pcall(Econ.Wafers.init, {
 			part = part, rise = rise, FK = FurnitureKit, HQFloors = tryRequire(ServerScriptService, "HQFloors"),
+			-- v7: floor stations need to talk back to the game
+			prompt = prompt, popup = popup, session = function(pl) return sessions[pl.UserId] end,
+			grant = function(pl, id, n) return Econ.Inv and Econ.Inv.grant(pl, id, n, "floor") end,
+			plotOf = plotOf,
 		})
 		if ok then Econ.WAFERS = true else warn("[SV] Wafers init failed: " .. tostring(err)); Econ.Wafers = nil end
 	else
@@ -2572,6 +2585,30 @@ if Econ then
 	remote("WaferBuild").OnServerEvent:Connect(function(player, dept)
 		local plot = plotOf(player)
 		if plot and Econ.WAFERS then tryUpgrade(player, plot, type(dept) == "string" and dept or nil) end
+	end)
+
+	--[[ WaferPath: the player picks which of the three buildings their company
+	is. Free, and only before the first floor above the garage goes up -- after
+	that it is a spin-off decision, because rebuilding 40 storeys in a new skin
+	mid-company would be a silent 30-second hitch.
+
+	The server decides whether the choice is still open; the client's card is
+	only ever an offer. ]]
+	remote("WaferPath").OnServerEvent:Connect(function(player, path)
+		local plot = plotOf(player)
+		local s = sessions[player.UserId]
+		if not (plot and s and Econ.WAFERS and Econ.Wafers) then return end
+		if type(path) ~= "string" or not Econ.Wafers.PATHS[path] then return end
+		-- only while the HQ is still just the garage
+		if (plot.wafer and plot.wafer.level or 1) > 1 then
+			popup(plot.hqPad, "Too late to restyle -- next company", CFG.BAD)
+			return
+		end
+		if s.hqPath == path then return end
+		s.hqPath = path
+		plot.hqPath = path
+		recompute(player)
+		popup(plot.hqPad, Econ.Wafers.pathName(path) .. " it is", CFG.GOOD)
 	end)
 end
 
@@ -3051,6 +3088,34 @@ task.spawn(function()
 	while true do
 		task.wait(math.random(CFG.RIVAL_EVERY[1], CFG.RIVAL_EVERY[2]))
 		rivalLaunch()
+	end
+end)
+
+--[[ THE TILT SWEEP (v7). A staff member turned up floating sideways in an
+upper-floor ceiling. StaffRig.straighten puts any rig that is unanchored or
+tilted back where it belongs; this walks every rig every 8 seconds and calls
+it. It only acts when something is actually wrong, so the normal cost is two
+property reads per staff member.
+
+Logged on the first fix per server, because a guard that silently hides a bug
+is how the bug survives. ]]
+task.spawn(function()
+	local warned = false
+	while true do
+		task.wait(8)
+		if StaffRig and StaffRig.straighten then
+			for _, sess in pairs(sessions) do
+				for _, r in ipairs(sess.rigs or {}) do
+					if r.rig and r.rig.Parent then
+						local ok, fixed = pcall(StaffRig.straighten, r.rig, r.home)
+						if ok and fixed and not warned then
+							warned = true
+							warn("[SV] straightened a tilted staff rig -- see StaffRig.straighten")
+						end
+					end
+				end
+			end
+		end
 	end
 end)
 

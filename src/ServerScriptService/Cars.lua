@@ -391,6 +391,50 @@ function Cars.init(a)
 		end
 		if not D.dealerPads then return end
 		Cars.forecourt = D.dealerForecourt
+
+		--[[ THE CAMPUS SHOWROOM (v7).
+
+		His note: "the car dealership is awkwardly placed towards the end of the
+		map". It is -- Valley Motors sits in downtown, past x 620, while the
+		plots ring the origin. Buying a car meant a 600-stud drive to a place you
+		had no other reason to visit, which is the opposite of how a reward
+		should work.
+
+		Downtown stays (it is a real destination, and the towers and apartments
+		are there). What moves is the OFFER: one car on the campus green, by the
+		promenade, with the same dealer menu on it. You can still drive out to see
+		the full range; you no longer have to.
+
+		The green itself already exists -- CampusArch's promenade loop rings a
+		lawn. This puts something on it worth walking to. ]]
+		local show = CFrame.new(0, 0.6, 66) * CFrame.Angles(0, math.rad(200), 0)
+		local sm = Cars.display("sports", show, D.folder)
+		if sm then
+			local ap = sm.PrimaryPart or sm:FindFirstChildWhichIsA("BasePart")
+			if ap then
+				local pad = Instance.new("Part")
+				pad.Name = "ShowroomPad"
+				pad.Anchored = true
+				pad.CanCollide = false
+				pad.Size = Vector3.new(22, 0.3, 14)
+				pad.CFrame = show * CFrame.new(0, -0.45, 0)
+				pad.Color = Color3.fromRGB(226, 220, 206)
+				pad.Material = Enum.Material.SmoothPlastic
+				pad.Parent = D.folder
+				CollectionService:AddTag(sm, "SVTurntable")
+				local pp = Instance.new("ProximityPrompt")
+				pp.ActionText = "Cars"
+				pp.ObjectText = "Valley Motors"
+				pp.HoldDuration = 0
+				pp.MaxActivationDistance = 16
+				pp.RequiresLineOfSight = false
+				pp.Parent = ap
+				pp.Triggered:Connect(function(p)
+					local st = Cars.status(p)
+					remotes.dealer:FireClient(p, st)
+				end)
+			end
+		end
 		local order = { "sedan", "suv", "sports", "racer", "hyper" }
 		for i, cf in ipairs(D.dealerPads) do
 			local id = order[i]

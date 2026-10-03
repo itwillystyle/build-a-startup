@@ -81,9 +81,21 @@ end
 -- Steal An Egg: big green outlined text with a coin, no box.
 local pill = Instance.new("Frame")
 pill.Name = "Cash"
-pill.AnchorPoint = Vector2.new(0.5, 0)
-pill.Position = UDim2.new(0.5, 0, 0, 8)
-pill.Size = UDim2.new(0, 280, 0, 56)
+--[[ v7: money moved OUT of top-centre.
+
+Top-centre is the slot a player looks at first, and it was showing a number
+that reads $0 to someone who has just joined. Restaurant Tycoon 3 -- the
+reference -- puts the quest with a progress bar there and keeps money as a
+small counter in a corner. The objective is a layer-2 signal (do I know what
+I am doing); money is layer 4 (am I getting somewhere). The bottom layer wins
+the better slot.
+
+Bottom-left is the one free corner: the rail owns top-left, Roblox's own
+buttons the top strip, WRITE CODE the bottom centre, and the mobile jump
+button the bottom right. ]]
+pill.AnchorPoint = Vector2.new(0, 1)
+pill.Position = UDim2.new(0, 14, 1, -14)
+pill.Size = UDim2.new(0, 230, 0, 46)
 pill.BackgroundTransparency = 1
 pill.Parent = gui
 local pillScale = Instance.new("UIScale", pill)
@@ -111,15 +123,15 @@ if UIKit.ART and UIKit.ART.coin then
 	coin.BackgroundTransparency = 1
 	cst.Enabled = false
 	dollar.Visible = false
-	UIKit.art(coin, "coin", 52, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0) })
+	UIKit.art(coin, "coin", 40, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0) })
 end
-local cashText = UIKit.outlined(pill, "$0", 44, UIKit.MONEY, {
+local cashText = UIKit.outlined(pill, "$0", 34, UIKit.MONEY, {
 	Name = "Amount", Size = UDim2.new(0, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.X, LayoutOrder = 2,
 })
 
 -- income line (tap it for the per-building breakdown)
 local rateText = UIKit.outlined(gui, "", 18, UIKit.MONEY, {
-	Name = "Rate", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 64),
+	Name = "Rate", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 2, 0, -2),
 	Size = UDim2.new(0, 220, 0, 22), TextXAlignment = Enum.TextXAlignment.Center,
 })
 local rateHit = Instance.new("TextButton")

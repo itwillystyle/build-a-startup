@@ -27,6 +27,8 @@ local ORDER = { "lobby", "eng", "studio", "cafe", "servers", "labs", "board" }
 local HOMES = { "STUDIO", "LOFT", "PENTHOUSE" }
 
 local function a(k) return player:GetAttribute(k) end
+local askedThisSession = false
+
 local function cash()
 	local ls = player:FindFirstChild("leaderstats")
 	local c = ls and ls:FindFirstChild("Cash")
@@ -159,8 +161,136 @@ local function render()
 	end
 end
 
+--[[ ============ THE STYLE PICKER ============
+
+Three buildings, offered once, on the FIRST build -- not on a join screen.
+Roblox's own onboarding guidance puts the cost of a join menu at roughly 2-3%
+of the new-player cohort per second of non-gameplay, and a three-way choice
+between three WORDS before a player has seen any of them is exactly that.
+
+Here they have already spawned, shipped and hired. They tap BUILD, and the
+card shows three buildings. The choice is made while looking at the thing it
+changes, and the reward is immediate: the next floor goes up in that style.
+
+The server owns whether the offer is still open (HQPathChosen); this card is
+only ever an offer. ]]
+local PATHS = {
+	{ key = "W_", name = "WAFERS", blurb = "Stacked rings, garden floors", col = Color3.fromRGB(122, 170, 80) },
+	{ key = "T_", name = "TERRAFAB", blurb = "A chip fab. Watch the wafer track", col = Color3.fromRGB(236, 170, 70) },
+	{ key = "D_", name = "DOME", blurb = "Layered canopies, lit seams", col = Color3.fromRGB(150, 166, 188) },
+}
+
+local pathGui = Instance.new("ScreenGui")
+pathGui.Name = "WaferPath"
+pathGui.ResetOnSpawn = false
+pathGui.IgnoreGuiInset = true
+pathGui.DisplayOrder = 13
+pathGui.Enabled = false
+UIKit.safe(pathGui)
+pathGui.Parent = player:WaitForChild("PlayerGui")
+
+local QW, QH = 620, 300
+local qPanel, qBody, qClose = UIKit.menu(pathGui, "PICK YOUR BUILDING", UIKit.GOLD or UIKit.GREEN, {
+	Name = "Panel", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), Size = UDim2.new(0, QW, 0, QH),
+}, { headerHeight = 44 })
+qBody.Position = UDim2.new(0, 14, 0, 52)
+qBody.Size = UDim2.new(1, -28, 1, -62)
+UIKit.fitMenu(qPanel, QW, QH, Instance.new("UIScale", qPanel))
+
+UIKit.label(qBody, "You can change it when you spin off.", 15, UIKit.MUTED or UIKit.INK, {
+	Name = "Sub", Size = UDim2.new(1, 0, 0, 20), Position = UDim2.new(0, 0, 0, 0),
+	TextXAlignment = Enum.TextXAlignment.Center,
+})
+
+local pickRemote = remotes:WaitForChild("WaferPath", 60)
+
+local function openPicker()
+	if not pickRemote then return end
+	pathGui.Enabled = true
+	UIKit.solo(pathGui)
+end
+
+for i, def in ipairs(PATHS) do
+	local w = 1 / #PATHS
+	local tile = UIKit.button(qBody, "", def.col, {
+		Name = "Path_" .. def.key:sub(1, 1),
+		Size = UDim2.new(w, -10, 0, 180),
+		Position = UDim2.new((i - 1) * w, 5, 0, 30),
+	})
+	local lbl = tile:FindFirstChild("Label")
+	if lbl then lbl.Text = "" end
+	UIKit.label(tile, def.name, 19, UIKit.INK, {
+		Name = "Name", Size = UDim2.new(1, -10, 0, 24), Position = UDim2.new(0, 5, 0, 108),
+		TextXAlignment = Enum.TextXAlignment.Center,
+	})
+	UIKit.label(tile, def.blurb, 13, UIKit.INK, {
+		Name = "Blurb", Size = UDim2.new(1, -14, 0, 44), Position = UDim2.new(0, 7, 0, 132),
+		TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Center,
+	})
+	-- a 3D thumbnail of the real building, so the choice is between buildings
+	-- and not between three words
+	local vpf = Instance.new("ViewportFrame")
+	vpf.Name = "Shot"
+	vpf.BackgroundTransparency = 1
+	vpf.Size = UDim2.new(1, -20, 0, 100)
+	vpf.Position = UDim2.new(0, 10, 0, 6)
+	vpf.Parent = tile
+	task.spawn(function()
+		local lib = RS:WaitForChild("SVMeshes", 30)
+		local tpl = lib and lib:FindFirstChild(def.key .. "Seg_1")
+		if not tpl then return end
+		local world = Instance.new("Model")
+		for k = 0, 2 do
+			for seg = 1, 8 do
+				local mp = tpl:IsA("Model") and tpl:FindFirstChildWhichIsA("MeshPart", true) or tpl
+				if mp then
+					local c = mp:Clone()
+					c.Anchored = true
+					c.CFrame = CFrame.new(0, k * 13, 0) * CFrame.Angles(0, math.rad((seg - 1) * 45), 0)
+					c.Parent = world
+				end
+			end
+		end
+		world.Parent = vpf
+		local cam = Instance.new("Camera")
+		cam.CFrame = CFrame.lookAt(Vector3.new(130, 60, 130), Vector3.new(0, 18, 0))
+		cam.Parent = vpf
+		vpf.CurrentCamera = cam
+	end)
+
+	tile.MouseButton1Click:Connect(function()
+		pickRemote:FireServer(def.key)
+		UIKit.sfx("ding", 1.1, 0.5)
+		pathGui.Enabled = false
+		gui.Enabled = true
+		render()
+		UIKit.solo(gui)
+	end)
+end
+if qClose then
+	qClose.MouseButton1Click:Connect(function()
+		-- closing without choosing keeps the default and does not ask again
+		-- this session: a card that reappears every tap is a nag, not an offer
+		pathGui.Enabled = false
+		askedThisSession = true
+		gui.Enabled = true
+		render()
+		UIKit.solo(gui)
+	end)
+end
+
 local function setOpen(on)
-	gui.Enabled = on and (a("WaferNext") or 0) > 0
+	local want = on and (a("WaferNext") or 0) > 0
+	if want and a("HQPathChosen") ~= true and not askedThisSession
+		and (a("WaferNext") or 0) <= 2 then
+		-- the offer only stands while the HQ is still the garage; the server
+		-- refuses a restyle after that, so do not offer what it would refuse
+		askedThisSession = true
+		gui.Enabled = false
+		openPicker()
+		return
+	end
+	gui.Enabled = want
 	if gui.Enabled then
 		picked = nil
 		render()

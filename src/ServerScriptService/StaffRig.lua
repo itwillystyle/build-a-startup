@@ -763,6 +763,46 @@ local function homeFor(model, homeCFrame)
 	return homeCFrame * CFrame.new(0, -SEAT_DROP, 0)
 end
 
+--[[ THE TILT GUARD (v7).
+
+A staff member was found floating sideways in an upper-floor ceiling. The
+chair finder already refuses a chair more than 5 studs off the rig's own
+height, so that was not the cause -- which means something let physics take
+the rig: a root that lost its anchor, a PivotTo that landed inside geometry,
+or a Humanoid state change racing the anchor.
+
+Rather than chase one path, this catches the whole class. A rig that is
+anchored and upright is correct by construction; anything else is put back.
+Cheap: it reads two properties and only acts when something is actually wrong.
+
+Returns true when it had to fix something, so a caller can log it. ]]
+function StaffRig.straighten(model, homeCFrame)
+	local hrp = model and model:FindFirstChild("HumanoidRootPart")
+	if not hrp then return false end
+	local fixed = false
+	if not hrp.Anchored then
+		hrp.Anchored = true
+		fixed = true
+	end
+	hrp.AssemblyLinearVelocity = Vector3.zero
+	hrp.AssemblyAngularVelocity = Vector3.zero
+	-- upright means the rig's own up still points at the world's up. A tilt past
+	-- ~25 degrees is never something the animation does.
+	local up = hrp.CFrame.UpVector
+	if up.Y < 0.9 then
+		if homeCFrame then
+			model:PivotTo(homeFor(model, homeCFrame))
+		else
+			local p = hrp.Position
+			local look = hrp.CFrame.LookVector * Vector3.new(1, 0, 1)
+			if look.Magnitude < 0.01 then look = Vector3.new(0, 0, -1) else look = look.Unit end
+			hrp.CFrame = CFrame.lookAt(p, p + look)
+		end
+		fixed = true
+	end
+	return fixed
+end
+
 function StaffRig.rehome(model, homeCFrame)
 	StaffRig.homes[model] = homeCFrame
 	if model.Parent then model:PivotTo(homeFor(model, homeCFrame)) end

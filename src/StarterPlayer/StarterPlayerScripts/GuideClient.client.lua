@@ -176,8 +176,34 @@ gui.Parent = player:WaitForChild("PlayerGui")
 
 local PAD, TILE = 10, 52
 local TEXT_X = PAD + TILE + 10
-local column = UIKit.column()
-local card = UIKit.card(column, { Name = "Quest", LayoutOrder = 2, Size = UDim2.new(1, 0, 0, 84), Visible = false })
+--[[ v7: the quest card moved from the right column to TOP CENTRE.
+
+This is the Restaurant Tycoon 3 layout, and the reason is Tizzy's layer 2 --
+"the first objective is obvious in seconds". It was in a right-hand column
+competing with the product bar for a slot a new player does not look at,
+while money owned the middle of the screen.
+
+It keeps its own ScreenGui rather than staying a column row, so it cannot be
+pushed down by whatever else the column is showing. UIKit.solo still hides it
+behind a full menu. ]]
+local questGui = Instance.new("ScreenGui")
+questGui.Name = "Quest"
+questGui.ResetOnSpawn = false
+questGui.IgnoreGuiInset = true
+questGui.DisplayOrder = 9
+UIKit.safe(questGui)
+questGui.Parent = player:WaitForChild("PlayerGui")
+
+local holder = Instance.new("Frame")
+holder.Name = "Holder"
+holder.AnchorPoint = Vector2.new(0.5, 0)
+holder.Position = UDim2.new(0.5, 0, 0, 10)
+holder.Size = UDim2.new(0, 430, 0, 84)
+holder.BackgroundTransparency = 1
+holder.Parent = questGui
+UIKit.fitMenu(holder, 430, 84, Instance.new("UIScale", holder))
+
+local card = UIKit.card(holder, { Name = "Quest", Size = UDim2.new(1, 0, 1, 0), Visible = false })
 local cardStroke = card:FindFirstChildOfClass("UIStroke")
 local cardScale = Instance.new("UIScale", card)
 

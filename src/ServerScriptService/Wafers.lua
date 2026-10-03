@@ -66,11 +66,64 @@ local function glassOf(color, t)
 	return { Material = Enum.Material.Glass, Transparency = t or 0.45, CastShadow = false, Color = color }
 end
 
+--[[ THE FACADE TINT (v7).
+
+From the plaza the tower read as coloured static -- pink, orange, green and
+blue bands stacked up it. The cause was not interior furniture, as first
+assumed: it was the DEPARTMENT TINT painted straight onto the exterior glass,
+at full saturation, with a different department on nearly every floor.
+
+A real curtain wall is one glass colour for the whole building. Departments
+still need to be legible, so the tint is kept but pulled most of the way
+toward a common glass blue-grey: the floor still reads warm or cool up close
+and on its sign, and the tower reads as one building from across the map.
+
+Inside, and on the sign, the full-strength colour is unchanged. ]]
+local GLASS_BASE = Color3.fromRGB(176, 202, 214)
+local FACADE_MIX = 0.78          -- how far toward the common colour
+
+local function facadeTint(dept)
+	local c = Wafers.TINT[dept] or PAPER
+	return c:Lerp(GLASS_BASE, FACADE_MIX)
+end
+
 -- ---------------------------------------------------------------- geometry
 local RAD45 = math.rad(45)
 local DECK_TOP = -G.SLAB + 0.3     -- a deck / roof surface, relative to its storey's floor top
 
 -- storey s: its walkable floor top (plot-local y)
+--[[ THE PATH PREFIX.
+
+The Wafers and the Terrafab kits emit the SAME 40 piece names under different
+prefixes (W_Seg_2 / T_Seg_2), so ONE placer builds either path and the economy
+never forks. A player's choice is a single string on their plot.
+
+Wafers.anchor(plot, L) runs at the top of every build function, so setting the
+current prefix there means it is always right for the piece being built, per
+piece. Nothing to keep in sync, and no assumption that the build path never
+yields.
+
+An unknown value falls back to W_, so a corrupt save can never make a player's
+whole HQ invisible. ]]
+local PATHS = { ["W_"] = "Wafers", ["T_"] = "Terrafab", ["D_"] = "Dome" }
+local CUR = "W_"
+
+function Wafers.pathOf(plot)
+	local v = plot and plot.hqPath
+	return (v and PATHS[v]) and v or "W_"
+end
+
+function Wafers.pathName(prefix)
+	return PATHS[prefix] or "Wafers"
+end
+
+Wafers.PATHS = PATHS
+
+local function pname(name)
+	if CUR == "W_" then return name end
+	return (name:gsub("^W_", CUR))
+end
+
 function Wafers.floorY(s) return G.FLOOR_Y + s * G.H end
 
 -- the old HQ level (1-5) this level stands for: recruit tiers, homes, the journey
@@ -88,6 +141,7 @@ end
 
 -- the anchor of piece L: wafer centre, turned to its segment, at its storey's floor top
 function Wafers.anchor(plot, L)
+	CUR = Wafers.pathOf(plot)        -- every build function starts here
 	local pc = P.PIECES[L]
 	if pc.kind == "garage" then return plot.pivot end
 	if pc.kind == "halo" or pc.kind == "lantern" or pc.kind == "mast" then
@@ -214,6 +268,7 @@ end
 -- the imported template for `name`, or nil (the metadata ships with the code; the
 -- meshes arrive with a Bulk Import, so "has a mesh" means the template is in the place)
 local function template(name)
+	name = pname(name)
 	local lib = RS:FindFirstChild("SVMeshes")
 	local tpl = lib and (lib:FindFirstChild(name) or lib:FindFirstChild(name, true))
 	if tpl and META[name] then return tpl end
@@ -223,7 +278,7 @@ end
 -- the imported mesh named `name`, placed in the piece's local frame (HQMeta.Wafers)
 local function mesh(model, anchor, name, color, props)
 	local tpl = template(name)
-	local m = META[name]
+	local m = META[pname(name)]      -- template() already resolved the prefix
 	if not tpl then return nil end
 	local mp = tpl:IsA("Model") and tpl:FindFirstChildWhichIsA("MeshPart", true) or tpl
 	if not mp then return nil end
@@ -323,6 +378,68 @@ local function sign(model, anchor, rin, dept)
 	return t
 end
 
+--[[ ============ FLOOR STATIONS (v7) ============
+
+The floors had furniture and a money sign but nothing to DO, so there was no
+reason to walk into your own building -- you took the lift to the top once and
+never went back.
+
+One station per floor, department-specific, on a cooldown. It hands out the
+same boost items the game already has, so this adds a reason to explore without
+adding a new economy to balance. Walking your own tower now pays.
+
+Cooldown lives on the session, not the save: a free boost that survives a
+rejoin is a relog exploit, and nothing here is worth a save-format change. ]]
+local STATION = {
+	eng     = { item = "coffee",    label = "GRAB A COLD BREW",  obj = "Brew" },
+	labs    = { item = "scout",     label = "READ THE RESEARCH", obj = "Bench" },
+	studio  = { item = "frontpage", label = "PITCH THE PRESS",   obj = "Board" },
+	cafe    = { item = "energy",    label = "ENERGY DRINK",      obj = "Fridge" },
+	servers = { item = "frontpage", label = "RUN THE NUMBERS",   obj = "Terminal" },
+	board   = { item = "noncompete", label = "CALL LEGAL",       obj = "Phone" },
+}
+local STATION_COOLDOWN = 420      -- 7 minutes per floor
+
+local function station(model, anchor, dept, r, plot, L)
+	local def = STATION[dept]
+	if not (def and api and api.prompt and api.grant) then return end
+	local rm = r - G.DEPTH / 2
+	local body = add(model, {
+		Name = "Station",
+		Size = Vector3.new(3.2, 4.4, 1.8),
+		CFrame = anchor * CFrame.new(-7.5, G.SLAB + 2.2, rm - 3.2),
+		Color = Wafers.TINT[dept] or PAPER,
+		Material = Enum.Material.SmoothPlastic,
+		CastShadow = false,
+	})
+	add(model, {
+		Name = "StationGlow",
+		Size = Vector3.new(2.4, 0.3, 1.2),
+		CFrame = anchor * CFrame.new(-7.5, G.SLAB + 4.5, rm - 3.2),
+		Color = Color3.fromRGB(255, 236, 190),
+		Material = Enum.Material.Neon,
+		CanCollide = false, CanQuery = false, CastShadow = false,
+	})
+	local pr = api.prompt(body, def.label, def.obj, 10)
+	pr.Triggered:Connect(function(player)
+		if api.plotOf and api.plotOf(player) ~= plot then return end     -- your own building only
+		local sess = api.session and api.session(player)
+		if not sess then return end
+		sess.floorUsed = sess.floorUsed or {}
+		local now = os.clock()
+		local last = sess.floorUsed[L] or -1e9
+		local left = STATION_COOLDOWN - (now - last)
+		if left > 0 then
+			if api.popup then api.popup(body, ("Ready in %dm"):format(math.ceil(left / 60)), Color3.fromRGB(226, 112, 96)) end
+			return
+		end
+		if api.grant(player, def.item, 1) then
+			sess.floorUsed[L] = now
+			if api.popup then api.popup(body, "+1 " .. def.label:gsub("^%u+ ", ""), Color3.fromRGB(122, 190, 110)) end
+		end
+	end)
+end
+
 local function buildSegment(plot, L, dept, model)
 	local pc = P.PIECES[L]
 	local anchor = Wafers.anchor(plot, L)
@@ -371,7 +488,7 @@ local function buildSegment(plot, L, dept, model)
 		local glassName = (variant == "lobby" and "W_LobbyGlass") or (variant == "bridge" and "W_GlassB_" .. pc.wafer) or ("W_Glass_" .. pc.wafer)
 		local shellA = anchor * CFrame.new(0, -G.SLAB, 0)       -- the mesh frame starts at the slab bottom
 		local shell = mesh(model, shellA, "W_" .. suffix, nil, { CastShadow = true })
-		local glass = mesh(model, shellA, glassName, tint, { Material = Enum.Material.Glass, Transparency = 0.35, CastShadow = false })
+		local glass = mesh(model, shellA, glassName, facadeTint(dept), { Material = Enum.Material.Glass, Transparency = 0.28, CastShadow = false })
 		if shell then table.insert(visual, shell) end
 		if glass then table.insert(visual, glass) end
 	end
@@ -389,6 +506,11 @@ local function buildSegment(plot, L, dept, model)
 		end
 	end
 	local seats = furnish(model, anchor, dept, r)
+	-- one station per FLOOR, not per segment: seg 3 is a side bay, clear of the
+	-- lobby (seg 1) and the lift bridge (seg 5)
+	if P.PIECES[L] and P.PIECES[L].seg == 3 then
+		station(model, anchor, dept, r, plot, L)
+	end
 	local label = (dept ~= "lobby") and sign(model, anchor, rin, dept) or nil
 	return parts, visual, seats, label
 end

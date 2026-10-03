@@ -122,6 +122,10 @@ return function(core)
 			alumni = math.min(s.alumni or 0, CFG.ALUMNI_CAP),
 			work = math.floor(s.work or 0),
 			spinoffs = math.min(s.spinoffs or 0, Prog.SPIN_CAP),
+			-- which of the three HQ styles this company is built in. One short
+			-- string; the placer falls back to Wafers on anything unknown, so a
+			-- corrupt value can never make a player's whole building vanish.
+			hqPath = s.hqPath,
 			earned = math.floor(s.earned or 0),
 			items = Econ and Econ.Inv and Econ.Inv.save(s) or nil,   -- v3.2 the bag: counts only
 			apt = s.apt or 0,                                            -- v4.0 the apartment rung (0-3)
@@ -319,6 +323,8 @@ return function(core)
 		s.work = clampInt(data.work, 0, 1e9, 0)
 		s.workNeed = math.floor(CFG.WORK_FIRST * (CFG.WORK_GROWTH ^ ((Econ and Econ.V3) and s.runLaunches or s.launches or 0)))
 		s.spinoffs = clampInt(data.spinoffs, 0, Prog.SPIN_CAP, 0)
+		local path = type(data.hqPath) == "string" and data.hqPath or nil
+		s.hqPath = (path == "T_" or path == "D_" or path == "W_") and path or nil
 		-- pre-v2.4 saves have no `earned`; valuation is the closest honest proxy
 		s.earned = data.earned ~= nil and clampInt(data.earned, 0, 1e15, 0) or clampInt(data.valuation, 0, 1e15, 0)
 		s.milestones = milestonesFromEarned(s.earned)
