@@ -596,11 +596,34 @@ local function buildSegment(plot, L, dept, model)
 	for _, p in ipairs(arcBoxes(-half, half, 3, rin + 0.5, 1, 0, wallH, glassProps, innerGap)) do
 		table.insert(list, p)
 	end
-	-- radial partitions at both ends, with a doorway round the ring
-	local rm = rin + G.DEPTH / 2
+	--[[ RADIAL PARTITIONS, with a doorway round the ring.
+
+	v7, from his report: "i cant even walk between each interior opening door".
+	Measured before changing anything -- a lap of the ring at walking height
+	showed the floor blocked at radius 42-45 and 54-58 and clear only at 48-52.
+	So the doorway was real and intentional, and 6 studs wide in a floor 20
+	studs deep: you had to find the one line through it, and anywhere else you
+	walked into a wall. A door you have to aim at is a wall with a rumour of a
+	door.
+
+	Now 12 studs, and CENTRED ON THE WALKABLE DEPTH rather than on the
+	structure. That matters for the Dome, whose glass is set in 7 studs: its
+	usable floor is rin..r-7, so a door centred at rin + DEPTH/2 sat against the
+	outer glass instead of in the middle of the room. ]]
+	local inset = (CUR == "D_") and 7.0 or 0.0
+	-- The MESH's doorway sits at (partition radius) - DEPTH/2, and dome.py calls
+	-- W.partition with the INSET radius, so the Dome's visible door is 7 studs
+	-- further in than every other path's. The collision has to follow it, or
+	-- the hole in the wall and the hole you can walk through are different holes
+	-- -- which is exactly what an invisible barrier is.
+	local rm = rin + G.DEPTH / 2 - inset
+	-- the mesh frames a 6-stud opening; collision is a touch wider so the frame
+	-- is the limit you can see, never an invisible lip just inside it
+	local halfDoor = 3.5
 	for _, a in ipairs({ -half, half }) do
-		for _, span in ipairs({ { rin, rm - 3 }, { rm + 3, r } }) do
+		for _, span in ipairs({ { rin, rm - halfDoor }, { rm + halfDoor, r } }) do
 			local len = span[2] - span[1]
+			if len <= 0.2 then continue end     -- the door can eat a whole span
 			local p = table.clone(glassProps)
 			p.Name = "Partition"
 			p.Size = Vector3.new(0.4, wallH, len)

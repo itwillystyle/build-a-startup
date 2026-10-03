@@ -211,6 +211,28 @@ return function(core)
 		end
 
 		local level = clampInt(data.hq, 1, #CFG.HQ_LEVELS, 1)
+		--[[ v7: the plot has to know its HQ style BEFORE the rebuild below.
+
+		His report was "an invisible barrier in the doorway", and this is why.
+		recompute() syncs plot.hqPath, but it runs AFTER this rebuild, so a
+		returning Dome player had their whole building re-made from the Wafers
+		kit: Wafers meshes with the Wafers door position, while the Dome's
+		collision partitions expected the inset one. The visible doorway and the
+		hole you can walk through ended up 7 studs apart.
+
+		Measured before and after: plot.hqPath was nil at the first buildSegment,
+		so every piece resolved to the W_ prefix. ]]
+		-- read it from `data`, NOT from `s`: s.hqPath is sanitised ~100 lines
+		-- below this, so at THIS point in the load it is still nil. Sanitising
+		-- here too keeps a crafted save from steering the placer.
+		do
+			local pth = type(data.hqPath) == "string" and data.hqPath or nil
+			if pth == "T_" or pth == "D_" or pth == "W_" then
+				plot.hqPath = pth
+				s.hqPath = pth
+			end
+		end
+
 		if Econ and Econ.WAFERS and Econ.Wafers and plot.wafer then
 			-- v4.6 THE WAFERS: rebuild the saved building (an old HQ 1-5 save becomes level 1/5/9/13/18)
 			local WP = Econ.Wafers.Plan
