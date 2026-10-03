@@ -1187,4 +1187,99 @@ function UIKit.solo(gui)
 	task.defer(UIKit.animateOpen, gui)
 end
 
+
+-- ============ ONE SCALE FOR EVERY SCREEN (v7) ============
+--[[
+	Why this exists. The UI was authored in fixed pixels: 331 hardcoded sizes
+	against 131 proportional ones. A 440-pixel panel is 34% of a 1280 desktop and
+	55% of an 801 phone, so the layout genuinely was a different layout per device,
+	and the per-menu fit hacks only kicked in once something already overflowed.
+
+	This puts ONE scale on every screen, driven by the viewport, so the whole UI
+	shrinks and grows as a single piece.
+
+	The curve is deliberately not linear. Straight proportional scaling would put
+	phone text at 8px, so small screens get proportionally larger UI -- which is
+	what every shipped mobile game does. The goal is not zero drift between
+	devices (that is unreachable without unreadable text); it is that everything
+	drifts TOGETHER instead of some elements moving and others staying put.
+
+	REF is the resolution the UI is authored at. Do not change it without
+	re-measuring every screen.
+]]
+local REF_Y = 720
+local AUTO_MIN, AUTO_MAX = 0.66, 1.30
+local AUTO_TAG = "SVAutoScale"
+
+-- set false to turn the whole system off and get v5 behaviour back
+UIKit.AUTO_SCALE = true
+
+function UIKit.scaleFor(vp)
+	vp = vp or workspace.CurrentCamera.ViewportSize
+	local raw = vp.Y / REF_Y
+	-- ^0.6 bends the curve: a half-height screen gets 0.66x UI, not 0.5x
+	local s = raw ^ 0.6
+	-- a narrow screen still has to fit the widest panel, so width can veto
+	s = math.min(s, vp.X / 1000)
+	return math.clamp(s, AUTO_MIN, AUTO_MAX)
+end
+
+-- A full-screen child (letterbox bars, fades, the touch reticle layer) must NOT
+-- scale: shrinking a 1x1 black frame leaves the world showing around the edges.
+local function fullScreen(o)
+	return o.Size.Width.Scale >= 0.9 and o.Size.Height.Scale >= 0.9
+end
+
+local function applyTo(child, s)
+	if not child:IsA("GuiObject") then return end
+	if fullScreen(child) then
+		local old = child:FindFirstChild(AUTO_TAG)
+		if old then old:Destroy() end
+		return
+	end
+	local sc = child:FindFirstChild(AUTO_TAG)
+	if not sc then
+		sc = Instance.new("UIScale")
+		sc.Name = AUTO_TAG
+		sc.Parent = child
+	end
+	sc.Scale = s
+end
+
+local function applyGui(gui, s)
+	if not gui:IsA("ScreenGui") then return end
+	for _, c in ipairs(gui:GetChildren()) do applyTo(c, s) end
+	if not gui:GetAttribute("SVAutoWired") then
+		gui:SetAttribute("SVAutoWired", true)
+		gui.ChildAdded:Connect(function(c)
+			task.defer(applyTo, c, UIKit.scaleFor())
+		end)
+	end
+end
+
+local autoStarted = false
+function UIKit.autoScale()
+	if autoStarted or not UIKit.AUTO_SCALE then return end
+	autoStarted = true
+
+	local pg = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+	local cam = workspace.CurrentCamera
+
+	local function sweep()
+		local s = UIKit.scaleFor()
+		for _, g in ipairs(pg:GetChildren()) do applyGui(g, s) end
+	end
+
+	sweep()
+	pg.ChildAdded:Connect(function() task.defer(sweep) end)
+	cam:GetPropertyChangedSignal("ViewportSize"):Connect(sweep)
+	-- a device rotation fires ViewportSize before the safe-insets settle
+	task.delay(0.5, sweep)
+end
+
+-- start it as soon as anything requires UIKit on the client
+if game:GetService("RunService"):IsClient() then
+	task.defer(UIKit.autoScale)
+end
+
 return UIKit
