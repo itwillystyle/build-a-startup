@@ -1878,6 +1878,25 @@ local function wafersBuild(player, plot, s, cash, chosen)
 	end
 	if not s.shipped then popup(plot.hqPad, "Ship something first", CFG.BAD) return end
 	if s.staff < 1 then popup(plot.hqPad, "Hire someone first", CFG.BAD) return end
+
+	--[[ THE STYLE GATE (v7). The first floor above the garage is where the
+	player chooses which of the three buildings their company is.
+
+	It is gated HERE, in the build itself, rather than on the BUILD card. The
+	card is one of three ways to start a build -- the HQ pad prompt and its
+	ClickDetector are the others -- and a choice that only one of them offers is
+	a choice most players never see. Nothing is charged and nothing is built;
+	the client opens the picker, and its reply builds this same floor.
+
+	Only on the very first one. After that the building is committed until a
+	spin-off, because restyling 40 storeys mid-company is a silent hitch. ]]
+	if not s.hqPath and (plot.wafer and plot.wafer.level or 1) <= 1 then
+		local ev = ReplicatedStorage:FindFirstChild("SVRemotes")
+		ev = ev and ev:FindFirstChild("AskPath")
+		if ev then ev:FireClient(player) return end
+		-- no client listening (a very old client): fall through and build as Wafers
+	end
+
 	local L, last, price = wafersNext(s, plot)
 	if not L then return end
 	local need = WP.aptRequired(L)
@@ -2594,6 +2613,7 @@ if Econ then
 
 	The server decides whether the choice is still open; the client's card is
 	only ever an offer. ]]
+	remote("AskPath")       -- server -> client: open the style picker
 	remote("WaferPath").OnServerEvent:Connect(function(player, path)
 		local plot = plotOf(player)
 		local s = sessions[player.UserId]
@@ -2609,6 +2629,10 @@ if Econ then
 		plot.hqPath = path
 		recompute(player)
 		popup(plot.hqPad, Econ.Wafers.pathName(path) .. " it is", CFG.GOOD)
+		-- the pick came from the gate in wafersBuild, so finish what they asked
+		-- for: one tap, one choice, the floor goes up. Making them press BUILD a
+		-- second time would read as the first tap having failed.
+		task.defer(function() tryUpgrade(player, plot) end)
 	end)
 end
 

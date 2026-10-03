@@ -27,8 +27,6 @@ local ORDER = { "lobby", "eng", "studio", "cafe", "servers", "labs", "board" }
 local HOMES = { "STUDIO", "LOFT", "PENTHOUSE" }
 
 local function a(k) return player:GetAttribute(k) end
-local askedThisSession = false
-
 local function cash()
 	local ls = player:FindFirstChild("leaderstats")
 	local c = ls and ls:FindFirstChild("Cash")
@@ -239,21 +237,36 @@ for i, def in ipairs(PATHS) do
 		local lib = RS:WaitForChild("SVMeshes", 30)
 		local tpl = lib and lib:FindFirstChild(def.key .. "Seg_1")
 		if not tpl then return end
+		local src = tpl:IsA("Model") and tpl:FindFirstChildWhichIsA("MeshPart", true) or tpl
+		if not src then return end
+		--[[ A segment mesh is centred on its PIECE-LOCAL frame, about 48 studs
+		out along +Z -- the ring's radius. Rotating it about the origin without
+		pushing it out first stacks all eight segments on top of each other,
+		which is exactly what the first draft did: the preview was a speck.
+
+		HQMeta lives in ServerScriptService, so the client cannot read it. These
+		are the three Seg_1 offsets, and the camera frames whatever is actually
+		built rather than a guessed distance, so a wrong number shows as a badly
+		framed tower rather than an empty box. ]]
+		local RADIUS = { W_ = 48.414, T_ = 46.194, D_ = 45.577 }
 		local world = Instance.new("Model")
 		for k = 0, 2 do
 			for seg = 1, 8 do
-				local mp = tpl:IsA("Model") and tpl:FindFirstChildWhichIsA("MeshPart", true) or tpl
-				if mp then
-					local c = mp:Clone()
-					c.Anchored = true
-					c.CFrame = CFrame.new(0, k * 13, 0) * CFrame.Angles(0, math.rad((seg - 1) * 45), 0)
-					c.Parent = world
-				end
+				local c = src:Clone()
+				c.Anchored = true
+				c.CFrame = CFrame.Angles(0, math.rad((seg - 1) * 45), 0)
+					* CFrame.new(0, k * 13, RADIUS[def.key] or 48)
+				c.Parent = world
 			end
 		end
 		world.Parent = vpf
+
+		local _, size = world:GetBoundingBox()
+		local cf = world:GetBoundingBox()
+		local centre = cf.Position
+		local reach = math.max(size.X, size.Y, size.Z)
 		local cam = Instance.new("Camera")
-		cam.CFrame = CFrame.lookAt(Vector3.new(130, 60, 130), Vector3.new(0, 18, 0))
+		cam.CFrame = CFrame.lookAt(centre + Vector3.new(0.8, 0.52, 0.8).Unit * reach * 1.5, centre)
 		cam.Parent = vpf
 		vpf.CurrentCamera = cam
 	end)
@@ -262,35 +275,37 @@ for i, def in ipairs(PATHS) do
 		pickRemote:FireServer(def.key)
 		UIKit.sfx("ding", 1.1, 0.5)
 		pathGui.Enabled = false
-		gui.Enabled = true
-		render()
-		UIKit.solo(gui)
+		-- the server builds the floor off the back of this; opening the BUILD
+		-- card here would flash a card for something already happening
 	end)
 end
 if qClose then
 	qClose.MouseButton1Click:Connect(function()
-		-- closing without choosing keeps the default and does not ask again
-		-- this session: a card that reappears every tap is a nag, not an offer
+		-- closing is a choice too: take Wafers and build, so the tap that opened
+		-- this still produces a floor. Dead-ending here would read as the BUILD
+		-- button being broken.
 		pathGui.Enabled = false
-		askedThisSession = true
-		gui.Enabled = true
-		render()
-		UIKit.solo(gui)
+		pickRemote:FireServer("W_")
+	end)
+end
+
+--[[ The SERVER decides when to ask. wafersBuild gates the first floor above
+the garage on a style, and fires AskPath instead of charging and building, so
+every route into a build gets the question -- the BUILD card, the HQ pad prompt
+and its ClickDetector alike. The reply builds that same floor, so a player taps
+BUILD once and gets a building.
+
+The card no longer second-guesses it. ]]
+local askRemote = remotes:WaitForChild("AskPath", 60)
+if askRemote then
+	askRemote.OnClientEvent:Connect(function()
+		gui.Enabled = false
+		openPicker()
 	end)
 end
 
 local function setOpen(on)
-	local want = on and (a("WaferNext") or 0) > 0
-	if want and a("HQPathChosen") ~= true and not askedThisSession
-		and (a("WaferNext") or 0) <= 2 then
-		-- the offer only stands while the HQ is still the garage; the server
-		-- refuses a restyle after that, so do not offer what it would refuse
-		askedThisSession = true
-		gui.Enabled = false
-		openPicker()
-		return
-	end
-	gui.Enabled = want
+	gui.Enabled = on and (a("WaferNext") or 0) > 0
 	if gui.Enabled then
 		picked = nil
 		render()
