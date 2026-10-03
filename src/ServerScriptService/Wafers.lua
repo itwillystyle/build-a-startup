@@ -302,7 +302,135 @@ local function segmentVariant(pc)
 	return "plain"
 end
 
-local function furnish(model, anchor, dept, r)
+--[[ ============ THE DOME'S INTERIOR ============
+
+All three paths shared one `furnish`, so the inside of a Dome looked exactly
+like the inside of a chip fab. The outside was three buildings and the inside
+was one.
+
+Bay View, which this path is drawn from, works on a few specific ideas, and
+they are all things the other two paths deliberately do NOT do:
+
+  - Workstations and team areas live UPSTAIRS, communal space BELOW. A floor
+    here is one storey, so instead the Dome leans communal everywhere the
+    Wafers lean rows.
+  - Flexible team "NEIGHBOURHOODS", not desk rows: a cluster angled in on
+    itself around a rug.
+  - Indoor COURTYARDS linking everything, with kitchenettes and soft seating
+    rather than corridors.
+  - CLERESTORY daylight at the roof seam, and timber everywhere the Terrafab
+    has steel.
+  - "Variety over standardization" -- so the cluster is seeded per floor and
+    no two look the same.
+
+Sources: BIG + Heatherwick via Dezeen and Architectural Record.
+
+The Wafers and the Terrafab keep the original rows: a fab SHOULD look like
+rows of tool bays, and Samsung's floors genuinely are open-plan desks. ]]
+local TIMBER = Color3.fromRGB(198, 154, 102)
+
+local function domeFurnish(model, anchor, dept, r, L)
+	local FK = api.FK
+	local seats = {}
+	if not FK then return seats end
+	local rm = r - G.DEPTH / 2
+	local base = anchor
+	local rng = Random.new(L * 7919)          -- variety, but the same every rebuild
+
+	local function seatAt(x, z, lookX, lookZ)
+		local pos = (base * CFrame.new(x, 2.4, z)).Position
+		local look = (base * CFrame.new(lookX or 0, 2.4, lookZ or rm)).Position
+		table.insert(seats, CFrame.lookAt(pos, look))
+	end
+	local function place(key, x, z, yaw, opts)
+		local o = opts or {}
+		o.yaw = yaw
+		pcall(FK.onFloor, key, base, x, z, 0, model, o)
+	end
+
+	-- every Dome floor: a timber soffit band and the lit clerestory seam.
+	-- This is the path's signature indoors, the way the track is outdoors.
+	add(model, { Name = "Soffit", Size = Vector3.new(chord(r - 2, RAD45) , 0.6, G.DEPTH - 3),
+		CFrame = anchor * CFrame.new(0, G.H - 2.0, rm), Color = TIMBER,
+		Material = Enum.Material.WoodPlanks, CanCollide = false, CanQuery = false, CastShadow = false })
+	add(model, { Name = "Clerestory", Size = Vector3.new(chord(r - 1, RAD45), 0.3, 1.6),
+		CFrame = anchor * CFrame.new(0, G.H - 2.6, rm + G.DEPTH / 2 - 1.4),
+		Color = Color3.fromRGB(255, 244, 212), Material = Enum.Material.Neon,
+		CanCollide = false, CanQuery = false, CastShadow = false })
+
+	if dept == "eng" or dept == "labs" then
+		-- a neighbourhood: two desks turned in on each other, not a row at a window
+		local sp = 4.6 + rng:NextNumber() * 1.2
+		place("rugRounded", 0, rm, 0)
+		place("desk", -sp, rm + 1.6, 150, { accent = Wafers.TINT[dept] })
+		place("desk", sp, rm + 1.6, -150, { accent = Wafers.TINT[dept] })
+		place("chairDesk", -sp + 0.4, rm - 1.0, -30)
+		place("chairDesk", sp - 0.4, rm - 1.0, 30)
+		seatAt(-sp + 0.4, rm - 1.0, 0, rm + 4)
+		seatAt(sp - 0.4, rm - 1.0, 0, rm + 4)
+		place("loungeChair", 0, rm - 5.0, 180)
+		place("pottedPlant", -10.5, rm + 2.0, 0)
+		place("plantSmall" .. (1 + rng:NextInteger(0, 2)), 10.5, rm + 2.0, 0)
+	elseif dept == "studio" then
+		place("rug_oval_A", 0, rm, 0)
+		place("loungeDesignSofa", 0, rm + 4.2, 180)
+		place("loungeDesignChair", -4.4, rm - 1.6, 60)
+		place("loungeDesignChair", 4.4, rm - 1.6, -60)
+		place("tableCoffeeGlass", 0, rm, 0)
+		seatAt(-4.4, rm - 1.6, 0, rm + 4)
+		seatAt(4.4, rm - 1.6, 0, rm + 4)
+		-- the pin-up wall: Bay View's "playful materials", and a reason to look
+		for i = -1, 1 do
+			place("pictureframe_" .. (i == 0 and "large_A" or "medium"), i * 5.0, rm + 8.4, 0)
+		end
+	elseif dept == "cafe" then
+		-- a kitchenette, which Bay View puts on every floor instead of one canteen
+		place("kitchenBar", -3.0, rm + 7.6, 0)
+		place("kitchenBar", 0.0, rm + 7.6, 0)
+		place("kitchenBarEnd", 3.0, rm + 7.6, 0)
+		place("kitchenCoffeeMachine", -3.0, rm + 7.0, 0)
+		place("kitchenFridge", 7.4, rm + 7.6, 0)
+		place("tableRound", 0, rm - 1.2, 0, { canCollide = true })
+		for _, o in ipairs({ { 0, 2.6, 180 }, { 0, -2.6, 0 }, { 2.4, 0, -90 }, { -2.4, 0, 90 } }) do
+			place("chairRounded", o[1], rm - 1.2 + o[2], o[3])
+			seatAt(o[1], rm - 1.2 + o[2], 0, rm - 1.2)
+		end
+		place("pottedPlant", -9.5, rm + 1.0, 0)
+	elseif dept == "servers" then
+		-- still a machine room, but screened in timber rather than left raw
+		for _, x in ipairs({ -6, -2, 2, 6 }) do
+			add(model, { Name = "Rack", Size = Vector3.new(3, 7, 2.2), CFrame = base * CFrame.new(x, 3.5, rm + 3),
+				Color = Color3.fromRGB(38, 42, 52), Material = Enum.Material.Metal, CastShadow = false })
+			add(model, { Name = "RackLight", Size = Vector3.new(2.2, 0.2, 0.1), CFrame = base * CFrame.new(x, 5.6, rm + 1.85),
+				Color = Color3.fromRGB(120, 240, 200), Material = Enum.Material.Neon, CanCollide = false, CanQuery = false, CastShadow = false })
+		end
+		add(model, { Name = "Screen", Size = Vector3.new(20, 5.2, 0.4), CFrame = base * CFrame.new(0, 3.1, rm - 2.2),
+			Color = TIMBER, Material = Enum.Material.WoodPlanks, CanCollide = false, CanQuery = false, CastShadow = false })
+		place("pottedPlant", -11, rm - 4.0, 0)
+	elseif dept == "board" then
+		place("rug_rectangle_A", 0, rm, 0)
+		place("tableCross", -2.2, rm, 0)
+		place("tableCross", 2.2, rm, 0)
+		for _, x in ipairs({ -5.2, -1.8, 1.8, 5.2 }) do
+			place("loungeDesignChair", x, rm + 3.4, 180)
+			place("loungeDesignChair", x, rm - 3.4, 0)
+		end
+		place("lampRoundFloor", -10, rm + 2, 0)
+	else   -- lobby
+		-- the indoor courtyard: the thing you walk into, soft and planted
+		place("rugRound", 0, rm, 0)
+		place("loungeSofaLong", -6.5, rm + 2.0, 90)
+		place("loungeSofaLong", 6.5, rm + 2.0, -90)
+		place("tableCoffee", 0, rm + 2.0, 0)
+		place("loungeChairRelax", 0, rm - 4.5, 180)
+		for _, x in ipairs({ -12, 12 }) do place("pottedPlant", x, rm + 5.0, 0) end
+		place("bookcaseOpen", -11.5, rm + 7.8, 0)
+	end
+	return seats
+end
+
+local function furnish(model, anchor, dept, r, L)
+	if CUR == "D_" then return domeFurnish(model, anchor, dept, r, L) end
 	local FK = api.FK
 	local seats = {}
 	local rm = r - G.DEPTH / 2
@@ -505,7 +633,7 @@ local function buildSegment(plot, L, dept, model)
 			end
 		end
 	end
-	local seats = furnish(model, anchor, dept, r)
+	local seats = furnish(model, anchor, dept, r, L)
 	-- one station per FLOOR, not per segment: seg 3 is a side bay, clear of the
 	-- lobby (seg 1) and the lift bridge (seg 5)
 	if P.PIECES[L] and P.PIECES[L].seg == 3 then
