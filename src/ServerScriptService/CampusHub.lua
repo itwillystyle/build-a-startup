@@ -53,6 +53,7 @@ local CHARCOAL = Color3.fromRGB(58, 62, 70)
 local HEDGE = Color3.fromRGB(74, 132, 66)
 local LAMP_GLASS = Color3.fromRGB(255, 240, 205)
 local JOINT = Color3.fromRGB(182, 174, 158)
+local LINE = Color3.fromRGB(238, 234, 222)
 
 local function part(parent, props)
 	local p = Instance.new("Part")
@@ -375,22 +376,101 @@ function CampusHub.build(parent)
 	ring(f, "RingWalkIn", CampusHub.R_ROAD_IN - 22, 16, 0, 1.2, PAVE_D, { seg = 56 })
 	ring(f, "RingWalkOut", CampusHub.R_ROAD_IN + 22, 16, 0, 1.2, PAVE_D, { seg = 56 })
 
+	--[[ KERBS AND MARKINGS (pass 2).
+
+	A road is not a grey slab lying on grass. Without a kerb the asphalt has no
+	edge, so the eye reads it as a texture change rather than a surface you
+	stand above -- which is exactly how the radial streets looked: paint on a
+	lawn. Every carriageway now has a raised kerb on both sides, a centre line,
+	and a crossing where it meets a ring. ]]
+	local ROAD_HALF = CampusHub.ROAD_W / 2
+
+	local function kerbRing(r, seg)
+		ring(f, "RoadKerb", r, 2.4, 0, 1.5, CONCRETE, { seg = seg })
+	end
+	kerbRing(CampusHub.R_ROAD_IN - ROAD_HALF - 1.2, 56)
+	kerbRing(CampusHub.R_ROAD_IN + ROAD_HALF + 1.2, 56)
+	kerbRing(CampusHub.R_ROAD_OUT - ROAD_HALF - 1.2, 72)
+	kerbRing(CampusHub.R_ROAD_OUT + ROAD_HALF + 1.2, 72)
+	-- centre lines, solid: dashes round a 3700-stud circumference cost hundreds
+	-- of parts and read the same at the distance anyone sees them from
+	ring(f, "RoadLine", CampusHub.R_ROAD_IN, 0.9, 1.0, 0.12, LINE, { seg = 64 })
+	ring(f, "RoadLine", CampusHub.R_ROAD_OUT, 0.9, 1.0, 0.12, LINE, { seg = 80 })
+	-- a verge of grass between the outer kerb and the bare valley, so the road
+	-- does not end in dirt
+	ring(f, "RoadVerge", CampusHub.R_ROAD_OUT + ROAD_HALF + 10, 16, 0, 0.9, LAWN,
+		{ material = Enum.Material.Grass, seg = 72 })
+	ring(f, "RoadVerge", CampusHub.R_ROAD_IN - ROAD_HALF - 10, 14, 0, 0.9, LAWN,
+		{ material = Enum.Material.Grass, seg = 56 })
+
 	-- a radial street out to each plot, so the ring is reachable by car
 	local CFG = require(script.Parent:WaitForChild("CoreConfig"))
 	for i = 0, 5 do
 		local a = math.rad(30 + i * 60)
 		local r0, r1 = CampusHub.R_ROAD_IN, CampusHub.R_ROAD_OUT
 		local rMid = (r0 + r1) / 2
-		local p = part(f, {
+		local base = CFrame.new(math.cos(a) * rMid, 0, math.sin(a) * rMid) * CFrame.Angles(0, -a + math.pi / 2, 0)
+		-- base's local X is tangential (across the street), local Z is radial
+		-- (along it), the same axis order the rings use
+		local street = part(f, {
 			Name = "RingStreet",
 			Size = Vector3.new(CampusHub.ROAD_W, 1.0, r1 - r0),
-			CFrame = CFrame.new(math.cos(a) * rMid, 0.5, math.sin(a) * rMid) * CFrame.Angles(0, -a + math.pi / 2, 0),
-			Color = ASPHALT,
-			Material = Enum.Material.Asphalt,
-			CanCollide = true,
-			CanQuery = true,
+			CFrame = base * CFrame.new(0, 0.5, 0),
+			Color = ASPHALT, Material = Enum.Material.Asphalt,
+			CanCollide = true, CanQuery = true,
 		})
-		CollectionService:AddTag(p, "SVRoad")
+		CollectionService:AddTag(street, "SVRoad")
+
+		for _, side in ipairs({ -1, 1 }) do
+			part(f, {
+				Name = "StreetKerb",
+				Size = Vector3.new(2.4, 1.5, r1 - r0),
+				CFrame = base * CFrame.new(side * (ROAD_HALF + 1.2), 0.75, 0),
+				Color = CONCRETE,
+			})
+			part(f, {
+				Name = "StreetWalk",
+				Size = Vector3.new(14, 1.2, r1 - r0 - 30),
+				CFrame = base * CFrame.new(side * (ROAD_HALF + 9.6), 0.6, 0),
+				Color = PAVE_D,
+			})
+			part(f, {
+				Name = "StreetVerge",
+				Size = Vector3.new(10, 0.9, r1 - r0 - 30),
+				CFrame = base * CFrame.new(side * (ROAD_HALF + 21), 0.45, 0),
+				Color = LAWN, Material = Enum.Material.Grass,
+			})
+		end
+		-- dashed centre line: a straight street is short enough to afford it
+		local len = r1 - r0
+		local n = math.floor(len / 26)
+		for k = 0, n - 1 do
+			part(f, {
+				Name = "StreetLine",
+				Size = Vector3.new(0.9, 0.12, 12),
+				CFrame = base * CFrame.new(0, 1.0, -len / 2 + 13 + k * 26),
+				Color = LINE,
+			})
+		end
+		-- a crossing at each end, where the street meets a ring road
+		for _, endZ in ipairs({ -len / 2 + 16, len / 2 - 16 }) do
+			for b = -2, 2 do
+				part(f, {
+					Name = "Crossing",
+					Size = Vector3.new(3.0, 0.14, 11),
+					CFrame = base * CFrame.new(b * 5.2, 1.0, endZ),
+					Color = LINE,
+				})
+			end
+		end
+		-- street trees along the walk, and a lamp at the midpoint
+		for k = 0, 3 do
+			local z = -len / 2 + 60 + k * ((len - 120) / 3)
+			for _, side in ipairs({ -1, 1 }) do
+				local wp = (base * CFrame.new(side * (ROAD_HALF + 9.6), 0, z)).Position
+				tree(f, wp.X, wp.Z, 0.85, i * 131 + k * 7 + (side > 0 and 1 or 0))
+			end
+		end
 	end
 	-- `CFG` is read so a future change to PLOT_RING_R is visible here; the
 	-- streets use the same angles the plots do.
