@@ -173,6 +173,7 @@ local function car(parent, a, r, t, colour)
 end
 
 local function lamp(parent, a, r, t)
+	parent = FlatLook.prop(parent, "DistLamp")
 	local p = at(a, r, t)
 	part(parent, { Name = "DistLampPost", Size = Vector3.new(0.7, 19, 0.7), CFrame = CFrame.new(p.X, 9.5, p.Z), Color = PAPER })
 	local head = part(parent, {
@@ -183,6 +184,7 @@ local function lamp(parent, a, r, t)
 end
 
 local function parasol(parent, a, r, t, colour)
+	parent = FlatLook.prop(parent, "Parasol")
 	local p = at(a, r, t)
 	part(parent, { Name = "DistParasolPost", Size = Vector3.new(0.5, 8.5, 0.5), CFrame = CFrame.new(p.X, 4.2, p.Z), Color = PAPER })
 	part(parent, { Name = "DistParasol", Size = Vector3.new(7, 0.9, 7), CFrame = CFrame.new(p.X, 9.0, p.Z), Color = colour })

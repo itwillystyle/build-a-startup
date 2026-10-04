@@ -82,6 +82,25 @@ function FlatLook.watch(root)
 	end)
 end
 
+--[[ A PROP (v4.7.1). Street furniture is built as loose parts -- a lamp is a
+	pole and a head, a bench is nine slats and legs -- and a Highlight adorns a
+	Model, so loose parts can only be outlined one box at a time. Wrapping each
+	helper's output in a Model gives it ONE line round the whole object.
+
+	Tagged SVOutline2, the second tier: OutlineClient fills its budget with
+	people, vehicles and trees FIRST and spends what is left on props, so a
+	street full of benches can never crowd the line off the thing you are
+	chasing. ]]
+local CollectionService = game:GetService("CollectionService")
+
+function FlatLook.prop(parent, name)
+	local m = Instance.new("Model")
+	m.Name = name
+	m.Parent = parent
+	CollectionService:AddTag(m, "SVOutline2")
+	return m
+end
+
 local SHADOW_RAY = RaycastParams.new()
 SHADOW_RAY.RespectCanCollide = false
 

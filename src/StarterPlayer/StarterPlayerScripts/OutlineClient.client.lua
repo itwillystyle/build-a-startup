@@ -45,10 +45,16 @@ local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
-local BUDGET = 160                  -- measured: 1 draw call each, on top of ~250
+local BUDGET = 220                  -- measured: 1 draw call each, on top of ~250
 local IN_R, OUT_R = 190, 240        -- hysteresis, so nothing flickers on the edge
 local LINE = Color3.fromRGB(26, 24, 30)
-local TAGS = { "SVOutline", "SVStaff", "TrafficCar" }
+--[[ TWO TIERS, and the order matters. Tier 1 is what you are looking at and
+	chasing -- people, vehicles, trees. Tier 2 is the street itself: lamps,
+	benches, bins, bollards, parasols. Tier 1 fills the budget first, so a
+	street full of benches can never take the line off the candidate you are
+	carrying home. ]]
+local TIER1 = { "SVOutline", "SVStaff", "TrafficCar" }
+local TIER2 = { "SVOutline2" }
 
 local player = Players.LocalPlayer
 local lit = {}
@@ -82,29 +88,40 @@ end
 local function refresh()
 	local eye = anchor()
 	if not eye then return end
-	table.clear(near)
 	local char = player.Character
-	if char and char.PrimaryPart then table.insert(near, { char, 0 }) end
-	for _, tag in ipairs(TAGS) do
-		for _, m in ipairs(CollectionService:GetTagged(tag)) do
-			if m:IsA("Model") and m.Parent and m ~= char then
-				local ok, pivot = pcall(function() return m:GetPivot().Position end)
-				if ok then
-					local d = (pivot - eye).Magnitude
-					-- already lit? it keeps its line out to OUT_R. Not lit? it has
-					-- to come inside IN_R to earn one.
-					if d < (lit[m] and OUT_R or IN_R) then table.insert(near, { m, d }) end
+	local function gather(tags, out)
+		table.clear(out)
+		for _, tag in ipairs(tags) do
+			for _, m in ipairs(CollectionService:GetTagged(tag)) do
+				if m:IsA("Model") and m.Parent and m ~= char then
+					local ok, pivot = pcall(function() return m:GetPivot().Position end)
+					if ok then
+						local d = (pivot - eye).Magnitude
+						-- already lit? it keeps its line out to OUT_R. Not lit? it
+						-- has to come inside IN_R to earn one.
+						if d < (lit[m] and OUT_R or IN_R) then table.insert(out, { m, d }) end
+					end
 				end
 			end
 		end
+		table.sort(out, function(a, b) return a[2] < b[2] end)
 	end
-	table.sort(near, function(a, b) return a[2] < b[2] end)
-	local keep = {}
-	for i = 1, math.min(BUDGET, #near) do
-		local m = near[i][1]
-		keep[m] = true
-		local h = lit[m]
-		if not h or not h.Parent then lit[m] = outline(m) end
+	local keep, spent = {}, 0
+	if char and char.PrimaryPart then
+		keep[char] = true
+		spent = 1
+		if not lit[char] or not lit[char].Parent then lit[char] = outline(char) end
+	end
+	for _, tags in ipairs({ TIER1, TIER2 }) do
+		gather(tags, near)
+		for i = 1, math.min(BUDGET - spent, #near) do
+			local m = near[i][1]
+			keep[m] = true
+			spent = spent + 1
+			local h = lit[m]
+			if not h or not h.Parent then lit[m] = outline(m) end
+		end
+		if spent >= BUDGET then break end
 	end
 	for m, h in pairs(lit) do
 		if not keep[m] or not m.Parent then
