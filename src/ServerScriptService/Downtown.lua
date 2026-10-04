@@ -209,7 +209,13 @@ function Downtown.build(world)
 	local function deck(cx, cz, sx, sz)
 		part(f, { Name = "RoadDeck", Size = Vector3.new(sx, 1, sz), CFrame = CFrame.new(cx, 0.3, cz), Transparency = 1, CanTouch = false })
 	end
-	deck((Downtown.ROAD_END - 585) / 2, 0, Downtown.ROAD_END + 585, 50)
+	--[[ v9: the deck used to start at x -585 and run the whole width of the map,
+	so an invisible 1285-stud collision slab lay straight across what is now the
+	central park. It starts at the outer ring road and runs east. ]]
+	local hub = game:GetService("ServerScriptService"):FindFirstChild("CampusHub")
+	local okH, HUB = pcall(function() return hub and require(hub) end)
+	local x0 = ((okH and HUB and HUB.R_ROAD_OUT) or 596) - 10
+	deck((x0 + Downtown.ROAD_END) / 2, 0, Downtown.ROAD_END - x0, 50)
 	local ck = game:GetService("ServerScriptService"):FindFirstChild("CityKit")
 	local okC, CK = pcall(function() return ck and require(ck) end)
 	local crossLen = (okC and CK and CK.CROSS_LEN) or 250
