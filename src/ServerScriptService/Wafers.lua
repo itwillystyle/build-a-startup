@@ -429,8 +429,159 @@ local function domeFurnish(model, anchor, dept, r, L)
 	return seats
 end
 
+--[[ ============ THE TERRAFAB'S INTERIOR ============
+
+The Dome got its own interior and the Terrafab did not, so the inside of a chip
+fab was an open-plan office with a potted plant in it. The outside says
+semiconductor plant and the inside said startup.
+
+What a real fab floor actually has, and what each of these is for:
+
+  - BAY AND CHASE. Tools stand in a row (the bay); the pipework, pumps and
+    power that feed them live in a service strip behind (the chase), reached
+    without entering the clean side. So: machines along the outer wall, a
+    cable-and-pipe strip behind them, and the walkway on the courtyard side.
+  - OVERHEAD TRANSPORT. Wafers never travel by hand. They ride sealed carriers
+    (FOUPs) on a track near the ceiling -- Intel's Arizona fab runs about 30
+    miles of it. It is the single most recognisable thing in a modern fab and
+    nothing else in this game has a ceiling rail, so it reads instantly.
+  - YELLOW LIGHT IN LITHOGRAPHY. Photoresist is sensitive to blue and UV, so
+    litho bays are lit through yellow filters. That is why fab photographs are
+    yellow. AI Labs is this path's litho bay and is lit that way.
+  - GOWNING. You do not walk into a cleanroom. The lobby is an airlock with a
+    bench and suit lockers.
+
+The Wafers path deliberately keeps the plain rows below: Samsung San Jose's
+floors genuinely are open-plan desks facing the glass, so "rows" is right
+there and would be wrong here.
+
+Seat counts match the generic furnish exactly (eng/labs/lobby 2, studio 2,
+cafe 4, servers and board 0) -- the room economy counts seats, so changing the
+furniture must not change the capacity. ]]
+local STEEL = Color3.fromRGB(176, 182, 188)
+local ANOD = Color3.fromRGB(96, 102, 110)
+local LITHO = Color3.fromRGB(255, 206, 92)
+
+local function fabFurnish(model, anchor, dept, r, L)
+	local FK = api.FK
+	local seats = {}
+	local rm = r - G.DEPTH / 2
+	local base = anchor
+	local litho = (dept == "labs")
+
+	local function box(name, sx, sy, sz, x, y, z, col, mat, extra)
+		local t = { Name = name, Size = Vector3.new(sx, sy, sz), CFrame = base * CFrame.new(x, y, z),
+			Color = col, Material = mat or Enum.Material.SmoothPlastic, CastShadow = false }
+		for k, v in pairs(extra or {}) do t[k] = v end
+		return add(model, t)
+	end
+	local function seatAt(x, z, lookZ)
+		local pos = (base * CFrame.new(x, 2.4, z)).Position
+		local look = (base * CFrame.new(x, 2.4, lookZ)).Position
+		table.insert(seats, CFrame.lookAt(pos, look))
+	end
+
+	-- THE CHASE: the service strip against the outer wall, behind the tools
+	box("Chase", 34, 0.9, 1.6, 0, 7.4, rm + 6.2, ANOD, Enum.Material.DiamondPlate)
+	for _, x in ipairs({ -13, -4.5, 4.5, 13 }) do
+		box("ChaseDrop", 0.5, 5.4, 0.5, x, 4.6, rm + 6.2, ANOD, Enum.Material.Metal)
+	end
+
+	-- THE OVERHEAD TRACK: the rail, and two carriers parked on it
+	box("OHTRail", 32, 0.45, 0.9, 0, G.H - 3.1, rm + 1.4, STEEL, Enum.Material.Metal)
+	for _, x in ipairs({ -8.5, 7.0 }) do
+		box("OHTHanger", 0.3, 1.1, 0.3, x, G.H - 3.8, rm + 1.4, ANOD, Enum.Material.Metal)
+		box("FOUP", 2.2, 1.9, 1.9, x, G.H - 5.0, rm + 1.4, Color3.fromRGB(226, 232, 238))
+		box("FOUPLid", 2.3, 0.3, 2.0, x, G.H - 4.0, rm + 1.4, litho and LITHO or Color3.fromRGB(120, 190, 210))
+	end
+
+	if dept == "eng" or dept == "labs" then
+		-- TOOL BAY: two process tools, a loadport each, and an operator at a
+		-- console facing the tool (not a desk facing a window)
+		for _, x in ipairs({ -8.5, 7.0 }) do
+			box("Tool", 7.0, 7.6, 4.4, x, 3.8, rm + 3.4, Color3.fromRGB(228, 230, 234))
+			box("ToolHead", 5.6, 1.0, 3.6, x, 8.1, rm + 3.4, ANOD, Enum.Material.Metal)
+			box("LoadPort", 2.4, 1.2, 1.4, x, 4.3, rm + 1.0, STEEL, Enum.Material.Metal)
+			box("ToolLamp", 4.2, 0.18, 2.6, x, 7.55, rm + 3.4,
+				litho and LITHO or Color3.fromRGB(190, 240, 255), Enum.Material.Neon,
+				{ CanCollide = false, CanQuery = false })
+			box("Console", 2.6, 0.2, 1.4, x, 3.5, rm - 1.6, CHARCOAL)
+			box("ConsoleScreen", 2.4, 1.4, 0.12, x, 4.4, rm - 2.2,
+				litho and LITHO or Color3.fromRGB(150, 220, 240), Enum.Material.Neon,
+				{ CanCollide = false, CanQuery = false })
+			seatAt(x, rm - 3.2, rm + 3.4)          -- the operator faces the tool
+		end
+
+	elseif dept == "lobby" then
+		-- GOWNING: a bench down the middle, suit lockers on the wall, and the
+		-- air shower you step through to reach the floor
+		box("GownBench", 14, 0.5, 2.0, 0, 2.2, rm - 1.0, STEEL, Enum.Material.Metal, { CanCollide = true })
+		box("BenchLeg", 13, 2.0, 0.4, 0, 1.1, rm - 1.0, ANOD, Enum.Material.Metal)
+		for i = -3, 3 do
+			box("Locker", 2.1, 7.0, 1.6, i * 2.4, 3.6, rm + 5.6,
+				(i % 2 == 0) and Color3.fromRGB(214, 218, 224) or Color3.fromRGB(198, 204, 212))
+			box("LockerVent", 1.5, 0.16, 0.1, i * 2.4, 6.2, rm + 4.78, ANOD, Enum.Material.Metal,
+				{ CanCollide = false, CanQuery = false })
+		end
+		box("AirShower", 0.4, 8.6, 5.0, -11.0, 4.3, rm + 1.0, STEEL, Enum.Material.Metal)
+		box("AirShowerGlow", 0.12, 7.0, 4.2, -10.75, 4.3, rm + 1.0, Color3.fromRGB(190, 240, 255),
+			Enum.Material.Neon, { CanCollide = false, CanQuery = false })
+		seatAt(-3.2, rm - 1.0, rm + 5.6)
+		seatAt(3.2, rm - 1.0, rm + 5.6)
+
+	elseif dept == "studio" then
+		-- the metrology bench: where a wafer gets measured, not a design studio
+		box("Metrology", 9.0, 3.4, 3.0, 0, 1.7, rm + 2.6, Color3.fromRGB(226, 228, 232))
+		box("Scope", 2.0, 3.2, 2.0, 0, 5.0, rm + 2.6, ANOD, Enum.Material.Metal)
+		box("ScopeGlow", 1.4, 0.16, 1.4, 0, 3.35, rm + 2.6, Color3.fromRGB(150, 230, 255),
+			Enum.Material.Neon, { CanCollide = false, CanQuery = false })
+		for _, x in ipairs({ -4.2, 4.2 }) do
+			box("Stool", 1.6, 0.3, 1.6, x, 2.4, rm - 1.4, CHARCOAL)
+			box("StoolLeg", 0.4, 2.2, 0.4, x, 1.3, rm - 1.4, STEEL, Enum.Material.Metal)
+			seatAt(x, rm - 1.4, rm + 2.6)
+		end
+
+	elseif dept == "cafe" then
+		-- the break room is OUTSIDE the clean side, so it is the one warm room
+		if FK then
+			pcall(FK.onFloor, "tableRound", base, 0, rm, 0, model, { canCollide = true })
+			local ring = { { 0, 2.6, 180 }, { 0, -2.6, 0 }, { 2.4, 0, -90 }, { -2.4, 0, 90 } }
+			for _, o in ipairs(ring) do
+				pcall(FK.onFloor, "chairModernCushion", base, o[1], rm + o[2], 0, model, { yaw = o[3] })
+				seatAt(o[1], rm + o[2], rm)
+			end
+			pcall(FK.onFloor, "coffeeMachine", base, -9.5, rm + 5.4, 0, model, { yaw = 180 })
+		else
+			for _, o in ipairs({ { 0, 2.6 }, { 0, -2.6 }, { 2.4, 0 }, { -2.4, 0 } }) do
+				seatAt(o[1], rm + o[2], rm)
+			end
+		end
+		box("Vending", 3.0, 7.0, 2.0, 9.5, 3.6, rm + 5.4, Color3.fromRGB(196, 92, 72))
+		box("VendingGlass", 2.2, 4.4, 0.12, 9.5, 4.4, rm + 4.36, Color3.fromRGB(120, 200, 230),
+			Enum.Material.Neon, { CanCollide = false, CanQuery = false })
+
+	elseif dept == "servers" then
+		-- the subfab: pumps and gas cabinets, not an IT rack room
+		for _, x in ipairs({ -9, -3, 3, 9 }) do
+			box("GasCabinet", 4.2, 7.4, 2.6, x, 3.8, rm + 4.2, Color3.fromRGB(206, 210, 216))
+			box("CabinetLamp", 3.0, 0.18, 0.12, x, 6.9, rm + 2.88, Color3.fromRGB(255, 150, 110),
+				Enum.Material.Neon, { CanCollide = false, CanQuery = false })
+			box("Pump", 2.6, 2.2, 2.2, x, 1.2, rm - 1.6, ANOD, Enum.Material.Metal)
+		end
+		box("GasLine", 26, 0.5, 0.5, 0, 8.6, rm + 3.0, STEEL, Enum.Material.Metal)
+
+	elseif dept == "board" then
+		box("FabBoard", 12, 0.4, 4.0, 0, 3.0, rm + 1.0, Color3.fromRGB(226, 228, 232))
+		box("YieldScreen", 10, 4.0, 0.14, 0, 6.4, rm + 5.6, Color3.fromRGB(150, 220, 240),
+			Enum.Material.Neon, { CanCollide = false, CanQuery = false })
+	end
+
+	return seats
+end
+
 local function furnish(model, anchor, dept, r, L)
 	if CUR == "D_" then return domeFurnish(model, anchor, dept, r, L) end
+	if CUR == "T_" then return fabFurnish(model, anchor, dept, r, L) end
 	local FK = api.FK
 	local seats = {}
 	local rm = r - G.DEPTH / 2
