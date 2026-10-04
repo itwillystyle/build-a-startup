@@ -83,6 +83,13 @@ local function newPerson(kind)
 		p.post = part({ Name = "Post", Size = Vector3.new(0.3, 1.6, 0.3), Color = c })
 		p.bar = part({ Name = "Bar", Size = Vector3.new(1.6, 0.25, 0.25), Color = Color3.fromRGB(40, 40, 44) })
 	end
+	--[[ park them underground until they are first posed. A new Part lands at
+		the world origin, and the world origin is the middle of the park's
+		fountain court: 14 unposed people were standing in the fountain, which
+		is exactly where every player's eye lands on their first walk out. ]]
+	for _, v in pairs(p) do
+		if typeof(v) == "Instance" then v.CFrame = CFrame.new(0, -600, 0) end
+	end
 	return p
 end
 
@@ -209,6 +216,59 @@ local function poseAgent(a, parts, cfs)
 	put(a.armR, base * CFrame.new(1.45, 3.9, 0) * CFrame.Angles(-swing + armBend, 0, 0) * CFrame.new(0, -0.95, 0))
 	put(a.legL, base * CFrame.new(-0.5, 2, 0) * CFrame.Angles(-swing, 0, 0) * CFrame.new(0, -1, 0))
 	put(a.legR, base * CFrame.new(0.5, 2, 0) * CFrame.Angles(swing, 0, 0) * CFrame.new(0, -1, 0))
+end
+
+--[[ IDLERS (pass 7). Everyone in this game walked a lane, which made the
+	campus a crowd of commuters passing through and nobody who was anywhere: an
+	empty bench outside a shelter with somebody hurrying past it reads emptier
+	than no bench at all.
+
+	The server marks the places a person belongs -- the shelter bench, a cafe
+	chair, the park tiers, the queue at a food truck -- as invisible parts
+	tagged SVIdle, each turned to face what that person is looking at. Here we
+	just put somebody on each one. Marking them on the server means a spot moves
+	when its bench moves, instead of a list of coordinates in two files that
+	drift apart. ]]
+local CollectionService = game:GetService("CollectionService")
+local idlers = {}
+
+task.spawn(function()
+	-- the districts and the park build after the first client frame
+	for _ = 1, 60 do
+		if #CollectionService:GetTagged("SVIdle") > 0 then break end
+		task.wait(0.5)
+	end
+	for _, m in ipairs(CollectionService:GetTagged("SVIdle")) do
+		local a = newPerson("walk")
+		a.cf = m.CFrame
+		a.seated = m:GetAttribute("Seated") == true
+		a.phase = rng:NextNumber(0, 6.28)
+		table.insert(idlers, a)
+	end
+end)
+
+local function poseIdler(a, t, parts, cfs)
+	local function put(p, cf) if p then table.insert(parts, p); table.insert(cfs, cf) end end
+	-- a weight shift and a slow head turn: enough that a still figure is not a
+	-- statue, far short of anything that needs an animation
+	local sway = math.sin(t * 0.45 + a.phase) * 0.05
+	local look = math.sin(t * 0.21 + a.phase * 1.7) * 0.55
+	--[[ A SEATED SPOT MARKS THE SEAT, NOT THE FLOOR. The first draft dropped the
+		whole body 1.35 studs to sit it down, which buried everyone on the park
+		tiers to the shoulders. Sitting keeps the HIP at the marker and takes
+		2 studs off everything above it (a standing hip is 2 studs up), and the
+		thighs go forward from there. ]]
+	local base = a.cf
+	local hip = a.seated and 0 or 2
+	put(a.torso, base * CFrame.new(0, hip + 1, 0) * CFrame.Angles(a.seated and 0.1 or 0, sway, 0))
+	put(a.head, base * CFrame.new(0, hip + 2.6, 0) * CFrame.Angles(0, look, 0))
+	put(a.hair, base * CFrame.new(0, hip + 3.25, 0) * CFrame.Angles(0, look, 0))
+	put(a.pack, base * CFrame.new(0, hip + 1.1, 0.85))
+	put(a.armL, base * CFrame.new(-1.45, hip + 1.9, 0) * CFrame.Angles(a.seated and -0.55 or 0.05, 0, 0) * CFrame.new(0, -0.95, 0))
+	put(a.armR, base * CFrame.new(1.45, hip + 1.9, 0) * CFrame.Angles(a.seated and -0.55 or -0.05, 0, 0) * CFrame.new(0, -0.95, 0))
+	local thigh = a.seated and -1.45 or 0
+	put(a.legL, base * CFrame.new(-0.5, hip, 0) * CFrame.Angles(thigh, 0, 0) * CFrame.new(0, -1, 0))
+	put(a.legR, base * CFrame.new(0.5, hip, 0) * CFrame.Angles(thigh, 0, 0) * CFrame.new(0, -1, 0))
 end
 
 -- ============ BIRDS ============
@@ -483,6 +543,9 @@ RunService.Heartbeat:Connect(function(dt)
 		a.phase += step * a.speed * 1.1
 		local pos = a.lane.a + a.lane.dir * a.s
 		if (pos - camPos).Magnitude < NEAR then poseAgent(a, parts, cfs) end
+	end
+	for _, a in ipairs(idlers) do
+		if (a.cf.Position - camPos).Magnitude < NEAR then poseIdler(a, t, parts, cfs) end
 	end
 	poseBirds(t, parts, cfs)
 	poseJet(t, parts, cfs)

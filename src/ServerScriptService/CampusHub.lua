@@ -562,6 +562,24 @@ function CampusHub.build(parent)
 	--[[ BUS STOPS AND SIGNS. A road with nothing beside it is a conveyor; a
 	shelter and a sign are what say people arrive here. One stop on the inner
 	ring at each district gap, and a fingerpost at every radial street mouth. ]]
+	--[[ people on the tiers (pass 7). The park's seating has never had anybody
+		on it. Markers only: LifeClient puts the figures on them. ]]
+	local spotRay = RaycastParams.new()
+	spotRay.RespectCanCollide = false
+	local function idleSpot(a, rr, seated, turn)
+		-- the tiers step down, so the height has to be measured, not assumed
+		local x, z = math.cos(a) * rr, math.sin(a) * rr
+		local hit = workspace:Raycast(Vector3.new(x, 60, z), Vector3.new(0, -120, 0), spotRay)
+		local m = part(f, {
+			Name = "IdleSpot", Size = Vector3.new(0.4, 0.4, 0.4), Transparency = 1,
+			CFrame = CFrame.new(x, hit and hit.Position.Y or 0, z)
+				* CFrame.Angles(0, -a + math.pi / 2 + (turn or 0), 0),
+		})
+		m:SetAttribute("Seated", seated)
+		CollectionService:AddTag(m, "SVIdle")
+	end
+	for i = 0, 7 do idleSpot(math.rad(22 + i * 45), CampusHub.R_STEP - 9, true, 0) end
+	for i = 0, 3 do idleSpot(math.rad(40 + i * 90), CampusHub.R_COURT + 8, false, math.pi) end
 	for i = 0, 5 do
 		local a = math.rad(i * 60)                       -- the gaps, where the districts are
 		local rr = CampusHub.R_ROAD_IN + 24
