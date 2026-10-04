@@ -268,7 +268,11 @@ local TILE = 50
 local TILE_SCALE = 0.5
 local CAR_SCALE = 0.05
 local LAMP_SCALE = 0.2               -- 0.5 gave 34-stud lamps; 0.2 = 13.5, a real lamp
-CityKit.CROSS_X = { -185, 165 }        -- cross-street centre lines (inside the plot gaps)
+-- v9: NO CROSS STREETS. They ran at x -185 and 165, which is inside the ring
+-- the campus now stands on -- they cut straight through the central park, and
+-- their invisible RoadDecks did too. CampusHub's six radial streets replace
+-- them. Kept as an empty list rather than deleted so every reader still works.
+CityKit.CROSS_X = {}
 CityKit.CROSS_LEN = 250                -- how far a cross street runs from the main road
 
 local function kenney(name)

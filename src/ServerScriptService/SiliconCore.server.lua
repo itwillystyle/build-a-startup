@@ -55,6 +55,7 @@ local FurnitureKit = tryRequire(ReplicatedStorage, "FurnitureKit")
 -- funnel telemetry (AnalyticsService); a missing module degrades to no-ops
 local Telemetry = tryRequire(ServerScriptService, "Telemetry")
 local CampusArch = tryRequire(ServerScriptService, "CampusArch")   -- v2.8 HQ architecture (glass wings, links, grounds)
+local CampusHub = tryRequire(ServerScriptService, "CampusHub")     -- v9 the central park and the two ring roads
 local Econ = tryRequire(ServerScriptService, "RoomEconomy")   -- v2.6.0 room economy (stations, caps, fit, wages)
 local Journey = require(ServerScriptService:WaitForChild("Journey"))   -- v4.3 the guided loop (pure, tested offline)
 local Prog = require(ServerScriptService:WaitForChild("Progression"))   -- v4.3 spin-off curve + offline rule (pure, tested offline)
@@ -556,7 +557,21 @@ do
 		local c = def.pivot:PointToWorldSpace(Vector3.new(0, 0, -20))
 		table.insert(flat, { x = c.X, z = c.Z, w = 240, d = 220 })
 	end
-	table.insert(flat, { x = 190, z = CFG.ROAD_Z, w = 1520, d = 74 })    -- the road
+	--[[ v9: the campus is a RING now, so the flat ground has to be a ring too.
+	ValleyGen only takes axis-aligned rects, so each ring road is laid as 24
+	short rects round the circle -- the same trick CampusHub uses to draw them.
+	The park inside is one big rect; it is flat ground either way. ]]
+	if CampusHub then
+		table.insert(flat, { x = 0, z = 0, w = 2 * CampusHub.R_PARK + 80, d = 2 * CampusHub.R_PARK + 80 })
+		for _, r in ipairs({ CampusHub.R_ROAD_IN, CampusHub.R_ROAD_OUT }) do
+			for i = 0, 23 do
+				local a = i * math.pi / 12
+				table.insert(flat, { x = math.cos(a) * r, z = math.sin(a) * r, w = 118, d = 118 })
+			end
+		end
+	end
+	-- the east approach: the only straight road left, out to downtown
+	table.insert(flat, { x = 760, z = CFG.ROAD_Z, w = 820, d = 74 })
 	table.insert(flat, { x = 780, z = CFG.ROAD_Z, w = 320, d = 200 })    -- downtown
 	-- v1.6: the two cross streets and their building blocks (CityKit.CROSS_X)
 	for _, cx in ipairs((CityKit and CityKit.CROSS_X) or { -185, 165 }) do
@@ -603,10 +618,12 @@ if CityKit then
 	-- v4.0: the street ends at the downtown roundabout (x 700); Downtown.lua builds the city
 	local okD, Downtown = pcall(function() return require(ServerScriptService:WaitForChild("Downtown", 5)) end)
 	local roadEnd = (okD and Downtown and Downtown.ROAD_END) or 940
-	local _, made = CityKit.buildStreet(world, { groundY = 0, z = CFG.ROAD_Z, x1 = -560, x2 = roadEnd, towersX = 660, noTowers = okD and Downtown ~= nil })
+	-- v9: x1 was -560, which drove the straight road straight through the middle
+		-- of what is now the park. It starts at the outer ring road and runs east.
+		local _, made = CityKit.buildStreet(world, { groundY = 0, z = CFG.ROAD_Z, x1 = (CampusHub and CampusHub.R_ROAD_OUT or 596) - 10, x2 = roadEnd, towersX = 660, noTowers = okD and Downtown ~= nil })
 	print(("[SV] street: %d buildings, %d props"):format(made.buildings, made.props))
 	if CityKit.buildKenneyCity then
-		local _, k = CityKit.buildKenneyCity(world, { groundY = 0, z = CFG.ROAD_Z, x1 = -560, x2 = roadEnd })
+		local _, k = CityKit.buildKenneyCity(world, { groundY = 0, z = CFG.ROAD_Z, x1 = (CampusHub and CampusHub.R_ROAD_OUT or 596) - 10, x2 = roadEnd })
 		if k then print(("[SV] kenney city: %d tiles, %d blocks, %d lamps, %d cars"):format(k.tiles, k.buildings, k.lamps, k.cars)) end
 	end
 	if okD and Downtown and Downtown.build then
@@ -618,12 +635,24 @@ else
 		Color = Color3.fromRGB(58, 57, 58), Material = Enum.Material.Asphalt }, world)
 end
 
+-- v9: the park and the ring roads the six plots stand around
+if CampusHub then
+	local okH, errH = pcall(CampusHub.build, world)
+	if okH then
+		print("[SV] campus hub: park + ring roads")
+	else
+		warn("[SV] CampusHub failed: " .. tostring(errH))
+	end
+end
+
 -- hub spawn: only used before a plot is assigned, or by a 7th body
 do
 	local sp = Instance.new("SpawnLocation")
 	sp.Name = "HubSpawn"
 	sp.Size = Vector3.new(6, 1, 6)
-	sp.CFrame = CFrame.new(0, 1.5, CFG.ROAD_Z)
+	-- v9: (0, ROAD_Z) is the middle of the fountain now. Stand on the park's
+	-- south walk instead, looking in at the monument.
+	sp.CFrame = CFrame.new(0, 1.5, (CampusHub and CampusHub.R_PARK - 22) or CFG.ROAD_Z)
 	sp.Transparency = 1
 	sp.CanCollide = false
 	sp.Anchored = true

@@ -128,14 +128,36 @@ local RIVAL_GROWTH = 1.02              -- per minute of server uptime
 local RIVAL_CAP_MULT = 1.2             -- never more than this x the best human
 local SLOT_W, SLOT_D = 28, 24
 local ROAD_Z = 0
-local PLOT_DEFS = {
-	{ pivot = CFrame.new(-360, 0, -130) },
-	{ pivot = CFrame.new(0, 0, -130) },
-	{ pivot = CFrame.new(360, 0, -130) },
-	{ pivot = CFrame.new(-360, 0, 130) * CFrame.Angles(0, math.pi, 0) },
-	{ pivot = CFrame.new(0, 0, 130) * CFrame.Angles(0, math.pi, 0) },
-	{ pivot = CFrame.new(360, 0, 130) * CFrame.Angles(0, math.pi, 0) },
-}
+
+--[[ THE RING (v9). The six plots used to sit in two rows of three along a
+straight road, which meant no plot faced any other and the middle of the map
+was a carriageway. They now stand on a ring facing a shared centre, with the
+central park inside it (CampusHub builds the park and the two ring roads).
+
+Everything else in the game is PLOT-LOCAL -- plot.g(x, y, z) is
+pivot * CFrame.new(x, y, z), and every building, pad, door and camera is
+written in those coordinates -- so moving the campus is these six CFrames and
+nothing else. That is the whole reason this was affordable.
+
+FRONT IS LOCAL +Z, not LookVector. Downtown.lua and CampusArch both use that
+convention (a plot's door, sign and forecourt are at positive local z). For a
+plot at angle `a` on the ring, local +Z must point at the centre:
+
+    after CFrame.Angles(0, yaw, 0), local +Z is (sin yaw, 0, cos yaw)
+    inward is (-cos a, 0, -sin a)
+    so  yaw = atan2(-cos a, -sin a)
+
+Angles are the odd clock positions (30, 90, ... 330) so the six GAPS land on
+the even ones, which is where the districts go. ]]
+local PLOT_RING_R = 336
+local PLOT_DEFS = {}
+for i = 0, 5 do
+	local a = math.rad(30 + i * 60)
+	local yaw = math.atan2(-math.cos(a), -math.sin(a))
+	table.insert(PLOT_DEFS, {
+		pivot = CFrame.new(math.cos(a) * PLOT_RING_R, 0, math.sin(a) * PLOT_RING_R) * CFrame.Angles(0, yaw, 0),
+	})
+end
 
 return {
 	START_CASH = START_CASH,
@@ -204,4 +226,5 @@ return {
 	SLOT_D = SLOT_D,
 	ROAD_Z = ROAD_Z,
 	PLOT_DEFS = PLOT_DEFS,
+	PLOT_RING_R = PLOT_RING_R,
 }
