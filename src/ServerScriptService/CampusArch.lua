@@ -945,6 +945,7 @@ end
 
 local function bench(parent, cf)
 	FlatLook.contact(parent, cf.Position.X, cf.Position.Z, 3.6, 0.2)
+	parent = FlatLook.prop(parent, "Bench")
 	mk(parent, { Name = "BenchBase", Size = Vector3.new(6, 1.2, 1.8), CFrame = cf * CFrame.new(0, 0.6, 0),
 		Color = PLINTH, Material = Enum.Material.Concrete, CanCollide = false })
 	mk(parent, { Name = "BenchTop", Size = Vector3.new(6.4, 0.3, 2), CFrame = cf * CFrame.new(0, 1.35, 0),
@@ -978,6 +979,7 @@ local function pathRun(f, g, a, b, w, color, name, edges)
 end
 
 local function lamp(f, cf)
+	f = FlatLook.prop(f, "Lamp")
 	mk(f, { Name = "LampPole", Size = Vector3.new(0.4, 7, 0.4), CFrame = cf * CFrame.new(0, 4, 0), Color = CHARCOAL,
 		Material = Enum.Material.Metal, CanCollide = false, CastShadow = false })
 	local head = mk(f, { Name = "LampHead", Size = Vector3.new(1.6, 0.35, 1.6), CFrame = cf * CFrame.new(0, 7.6, 0),

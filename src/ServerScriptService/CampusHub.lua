@@ -25,6 +25,7 @@
 ]]
 
 local CollectionService = game:GetService("CollectionService")
+local FlatLook = require(script.Parent:WaitForChild("FlatLook"))   -- v4.7.1 prop grouping
 
 local CampusHub = {}
 
@@ -160,6 +161,7 @@ end
 
 -- a bench with a seat, a back, arms and legs: the old one was two slabs
 local function bench(parent, x, z, yaw)
+	parent = FlatLook.prop(parent, "Bench")
 	local base = CFrame.new(x, 0, z) * CFrame.Angles(0, yaw, 0)
 	local function at(dx, dy, dz, sx, sy, sz, col, name)
 		part(parent, {
@@ -181,6 +183,7 @@ local function bench(parent, x, z, yaw)
 end
 
 local function bollard(parent, x, z)
+	parent = FlatLook.prop(parent, "Bollard")
 	part(parent, {
 		Name = "Bollard", Size = Vector3.new(1.0, 3.6, 1.0),
 		CFrame = CFrame.new(x, 1.8, z), Color = STEEL, Material = Enum.Material.Metal,
@@ -192,6 +195,7 @@ local function bollard(parent, x, z)
 end
 
 local function litterBin(parent, x, z)
+	parent = FlatLook.prop(parent, "LitterBin")
 	part(parent, {
 		Name = "Bin", Size = Vector3.new(2.4, 3.4, 2.4),
 		CFrame = CFrame.new(x, 1.7, z), Color = CHARCOAL, Material = Enum.Material.Metal,
@@ -203,6 +207,7 @@ local function litterBin(parent, x, z)
 end
 
 local function parkLamp(parent, x, z)
+	parent = FlatLook.prop(parent, "ParkLamp")
 	part(parent, {
 		Name = "ParkLampBase", Size = Vector3.new(1.5, 1.0, 1.5),
 		CFrame = CFrame.new(x, 0.5, z), Color = CHARCOAL, Material = Enum.Material.Metal,
