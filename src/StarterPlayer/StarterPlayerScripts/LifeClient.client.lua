@@ -328,8 +328,12 @@ end
 (Caltrain runs that way). The line: a tunnel portal at each end of the
 rail bed ValleyGen lays at z = -330; the Mountain View platform is centred
 on x = 0 on the north side. Westbound, then eastbound, then quiet. ]]
-local RAIL_Z, RAIL_W, RAIL_E, STATION = -330, -915, 648, 0
-local CAR, CARS = 58, 6
+-- pass 5: the line was shortened to the southwest corner (SiliconCore's `rail`
+-- table) because x 0, z -330 is inside the plot at 270 degrees. Four cars, not
+-- six: 232 studs fits inside a 355-stud line, so the whole train is visible
+-- between the portals instead of always half-swallowed.
+local RAIL_Z, RAIL_W, RAIL_E, STATION = -330, -915, -600, -740
+local CAR, CARS = 58, 4
 local TRAIN_Y = 1.4 + 6.5
 local V, ACC, DWELL = 36, 9, 9
 local PERIOD = 175

@@ -1018,6 +1018,18 @@ local function railway(opts, parent)
 		end
 		scenery({ Name = "PortalTop", Size = Vector3.new(6, 6, 26), CFrame = CFrame.new(px, 21, rail.z), Color = CONCRETE, Material = Enum.Material.Concrete }, m)
 		scenery({ Name = "Mouth", Size = Vector3.new(1, 18, 16), CFrame = CFrame.new(px + inward * 1.5, 9, rail.z), Color = Color3.fromRGB(14, 14, 16), Material = Enum.Material.SmoothPlastic }, m)
+		--[[ a portal needs a hill to go into. The west end has one (lp_world
+			MOUNDS raises the terrain there); the inland end is on the flat
+			strip, so build the hillside: three stepped grass blocks behind the
+			mouth, widest at the bottom, so the line runs into rising ground
+			rather than into a free-standing concrete frame. ]]
+		if rail.berm and px == rail.x2 then
+			for k = 0, 2 do
+				scenery({ Name = "PortalBerm", Size = Vector3.new(34 + k * 16, 26 - k * 7, 96 - k * 22),
+					CFrame = CFrame.new(px + inward * (18 + k * 9), (26 - k * 7) / 2 - 1, rail.z),
+					Color = Color3.fromRGB(142, 168, 92), Material = Enum.Material.Grass }, m)
+			end
+		end
 	end
 	-- the station: a platform, a canopy on posts, and the name
 	local st = rail.station
@@ -1089,8 +1101,8 @@ function ValleyGen.dress(height, flatInfo, region, parent, opts)
 	-- (irregular on purpose: a planted row that grew for 80 years, not a fence;
 	-- open behind the station so the train reads from the middle campus)
 	if opts.rail then
-		local x = opts.rail.x1 + 360
-		while x < 470 do
+		local x = opts.rail.x1 + 40
+		while x < opts.rail.x2 + 10 do
 			if math.abs(x - (opts.rail.station or 0)) > 80 and rng:NextNumber() > 0.16 then
 				local z = opts.rail.z - 26 + rng:NextNumber(-5, 5)
 				if grow("eucalypt", rng, x, height(x, z), z, parent) then made.eucalypts += 1 end
