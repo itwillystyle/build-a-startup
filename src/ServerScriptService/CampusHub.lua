@@ -211,10 +211,11 @@ local function parkLamp(parent, x, z)
 		Name = "ParkLampPost", Size = Vector3.new(0.6, 15, 0.6),
 		CFrame = CFrame.new(x, 8, z), Color = CHARCOAL, Material = Enum.Material.Metal,
 	})
-	part(parent, {
+	local head = part(parent, {
 		Name = "ParkLampHead", Size = Vector3.new(2.2, 1.4, 2.2),
 		CFrame = CFrame.new(x, 15.6, z), Color = LAMP_GLASS, Material = Enum.Material.Neon,
 	})
+	CollectionService:AddTag(head, "SVLamp")
 end
 
 --[[ Build the hub into `parent` (the world folder). Idempotent: an existing
@@ -474,6 +475,13 @@ function CampusHub.build(parent)
 						Color = LINE,
 					})
 				end
+			end
+			-- lamps down the median-side pavement: the drive and the forecourt
+			-- were the darkest ground in the game after sunset (pass 6)
+			for k = 0, 3 do
+				local z = -len / 2 + 56 + k * ((len - 112) / 3)
+				local wp = (base * CFrame.new(cx - side * (ARM_HALF + 9.6), 0, z)).Position
+				parkLamp(f, wp.X, wp.Z)
 			end
 			-- street trees on the outer verge, clear of the forecourt
 			for k = 0, 3 do
