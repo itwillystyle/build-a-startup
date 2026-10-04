@@ -6,6 +6,7 @@ return {
 	W_Core = { c = Vector3.new(0.000, 6.500, 0.000), s = Vector3.new(13.200, 13.000, 13.200) },  -- 116 tris
 	W_CoreCap = { c = Vector3.new(0.000, 13.300, 0.000), s = Vector3.new(13.200, 0.600, 13.200) },  -- 44 tris
 	W_CoreGlass = { c = Vector3.new(0.000, 7.250, 0.000), s = Vector3.new(12.200, 11.500, 12.200) },  -- 48 tris
+	W_Crown = { c = Vector3.new(0.000, 16.000, 0.000), s = Vector3.new(95.704, 32.000, 95.704) },  -- 1548 tris
 	W_DeckCols_1 = { c = Vector3.new(6.000, 6.650, -7.550), s = Vector3.new(103.959, 12.700, 100.470) },  -- 448 tris
 	W_DeckCols_2 = { c = Vector3.new(6.000, 6.650, -7.282), s = Vector3.new(96.231, 12.700, 93.006) },  -- 448 tris
 	W_DeckCols_3 = { c = Vector3.new(6.000, 6.650, -7.014), s = Vector3.new(88.504, 12.700, 85.542) },  -- 448 tris
@@ -31,6 +32,8 @@ return {
 	W_Mast = { c = Vector3.new(0.000, 30.000, 0.000), s = Vector3.new(4.065, 60.000, 4.065) },  -- 46 tris
 	W_Pav = { c = Vector3.new(0.000, 5.200, 34.933), s = Vector3.new(64.205, 9.800, 20.934) },  -- 324 tris
 	W_PavGlass = { c = Vector3.new(0.000, 4.800, 34.743), s = Vector3.new(62.367, 9.000, 18.715) },  -- 96 tris
+	W_Podium = { c = Vector3.new(0.000, 9.200, 0.003), s = Vector3.new(132.789, 18.400, 132.795) },  -- 1220 tris
+	W_PodiumGlass = { c = Vector3.new(0.000, 8.800, 61.980), s = Vector3.new(28.591, 12.400, 1.841) },  -- 24 tris
 	W_Roof = { c = Vector3.new(0.127, 1.995, 0.027), s = Vector3.new(96.671, 3.990, 96.952) },  -- 1316 tris
 	W_RoofGlass = { c = Vector3.new(0.000, 1.900, 0.000), s = Vector3.new(95.166, 3.200, 95.166) },  -- 160 tris
 	W_SegB_1 = { c = Vector3.new(0.000, 6.500, 48.414), s = Vector3.new(46.534, 13.000, 24.396) },  -- 324 tris

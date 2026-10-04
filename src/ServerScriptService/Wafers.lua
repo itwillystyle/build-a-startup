@@ -643,6 +643,55 @@ local function buildSegment(plot, L, dept, model)
 		if shell then table.insert(visual, shell) end
 		if glass then table.insert(visual, glass) end
 	end
+	--[[ THE PODIUM (v7). The base half of the tripartite division: a plinth
+	wider than the shaft with a deep entrance on the road side, so the tower
+	stands on something instead of meeting the ground.
+
+	Built once, with wafer 1's first piece, because it is not a level anybody
+	buys -- it appears the moment the building starts. ]]
+	if pc.wafer == 1 and pc.storey == 0 and pc.seg == 1 then
+		local px, pz = centre(1)
+		local pa = plot.pivot * CFrame.new(px, 0, pz)
+		local pod = mesh(model, pa, "W_Podium", nil, { CastShadow = true })
+		if pod then
+			table.insert(visual, pod)
+			local pg = mesh(model, pa, "W_PodiumGlass", nil, glassOf(Color3.fromRGB(200, 222, 232), 0.4))
+			if pg then table.insert(visual, pg) end
+		else
+			-- PRIMITIVE PODIUM. Same shape, no import: the mesh kit is the
+			-- upgrade, not the requirement. Every other piece in this file has a
+			-- fallback for exactly this reason and the base should not be the one
+			-- thing that needs an upload before the building has a bottom.
+			local _, _, r1 = centre(1)
+			local R = r1 + 6
+			local PH = 16
+			local stone = (CUR == "T_") and Color3.fromRGB(198, 196, 190)
+				or (CUR == "D_") and Color3.fromRGB(246, 244, 238) or Color3.fromRGB(214, 206, 190)
+			local stoneD = stone:Lerp(Color3.fromRGB(0, 0, 0), 0.16)
+			-- the plinth it stands on
+			for _, q in ipairs(arcBoxes(0, math.pi * 2, 24, R - 2, 7, 0, 2.2,
+				{ Name = "Podium", Color = stone, Material = Enum.Material.SmoothPlastic, CastShadow = true })) do
+				table.insert(visual, placeAll(model, pa, { q })[1])
+			end
+			-- the wall, set back behind the piers
+			for _, q in ipairs(arcBoxes(0, math.pi * 2, 24, R - 5, 1.4, 2.2, PH - 2.2,
+				{ Name = "PodiumWall", Color = stoneD, Material = Enum.Material.SmoothPlastic, CastShadow = false })) do
+				table.insert(visual, placeAll(model, pa, { q })[1])
+			end
+			-- the piers, and the lintel they carry
+			for k = 1, 24 do
+				local a = (k - 0.5) * (math.pi * 2 / 24)
+				table.insert(visual, add(model, { Name = "PodiumPier", Size = Vector3.new(3.0, PH - 2.2, 3.2),
+					CFrame = pa * CFrame.Angles(0, a, 0) * CFrame.new(0, 2.2 + (PH - 2.2) / 2, R - 2.2),
+					Color = stone, Material = Enum.Material.SmoothPlastic, CastShadow = true }))
+			end
+			for _, q in ipairs(arcBoxes(0, math.pi * 2, 24, R - 2, 5.5, PH, 2.4,
+				{ Name = "PodiumCap", Color = stone, Material = Enum.Material.SmoothPlastic, CastShadow = true })) do
+				table.insert(visual, placeAll(model, pa, { q })[1])
+			end
+		end
+	end
+
 	-- the columns from the deck below up to this wafer: with its first piece, so a
 	-- finished deck never shows columns holding up nothing
 	local below = pc.wafer - 1
@@ -744,6 +793,88 @@ local function buildCrown(plot, L, model)
 	if pc.kind == "halo" then
 		local cx, cz = centre(4)
 		local a = plot.pivot * CFrame.new(cx, top + 8, cz)
+		--[[ THE CROWN (v7). Tall buildings have had a base, a shaft and a crown
+		since 1899 -- the tripartite division, borrowed from the classical
+		column, and the reason a setback tower has a silhouette at all. All three
+		paths here were pure shaft: they started at the ground and stopped at the
+		top, which is why every render read as a stack of rings.
+
+		The old crown was literally one 1.6-stud hoop. This is a real
+		termination, and each path speaks its own language: the Wafers step back
+		to a planted parapet and a mast, the Terrafab piles its fan-deck plant
+		and two stacks, the Dome closes its canopy on a lit oculus. ]]
+		local crA = plot.pivot * CFrame.new(cx, top + G.H * 0.2, cz)
+		local cr = mesh(model, crA, "W_Crown", nil, { CastShadow = true })
+		if cr then
+			table.insert(visual, cr)
+		else
+			--[[ PRIMITIVE CROWNS, one per path.
+
+			The mesh crowns are the better version, but they need an import, and
+			the import needs Studio's Asset Manager UI. A building whose top only
+			exists after an upload is a building with no top, so each path's crown
+			is built here from parts as well. The mesh wins when it is present;
+			this is what you get until then, and it is the same idea either way. ]]
+			local _, _, r4 = centre(4)
+			local pale = Color3.fromRGB(236, 232, 222)
+			local function ring(rad, width, y, h, name, col, mat)
+				for _, q in ipairs(arcBoxes(0, math.pi * 2, 24, rad, width, y, h,
+					{ Name = name, Color = col, Material = mat or Enum.Material.SmoothPlastic, CastShadow = true })) do
+					table.insert(visual, placeAll(model, crA, { q })[1])
+				end
+			end
+
+			if CUR == "T_" then
+				-- TERRAFAB: the fan deck. A fab's heaviest machinery sits ABOVE
+				-- the cleanroom, so the top of the building is a raft of plant.
+				local steel = Color3.fromRGB(176, 182, 188)
+				local anod = Color3.fromRGB(96, 102, 110)
+				ring(r4 - G.DEPTH / 2, G.DEPTH + 2, 0, 1.6, "Crown", Color3.fromRGB(120, 128, 136), Enum.Material.DiamondPlate)
+				for _, spec in ipairs({ { r4 - 6, 10, 5.6 }, { r4 - 17, 8, 7.0 }, { r4 - 27, 6, 8.4 } }) do
+					for k = 1, spec[2] do
+						local a = (k - 0.5) * (math.pi * 2 / spec[2])
+						table.insert(visual, add(model, { Name = "CrownPlant", Size = Vector3.new(8, spec[3], 7),
+							CFrame = crA * CFrame.Angles(0, a, 0) * CFrame.new(0, 1.6 + spec[3] / 2, spec[1]),
+							Color = anod, Material = Enum.Material.Metal, CastShadow = true }))
+					end
+				end
+				for _, st in ipairs({ { 9, -5, 30 }, { -11, 7, 22 } }) do
+					table.insert(visual, add(model, { Name = "CrownStack", Size = Vector3.new(5.2, st[3], 5.2),
+						CFrame = crA * CFrame.new(st[1], 1.6 + st[3] / 2, st[2]),
+						Color = pale, Material = Enum.Material.SmoothPlastic, CastShadow = true }))
+					table.insert(visual, add(model, { Name = "CrownStackCap", Size = Vector3.new(6.2, 1.4, 6.2),
+						CFrame = crA * CFrame.new(st[1], 1.6 + st[3] + 0.7, st[2]),
+						Color = anod, Material = Enum.Material.Metal, CastShadow = false }))
+				end
+				ring(r4 + 1.6, 1.8, 9.0, 1.3, "CrownTrack", Color3.fromRGB(236, 170, 70))
+			elseif CUR == "D_" then
+				-- DOME: the apex. Every canopy below stops short; this one closes,
+				-- on the lit clerestory seam the path is recognised by at night.
+				local scaleA = Color3.fromRGB(158, 174, 196)
+				local steps = 6
+				for k = 0, steps - 1 do
+					local t0, t1 = k / steps, (k + 1) / steps
+					local r0 = (r4 + 1) * (1.0 - 0.46 * t0)
+					local r1 = (r4 + 1) * (1.0 - 0.46 * t1)
+					local h0 = 17.0 * math.sin(t0 * math.pi * 0.5)
+					ring((r0 + r1) / 2, math.max(r0 - r1, 2) + 1.1, h0, 0.9, "Crown",
+						k % 2 == 0 and scaleA or scaleA:Lerp(Color3.new(0, 0, 0), 0.12))
+				end
+				local rtop = (r4 + 1) * 0.54
+				ring(rtop - 0.7, 4.6, 16.6, 1.8, "CrownOculus", Color3.fromRGB(255, 244, 212), Enum.Material.Neon)
+			else
+				-- WAFERS: a stepped parapet. The 1916 ziggurat move, and still the
+				-- clearest way a tower says "this is the top".
+				for _, st in ipairs({ { 0, 0 }, { 4.5, 5.0 }, { 9.0, 9.4 } }) do
+					ring(r4 - st[1] - G.DEPTH / 2, G.DEPTH - st[1] * 2, st[2], 4.6, "Crown", pale)
+				end
+				ring(r4 - 10.5 - (G.DEPTH - 21) / 2, math.max(G.DEPTH - 21, 3), 14.0, 0.6, "CrownBed", LAWN, Enum.Material.Grass)
+				ring(6.8, 1.6, 20.0, 1.0, "CrownRing", GOLD)
+			end
+			table.insert(visual, add(model, { Name = "CrownMast", Size = Vector3.new(1.4, 18, 1.4),
+				CFrame = crA * CFrame.new(0, 23, 0), Color = pale,
+				Material = Enum.Material.SmoothPlastic, CastShadow = false }))
+		end
 		local v = mesh(model, a, "W_Halo", nil, { CastShadow = false })
 		if v then table.insert(visual, v) else
 			for k = 1, 24 do

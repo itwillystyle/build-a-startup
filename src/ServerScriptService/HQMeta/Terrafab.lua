@@ -6,6 +6,7 @@ return {
 	T_Core = { c = Vector3.new(0.000, 6.500, 0.000), s = Vector3.new(13.200, 13.000, 13.200) },  -- 116 tris
 	T_CoreCap = { c = Vector3.new(0.000, 13.300, 0.000), s = Vector3.new(13.200, 0.600, 13.200) },  -- 44 tris
 	T_CoreGlass = { c = Vector3.new(0.000, 7.250, 0.000), s = Vector3.new(12.200, 11.500, 12.200) },  -- 48 tris
+	T_Crown = { c = Vector3.new(-0.178, 15.700, 0.000), s = Vector3.new(101.843, 31.400, 102.200) },  -- 1336 tris
 	T_DeckCols_1 = { c = Vector3.new(6.000, 6.150, -4.000), s = Vector3.new(107.100, 11.700, 107.100) },  -- 720 tris
 	T_DeckCols_2 = { c = Vector3.new(6.000, 6.150, -4.000), s = Vector3.new(99.100, 11.700, 99.100) },  -- 720 tris
 	T_DeckCols_3 = { c = Vector3.new(6.000, 6.150, -4.000), s = Vector3.new(91.100, 11.700, 91.100) },  -- 720 tris
@@ -31,6 +32,7 @@ return {
 	T_Mast = { c = Vector3.new(0.000, 30.000, 0.000), s = Vector3.new(4.065, 60.000, 4.065) },  -- 46 tris
 	T_Pav = { c = Vector3.new(0.000, 6.550, 35.032), s = Vector3.new(61.964, 13.100, 19.135) },  -- 440 tris
 	T_PavGlass = { c = Vector3.new(0.000, 6.850, 37.539), s = Vector3.new(60.783, 9.500, 12.423) },  -- 40 tris
+	T_Podium = { c = Vector3.new(0.000, 9.000, 0.880), s = Vector3.new(133.587, 18.000, 135.348) },  -- 1572 tris
 	T_Roof = { c = Vector3.new(-0.178, 5.650, 0.000), s = Vector3.new(101.843, 11.300, 102.200) },  -- 1108 tris
 	T_RoofGlass = { c = Vector3.new(0.000, 1.900, 0.000), s = Vector3.new(95.166, 3.200, 95.166) },  -- 32 tris
 	T_SegB_1 = { c = Vector3.new(0.000, 6.500, 46.194), s = Vector3.new(46.534, 13.000, 19.956) },  -- 180 tris
