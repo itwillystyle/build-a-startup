@@ -1055,15 +1055,32 @@ function ValleyGen.dress(height, flatInfo, region, parent, opts)
 	local rng = Random.new((opts.seed or 7) + 101)
 	local made = { palms = 0, eucalypts = 0, orchard = 0, landmarks = 0 }
 
-	-- PALMS: both verges of the main road, 25 studs off every street lamp,
-	-- clear of the cross streets and each campus entrance path
-	for _, side in ipairs({ -1, 1 }) do
-		for x = -525, 600, 50 do
-			local clear = true
-			for _, cx in ipairs(opts.crossX or {}) do if math.abs(x - cx) < 40 then clear = false end end
-			for _, px in ipairs(opts.plotX or {}) do if math.abs(x - px) < 18 then clear = false end end
-			if clear then
-				if palm(rng, x + rng:NextNumber(-3, 3), 0, side * 31, parent) then made.palms += 1 end
+	--[[ PALMS. These used to line the main road from x -525 to 600, which ran
+	through the middle of the map. The campus is a ring now and that line goes
+	straight through the central park, so palms were standing in the fountain
+	court. They line the OUTER RING ROAD instead -- the campus edge, which is
+	where a valley business park actually plants them -- plus the east approach
+	out to downtown, the one straight road left. ]]
+	local pr = opts.palmRing
+	if pr then
+		for _, off in ipairs({ -pr.w, pr.w }) do
+			local r = pr.r + off
+			local step = 2 * math.pi / math.max(8, math.floor(2 * math.pi * r / 64))
+			local a = 0
+			while a < 2 * math.pi - 1e-6 do
+				local jx = rng:NextNumber(-2, 2)
+				if palm(rng, math.cos(a) * r + jx, 0, math.sin(a) * r + rng:NextNumber(-2, 2), parent) then
+					made.palms += 1
+				end
+				a += step
+			end
+		end
+	end
+	local pa = opts.palmRoad
+	if pa then
+		for _, side in ipairs({ -1, 1 }) do
+			for x = pa.x1, pa.x2, 50 do
+				if palm(rng, x + rng:NextNumber(-3, 3), 0, side * pa.z, parent) then made.palms += 1 end
 			end
 		end
 	end

@@ -600,7 +600,10 @@ do
 			-- the hills the line tunnels into at both ends
 			mounds = { { x0 = rail.x2 - 18, z = rail.z, halfW = 22, h = 50, dir = 1 }, { x0 = rail.x1 + 18, z = rail.z, halfW = 22, h = 50, dir = -1 } },
 			orchards = { { x = -360, z = 335, w = 120, d = 70 }, { x = 330, z = 335, w = 110, d = 70 } },
-			rail = rail, crossX = (CityKit and CityKit.CROSS_X) or { -185, 165 }, plotX = { -360, 0, 360 },
+			rail = rail, crossX = (CityKit and CityKit.CROSS_X) or {}, plotX = {},
+			-- v9: palms line the ring and the east approach, not a road through the park
+			palmRing = CampusHub and { r = CampusHub.R_ROAD_OUT, w = 30 } or nil,
+			palmRoad = { x1 = ((CampusHub and CampusHub.R_ROAD_OUT) or 596) + 70, x2 = 900, z = 31 },
 			oaks = 230, redwoods = 100, treeMax = 640, vergeTrees = 50, settlementX = 560, settlementZ = 280,
 		})
 		print(("[SV] valley: %d chunks, peak %.0f, %d oaks, %d redwoods, %d verge, %d palms, %d eucalypts, %d orchard, %d landmarks, %.1fs")
@@ -3342,12 +3345,20 @@ local function pushTicker(player)
 	end)
 end
 
--- THE BOARD at the road, two-sided, top ten public companies across all servers
+--[[ THE BOARD, two-sided, top ten public companies across all servers.
+
+v9: it used to stand at (0, ROAD_Z + 30), which was beside the old straight
+road. That spot is now the middle of the central park, so the board was planted
+on top of the fountain and hid the monument completely. It stands on the
+ARRIVAL axis instead, in the gap between the park kerb and the inner ring road,
+so you read it on the walk in from the gate. ]]
 local board
 do
-	local post = part({ Name = "TickerPost", Size = Vector3.new(1.2, 12, 1.2), CFrame = CFrame.new(0, 6, CFG.ROAD_Z + 30),
+	local BOARD_R = ((CampusHub and CampusHub.R_PARK) or 162) + 23
+	local boardCF = CFrame.new(BOARD_R, 0, 0) * CFrame.Angles(0, math.pi / 2, 0)
+	local post = part({ Name = "TickerPost", Size = Vector3.new(1.2, 12, 1.2), CFrame = boardCF * CFrame.new(0, 6, 0),
 		Color = CFG.TRIM }, world)
-	board = part({ Name = "TickerBoard", Size = Vector3.new(30, 12, 0.8), CFrame = CFrame.new(0, 16, CFG.ROAD_Z + 30),
+	board = part({ Name = "TickerBoard", Size = Vector3.new(30, 12, 0.8), CFrame = boardCF * CFrame.new(0, 16, 0),
 		Color = Color3.fromRGB(16, 18, 24), Material = Enum.Material.SmoothPlastic }, world)
 	for _, face in ipairs({ Enum.NormalId.Front, Enum.NormalId.Back }) do
 		local sg = Instance.new("SurfaceGui")
