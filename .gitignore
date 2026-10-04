@@ -4,3 +4,9 @@ roblox.yml
 *.rbxl
 *.rbxlx
 *.lock
+
+# Blender / art pipeline: the SCRIPTS are the source, the renders and FBX are build output
+blender/out/
+art/out/
+__pycache__/
+*.pyc

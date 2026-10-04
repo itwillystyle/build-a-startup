@@ -1,0 +1,37 @@
+BUILD A STARTUP — text-to-3D asset prompt (Meshy / Tripo / Rodin)
+Replace [ASSET] and [ACCENT COLOUR]. Paste the two blocks into the matching fields.
+
+
+=== POSITIVE PROMPT ===
+
+low-poly game asset, flat shaded, faceted hard-edge geometry, chunky simplified
+forms, [ASSET], single object, matte solid colour surfaces, [ACCENT COLOUR] accent
+on one feature only, warm off-white and light grey base colours, no gradients,
+no patterns, clean quad topology, under 600 triangles, upright, resting on its own
+footprint, neutral A-pose if humanoid, front face toward +Z, uniform scale,
+game-engine ready, GLB export
+
+
+=== NEGATIVE PROMPT ===
+
+background, ground plane, base, plinth, pedestal, shadow, floating parts,
+disconnected geometry, text, logos, watermark, high-poly, dense mesh, smooth
+subdivision, photorealistic, PBR textures, baked texture maps, normal maps,
+scratches, grunge, rust, weathering, reflections, glass refraction, multiple
+objects, scene, environment, props clutter, human figure unless requested
+
+
+=== AFTER DOWNLOAD — the three checks that have bitten this project ===
+
+1. SCALE. 1 Blender unit = 1 Roblox stud. A Roblox character is 5 studs. Imported
+   kits have landed 50x and 100x oversized before, so measure before placing.
+2. ANCHOR. Imports arrive Anchored = false. Anchor before pressing Play.
+3. PIVOT. The importer rotates every mesh 90 degrees about X. Reset PivotOffset to
+   identity or PivotTo lays it on its side.
+
+
+=== STYLE REFERENCE, if the tool accepts an image ===
+
+Attach any model from ReplicatedStorage.SVFurniture or KayKit.Furniture. Those are
+the existing library and the new asset has to sit beside them without looking
+imported.
