@@ -1032,23 +1032,74 @@ function CampusArch.grounds(folder, pivot, slab, path, seed)
 	-- the entrance court in front of the HQ door, joining the axis to the loop
 	mk(f, { Name = "EntranceCourt", Size = Vector3.new(34, 0.5, 18), CFrame = g(0, 0.34, 30),
 		Color = PATH, Material = Enum.Material.Pavement, CanQuery = false, CastShadow = false })
-	-- the plaza where the axis meets the road side: a round paved square
-	mk(f, { Name = "Plaza", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.5, 28, 28),
-		CFrame = g(0, 0.36, 66) * CFrame.Angles(0, 0, math.rad(90)), Color = Color3.fromRGB(198, 190, 176),
-		Material = Enum.Material.Pavement, CanQuery = false, CastShadow = false })
-	mk(f, { Name = "PlazaRing", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.52, 29.2, 29.2),
-		CFrame = g(0, 0.34, 66) * CFrame.Angles(0, 0, math.rad(90)), Color = PATH_EDGE,
-		Material = Enum.Material.Concrete, CanQuery = false, CastShadow = false })
-	-- a round planter and a tree at the centre (you walk round it, as in any square)
-	mk(f, { Name = "PlazaPlanter", Shape = Enum.PartType.Cylinder, Size = Vector3.new(1.4, 7, 7),
-		CFrame = g(0, 1, 66) * CFrame.Angles(0, 0, math.rad(90)), Color = PLINTH, Material = Enum.Material.Concrete })
-	mk(f, { Name = "PlazaSoil", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, 6, 6),
-		CFrame = g(0, 1.62, 66) * CFrame.Angles(0, 0, math.rad(90)), Color = CAMPUS_LAWN, Material = Enum.Material.SmoothPlastic, CanCollide = false })
-	tree(f, g(0, 1.7, 66), 13, { "tree_detailed", "tree_oak" }, rng)
-	for k = 0, 3 do
-		local a = math.rad(45 + 90 * k)
-		local bx, bz = math.cos(a) * 9.5, 66 + math.sin(a) * 9.5
-		bench(f, g(bx, 0.6, bz) * CFrame.Angles(0, -a + math.rad(90), 0))
+	--[[ THE FORECOURT (pass 4). The walk from the drive to your own door.
+
+	Measured before this existed: the radial street's asphalt and its painted
+	centre line ran all the way to the lobby and under it, and the only thing
+	between the kerb and the door was grey road. CampusHub now splits the drive
+	round the plot; this paves what is left in the middle.
+
+	It sits at y 1.0 -- the height of the drive, the ring walk AND the lobby
+	floor -- so the whole arrival is one level with no step to catch a player.
+	Everything on it that is not floor is CanCollide false: a forecourt must
+	never be something you get stuck in. ]]
+	-- FC_Z0 58: the wafer floor ring ends at z 60.3 and the lobby canopy at
+	-- 72.4, so the paving runs UNDER the canopy and meets the floor. Measured:
+	-- without it the last 12 studs before the door dipped to y 0.6 and back.
+	local FC_W, FC_Z0, FC_DOOR, FC_Z1 = 54, 58, 72, 118
+	local FC_MID, FC_D = (FC_Z0 + FC_Z1) / 2, FC_Z1 - FC_Z0
+	mk(f, { Name = "ForecourtField", Size = Vector3.new(FC_W * 2, 1.0, FC_D), CFrame = g(0, 0.5, FC_MID),
+		Color = PATH, Material = Enum.Material.Pavement, MaterialVariant = "SV_CampusPavers", CastShadow = false })
+	-- an inlaid border and one cross band: paving with no joints reads as a slab
+	for _, b in ipairs({
+		{ FC_W * 2, 2.2, 0, FC_DOOR + 1.6 }, { FC_W * 2, 2.2, 0, FC_Z1 - 1.6 },
+		{ 2.2, FC_Z1 - FC_DOOR, -FC_W + 1.6, (FC_DOOR + FC_Z1) / 2 },
+		{ 2.2, FC_Z1 - FC_DOOR, FC_W - 1.6, (FC_DOOR + FC_Z1) / 2 },
+		{ FC_W * 2, 2.2, 0, (FC_DOOR + FC_Z1) / 2 },
+	}) do
+		mk(f, { Name = "ForecourtJoint", Size = Vector3.new(b[1], 0.06, b[2]), CFrame = g(b[3], 1.03, b[4]),
+			Color = PATH_EDGE, Material = Enum.Material.Concrete, CanCollide = false, CanQuery = false, CastShadow = false })
+	end
+	-- the threshold: the one band of company colour, right at the door
+	mk(f, { Name = "ForecourtThreshold", Size = Vector3.new(26, 0.08, 3.2), CFrame = g(0, 1.04, FC_DOOR - 1.8),
+		Color = Color3.fromRGB(224, 182, 90), Material = Enum.Material.SmoothPlastic,
+		CanCollide = false, CanQuery = false, CastShadow = false })
+	-- kerbs down both sides, and a spur to each arm's pavement so the drive and
+	-- the forecourt are actually joined
+	for _, sx in ipairs({ -1, 1 }) do
+		mk(f, { Name = "ForecourtKerb", Size = Vector3.new(1.6, 1.4, FC_Z1 - FC_DOOR), CFrame = g(sx * (FC_W + 0.8), 0.7, (FC_DOOR + FC_Z1) / 2),
+			Color = PATH_EDGE, Material = Enum.Material.Concrete, CanCollide = false, CastShadow = false })
+		mk(f, { Name = "ForecourtSpur", Size = Vector3.new(16, 1.0, 14), CFrame = g(sx * (FC_W + 8), 0.5, FC_Z1 - 15),
+			Color = PATH, Material = Enum.Material.Pavement, CastShadow = false })
+		--[[ A LAWN PANEL EITHER SIDE. 108 studs of unbroken paving read as a car
+		park in the first shot of this; the walk has to be NARROWER than the
+		court. These two panels leave a 28-wide walk up the middle, a landing in
+		front of the door, and a 14-wide strip at each edge where the drive's
+		pavement comes in. ]]
+		mk(f, { Name = "ForecourtPanelKerb", Size = Vector3.new(27, 1.4, 39), CFrame = g(sx * 27, 0.7, 95),
+			Color = PATH_EDGE, Material = Enum.Material.Concrete, CanCollide = false, CastShadow = false })
+		mk(f, { Name = "ForecourtPanel", Size = Vector3.new(25.4, 0.5, 37.4), CFrame = g(sx * 27, 1.35, 95),
+			Color = CAMPUS_LAWN, Material = Enum.Material.Grass, CanCollide = false, CanQuery = false, CastShadow = false })
+		for _, t in ipairs({ { sx * 20, 83 }, { sx * 34, 95 }, { sx * 20, 107 } }) do
+			tree(f, g(t[1], 1.6, t[2]), rng:NextNumber(10.5, 13), { "tree_detailed", "tree_oak" }, rng)
+		end
+		-- a lamp at each corner of the walk
+		lamp(f, g(sx * 15, 1.0, FC_DOOR + 6))
+		lamp(f, g(sx * 15, 1.0, FC_Z1 - 9))
+	end
+	-- a darker apron right in front of the door: the eye needs somewhere to
+	-- land on 108 studs of pale paving, and it should be the entrance
+	mk(f, { Name = "ForecourtApron", Size = Vector3.new(34, 0.05, 20), CFrame = g(0, 1.02, FC_DOOR + 11),
+		Color = PATH_EDGE, Material = Enum.Material.Pavement, CanCollide = false, CanQuery = false, CastShadow = false })
+	for _, sx in ipairs({ -1, 1 }) do
+		mk(f, { Name = "ForecourtApronEdge", Size = Vector3.new(1.0, 0.07, 20), CFrame = g(sx * 17.5, 1.03, FC_DOOR + 11),
+			Color = Color3.fromRGB(224, 182, 90), CanCollide = false, CanQuery = false, CastShadow = false })
+	end
+	-- bollards along the road edge: they say "people from here", and they are
+	-- no-collide so they can never be the thing a player is stuck on
+	for k = -2, 2 do
+		mk(f, { Name = "Bollard", Size = Vector3.new(0.7, 3.2, 0.7), CFrame = g(k * 6.5, 2.6, FC_Z1 - 3.4),
+			Color = CHARCOAL, Material = Enum.Material.Metal, CanCollide = false, CanQuery = false, CastShadow = false })
 	end
 
 	-- trees in the lawn: inside the loop (clear of the largest HQ, x +-54, z -34..38),
@@ -1060,8 +1111,9 @@ function CampusArch.grounds(folder, pivot, slab, path, seed)
 		{ -22, -58, TREES }, { 4, -64, TREES }, { 26, -56, TREES },
 		{ -114, 44, TALL }, { -114, -28, TALL }, { -114, -96, TALL }, { 114, 36, TALL }, { 114, -34, TALL }, { 114, -100, TALL },
 		{ -84, -118, TALL }, { 0, -120, TALL }, { 74, -118, TALL },
-		{ -46, 86, TREES }, { -62, 66, TREES }, { -96, 78, TREES }, { -104, 40, TREES },
-		{ 30, 80, TREES }, { 62, 66, TREES }, { 96, 78, TREES }, { 104, 32, TREES },
+		-- the front corners only: pass 4 put the forecourt and its beds in the
+		-- middle, and the drive's pavements run down x +-53..67
+		{ -96, 78, TREES }, { -104, 40, TREES }, { 96, 78, TREES }, { 104, 32, TREES },
 	}
 	for _, s in ipairs(spots) do
 		local jx, jz = rng:NextNumber(-3, 3), rng:NextNumber(-3, 3)
@@ -1073,39 +1125,46 @@ function CampusArch.grounds(folder, pivot, slab, path, seed)
 		bench(f, g(b[1], 0.3, b[2]) * CFrame.Angles(0, math.rad(b[3]), 0))
 	end
 	-- lamp posts: along the axis and at the loop corners (no PointLights: daylight game, neon heads read as lamps)
-	for _, p in ipairs({ { -7, 50 }, { 7, 50 }, { -7, 84 }, { 7, 84 }, { -86, 38 }, { 86, 38 }, { -86, -86 }, { 86, -86 } }) do
+	-- (the old pair at x +-7, z 50/84 stood inside the lobby and the forecourt;
+	-- the court lights itself now)
+	for _, p in ipairs({ { -86, 38 }, { 86, 38 }, { -86, -86 }, { 86, -86 } }) do
 		lamp(f, g(p[1], 0.3, p[2]))
 	end
 
 	-- the company monument on the plaza, facing the road
-	local mono = mk(f, { Name = "Monument", Size = Vector3.new(16, 4.2, 1.6), CFrame = g(-24, 2.4, 80),
+	-- pass 4: a 4-stud-high slab lying in the grass could not be read from the
+	-- drive, so it is a PYLON now -- standing at the mouth of the forecourt,
+	-- facing the ring road, which is the direction every arrival comes from
+	local PY_W, PY_H = 6.4, 11
+	-- it stands in the near corner of the left lawn panel, at the mouth of the
+	-- walk: at the court's outside edge it was out of frame from the drive
+	local PY_X, PY_Z, PY_Y = -20, 110, 1.6
+	local mono = mk(f, { Name = "Monument", Size = Vector3.new(PY_W, PY_H, 1.4), CFrame = g(PY_X, PY_Y + PY_H / 2, PY_Z),
 		Color = CHARCOAL, CanCollide = false })
-	mk(f, { Name = "MonumentBase", Size = Vector3.new(18, 0.8, 3), CFrame = g(-24, 0.5, 80),
+	mk(f, { Name = "MonumentCap", Size = Vector3.new(PY_W + 0.5, 0.5, 1.9), CFrame = g(PY_X, PY_Y + PY_H, PY_Z),
+		Color = Color3.fromRGB(224, 182, 90), Material = Enum.Material.SmoothPlastic, CanCollide = false })
+	mk(f, { Name = "MonumentBase", Size = Vector3.new(PY_W + 2.4, 1.2, 3.4), CFrame = g(PY_X, PY_Y + 0.6, PY_Z),
 		Color = PLINTH, Material = Enum.Material.Concrete, CanCollide = false })
+	-- the name runs UP the blade: a 6-stud-wide face cannot hold a company name
+	-- across it at any size you could read from the drive
 	local sg = Instance.new("SurfaceGui")
 	sg.Face = Enum.NormalId.Back
 	sg.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
 	sg.PixelsPerStud = 36
 	sg.LightInfluence = 0
-	sg.MaxDistance = 220
+	sg.MaxDistance = 260
 	sg.Parent = mono
 	local t = Instance.new("TextLabel")
 	t.BackgroundTransparency = 1
-	t.Size = UDim2.new(0.9, 0, 0.56, 0)
+	t.Size = UDim2.fromOffset(math.floor(PY_H * 36 * 0.84), math.floor(PY_W * 36 * 0.62))
 	t.AnchorPoint = Vector2.new(0.5, 0.5)
-	t.Position = UDim2.new(0.5, 0, 0.44, 0)
+	t.Position = UDim2.new(0.5, 0, 0.46, 0)
+	t.Rotation = -90
 	t.TextScaled = true
 	t.FontFace = MONT
 	t.TextColor3 = WHITE
 	t.Text = ""
 	t.Parent = sg
-	local line = Instance.new("Frame")
-	line.BorderSizePixel = 0
-	line.BackgroundColor3 = Color3.fromRGB(255, 208, 70)
-	line.AnchorPoint = Vector2.new(0.5, 0)
-	line.Position = UDim2.new(0.5, 0, 0.8, 0)
-	line.Size = UDim2.new(0.22, 0, 0, 6)
-	line.Parent = sg
 	return t
 end
 
