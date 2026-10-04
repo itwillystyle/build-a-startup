@@ -4,9 +4,9 @@ local R = require("../src/ServerScriptService/ChaseRules")
 local M = require("../tests/offline/chase_model")
 local N = 2000
 local RUNS = {
-	{ id = "skilled", name = "SKILLED", D = 140, speed = 16, old = { 11, 17 } },
-	{ id = "star", name = "STAR", D = 280, speed = 17, old = { 12, 19 } },
-	{ id = "genius", name = "GENIUS", D = 440, speed = 18, old = { 13, 21 } },
+	{ id = "skilled", name = "SKILLED", D = 100, speed = 16, old = { 11, 17 } },
+	{ id = "star", name = "STAR", D = 193, speed = 17, old = { 12, 19 } },
+	{ id = "genius", name = "GENIUS", D = 300, speed = 18, old = { 13, 21 } },
 	{ id = "star", name = "VIP (Studio)", D = 600, speed = 17, vip = true, old = { 12, 19 } },
 	{ id = "genius", name = "VIP (Loft+)", D = 600, speed = 19, vip = true, old = { 13, 21 } },
 }

@@ -418,11 +418,14 @@ function CampusHub.build(parent)
 	districts, which is the only thing the old straight street was load-bearing
 	for -- there is no traffic on these, only players driving.
 
-	ARM_X 78 is set by the largest wafer footprint (96 wide, so 48 either side):
-	the kerb lands 68.8 out, which is 20 studs clear of the widest building a
-	plot can ever have. ]]
+	ARM_X 88 is set by the PODIUM, not by the wafer rings. Measured 4 Oct on a
+	real save: the podium is 145 studs across, so its face is 67.5 out -- the
+	first draft put the kerb at 68.8 "20 studs clear of the widest building a
+	plot can ever have", which was wrong by 24 studs and left the base of the
+	building standing in the carriageway. The kerb is 77.6 out now, and the
+	pavement sits in the 10 studs between the podium and it. ]]
 	local CFG = require(script.Parent:WaitForChild("CoreConfig"))
-	local ARM_X, ARM_W = 78, 16
+	local ARM_X, ARM_W = 88, 16
 	local ARM_HALF = ARM_W / 2
 	CampusHub.ARM_X, CampusHub.ARM_W = ARM_X, ARM_W
 	for i = 0, 5 do
@@ -453,11 +456,14 @@ function CampusHub.build(parent)
 					Color = CONCRETE,
 				})
 			end
+			-- collidable, unlike the hub's other pavements: candidates stand on
+			-- this one, and groundY has to find it or their feet end up 1.2
+			-- studs under the slab they are supposed to be standing on
 			part(f, {
 				Name = "StreetWalk",
-				Size = Vector3.new(14, 1.2, len - 24),
-				CFrame = base * CFrame.new(cx - side * (ARM_HALF + 9.6), 0.6, 0),
-				Color = PAVE_D,
+				Size = Vector3.new(9, 1.2, len - 24),
+				CFrame = base * CFrame.new(cx - side * (ARM_HALF + 7.4), 0.6, 0),
+				Color = PAVE_D, CanCollide = true, CanQuery = true,
 			})
 			part(f, {
 				Name = "StreetVerge",
@@ -480,7 +486,7 @@ function CampusHub.build(parent)
 			-- were the darkest ground in the game after sunset (pass 6)
 			for k = 0, 3 do
 				local z = -len / 2 + 56 + k * ((len - 112) / 3)
-				local wp = (base * CFrame.new(cx - side * (ARM_HALF + 9.6), 0, z)).Position
+				local wp = (base * CFrame.new(cx - side * (ARM_HALF + 7.4), 0, z)).Position
 				parkLamp(f, wp.X, wp.Z)
 			end
 			-- street trees on the outer verge, clear of the forecourt

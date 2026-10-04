@@ -128,10 +128,10 @@ chordRing(R_RING + 22, 12, true)
 chordRing(R_RING - 34, 12, false)              -- a bike loop just inside them
 
 -- Out to each plot along its own drive. The drive is DIVIDED (CampusHub pass
--- 4): the pavement is on the median side of each arm, 60.4 studs off the axis.
+-- 4): the pavement is on the median side of each arm, 72.6 studs off the axis.
 -- At the old +-17 these lanes ran up the forecourt walk and straight through
 -- the player's own building.
-local ARM_WALK = 60.4
+local ARM_WALK = 72.6
 for i = 0, 5 do
 	local a = math.rad(30 + i * 60)
 	local ca, sa = math.cos(a), math.sin(a)

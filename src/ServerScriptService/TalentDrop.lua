@@ -72,12 +72,34 @@ local function inLot(plot, pos)
 	return math.abs(p.X) <= LOT_X and p.Z >= LOT_Z1 and p.Z <= LOT_Z2
 end
 
--- where tier i stands for this plot: this side's sidewalk, `east` studs east of the plot
+--[[ WHERE A CANDIDATE STANDS (fixed 4 Oct).
+
+	This was written for the old campus -- "plots at x -360/0/360, road z = 0,
+	sidewalks z = +-21" -- and never moved when the six plots went onto a ring.
+	It put every founder's candidates on the downtown approach road at z 21,
+	which for the plot at (291, 168) is 147 studs off its own site and roughly
+	600 studs from its door. All six plots' candidates landed in one line on
+	the same road. The quest reading "far end of the street" was pointing at a
+	street that is not yours.
+
+	They stand on the pavement of the player's OWN drive now, `east` studs
+	further out from their building, so rarer still means a longer walk back.
+	Capped at 236: the drive runs 388 studs from the inner ring to the outer
+	one, and past 236 you are standing in the outer ring road. ]]
+local DRIVE_WALK = 72.6        -- CampusHub: ARM_X 88, kerb face 77.6, pavement centred here
+
+local DOOR_Z, DRIVE_MAX = 70, 300     -- the walk is measured from the door, and
+                                      -- 300 out lands 8 studs short of the outer ring road
+
 local function spotFor(plot, tier)
-	local pv = plot.pivot.Position
-	local z = (pv.Z < 0) and -21 or 21
-	local x = math.clamp(pv.X + tier.east, -540, 920)
-	return x, z
+	-- the old straight road ran 440 studs out. This drive gives 300 from the
+	-- door before the outer ring road, so the four tiers are mapped onto it in
+	-- proportion: clamping instead put STAR and GENIUS on the same paving slab.
+	local out = 20 + (tier.east - 20) * (DRIVE_MAX - 20) / (440 - 20)
+	local cf = plot.pivot * CFrame.new(-DRIVE_WALK, 0, DOOR_Z - out)
+	-- turned to face the carriageway, whichever way the plot itself faces
+	local dir = (plot.pivot * CFrame.Angles(0, math.pi / 2, 0)).LookVector
+	return cf.Position.X, cf.Position.Z, math.atan2(-dir.X, -dir.Z)
 end
 
 local function part(props, parent)
@@ -151,7 +173,7 @@ local recruit   -- forward-declared: the prompt handler calls it
 local function spawnCandidate(plot, i)
 	local tier = Econ.TIERS[i]
 	local st = state[plot.index]
-	local x, z = spotFor(plot, tier)
+	local x, z, face = spotFor(plot, tier)
 	local y = groundY(x, z)
 	local role = ROLES[math.random(1, #ROLES)]
 	local seed = plot.index * 1000 + i * 97 + math.random(1, 9999)
@@ -159,7 +181,6 @@ local function spawnCandidate(plot, i)
 	rig.Name = "Candidate_" .. tier.id
 	rig:SetAttribute("RoleKey", role)
 	rig:SetAttribute("Seed", seed)
-	local face = (z < 0) and 0 or math.pi          -- face the road
 	rig:PivotTo(CFrame.new(x, y + 2.62, z) * CFrame.Angles(0, face, 0))   -- root to sole is 2.61: feet ON the pavement
 	rig:SetAttribute("Candidate", true)
 	rig:SetAttribute("Tier", tier.id)
