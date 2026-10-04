@@ -61,7 +61,12 @@ def box(name, sx, sy, sz, x, y, z, col, shade=True):
     o = bpy.context.object
     o.name = name
     o.scale = (sx, sy, sz)
-    bpy.ops.object.transform_apply(scale=True)
+    # location and rotation default to TRUE on this operator. Applying them bakes
+    # the position into the mesh and moves the object origin to (0,0,0), so any
+    # later `o.rotation_euler = ...` spins the thing around the WORLD origin and
+    # flings it across the map instead of turning it in place. Only the scale
+    # should be baked.
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
     K.paint(o, K.shaded(col) if shade else K.flat(col))
     _objs.append(o)
     return o
