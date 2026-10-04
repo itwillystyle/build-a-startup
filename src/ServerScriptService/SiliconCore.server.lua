@@ -581,7 +581,15 @@ do
 	if ValleyGen then
 		-- v3.3 the Caltrain corridor behind the south campuses, from the Bay
 		-- causeway (west) to a tunnel portal in the eastern hills
-		local rail = { x1 = -915, x2 = 648, z = -330, station = 0 }
+		--[[ v4.6 pass 5: the line used to run x -915..648 with the Mountain View
+		platform centred on x = 0. The campus moved onto a ring after that was
+		written, and x 0, z -330 is now INSIDE the plot at 270 degrees: the
+		track ran through that player's tower, across the event lawn and over
+		two ring roads, and the platform stood in the building. The line is
+		short now and lives entirely southwest of the campus, still inside the
+		terrain's baked flat strip (lp_world.py FLAT, x -915..648 at z -330),
+		so no terrain changes. ]]
+		local rail = { x1 = -915, x2 = -600, z = -330, station = -740, berm = true }
 		table.insert(flat, { x = (rail.x1 + rail.x2) / 2, z = rail.z, w = rail.x2 - rail.x1, d = 40, kind = "rail" })
 		local info = ValleyGen.build(world, {
 			-- v3.3 the Santa Clara Valley: a forested ridge south, golden hills
