@@ -212,6 +212,35 @@ local function board(host, lines, opts)
 	return host
 end
 
+--[[ A PLACE FOR SOMEBODY TO BE (pass 7). Every person in this game walks a
+	lane, which makes the whole campus a crowd of commuters passing through and
+	nobody who is anywhere. These are standing and sitting SPOTS: tiny invisible
+	markers tagged SVIdle, each facing what the person should be looking at.
+	LifeClient puts a figure on every one. Marking them here rather than listing
+	coordinates in the client means a spot moves when its bench moves. ]]
+local CollectionService = game:GetService("CollectionService")
+
+local SPOT_RAY = RaycastParams.new()
+SPOT_RAY.RespectCanCollide = false
+
+local function spot(parent, a, r, t, seated, turn, lift)
+	local p = at(a, r, t)
+	-- The marker is the ground they stand on, or the SEAT they sit on: `lift`
+	-- is the seat height above the paving. Measured, not assumed -- the pads
+	-- themselves sit 1.05 above the valley floor.
+	local hit = workspace:Raycast(Vector3.new(p.X, 60, p.Z), Vector3.new(0, -120, 0), SPOT_RAY)
+	local y = (hit and hit.Position.Y or 0) + (lift or 0)
+	local m = part(parent, {
+		Name = "IdleSpot",
+		Size = Vector3.new(0.4, 0.4, 0.4),
+		CFrame = CFrame.new(p.X, y, p.Z) * CFrame.Angles(0, -a + math.pi / 2 + (turn or 0), 0),
+		Transparency = 1,
+	})
+	m:SetAttribute("Seated", seated and true or false)
+	CollectionService:AddTag(m, "SVIdle")
+	return m
+end
+
 -- ------------------------------------------------------------------ gaps
 --[[ ARRIVAL (pass 5). What a player sees first if they drive back from
 	downtown. Before this pass it was a 150x130 white apron, a flat roof on
@@ -321,6 +350,15 @@ local function arrival(f, a, R)
 	for _, t in ipairs({ -66, 66 }) do
 		tree(f, a, R - 56, t, 1.1)
 	end
+	-- people: waiting on the bench, standing at the bus door, reading the
+	-- directory, sitting under the pavilion
+	spot(f, a, R + 31.4, SH_T - 5, true, math.pi, 2.8)      -- on the shelter bench
+	spot(f, a, R + 31.4, SH_T + 4, true, math.pi, 2.8)
+	spot(f, a, R + 36, SH_T + 14, false, math.pi / 2)
+	spot(f, a, R + 35, BUS_T - 13, false, math.pi)
+	spot(f, a, R - 9, 0, false, math.pi)
+	spot(f, a, R - 22, -22, true, 0, 2.15)                   -- on the pavilion benches
+	spot(f, a, R - 22, 24, true, 0, 2.15)
 end
 
 --[[ PARKING (pass 5). It was 150x150 studs of flat asphalt with 27 box cars
@@ -369,6 +407,9 @@ local function parking(f, a, R)
 	for _, t in ipairs({ -66, 66 }) do
 		lamp(f, a, R + 46, t)
 	end
+	spot(f, a, R + 56, -22, false, math.pi / 2)        -- the attendant, by the hut
+	spot(f, a, R - 70, -58, false, math.pi)            -- somebody charging a car
+	spot(f, a, R - 20, 44, false, 0)
 end
 
 --[[ RETAIL (pass 5). Four featureless boxes -- a 56x26x100 white slab called
@@ -424,14 +465,23 @@ local function retail(f, a, R)
 	for i = 0, 8 do
 		local rr, tt = R - 30 - (i % 3) * 16, -64 + i * 16
 		parasol(f, a, rr, tt, ({ ORANGE, RED, TEAL, PAPER })[(i % 4) + 1])
-		for _, d in ipairs({ { -4, 0 }, { 4, 0 }, { 0, -4 }, { 0, 4 } }) do
-			slab(f, "DistChair", a, rr + d[1], tt + d[2], 2.0, 1.8, 2.0, PAPER, { y = 0 })
+		for _, d in ipairs({ { -3.4, 0 }, { 3.4, 0 }, { 0, -3.4 }, { 0, 3.4 } }) do
+			slab(f, "DistChair", a, rr + d[1], tt + d[2], 1.7, 1.5, 1.7, PAVE_D, { y = 1.0 })
+			slab(f, "DistChairBack", a, rr + d[1] * 1.28, tt + d[2] * 1.28, 1.7, 2.0, 0.35, PAVE_D, { y = 2.5 })
 		end
 	end
 	for _, t in ipairs({ -80, -38, 38, 80 }) do
 		tree(f, a, R - 82, t, 1.1)
 		lamp(f, a, R - 58, t)
 	end
+	-- at the tables, and at the market door
+	for _, q in ipairs({ { R - 34, -64, math.pi / 2 }, { R - 26, -60, -math.pi / 2 },
+		{ R - 50, -32, math.pi / 2 }, { R - 42, -28, -math.pi / 2 },
+		{ R - 34, 0, math.pi / 2 }, { R - 26, 4, -math.pi / 2 } }) do
+		spot(f, a, q[1], q[2], true, q[3], 1.45)                -- on a cafe chair
+	end
+	spot(f, a, R - 22, -48, false, 0)
+	spot(f, a, R + 8, 34, false, 0)
 end
 
 --[[ EVENT LAWN (pass 5). A stage with a blank back wall, five flat coloured
@@ -504,6 +554,14 @@ local function eventLawn(f, a, R)
 	for _, t in ipairs({ -84, 84 }) do
 		tree(f, a, R - 78, t, 1.1)
 		tree(f, a, R + 10, t, 1.1)
+	end
+	-- queueing at the hatches, and watching the stage
+	for i = 0, 2 do
+		spot(f, a, R - 84, -38 + i * 38 - 1, false, 0)
+		spot(f, a, R - 90, -38 + i * 38 + 5, false, 0)
+	end
+	for _, q in ipairs({ { R + 8, -14 }, { R + 4, 10 }, { R - 6, 26 }, { R - 2, -34 } }) do
+		spot(f, a, q[1], q[2], false, math.pi)
 	end
 end
 
