@@ -852,6 +852,11 @@ local function buildSegment(plot, L, dept, model)
 					Color = stone, Material = Enum.Material.SmoothPlastic, CastShadow = true }))
 			end
 		end
+		-- and the building's own shadow: with GlobalShadows off (v4.7) the tower
+		-- floated, which was the one thing the cartoon A/B clearly cost
+		local fl = require(script.Parent:WaitForChild("FlatLook"))
+		local pod = pa.Position
+		fl.contact(model, pod.X, pod.Z, R + 3, 0.22)
 		-- the lintel they carry, full circle: it spans the entrance as a portal
 		for _, q in ipairs(arcBoxes(0, math.pi * 2, 24, R - 2, 5.5, PH, 2.4,
 			{ Name = "PodiumCap", Color = stone, Material = Enum.Material.SmoothPlastic, CastShadow = true })) do

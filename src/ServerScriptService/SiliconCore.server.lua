@@ -55,7 +55,8 @@ local FurnitureKit = tryRequire(ReplicatedStorage, "FurnitureKit")
 -- funnel telemetry (AnalyticsService); a missing module degrades to no-ops
 local Telemetry = tryRequire(ServerScriptService, "Telemetry")
 local CampusArch = tryRequire(ServerScriptService, "CampusArch")   -- v2.8 HQ architecture (glass wings, links, grounds)
-local CampusHub = tryRequire(ServerScriptService, "CampusHub")     -- v9 the central park and the two ring roads
+local CampusHub = tryRequire(ServerScriptService, "CampusHub")
+local FlatLook = tryRequire(ServerScriptService, "FlatLook")     -- v4.7 the cartoon pass: flat materials, contact shadows     -- v9 the central park and the two ring roads
 local CampusDistricts = tryRequire(ServerScriptService, "CampusDistricts")   -- v9 the four scenery gaps
 local Econ = tryRequire(ServerScriptService, "RoomEconomy")   -- v2.6.0 room economy (stations, caps, fit, wages)
 local Journey = require(ServerScriptService:WaitForChild("Journey"))   -- v4.3 the guided loop (pure, tested offline)
@@ -3861,4 +3862,9 @@ do
 	end
 end
 
+if FlatLook then
+	local flattened = FlatLook.sweep(workspace)
+	FlatLook.watch(workspace)       -- plots rebuild all game, so a one-shot sweep goes stale
+	print(("[SV] flat look: %d parts flattened, watching for more"):format(flattened))
+end
 print(("SILICON VALLEY TYCOON -- %d plots on the road, heightmap valley, downtown east."):format(#plots))
