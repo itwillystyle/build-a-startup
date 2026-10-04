@@ -120,15 +120,19 @@ chordRing(R_RING - 22, 12, true)               -- the two ring sidewalks
 chordRing(R_RING + 22, 12, true)
 chordRing(R_RING - 34, 12, false)              -- a bike loop just inside them
 
--- out to each plot along its own street, both sides
+-- Out to each plot along its own drive. The drive is DIVIDED (CampusHub pass
+-- 4): the pavement is on the median side of each arm, 60.4 studs off the axis.
+-- At the old +-17 these lanes ran up the forecourt walk and straight through
+-- the player's own building.
+local ARM_WALK = 60.4
 for i = 0, 5 do
 	local a = math.rad(30 + i * 60)
 	local ca, sa = math.cos(a), math.sin(a)
 	local tx, tz = -sa, ca                      -- tangent, for the two sides
 	for _, side in ipairs({ -1, 1 }) do
 		table.insert(lanes, {
-			a = Vector3.new(ca * (R_RING + 30) + tx * side * 17, Y_WALK, sa * (R_RING + 30) + tz * side * 17),
-			b = Vector3.new(ca * (R_OUT - 30) + tx * side * 17, Y_WALK, sa * (R_OUT - 30) + tz * side * 17),
+			a = Vector3.new(ca * (R_RING + 30) + tx * side * ARM_WALK, Y_WALK, sa * (R_RING + 30) + tz * side * ARM_WALK),
+			b = Vector3.new(ca * (R_OUT - 30) + tx * side * ARM_WALK, Y_WALK, sa * (R_OUT - 30) + tz * side * ARM_WALK),
 			foot = true,
 		})
 	end

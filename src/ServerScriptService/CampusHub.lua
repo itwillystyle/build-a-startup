@@ -403,74 +403,95 @@ function CampusHub.build(parent)
 	ring(f, "RoadVerge", CampusHub.R_ROAD_IN - ROAD_HALF - 10, 14, 0, 0.9, LAWN,
 		{ material = Enum.Material.Grass, seg = 56 })
 
-	-- a radial street out to each plot, so the ring is reachable by car
+	--[[ THE DRIVE TO EACH PLOT (pass 4).
+
+	This used to be one 26-wide street running from the inner ring straight out
+	to the outer ring -- straight THROUGH the plot. Measured at eye level from
+	the kerb: the asphalt and its painted centre line ran right up to, and then
+	under, the player's own building. The front door of your company opened onto
+	a through-road.
+
+	So the drive is DIVIDED. Two one-way carriageways pass either side of the
+	plot and the whole middle is left to the building and its forecourt (which
+	CampusArch.grounds paves). Cars still reach the outer ring and the
+	districts, which is the only thing the old straight street was load-bearing
+	for -- there is no traffic on these, only players driving.
+
+	ARM_X 78 is set by the largest wafer footprint (96 wide, so 48 either side):
+	the kerb lands 68.8 out, which is 20 studs clear of the widest building a
+	plot can ever have. ]]
 	local CFG = require(script.Parent:WaitForChild("CoreConfig"))
+	local ARM_X, ARM_W = 78, 16
+	local ARM_HALF = ARM_W / 2
+	CampusHub.ARM_X, CampusHub.ARM_W = ARM_X, ARM_W
 	for i = 0, 5 do
 		local a = math.rad(30 + i * 60)
 		local r0, r1 = CampusHub.R_ROAD_IN, CampusHub.R_ROAD_OUT
 		local rMid = (r0 + r1) / 2
+		local len = r1 - r0
 		local base = CFrame.new(math.cos(a) * rMid, 0, math.sin(a) * rMid) * CFrame.Angles(0, -a + math.pi / 2, 0)
 		-- base's local X is tangential (across the street), local Z is radial
-		-- (along it), the same axis order the rings use
-		local street = part(f, {
-			Name = "RingStreet",
-			Size = Vector3.new(CampusHub.ROAD_W, 1.0, r1 - r0),
-			CFrame = base * CFrame.new(0, 0.5, 0),
-			Color = ASPHALT, Material = Enum.Material.Asphalt,
-			CanCollide = true, CanQuery = true,
-		})
-		CollectionService:AddTag(street, "SVRoad")
-
+		-- (along it, positive outward), the same axis order the rings use
 		for _, side in ipairs({ -1, 1 }) do
-			part(f, {
-				Name = "StreetKerb",
-				Size = Vector3.new(2.4, 1.5, r1 - r0),
-				CFrame = base * CFrame.new(side * (ROAD_HALF + 1.2), 0.75, 0),
-				Color = CONCRETE,
+			local cx = side * ARM_X
+			local street = part(f, {
+				Name = "RingStreet",
+				Size = Vector3.new(ARM_W, 1.0, len),
+				CFrame = base * CFrame.new(cx, 0.5, 0),
+				Color = ASPHALT, Material = Enum.Material.Asphalt,
+				CanCollide = true, CanQuery = true,
 			})
+			CollectionService:AddTag(street, "SVRoad")
+			-- kerbs both sides; the walk goes on the MEDIAN side, because that
+			-- is the side a player is walking towards (their own door)
+			for _, k in ipairs({ -1, 1 }) do
+				part(f, {
+					Name = "StreetKerb",
+					Size = Vector3.new(2.4, 1.5, len),
+					CFrame = base * CFrame.new(cx + k * (ARM_HALF + 1.2), 0.75, 0),
+					Color = CONCRETE,
+				})
+			end
 			part(f, {
 				Name = "StreetWalk",
-				Size = Vector3.new(14, 1.2, r1 - r0 - 30),
-				CFrame = base * CFrame.new(side * (ROAD_HALF + 9.6), 0.6, 0),
+				Size = Vector3.new(14, 1.2, len - 24),
+				CFrame = base * CFrame.new(cx - side * (ARM_HALF + 9.6), 0.6, 0),
 				Color = PAVE_D,
 			})
 			part(f, {
 				Name = "StreetVerge",
-				Size = Vector3.new(10, 0.9, r1 - r0 - 30),
-				CFrame = base * CFrame.new(side * (ROAD_HALF + 21), 0.45, 0),
+				Size = Vector3.new(12, 0.9, len - 24),
+				CFrame = base * CFrame.new(cx + side * (ARM_HALF + 10.6), 0.45, 0),
 				Color = LAWN, Material = Enum.Material.Grass,
 			})
-		end
-		-- dashed centre line: a straight street is short enough to afford it
-		local len = r1 - r0
-		local n = math.floor(len / 26)
-		for k = 0, n - 1 do
-			part(f, {
-				Name = "StreetLine",
-				Size = Vector3.new(0.9, 0.12, 12),
-				CFrame = base * CFrame.new(0, 1.0, -len / 2 + 13 + k * 26),
-				Color = LINE,
-			})
-		end
-		-- a crossing at each end, where the street meets a ring road
-		for _, endZ in ipairs({ -len / 2 + 16, len / 2 - 16 }) do
-			for b = -2, 2 do
-				part(f, {
-					Name = "Crossing",
-					Size = Vector3.new(3.0, 0.14, 11),
-					CFrame = base * CFrame.new(b * 5.2, 1.0, endZ),
-					Color = LINE,
-				})
+			-- a crossing where each arm meets a ring road
+			for _, endZ in ipairs({ -len / 2 + 15, len / 2 - 15 }) do
+				for b = -1, 1 do
+					part(f, {
+						Name = "Crossing",
+						Size = Vector3.new(2.6, 0.14, 11),
+						CFrame = base * CFrame.new(cx + b * 5.2, 1.0, endZ),
+						Color = LINE,
+					})
+				end
 			end
-		end
-		-- street trees along the walk, and a lamp at the midpoint
-		for k = 0, 3 do
-			local z = -len / 2 + 60 + k * ((len - 120) / 3)
-			for _, side in ipairs({ -1, 1 }) do
-				local wp = (base * CFrame.new(side * (ROAD_HALF + 9.6), 0, z)).Position
+			-- street trees on the outer verge, clear of the forecourt
+			for k = 0, 3 do
+				local z = -len / 2 + 70 + k * ((len - 140) / 3)
+				local wp = (base * CFrame.new(cx + side * (ARM_HALF + 10.6), 0, z)).Position
 				tree(f, wp.X, wp.Z, 0.85, i * 131 + k * 7 + (side > 0 and 1 or 0))
 			end
 		end
+		-- the median between the arms is the plot's own ground from r 250
+		-- outward, but the mouth (ring road to plot slab) was bare: fill it, or
+		-- the forecourt CampusArch paves on top has nothing under it
+		part(f, {
+			Name = "DriveApron",
+			Size = Vector3.new(2 * (ARM_X + 22), 0.9, 54),
+			CFrame = base * CFrame.new(0, 0.45, -len / 2 + 41),
+			Color = LAWN, Material = Enum.Material.Grass,
+			CanCollide = true, CanQuery = true,
+		})
 	end
 	--[[ TRAFFIC ON THE RINGS (pass 3).
 
@@ -547,15 +568,9 @@ function CampusHub.build(parent)
 			Color = Color3.fromRGB(180, 212, 228), Material = Enum.Material.Glass, Transparency = 0.5 })
 		part(f, { Name = "StopBench", Size = Vector3.new(13, 0.5, 2.0), CFrame = base * CFrame.new(0, 3.2, 1.6), Color = OAK, Material = Enum.Material.Wood })
 	end
-	for i = 0, 5 do
-		local a = math.rad(30 + i * 60)                  -- the streets, where the plots are
-		local rr = CampusHub.R_ROAD_IN + 26
-		local base = CFrame.new(math.cos(a) * rr, 0, math.sin(a) * rr) * CFrame.Angles(0, -a + math.pi / 2, 0)
-		for _, dx in ipairs({ -22, 22 }) do
-			part(f, { Name = "SignPost", Size = Vector3.new(0.5, 13, 0.5), CFrame = base * CFrame.new(dx, 6.5, 0), Color = STEEL, Material = Enum.Material.Metal })
-			part(f, { Name = "SignBlade", Size = Vector3.new(9, 2.4, 0.3), CFrame = base * CFrame.new(dx, 12, 0), Color = CHARCOAL })
-		end
-	end
+	-- (pass 4 deleted the two blank sign blades that stood at every street
+	-- mouth: once the drive split, they landed in the middle of the forecourt,
+	-- and a blank board carries no information -- the plot's own pylon does.)
 
 	-- `CFG` is read so a future change to PLOT_RING_R is visible here; the
 	-- streets use the same angles the plots do.
