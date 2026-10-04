@@ -94,8 +94,18 @@ local function slab(parent, name, a, r, t, w, h, d, colour, opts)
 	})
 end
 
+--[[ A district's ground plane, with a kerb round it.
+
+	Pass 1 learned this on the park: a surface with no edge reads as a texture
+	change rather than something you stand on. Every district pad was a bare
+	slab dropped on the valley floor, so the retail plaza and the parking lot
+	had no edges at all. The kerb sits 1.2 studs proud and 3 wider than the pad
+	on each side, with a grass verge outside it. ]]
 local function pad(parent, a, r, t, w, d, colour, y)
-	return slab(parent, "Pad", a, r, t, w, 1.0, d, colour, { y = (y or 0) - 0.5 })
+	local base = (y or 0)
+	slab(parent, "PadVerge", a, r, t, w + 22, 0.8, d + 22, LAWN, { y = base - 0.4, material = Enum.Material.Grass })
+	slab(parent, "PadKerb", a, r, t, w + 6, 1.4, d + 6, CONCRETE, { y = base - 0.4 })
+	return slab(parent, "Pad", a, r, t, w, 1.0, d, colour, { y = base - 0.5 + 0.55 })
 end
 
 local function tree(parent, a, r, t, s)
