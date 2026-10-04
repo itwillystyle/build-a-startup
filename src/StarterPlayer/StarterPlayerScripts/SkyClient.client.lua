@@ -206,6 +206,84 @@ local DAY_TINT, GOLD_TINT, NIGHT_TINT = Color3.fromRGB(255, 250, 242), Color3.fr
 local DAY_ATM, GOLD_ATM, NIGHT_ATM = Color3.fromRGB(214, 210, 200), Color3.fromRGB(230, 208, 174), Color3.fromRGB(42, 50, 82)
 local DAY_DECAY, GOLD_DECAY, NIGHT_DECAY = Color3.fromRGB(140, 152, 172), Color3.fromRGB(200, 130, 96), Color3.fromRGB(20, 24, 42)
 
+--[[ ============ THE DRAWN SUN AND MOON (v8) ============
+
+	Why these are BillboardGuis and not Sky.SunTextureId.
+
+	Measured 3 Oct, in game: the celestial-body path multiplies the texture up
+	and clips it, so the COLOUR is thrown away and only the alpha survives. A
+	test texture split into four quadrants at 18 / 28 / 40 / 55 percent of the
+	target yellow rendered as the same pale cream in all four, and a 14px
+	near-black outline vanished completely. Turning off Bloom, SunRays and
+	Atmosphere.Glare changed nothing -- it is the sun shader, not the
+	post-processing.
+
+	So a drawn sun cannot be made that way: you get a silhouette and nothing
+	else. A BillboardGui is UI. It renders at the exact colour with no lighting,
+	no bloom and no tone mapping, which is the only way to get a flat fill with
+	an outline around it.
+
+	What this keeps from the old approach: the discs are placed along the REAL
+	Lighting:GetSunDirection() / GetMoonDirection() each frame, so they still
+	track across the sky, still set behind the hills, and still agree with the
+	shadow direction. AlwaysOnTop is false, so the terrain occludes them on the
+	way down instead of letting the sun float over a mountain.
+
+	Anchored to the camera at a fixed distance, so there is no parallax as the
+	player walks -- the sun behaves as if it were infinitely far away, which it
+	is. Parented to CurrentCamera: client-only, never replicates, and goes away
+	with the camera. ]]
+local SUN_IMG = "rbxassetid://124848074435225"
+local MOON_IMG = "rbxassetid://135660990906962"
+local DISC_DIST = 1400          -- beyond every hill in the valley, inside the far plane
+local SUN_DEG, MOON_DEG = 32, 17   -- the sun is meant to be a landmark you compose shots against
+
+local function discStuds(deg)
+	return 2 * DISC_DIST * math.tan(math.rad(deg) / 2)
+end
+
+local function makeDisc(name, image, deg)
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Size = Vector3.new(1, 1, 1)
+	p.Transparency = 1
+	p.Anchored, p.CanCollide, p.CanQuery, p.CanTouch = true, false, false, false
+	p.CastShadow, p.Locked = false, true
+	p.Parent = workspace.CurrentCamera
+
+	local bb = Instance.new("BillboardGui")
+	bb.Name = "Disc"
+	bb.Adornee = p
+	bb.Size = UDim2.fromScale(discStuds(deg), discStuds(deg))
+	bb.AlwaysOnTop = false        -- so the hills cut it off at sunset
+	bb.LightInfluence = 0         -- exact colour, no lighting, no bloom
+	bb.MaxDistance = math.huge
+	bb.Parent = p
+
+	local img = Instance.new("ImageLabel")
+	img.Name = "Img"
+	img.BackgroundTransparency = 1
+	img.Size = UDim2.fromScale(1, 1)
+	img.Image = image
+	img.Parent = bb
+	return p, img
+end
+
+local sunPart, sunImg = makeDisc("SVSunDisc", SUN_IMG, SUN_DEG)
+local moonPart, moonImg = makeDisc("SVMoonDisc", MOON_IMG, MOON_DEG)
+
+RunService.RenderStepped:Connect(function()
+	local cam = workspace.CurrentCamera
+	if not cam or not sunPart.Parent then return end
+	local o = cam.CFrame.Position
+	local sd, md = Lighting:GetSunDirection(), Lighting:GetMoonDirection()
+	sunPart.CFrame = CFrame.new(o + sd * DISC_DIST)
+	moonPart.CFrame = CFrame.new(o + md * DISC_DIST)
+	-- fade each out as it drops under the horizon, so neither pops
+	sunImg.ImageTransparency = 1 - math.clamp((sd.Y + 0.09) / 0.12, 0, 1)
+	moonImg.ImageTransparency = 1 - math.clamp((md.Y + 0.09) / 0.12, 0, 1)
+end)
+
 local acc = 0
 RunService.Heartbeat:Connect(function(dt)
 	acc += dt
