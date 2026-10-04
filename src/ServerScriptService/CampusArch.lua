@@ -945,6 +945,7 @@ end
 
 local function bench(parent, cf)
 	FlatLook.contact(parent, cf.Position.X, cf.Position.Z, 3.6, 0.2)
+	if FlatLook.propMesh(parent, "SVP_Bench", cf, 3.5) then return end
 	parent = FlatLook.prop(parent, "Bench")
 	mk(parent, { Name = "BenchBase", Size = Vector3.new(6, 1.2, 1.8), CFrame = cf * CFrame.new(0, 0.6, 0),
 		Color = PLINTH, Material = Enum.Material.Concrete, CanCollide = false })
@@ -979,6 +980,7 @@ local function pathRun(f, g, a, b, w, color, name, edges)
 end
 
 local function lamp(f, cf)
+	if FlatLook.propMesh(f, "SVP_Lamp", cf, 8.4) then return end
 	f = FlatLook.prop(f, "Lamp")
 	mk(f, { Name = "LampPole", Size = Vector3.new(0.4, 7, 0.4), CFrame = cf * CFrame.new(0, 4, 0), Color = CHARCOAL,
 		Material = Enum.Material.Metal, CanCollide = false, CastShadow = false })
@@ -1114,8 +1116,10 @@ function CampusArch.grounds(folder, pivot, slab, path, seed)
 	-- bollards along the road edge: they say "people from here", and they are
 	-- no-collide so they can never be the thing a player is stuck on
 	for k = -2, 2 do
-		mk(f, { Name = "Bollard", Size = Vector3.new(0.7, 3.2, 0.7), CFrame = g(k * 6.5, 2.6, FC_Z1 - 3.4),
-			Color = CHARCOAL, Material = Enum.Material.Metal, CanCollide = false, CanQuery = false, CastShadow = false })
+		if not FlatLook.propMesh(f, "SVP_Bollard", g(k * 6.5, 1.0, FC_Z1 - 3.4), 3.4) then
+			mk(f, { Name = "Bollard", Size = Vector3.new(0.7, 3.2, 0.7), CFrame = g(k * 6.5, 2.6, FC_Z1 - 3.4),
+				Color = CHARCOAL, Material = Enum.Material.Metal, CanCollide = false, CanQuery = false, CastShadow = false })
+		end
 	end
 
 	-- trees in the lawn: inside the loop (clear of the largest HQ, x +-54, z -34..38),

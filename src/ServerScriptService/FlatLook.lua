@@ -101,6 +101,53 @@ function FlatLook.prop(parent, name)
 	return m
 end
 
+--[[ A MODELLED PROP (v4.8, the Blender geometry pass).
+
+	Roblox has no bevel, so every script-built prop has a hard 90-degree edge
+	at every corner. Flat colour on a razor-edged box reads as a render of a
+	box. blender/props.py models the same objects with fat rounded edges and
+	exaggerated proportions, and this swaps them in.
+
+	It returns nil when the kit has not been imported, and EVERY caller falls
+	back to the parts it built before -- so the import can land late, or never,
+	without the campus losing its street furniture.
+
+	The pivot handling is ValleyGen.svMesh's, for the same reason: the FBX
+	importer hands a Blender (Z-up) mesh a pivot turned 90 degrees about X, and
+	placed by that pivot a lamp lies on its side. ]]
+local PROP_YAW = math.pi          -- the importer also turns the mesh 180 about Y
+
+function FlatLook.propMesh(parent, name, cf, height)
+	local lib = game:GetService("ReplicatedStorage"):FindFirstChild("SVProps")
+	local t = lib and lib:FindFirstChild(name)
+	if not t then return nil end
+	local c = t:Clone()
+	local m = c
+	if not c:IsA("Model") then m = Instance.new("Model"); m.Name = name; c.Parent = m end
+	local only
+	for _, d in ipairs(m:GetDescendants()) do
+		if d:IsA("BasePart") then
+			d.Anchored = true; d.CanCollide = false; d.CanQuery = false; d.CanTouch = false; d.CastShadow = false
+			only = (only == nil) and d or false
+		end
+	end
+	if only then
+		only.PivotOffset = CFrame.new()
+		m.PrimaryPart = only
+		m.WorldPivot = only.CFrame
+	end
+	local _, ext = m:GetBoundingBox()
+	if ext.Y < 0.01 then m:Destroy() return nil end
+	m:ScaleTo(m:GetScale() * height / ext.Y)
+	local _, yaw = cf:ToEulerAnglesYXZ()
+	m:PivotTo(CFrame.Angles(0, yaw + PROP_YAW, 0))
+	local at, e2 = m:GetBoundingBox()
+	m:PivotTo(m:GetPivot() + (cf.Position - (at.Position - Vector3.new(0, e2.Y / 2, 0))))
+	m.Parent = parent
+	CollectionService:AddTag(m, "SVOutline2")
+	return m
+end
+
 local SHADOW_RAY = RaycastParams.new()
 SHADOW_RAY.RespectCanCollide = false
 
