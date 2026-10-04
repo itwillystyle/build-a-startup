@@ -24,6 +24,8 @@
 	small and shadowless, and no district is visible from more than two others.
 ]]
 
+local CollectionService = game:GetService("CollectionService")
+
 local CampusDistricts = {}
 
 local PAVE = Color3.fromRGB(222, 215, 200)
@@ -117,15 +119,22 @@ local function tree(parent, a, r, t, s)
 	s = s or 1
 	local p = at(a, r, t)
 	FlatLook.contact(parent, p.X, p.Z, 6.6 * s)
-	part(parent, {
+	-- v4.7.1: a Model, so the outline is one line round the tree instead of two
+	-- (a Highlight draws a silhouette, and two loose parts are two silhouettes)
+	local m = Instance.new("Model")
+	m.Name = "DistTree"
+	m.Parent = parent
+	local trunk = part(m, {
 		Name = "DistTrunk", Size = Vector3.new(1.7 * s, 10 * s, 1.7 * s),
 		CFrame = CFrame.new(p.X, 5 * s, p.Z), Color = TRUNK, Material = Enum.Material.Wood,
 	})
-	part(parent, {
+	part(m, {
 		Name = "DistLeaf", Size = Vector3.new(14 * s, 12 * s, 14 * s),
 		CFrame = CFrame.new(p.X, 15 * s, p.Z), Color = LEAF, Material = Enum.Material.Grass,
 		Shape = Enum.PartType.Ball,
 	})
+	m.PrimaryPart = trunk
+	CollectionService:AddTag(m, "SVOutline")
 end
 
 --[[ A PARKED CAR. It was two boxes -- a 5x3.2x11 slab with a smaller glass
@@ -156,6 +165,7 @@ local function car(parent, a, r, t, colour)
 		-- them nose-in to the kerb instead of across the bay
 		m:PivotTo(CFrame.new(pos.X, 1.6, pos.Z) * CFrame.Angles(0, -a + math.pi / 2, 0))
 		m.Parent = parent
+		CollectionService:AddTag(m, "SVOutline")                      -- v4.7.1
 		return m
 	end
 	slab(parent, "DistCar", a, r, t, 5, 3.2, 11, colour or CAR_COLOURS[rng:NextInteger(1, #CAR_COLOURS)], { y = 0.6 })
@@ -223,8 +233,6 @@ end
 	markers tagged SVIdle, each facing what the person should be looking at.
 	LifeClient puts a figure on every one. Marking them here rather than listing
 	coordinates in the client means a spot moves when its bench moves. ]]
-local CollectionService = game:GetService("CollectionService")
-
 local SPOT_RAY = RaycastParams.new()
 SPOT_RAY.RespectCanCollide = false
 

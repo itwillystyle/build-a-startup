@@ -72,6 +72,7 @@ function Cars.display(id, cf, parent)
 	local bb, size = m:GetBoundingBox()
 	m:PivotTo(cf * CFrame.new(0, size.Y / 2 + 0.05 - (bb.Position.Y - m:GetPivot().Position.Y), 0))
 	m.Parent = parent
+	CollectionService:AddTag(m, "SVOutline")
 	return m
 end
 
@@ -193,6 +194,7 @@ local function build(player, entry, cf)
 	m:SetAttribute("Speed", entry.speed)
 	m:SetAttribute("Accel", entry.accel)
 	CollectionService:AddTag(m, "SVCar")
+	CollectionService:AddTag(m, "SVOutline")        -- v4.7.1: your own car gets the line
 	m.Parent = workspace
 	return m
 end
