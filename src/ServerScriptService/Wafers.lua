@@ -815,45 +815,47 @@ local function buildSegment(plot, L, dept, model)
 	lives in buildSegment -- a deck-kind test here would never fire and the
 	podium would disappear from the game entirely. ]]
 	if pc.wafer == 2 and pc.seg == 1 and pc.storey == 3 then
+		--[[ AN OPEN COLONNADE, NOT A DRUM (4 Oct). Measured on a real save: the
+		podium mesh is 144.8 x 16.4 x 145.4 studs, so it wrapped the ground
+		storey (13 tall) completely and its edge reached 72.4 out -- past the
+		drive kerb at 67.6, i.e. the base of the building stood in the road.
+		The player reported the ground floor "blocked" for the second time.
+
+		It is not blocked physically: the mesh is CanCollide false. It is
+		blocked to the EYE, which is the same thing to a player -- you cannot
+		see the floor you are standing on or find the way into it.
+
+		So: no wall, and no mesh. A plinth you can step over, a ring of piers
+		with a 45-degree gap facing the forecourt, and a lintel over it. The
+		tower still stands on something; the ground floor is visible between
+		every bay. Measurable geometry, which the mesh was not (CanQuery false
+		means you cannot even raycast it to check). ]]
 		local px, pz = centre(1)
 		local pa = plot.pivot * CFrame.new(px, 0, pz)
-		local pod = mesh(model, pa, "W_Podium", nil, { CastShadow = true })
-		if pod then
-			table.insert(visual, pod)
-			local pg = mesh(model, pa, "W_PodiumGlass", nil, glassOf(Color3.fromRGB(200, 222, 232), 0.4))
-			if pg then table.insert(visual, pg) end
-		else
-			-- PRIMITIVE PODIUM. Same shape, no import: the mesh kit is the
-			-- upgrade, not the requirement. Every other piece in this file has a
-			-- fallback for exactly this reason and the base should not be the one
-			-- thing that needs an upload before the building has a bottom.
-			local _, _, r1 = centre(1)
-			local R = r1 + 6
-			local PH = 16
-			local stone = (CUR == "T_") and Color3.fromRGB(198, 196, 190)
-				or (CUR == "D_") and Color3.fromRGB(246, 244, 238) or Color3.fromRGB(214, 206, 190)
-			local stoneD = stone:Lerp(Color3.fromRGB(0, 0, 0), 0.16)
-			-- the plinth it stands on
-			for _, q in ipairs(arcBoxes(0, math.pi * 2, 24, R - 2, 7, 0, 2.2,
-				{ Name = "Podium", Color = stone, Material = Enum.Material.SmoothPlastic, CastShadow = true })) do
-				table.insert(visual, placeAll(model, pa, { q })[1])
-			end
-			-- the wall, set back behind the piers
-			for _, q in ipairs(arcBoxes(0, math.pi * 2, 24, R - 5, 1.4, 2.2, PH - 2.2,
-				{ Name = "PodiumWall", Color = stoneD, Material = Enum.Material.SmoothPlastic, CastShadow = false })) do
-				table.insert(visual, placeAll(model, pa, { q })[1])
-			end
-			-- the piers, and the lintel they carry
-			for k = 1, 24 do
-				local a = (k - 0.5) * (math.pi * 2 / 24)
-				table.insert(visual, add(model, { Name = "PodiumPier", Size = Vector3.new(3.0, PH - 2.2, 3.2),
-					CFrame = pa * CFrame.Angles(0, a, 0) * CFrame.new(0, 2.2 + (PH - 2.2) / 2, R - 2.2),
+		local _, _, r1 = centre(1)
+		local R = r1 + 6                 -- 66: outer face 67.5, kerb inner 77.6
+		local PH, PLINTH = 16, 1.6
+		local GAP = math.rad(22.5)       -- half the entrance, centred on +Z
+		local stone = (CUR == "T_") and Color3.fromRGB(198, 196, 190)
+			or (CUR == "D_") and Color3.fromRGB(246, 244, 238) or Color3.fromRGB(214, 206, 190)
+		-- the plinth, broken for the entrance and low enough to step over
+		for _, q in ipairs(arcBoxes(GAP, math.pi * 2 - GAP, 21, R - 2, 7, 0, PLINTH,
+			{ Name = "Podium", Color = stone, Material = Enum.Material.SmoothPlastic, CastShadow = true })) do
+			table.insert(visual, placeAll(model, pa, { q })[1])
+		end
+		-- the piers: 24 bays, the two either side of the entrance left out
+		for k = 1, 24 do
+			local a = (k - 0.5) * (math.pi * 2 / 24)
+			if a > GAP and a < math.pi * 2 - GAP then
+				table.insert(visual, add(model, { Name = "PodiumPier", Size = Vector3.new(3.0, PH - PLINTH, 3.2),
+					CFrame = pa * CFrame.Angles(0, a, 0) * CFrame.new(0, PLINTH + (PH - PLINTH) / 2, R - 2.2),
 					Color = stone, Material = Enum.Material.SmoothPlastic, CastShadow = true }))
 			end
-			for _, q in ipairs(arcBoxes(0, math.pi * 2, 24, R - 2, 5.5, PH, 2.4,
-				{ Name = "PodiumCap", Color = stone, Material = Enum.Material.SmoothPlastic, CastShadow = true })) do
-				table.insert(visual, placeAll(model, pa, { q })[1])
-			end
+		end
+		-- the lintel they carry, full circle: it spans the entrance as a portal
+		for _, q in ipairs(arcBoxes(0, math.pi * 2, 24, R - 2, 5.5, PH, 2.4,
+			{ Name = "PodiumCap", Color = stone, Material = Enum.Material.SmoothPlastic, CastShadow = true })) do
+			table.insert(visual, placeAll(model, pa, { q })[1])
 		end
 	end
 

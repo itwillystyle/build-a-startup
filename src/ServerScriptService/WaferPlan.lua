@@ -55,11 +55,18 @@ W.GEO = {
 	The lift core stays vertical at (0, -26). Gaps from the core to each ring
 	are 14.0, 13.2, 10.4, 5.2 -- all positive, and bridgeBetween stretches the
 	bridge mesh to whatever the gap is. ]]
+	-- CONCENTRIC (reported 4 Oct: "the offset of the building is super bad").
+	-- The stagger above was a deliberate 8.7-degree cantilever. Measured on a
+	-- real save at wafer 2: the upper stack sat 6 studs east and 4 north of its
+	-- own base, so one side overhung by 2 and the other set back by 10 -- at
+	-- this size that does not read as a cantilever, it reads as the top half
+	-- having slid off. The rings still step 60/56/52/48, which is where the
+	-- taper comes from. Put the offsets back here if the lean is ever wanted.
 	WAFER = {
 		[1] = { cx = 0, cz = 0, r = 60 },      -- round the garage: the courtyard is 80 across
-		[2] = { cx = 6, cz = -4, r = 56 },
-		[3] = { cx = 12, cz = -8, r = 52 },
-		[4] = { cx = 18, cz = -12, r = 48 },
+		[2] = { cx = 0, cz = 0, r = 56 },
+		[3] = { cx = 0, cz = 0, r = 52 },
+		[4] = { cx = 0, cz = 0, r = 48 },
 	},
 	CORE = { x = 0, z = -26, r = 6 },          -- the glass lift, in the courtyard behind the garage
 	PAVILION = { rin = 36, rout = 44 },         -- on wafer 4's roof, 4 quarter pieces
