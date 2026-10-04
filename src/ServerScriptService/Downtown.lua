@@ -40,8 +40,23 @@ Downtown.META = META
 -- the plan (world). Front of every building = its local +Z.
 Downtown.ROAD_END = 700                   -- the Kenney road stops here; the roundabout takes over
 Downtown.ROUNDABOUT = Vector3.new(724, 0, 0)
-Downtown.RES = CFrame.new(668, 0, 64) * CFrame.Angles(0, math.pi, 0)       -- faces the road (-Z)
-Downtown.DEALER = CFrame.new(664, 0, -62)                                  -- faces the road (+Z)
+--[[ v9: both moved out of the downtown plaza and onto the campus ring, into
+the gaps between tower plots -- the dealership due west, the apartments
+south-west. Everything either building is made of is built relative to these
+two CFrames (Downtown's own geometry, Cars.dealerPads, Apartments' lifts, units
+and move-in camera all go through them), so this is the whole move.
+
+Front is local +Z, the same convention the plots use, so a building at ring
+angle `a` needs yaw = atan2(-cos a, -sin a) to face the park. ]]
+local RING_D = 452                                                          -- the district band
+local function onRing(deg)
+	local a = math.rad(deg)
+	return CFrame.new(math.cos(a) * RING_D, 0, math.sin(a) * RING_D)
+		* CFrame.Angles(0, math.atan2(-math.cos(a), -math.sin(a)), 0)
+end
+Downtown.RING_D = RING_D
+Downtown.RES = onRing(240)                                                 -- SW gap, faces the park
+Downtown.DEALER = onRing(180)                                              -- W gap, faces the park
 Downtown.TOWERS = {
 	{ name = "Tower_Spire", cf = CFrame.new(768, 0, 0) * CFrame.Angles(0, -math.pi / 2, 0), w = 34, d = 34, h = 214 },
 	{ name = "Tower_Stack", cf = CFrame.new(740, 0, 70) * CFrame.Angles(0, math.pi, 0), w = 40, d = 32, h = 136 },

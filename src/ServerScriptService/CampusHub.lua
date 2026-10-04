@@ -32,6 +32,7 @@ CampusHub.R_COURT = 40
 CampusHub.R_STEP = 96
 CampusHub.R_PARK = 162
 CampusHub.R_ROAD_IN = 208
+CampusHub.R_DIST = 452        -- the district band: shop, dealership, apartments, parking
 CampusHub.R_ROAD_OUT = 596
 CampusHub.ROAD_W = 26
 
@@ -77,9 +78,15 @@ local function ring(parent, name, rMid, width, y, height, colour, opts)
 	local chord = 2 * math.pi * rMid / seg + 0.6      -- +0.6 so neighbours overlap, no seams
 	for i = 0, seg - 1 do
 		local a = (i + 0.5) * 2 * math.pi / seg
+		--[[ AXIS ORDER MATTERS HERE. CFrame.Angles(0, -a, 0) maps local X to the
+			RADIAL direction and local Z to the TANGENT, not the other way round.
+			Built as (chord, h, width) the segments pointed outward instead of
+			along the arc, so the ring became dashes wherever the chord was
+			longer than the width -- invisible on the park rings, obvious on the
+			outer road where a 52-stud chord left 26-stud gaps. ]]
 		local p = part(parent, {
 			Name = name,
-			Size = Vector3.new(chord, height, width),
+			Size = Vector3.new(width, height, chord),
 			CFrame = CFrame.new(math.cos(a) * rMid, y + height / 2, math.sin(a) * rMid)
 				* CFrame.Angles(0, -a, 0),
 			Color = colour,
@@ -185,7 +192,9 @@ function CampusHub.build(parent)
 		local rMid = (R_STEP + R_PARK - 36) / 2
 		part(f, {
 			Name = "ParkPath",
-			Size = Vector3.new(14, 1.4, (R_PARK - 36) - R_STEP + 4),
+			-- same axis order as the rings: X is radial (the path's length), Z
+			-- is tangential (its width)
+			Size = Vector3.new((R_PARK - 36) - R_STEP + 4, 1.4, 14),
 			CFrame = CFrame.new(math.cos(a) * rMid, 3.9, math.sin(a) * rMid) * CFrame.Angles(0, -a, 0),
 			Color = PAVE_W,
 		})
@@ -197,7 +206,7 @@ function CampusHub.build(parent)
 		local rMid = (R_STEP + R_PARK - 36) / 2
 		part(f, {
 			Name = "ParkPool",
-			Size = Vector3.new(34, 1.0, 46),
+			Size = Vector3.new(46, 1.0, 34),
 			CFrame = CFrame.new(math.cos(a) * rMid, 4.0, math.sin(a) * rMid) * CFrame.Angles(0, -a, 0),
 			Color = WATER,
 			Material = Enum.Material.Glass,
@@ -245,6 +254,11 @@ function CampusHub.build(parent)
 	for _, p in ipairs(outer) do
 		CollectionService:AddTag(p, "SVRoad")
 	end
+
+	-- SIDEWALKS beside the inner ring road. LifeClient walks its pedestrians
+	-- here, and without them people would be strolling across bare terrain.
+	ring(f, "RingWalkIn", CampusHub.R_ROAD_IN - 22, 16, 0, 1.2, PAVE_D, { seg = 56 })
+	ring(f, "RingWalkOut", CampusHub.R_ROAD_IN + 22, 16, 0, 1.2, PAVE_D, { seg = 56 })
 
 	-- a radial street out to each plot, so the ring is reachable by car
 	local CFG = require(script.Parent:WaitForChild("CoreConfig"))

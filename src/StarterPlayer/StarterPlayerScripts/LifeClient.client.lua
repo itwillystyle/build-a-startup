@@ -86,17 +86,58 @@ local function newPerson(kind)
 	return p
 end
 
--- where people go: both sidewalks of the main road and of the two cross streets
+--[[ where people go (v9: the campus is a RING).
+
+	These lanes used to run x -540 to 900 along z +-19.5 -- straight through
+	what is now the central park, so every pedestrian would have walked across
+	the lawn and through the fountain. The cross-street lanes were inside the
+	ring too.
+
+	A lane is a STRAIGHT a->b segment (an agent carries a scalar `s` along it
+	and REVERSES at either end, line 430), so a circle has to be chords. Twelve
+	chords of 30 degrees at r=208 are 107 studs long and bow 7 studs off the
+	true circle -- inside the width of the sidewalk they sit on, so nobody
+	walks on the grass. Fewer, longer chords would cut the corner visibly.
+
+	Also: the six radial streets (genuinely straight, 388 studs) and the east
+	approach to downtown. ]]
 local ROAD_Z, SIDEWALK, BIKELANE = 0, 19.5, 15
-local CROSS_X = { -185, 165 }
-local Y_WALK = 0.85
+local R_RING, R_OUT = 208, 596                 -- CampusHub.R_ROAD_IN / R_ROAD_OUT
+local Y_WALK = 1.5
 local lanes = {}
-for _, s in ipairs({ -1, 1 }) do
-	table.insert(lanes, { a = Vector3.new(-540, Y_WALK, ROAD_Z + s * SIDEWALK), b = Vector3.new(900, Y_WALK, ROAD_Z + s * SIDEWALK), foot = true })
-	table.insert(lanes, { a = Vector3.new(-540, Y_WALK, ROAD_Z + s * BIKELANE), b = Vector3.new(900, Y_WALK, ROAD_Z + s * BIKELANE), bike = true })
-	for _, cx in ipairs(CROSS_X) do
-		table.insert(lanes, { a = Vector3.new(cx + s * SIDEWALK, Y_WALK, -240), b = Vector3.new(cx + s * SIDEWALK, Y_WALK, 240), foot = true })
+
+local function chordRing(radius, n, foot)
+	for i = 0, n - 1 do
+		local a0, a1 = i * 2 * math.pi / n, (i + 1) * 2 * math.pi / n
+		table.insert(lanes, {
+			a = Vector3.new(math.cos(a0) * radius, Y_WALK, math.sin(a0) * radius),
+			b = Vector3.new(math.cos(a1) * radius, Y_WALK, math.sin(a1) * radius),
+			foot = foot, ring = true,
+		})
 	end
+end
+chordRing(R_RING - 22, 12, true)               -- the two ring sidewalks
+chordRing(R_RING + 22, 12, true)
+chordRing(R_RING - 34, 12, false)              -- a bike loop just inside them
+
+-- out to each plot along its own street, both sides
+for i = 0, 5 do
+	local a = math.rad(30 + i * 60)
+	local ca, sa = math.cos(a), math.sin(a)
+	local tx, tz = -sa, ca                      -- tangent, for the two sides
+	for _, side in ipairs({ -1, 1 }) do
+		table.insert(lanes, {
+			a = Vector3.new(ca * (R_RING + 30) + tx * side * 17, Y_WALK, sa * (R_RING + 30) + tz * side * 17),
+			b = Vector3.new(ca * (R_OUT - 30) + tx * side * 17, Y_WALK, sa * (R_OUT - 30) + tz * side * 17),
+			foot = true,
+		})
+	end
+end
+
+-- the east approach to downtown, the one straight road left
+for _, s in ipairs({ -1, 1 }) do
+	table.insert(lanes, { a = Vector3.new(R_OUT + 20, Y_WALK, ROAD_Z + s * SIDEWALK), b = Vector3.new(900, Y_WALK, ROAD_Z + s * SIDEWALK), foot = true })
+	table.insert(lanes, { a = Vector3.new(R_OUT + 20, Y_WALK, ROAD_Z + s * BIKELANE), b = Vector3.new(900, Y_WALK, ROAD_Z + s * BIKELANE), bike = true })
 end
 local footLanes, bikeLanes = {}, {}
 for _, l in ipairs(lanes) do
@@ -110,7 +151,10 @@ local agents = {}
 -- the main-road sidewalks are where players look: they get three times the people
 local weighted = {}
 for _, l in ipairs(footLanes) do
-	for _ = 1, (math.abs(l.dir.X) > 0.5) and 3 or 1 do table.insert(weighted, l) end
+	-- v9: the ring sidewalks are what a player sees from their own lobby, so
+	-- they carry three times the people. The old test weighted lanes running
+	-- along X, which was the straight main road and no longer exists.
+	for _ = 1, l.ring and 3 or 1 do table.insert(weighted, l) end
 end
 local function spawnAgent(kind)
 	local lane = (kind == "bike") and pick(bikeLanes) or pick(weighted)

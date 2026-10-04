@@ -56,6 +56,7 @@ local FurnitureKit = tryRequire(ReplicatedStorage, "FurnitureKit")
 local Telemetry = tryRequire(ServerScriptService, "Telemetry")
 local CampusArch = tryRequire(ServerScriptService, "CampusArch")   -- v2.8 HQ architecture (glass wings, links, grounds)
 local CampusHub = tryRequire(ServerScriptService, "CampusHub")     -- v9 the central park and the two ring roads
+local CampusDistricts = tryRequire(ServerScriptService, "CampusDistricts")   -- v9 the four scenery gaps
 local Econ = tryRequire(ServerScriptService, "RoomEconomy")   -- v2.6.0 room economy (stations, caps, fit, wages)
 local Journey = require(ServerScriptService:WaitForChild("Journey"))   -- v4.3 the guided loop (pure, tested offline)
 local Prog = require(ServerScriptService:WaitForChild("Progression"))   -- v4.3 spin-off curve + offline rule (pure, tested offline)
@@ -563,7 +564,7 @@ do
 	The park inside is one big rect; it is flat ground either way. ]]
 	if CampusHub then
 		table.insert(flat, { x = 0, z = 0, w = 2 * CampusHub.R_PARK + 80, d = 2 * CampusHub.R_PARK + 80 })
-		for _, r in ipairs({ CampusHub.R_ROAD_IN, CampusHub.R_ROAD_OUT }) do
+		for _, r in ipairs({ CampusHub.R_ROAD_IN, CampusHub.R_DIST, CampusHub.R_ROAD_OUT }) do
 			for i = 0, 23 do
 				local a = i * math.pi / 12
 				table.insert(flat, { x = math.cos(a) * r, z = math.sin(a) * r, w = 118, d = 118 })
@@ -587,7 +588,14 @@ do
 			-- north, the Bay west. The hills start 160 studs past the plots and
 			-- crest ~600 out: close enough to render at LOW graphics quality
 			-- (low-end phones cull terrain past ~500-600 studs, measured)
-			flatRects = flat, margin = 46, basin = 430, rim = 680, peakSouth = 190, peakNorth = 205,
+			--[[ v9: basin 430 -> 700. The campus is a ring 596 studs out now, so at
+			the old basin the OUTER RING ROAD sat on the hillside. The floor has to
+			reach past the whole campus before the ground is allowed to rise.
+			rim 680 -> 980 keeps the slope about as steep as it was (250 studs of
+			rise before, 280 now) instead of making a wall out of it. The terrain
+			is capped at 2048 studs, so extentX stays at 1000 -- the hills are
+			pushed out, the map is not made bigger. ]]
+			flatRects = flat, margin = 46, basin = 700, rim = 980, peakSouth = 190, peakNorth = 205,
 			stretchX = 1.35, seed = 7, extentX = 1000, extentZ = 800, bayX = 640,
 			-- the hills the line tunnels into at both ends
 			mounds = { { x0 = rail.x2 - 18, z = rail.z, halfW = 22, h = 50, dir = 1 }, { x0 = rail.x1 + 18, z = rail.z, halfW = 22, h = 50, dir = -1 } },
@@ -642,6 +650,14 @@ if CampusHub then
 		print("[SV] campus hub: park + ring roads")
 	else
 		warn("[SV] CampusHub failed: " .. tostring(errH))
+	end
+	if CampusDistricts then
+		local okD2, errD2 = pcall(CampusDistricts.build, world, CampusHub.R_DIST)
+		if okD2 then
+			print("[SV] districts: arrival, parking, retail, event lawn")
+		else
+			warn("[SV] CampusDistricts failed: " .. tostring(errD2))
+		end
 	end
 end
 
