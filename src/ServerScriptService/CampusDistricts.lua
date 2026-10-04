@@ -173,6 +173,8 @@ local function car(parent, a, r, t, colour)
 end
 
 local function lamp(parent, a, r, t)
+	local p0 = at(a, r, t)
+	if FlatLook.propMesh(parent, "SVP_Lamp", CFrame.new(p0.X, 0, p0.Z), 20.2) then return end
 	parent = FlatLook.prop(parent, "DistLamp")
 	local p = at(a, r, t)
 	part(parent, { Name = "DistLampPost", Size = Vector3.new(0.7, 19, 0.7), CFrame = CFrame.new(p.X, 9.5, p.Z), Color = PAPER })
@@ -184,6 +186,8 @@ local function lamp(parent, a, r, t)
 end
 
 local function parasol(parent, a, r, t, colour)
+	local p0 = at(a, r, t)
+	if FlatLook.propMesh(parent, "SVP_Parasol", CFrame.new(p0.X, 1.05, p0.Z), 9.0) then return end
 	parent = FlatLook.prop(parent, "Parasol")
 	local p = at(a, r, t)
 	part(parent, { Name = "DistParasolPost", Size = Vector3.new(0.5, 8.5, 0.5), CFrame = CFrame.new(p.X, 4.2, p.Z), Color = PAPER })

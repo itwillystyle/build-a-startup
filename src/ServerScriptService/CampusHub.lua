@@ -161,6 +161,7 @@ end
 
 -- a bench with a seat, a back, arms and legs: the old one was two slabs
 local function bench(parent, x, z, yaw)
+	if FlatLook.propMesh(parent, "SVP_Bench", CFrame.new(x, 0, z) * CFrame.Angles(0, yaw, 0), 4.4) then return end
 	parent = FlatLook.prop(parent, "Bench")
 	local base = CFrame.new(x, 0, z) * CFrame.Angles(0, yaw, 0)
 	local function at(dx, dy, dz, sx, sy, sz, col, name)
@@ -183,6 +184,7 @@ local function bench(parent, x, z, yaw)
 end
 
 local function bollard(parent, x, z)
+	if FlatLook.propMesh(parent, "SVP_Bollard", CFrame.new(x, 0, z), 3.95) then return end
 	parent = FlatLook.prop(parent, "Bollard")
 	part(parent, {
 		Name = "Bollard", Size = Vector3.new(1.0, 3.6, 1.0),
@@ -195,6 +197,7 @@ local function bollard(parent, x, z)
 end
 
 local function litterBin(parent, x, z)
+	if FlatLook.propMesh(parent, "SVP_Bin", CFrame.new(x, 0, z), 4.0) then return end
 	parent = FlatLook.prop(parent, "LitterBin")
 	part(parent, {
 		Name = "Bin", Size = Vector3.new(2.4, 3.4, 2.4),
@@ -207,6 +210,7 @@ local function litterBin(parent, x, z)
 end
 
 local function parkLamp(parent, x, z)
+	if FlatLook.propMesh(parent, "SVP_Lamp", CFrame.new(x, 0, z), 16.4) then return end
 	parent = FlatLook.prop(parent, "ParkLamp")
 	part(parent, {
 		Name = "ParkLampBase", Size = Vector3.new(1.5, 1.0, 1.5),
