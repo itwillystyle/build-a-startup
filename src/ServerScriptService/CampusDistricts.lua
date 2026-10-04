@@ -160,10 +160,11 @@ end
 local function lamp(parent, a, r, t)
 	local p = at(a, r, t)
 	part(parent, { Name = "DistLampPost", Size = Vector3.new(0.7, 19, 0.7), CFrame = CFrame.new(p.X, 9.5, p.Z), Color = PAPER })
-	part(parent, {
+	local head = part(parent, {
 		Name = "DistLampHead", Size = Vector3.new(2.2, 1.1, 2.2), CFrame = CFrame.new(p.X, 19.6, p.Z),
 		Color = GOLD, Material = Enum.Material.Neon,
 	})
+	game:GetService("CollectionService"):AddTag(head, "SVLamp")
 end
 
 local function parasol(parent, a, r, t, colour)

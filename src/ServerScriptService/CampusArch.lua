@@ -972,8 +972,12 @@ end
 local function lamp(f, cf)
 	mk(f, { Name = "LampPole", Size = Vector3.new(0.4, 7, 0.4), CFrame = cf * CFrame.new(0, 4, 0), Color = CHARCOAL,
 		Material = Enum.Material.Metal, CanCollide = false, CastShadow = false })
-	mk(f, { Name = "LampHead", Size = Vector3.new(1.6, 0.35, 1.6), CFrame = cf * CFrame.new(0, 7.6, 0),
+	local head = mk(f, { Name = "LampHead", Size = Vector3.new(1.6, 0.35, 1.6), CFrame = cf * CFrame.new(0, 7.6, 0),
 		Color = Color3.fromRGB(255, 238, 200), Material = Enum.Material.Neon, CanCollide = false, CastShadow = false })
+	-- pass 6: SkyClient lights the nearest tagged heads after dark. It used to
+	-- look for a Model named "Lamp", which nothing in this game has ever built,
+	-- so no street lamp has ever cast light.
+	game:GetService("CollectionService"):AddTag(head, "SVLamp")
 end
 
 function CampusArch.grounds(folder, pivot, slab, path, seed)

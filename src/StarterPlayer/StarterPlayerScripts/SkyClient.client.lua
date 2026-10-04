@@ -125,7 +125,18 @@ local function setNightSky(on)
 	sky.StarCount = on and 3000 or 0
 end
 
--- night glow: every campus glass pane and the street lamps
+--[[ NIGHT LIGHT (pass 6). The old street-lamp block looked for a Model named
+	"Lamp". Nothing in this game has ever built one -- CampusArch, CampusHub and
+	CampusDistricts all make loose parts -- so no street lamp has ever cast
+	light and the forecourts, the park and the districts were pitch black after
+	sunset while the buildings glowed.
+
+	Every lamp head is tagged SVLamp now, and this lights the NEAREST ones to
+	the camera, up to MAX_LIT. Capping by distance instead of lighting all 68 is
+	what keeps this inside the phone budget however many lamps the campus grows:
+	a light you cannot see costs the same as one you can. ]]
+local CollectionService = game:GetService("CollectionService")
+local MAX_LIT, LIT_RANGE = 24, 230
 local glowing = {}
 local lampLights = {}
 local nightOn = false
@@ -143,31 +154,57 @@ local function setNight(on)
 				d.Transparency = math.max(0.3, d.Transparency * 0.6)
 			end
 		end
-		-- street lamps: a warm light under each lamp head
-		for _, m in ipairs(workspace.SiliconValley:GetDescendants()) do
-			if m:IsA("Model") and m.Name == "Lamp" and not lampLights[m] then
-				local cf, size = m:GetBoundingBox()
-				local a = Instance.new("Part")
-				a.Anchored, a.CanCollide, a.CanQuery, a.CanTouch, a.CastShadow = true, false, false, false, false
-				a.Transparency = 1
-				a.Size = Vector3.new(0.5, 0.5, 0.5)
-				a.CFrame = CFrame.new(cf.Position + Vector3.new(0, size.Y / 2 - 1, 0))
-				local l = Instance.new("PointLight")
-				l.Color = Color3.fromRGB(255, 200, 130)
-				l.Range = 26
-				l.Brightness = 1.6
-				l.Parent = a
-				a.Parent = workspace
-				lampLights[m] = a
-			end
-		end
 	else
 		for p, v in pairs(glowing) do
 			if p.Parent then p.Material = Enum.Material.Glass; p.Color = v[1]; p.Transparency = v[2] end
 		end
 		glowing = {}
-		for m, a in pairs(lampLights) do a:Destroy() end
+		for head, l in pairs(lampLights) do
+			if l.Parent then l:Destroy() end
+		end
 		lampLights = {}
+	end
+end
+
+--[[ the lamps the camera can actually see. Runs twice a second (lamps do not
+	move, and a player cannot cross 230 studs in half a second), and only while
+	it is dark. The PointLight is parented to the head itself: no helper parts
+	to leak if a plot is torn down under it. ]]
+local lampTick = 0
+local function updateLamps(dt)
+	lampTick -= dt
+	if lampTick > 0 then return end
+	lampTick = 0.5
+	if not nightOn then return end
+	local eye = workspace.CurrentCamera and workspace.CurrentCamera.CFrame.Position
+	if not eye then return end
+	local near = {}
+	for _, head in ipairs(CollectionService:GetTagged("SVLamp")) do
+		if head.Parent then
+			local d = (head.Position - eye).Magnitude
+			if d < LIT_RANGE then table.insert(near, { head, d }) end
+		end
+	end
+	table.sort(near, function(a, b) return a[2] < b[2] end)
+	local keep = {}
+	for i = 1, math.min(MAX_LIT, #near) do
+		local head = near[i][1]
+		keep[head] = true
+		if not lampLights[head] or not lampLights[head].Parent then
+			local l = Instance.new("PointLight")
+			l.Color = Color3.fromRGB(255, 206, 142)
+			l.Range = 34
+			l.Brightness = 1.5
+			l.Shadows = false
+			l.Parent = head
+			lampLights[head] = l
+		end
+	end
+	for head, l in pairs(lampLights) do
+		if not keep[head] then
+			if l.Parent then l:Destroy() end
+			lampLights[head] = nil
+		end
 	end
 end
 -- a building that rises at night joins the glow
@@ -286,6 +323,7 @@ end)
 
 local acc = 0
 RunService.Heartbeat:Connect(function(dt)
+	updateLamps(dt)
 	acc += dt
 	if acc < 0.25 then return end                 -- the sun moves slowly; 4 Hz is smooth
 	acc = 0
