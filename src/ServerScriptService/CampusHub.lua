@@ -472,6 +472,91 @@ function CampusHub.build(parent)
 			end
 		end
 	end
+	--[[ TRAFFIC ON THE RINGS (pass 3).
+
+	Cars are placed once here and moved by every client (TrafficClient), which
+	is why they are anchored, no-collide and no-query: scenery that moves, never
+	an obstacle. A ring car carries RingR (its radius) and RingDir instead of
+	LaneA/LaneB, because a straight lane cannot describe a circle.
+
+	One speed per lane and even spacing, the rule v1.7 established for the
+	straight road: random per-car speed made cars in a lane drive through each
+	other. Inner ring runs one way, outer the other, so the campus reads as a
+	one-way gyratory rather than two lanes of oncoming traffic 26 studs apart. ]]
+	local kit = game:GetService("ReplicatedStorage"):FindFirstChild("KenneyKit")
+	local CAR_NAMES = { "sedan", "sedan-sports", "hatchback-sports", "suv", "taxi", "van", "delivery", "truck" }
+	local rng = Random.new(4242)
+	local laneId = 900
+	local function ringLane(r, dir, count, speed, y)
+		if not kit then return 0 end
+		laneId = laneId + 1
+		local made = 0
+		local len = 2 * math.pi * r
+		for k = 1, count do
+			local t = kit:FindFirstChild(CAR_NAMES[rng:NextInteger(1, #CAR_NAMES)])
+			if t then
+				local m = t:Clone()
+				m.Name = "RingCar"
+				if m:IsA("Model") then
+					m:ScaleTo(0.05)
+					for _, d in ipairs(m:GetDescendants()) do
+						if d:IsA("BasePart") then
+							d.Anchored = true
+							d.CanCollide = false
+							d.CanQuery = false
+							d.CanTouch = false
+							d.CastShadow = false
+						end
+					end
+					m:PivotTo(CFrame.new(r, y, 0))
+					m:SetAttribute("RingR", r)
+					m:SetAttribute("RingDir", dir)
+					m:SetAttribute("LaneId", laneId)
+					m:SetAttribute("Speed", speed)
+					m:SetAttribute("Phase", (k - 1) * (len / count))
+					m.Parent = f
+					CollectionService:AddTag(m, "TrafficCar")
+					made = made + 1
+				end
+			end
+		end
+		return made
+	end
+	local carY = 1.9
+	local nCars = 0
+	nCars = nCars + ringLane(CampusHub.R_ROAD_IN - 7, 1, 7, 26, carY)
+	nCars = nCars + ringLane(CampusHub.R_ROAD_IN + 7, 1, 7, 30, carY)
+	nCars = nCars + ringLane(CampusHub.R_ROAD_OUT - 7, -1, 12, 34, carY)
+	nCars = nCars + ringLane(CampusHub.R_ROAD_OUT + 7, -1, 12, 38, carY)
+	CampusHub.cars = nCars
+
+	--[[ BUS STOPS AND SIGNS. A road with nothing beside it is a conveyor; a
+	shelter and a sign are what say people arrive here. One stop on the inner
+	ring at each district gap, and a fingerpost at every radial street mouth. ]]
+	for i = 0, 5 do
+		local a = math.rad(i * 60)                       -- the gaps, where the districts are
+		local rr = CampusHub.R_ROAD_IN + 24
+		local base = CFrame.new(math.cos(a) * rr, 0, math.sin(a) * rr) * CFrame.Angles(0, -a + math.pi / 2, 0)
+		part(f, { Name = "StopPad", Size = Vector3.new(22, 1.3, 9), CFrame = base * CFrame.new(0, 0.65, 0), Color = PAVE_W })
+		part(f, { Name = "StopRoof", Size = Vector3.new(18, 0.6, 7), CFrame = base * CFrame.new(0, 10.4, 0), Color = CHARCOAL })
+		for _, dx in ipairs({ -8, 8 }) do
+			part(f, { Name = "StopPost", Size = Vector3.new(0.5, 9.5, 0.5), CFrame = base * CFrame.new(dx, 5.4, -2.6), Color = STEEL, Material = Enum.Material.Metal })
+			part(f, { Name = "StopPost", Size = Vector3.new(0.5, 9.5, 0.5), CFrame = base * CFrame.new(dx, 5.4, 2.6), Color = STEEL, Material = Enum.Material.Metal })
+		end
+		part(f, { Name = "StopGlass", Size = Vector3.new(17, 7.4, 0.3), CFrame = base * CFrame.new(0, 5.4, 3.0),
+			Color = Color3.fromRGB(180, 212, 228), Material = Enum.Material.Glass, Transparency = 0.5 })
+		part(f, { Name = "StopBench", Size = Vector3.new(13, 0.5, 2.0), CFrame = base * CFrame.new(0, 3.2, 1.6), Color = OAK, Material = Enum.Material.Wood })
+	end
+	for i = 0, 5 do
+		local a = math.rad(30 + i * 60)                  -- the streets, where the plots are
+		local rr = CampusHub.R_ROAD_IN + 26
+		local base = CFrame.new(math.cos(a) * rr, 0, math.sin(a) * rr) * CFrame.Angles(0, -a + math.pi / 2, 0)
+		for _, dx in ipairs({ -22, 22 }) do
+			part(f, { Name = "SignPost", Size = Vector3.new(0.5, 13, 0.5), CFrame = base * CFrame.new(dx, 6.5, 0), Color = STEEL, Material = Enum.Material.Metal })
+			part(f, { Name = "SignBlade", Size = Vector3.new(9, 2.4, 0.3), CFrame = base * CFrame.new(dx, 12, 0), Color = CHARCOAL })
+		end
+	end
+
 	-- `CFG` is read so a future change to PLOT_RING_R is visible here; the
 	-- streets use the same angles the plots do.
 	assert(CFG.PLOT_RING_R, "CoreConfig must export PLOT_RING_R")

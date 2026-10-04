@@ -35,23 +35,45 @@ local cars = {}           -- model -> state
 local lanes = {}          -- laneId -> { states }
 local mains = {}          -- states of main-road cars (no CrossAt)
 
+--[[ v9: RING LANES.
+
+	The campus is a ring, so its roads are circles and a straight a->b lane
+	cannot describe one. A car with a RingR attribute drives that circle
+	instead: its distance `d` is arc length, its position comes off the angle
+	d/R, and its heading is the tangent, recomputed each frame rather than
+	cached. Everything else -- following, easing, the pass-by whir -- is shared
+	with the straight lanes, because they all work on `d` along a length.
+
+	A ring has no ends, so the end fade is skipped: it would pulse the cars
+	transparent once a lap for no reason. ]]
 local function track(model)
 	if not model:IsA("Model") or cars[model] then return end
+	local ringR = model:GetAttribute("RingR")
 	local a, b = model:GetAttribute("LaneA"), model:GetAttribute("LaneB")
-	if typeof(a) ~= "Vector3" or typeof(b) ~= "Vector3" then return end
-	local dir = b - a
-	local len = dir.Magnitude
-	if len < 1 then return end
+	local isRing = typeof(ringR) == "number" and ringR > 1
+	local dir, len
+	if isRing then
+		len = 2 * math.pi * ringR
+		dir = Vector3.new(0, 0, 1)                  -- replaced per frame
+	else
+		if typeof(a) ~= "Vector3" or typeof(b) ~= "Vector3" then return end
+		dir = b - a
+		len = dir.Magnitude
+		if len < 1 then return end
+		dir = dir.Unit
+	end
 	local speed = model:GetAttribute("Speed") or 40
 	local phase = model:GetAttribute("Phase") or 0
 	local t = workspace:GetServerTimeNow()
 	local st = {
-		model = model, a = a, dir = dir.Unit, len = len,
+		model = model, a = a or Vector3.zero, dir = dir, len = len,
+		ring = isRing and ringR or nil,
+		spin = (model:GetAttribute("RingDir") == -1) and -1 or 1,
 		vmax = speed, v = speed,
 		d = (t * speed + phase) % len,
 		laneId = model:GetAttribute("LaneId") or 0,
 		crossAt = model:GetAttribute("CrossAt"),
-		look = CFrame.lookAt(Vector3.zero, dir.Unit).Rotation,
+		look = isRing and CFrame.new() or CFrame.lookAt(Vector3.zero, dir).Rotation,
 		near = false,
 		parts = {}, fade = 0,
 	}
@@ -77,7 +99,20 @@ for _, m in ipairs(CollectionService:GetTagged("TrafficCar")) do track(m) end
 CollectionService:GetInstanceAddedSignal("TrafficCar"):Connect(track)
 CollectionService:GetInstanceRemovedSignal("TrafficCar"):Connect(untrack)
 
-local function posOf(st) return st.a + st.dir * st.d end
+local function posOf(st)
+	if st.ring then
+		local ang = st.spin * st.d / st.ring
+		return Vector3.new(math.cos(ang) * st.ring, st.y or 1.4, math.sin(ang) * st.ring)
+	end
+	return st.a + st.dir * st.d
+end
+
+-- the heading of a ring car: the tangent at its current angle
+local function ringLook(st)
+	local ang = st.spin * st.d / st.ring
+	local tangent = Vector3.new(-math.sin(ang) * st.spin, 0, math.cos(ang) * st.spin)
+	return CFrame.lookAt(Vector3.zero, tangent).Rotation
+end
 
 -- distance to the car ahead in the same lane (wrapping), or math.huge
 local function gapAhead(st)
@@ -143,10 +178,11 @@ RunService.RenderStepped:Connect(function(dt)
 		else st.v = math.max(target, st.v - BRAKE * dt) end
 		st.d = (st.d + st.v * dt) % st.len
 		local p = posOf(st)
-		model:PivotTo(CFrame.new(p) * st.look)
+		model:PivotTo(CFrame.new(p) * (st.ring and ringLook(st) or st.look))
 		-- v4.0: fade in and out at the lane ends (the main road now ends at the
 		-- downtown roundabout, in plain view) instead of popping
-		local edge = math.min(st.d, st.len - st.d)
+		-- a circle has no ends, so a ring car never fades
+		local edge = st.ring and 1e9 or math.min(st.d, st.len - st.d)
 		local fade = math.clamp((14 - edge) / 14, 0, 1)
 		if math.abs(fade - st.fade) > 0.04 or (fade == 0 and st.fade ~= 0) or (fade == 1 and st.fade ~= 1) then
 			st.fade = fade
