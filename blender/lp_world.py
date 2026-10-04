@@ -104,11 +104,39 @@ def sample_h(x, z):
 
 
 # every place something is built (SiliconCore's flat rects)
+#
+# v9 THE CAMPUS IS A RING. The old list held two rows of three plots at
+# (+-360, +-150), a straight road 1520 studs wide across the middle, and two
+# cross streets. All four are gone: the plots are on a ring at r=336, the park
+# is in the middle, and the ring roads are at r=208 and r=596.
+#
+# This matters more than it looks. The valley the game actually renders is the
+# BAKED low-poly data this script writes -- ValleyGen's `basin` and `rim`
+# options only affect the heightmap path, which is not the one in use. So the
+# hills move when this list moves and at no other time. Leave it stale and the
+# outer ring road sits on a hillside 120 studs up, which is exactly what
+# happened the first time.
+RING_R_PLOT = 336.0
+RING_R_IN, RING_R_DIST, RING_R_OUT = 208.0, 452.0, 596.0
+RING_PARK = 162.0
+
 FLAT = []
-for (px, pz) in [(-360, -150), (0, -150), (360, -150), (-360, 150), (0, 150), (360, 150)]:
-    FLAT.append((px, pz, 240, 220))
-FLAT += [(190, 0, 1520, 74), (780, 0, 320, 200), (-185, 0, 120, 540), (165, 0, 120, 540),
+# the six plots, on the ring
+for i in range(6):
+    a = math.radians(30 + i * 60)
+    FLAT.append((math.cos(a) * RING_R_PLOT, math.sin(a) * RING_R_PLOT, 250, 250))
+# the central park
+FLAT.append((0.0, 0.0, 2 * RING_PARK + 90, 2 * RING_PARK + 90))
+# the east approach out to downtown, downtown itself, and the rail corridor
+FLAT += [(760.0, 0.0, 820, 74), (780.0, 0.0, 320, 200),
          ((-915 + 648) / 2, -330, 648 + 915, 40)]
+
+# The three ring bands are circles, not rectangles, so they get their own test
+# rather than being approximated by dozens of rects (which would also make
+# flat_pad O(vertices x rects) and slow the bake down).
+RINGS = [(RING_R_IN - 62, RING_R_IN + 62),
+         (RING_R_DIST - 96, RING_R_DIST + 96),
+         (RING_R_OUT - 62, RING_R_OUT + 62)]
 MOUNDS = [(648 - 18, -330, 22, 1), (-915 + 18, -330, 22, -1)]   # the rail tunnel hills (x0, z, halfW, dir)
 FLAT_V1 = list(FLAT)
 # v4.1b: Moffett Field -- dry flat land for Hangar One by the ponds (it stood in water)
@@ -126,6 +154,14 @@ def flat_pad(x, z, pad, rects=None):
     for (fx, fz, fw, fd) in (rects or FLAT):
         if abs(x - fx) <= fw / 2 + pad and abs(z - fz) <= fd / 2 + pad:
             return True
+    # the campus rings. Checked for the live list only: FLAT_V1 is the pre-v4.1
+    # snapshot some callers pass to keep the Bay and the old tree placement
+    # exactly as they were.
+    if rects is None or rects is FLAT:
+        r = math.hypot(x, z)
+        for (r0, r1) in RINGS:
+            if r0 - pad <= r <= r1 + pad:
+                return True
     return False
 
 
