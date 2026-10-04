@@ -64,31 +64,43 @@ local function pick(t) return t[rng:NextInteger(1, #t)] end
 local function newPerson(kind)
 	local skin, shirt, pants = pick(SKIN), pick(SHIRT), pick(PANTS)
 	if kind == "jog" then shirt = pick({ Color3.fromRGB(255, 120, 60), Color3.fromRGB(60, 200, 230), Color3.fromRGB(230, 60, 150) }) end
-	local p = { kind = kind }
-	p.torso = part({ Name = "Torso", Size = Vector3.new(2, 2, 1), Color = shirt })
-	p.head = part({ Name = "Head", Size = Vector3.new(1.2, 1.2, 1.2), Color = skin })
-	p.hair = part({ Name = "Hair", Size = Vector3.new(1.28, 0.45, 1.28), Color = pick(HAIR) })
-	p.armL = part({ Name = "Arm", Size = Vector3.new(0.9, 2, 0.9), Color = shirt })
-	p.armR = part({ Name = "Arm", Size = Vector3.new(0.9, 2, 0.9), Color = shirt })
-	p.legL = part({ Name = "Leg", Size = Vector3.new(0.95, 2, 0.95), Color = pants })
-	p.legR = part({ Name = "Leg", Size = Vector3.new(0.95, 2, 0.95), Color = pants })
+	--[[ v4.7.1: each person is a Model now. They were loose parts in one folder,
+		which meant OutlineClient could not give them a line -- a Highlight
+		adorns a Model and draws its silhouette, and eight loose limbs are eight
+		silhouettes. BulkMoveTo does not care either way. ]]
+	local body = Instance.new("Model")
+	body.Name = "Walker"
+	body.Parent = folder
+	local p = { kind = kind, model = body }
+	p.torso = part({ Name = "Torso", Size = Vector3.new(2, 2, 1), Color = shirt }, body)
+	p.head = part({ Name = "Head", Size = Vector3.new(1.2, 1.2, 1.2), Color = skin }, body)
+	p.hair = part({ Name = "Hair", Size = Vector3.new(1.28, 0.45, 1.28), Color = pick(HAIR) }, body)
+	p.armL = part({ Name = "Arm", Size = Vector3.new(0.9, 2, 0.9), Color = shirt }, body)
+	p.armR = part({ Name = "Arm", Size = Vector3.new(0.9, 2, 0.9), Color = shirt }, body)
+	p.legL = part({ Name = "Leg", Size = Vector3.new(0.95, 2, 0.95), Color = pants }, body)
+	p.legR = part({ Name = "Leg", Size = Vector3.new(0.95, 2, 0.95), Color = pants }, body)
 	if kind == "walk" and rng:NextNumber() < 0.35 then
-		p.pack = part({ Name = "Backpack", Size = Vector3.new(1.5, 1.6, 0.7), Color = pick({ Color3.fromRGB(40, 44, 52), Color3.fromRGB(180, 60, 50), Color3.fromRGB(60, 90, 140) }) })
+		p.pack = part({ Name = "Backpack", Size = Vector3.new(1.5, 1.6, 0.7), Color = pick({ Color3.fromRGB(40, 44, 52), Color3.fromRGB(180, 60, 50), Color3.fromRGB(60, 90, 140) }) }, body)
 	end
 	if kind == "bike" then
 		local c = pick(BIKE)
-		p.wheelF = part({ Name = "Wheel", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, 2.6, 2.6), Color = Color3.fromRGB(30, 30, 32) })
-		p.wheelB = part({ Name = "Wheel", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, 2.6, 2.6), Color = Color3.fromRGB(30, 30, 32) })
-		p.frame = part({ Name = "Frame", Size = Vector3.new(0.3, 0.35, 3.4), Color = c })
-		p.post = part({ Name = "Post", Size = Vector3.new(0.3, 1.6, 0.3), Color = c })
-		p.bar = part({ Name = "Bar", Size = Vector3.new(1.6, 0.25, 0.25), Color = Color3.fromRGB(40, 40, 44) })
+		p.wheelF = part({ Name = "Wheel", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, 2.6, 2.6), Color = Color3.fromRGB(30, 30, 32) }, body)
+		p.wheelB = part({ Name = "Wheel", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, 2.6, 2.6), Color = Color3.fromRGB(30, 30, 32) }, body)
+		p.frame = part({ Name = "Frame", Size = Vector3.new(0.3, 0.35, 3.4), Color = c }, body)
+		p.post = part({ Name = "Post", Size = Vector3.new(0.3, 1.6, 0.3), Color = c }, body)
+		p.bar = part({ Name = "Bar", Size = Vector3.new(1.6, 0.25, 0.25), Color = Color3.fromRGB(40, 40, 44) }, body)
 	end
+	body.PrimaryPart = p.torso
+	game:GetService("CollectionService"):AddTag(body, "SVOutline")
 	--[[ park them underground until they are first posed. A new Part lands at
 		the world origin, and the world origin is the middle of the park's
 		fountain court: 14 unposed people were standing in the fountain, which
 		is exactly where every player's eye lands on their first walk out. ]]
+	-- BaseParts only: `p` carries the Model too since v4.7.1, and a Model has no
+	-- CFrame -- assigning one threw inside newPerson and killed the whole spawn
+	-- loop after the first person (one Walker in the world, nobody on the street)
 	for _, v in pairs(p) do
-		if typeof(v) == "Instance" then v.CFrame = CFrame.new(0, -600, 0) end
+		if typeof(v) == "Instance" and v:IsA("BasePart") then v.CFrame = CFrame.new(0, -600, 0) end
 	end
 	return p
 end
