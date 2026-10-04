@@ -407,7 +407,17 @@ function Cars.init(a)
 
 		The green itself already exists -- CampusArch's promenade loop rings a
 		lawn. This puts something on it worth walking to. ]]
-		local show = CFrame.new(0, 0.6, 66) * CFrame.Angles(0, math.rad(200), 0)
+		-- v9: this was CFrame.new(0, 0.6, 66), which sat on CampusArch's old
+		-- per-plot promenade. That spot is the middle of the CENTRAL PARK now,
+		-- so the showroom car was parked in the fountain court. It stands in the
+		-- gap between the park kerb and the inner ring road instead -- where a
+		-- car can plausibly be, and on the walk in from the gate.
+		local hub = game:GetService("ServerScriptService"):FindFirstChild("CampusHub")
+		local okH, HUB = pcall(function() return hub and require(hub) end)
+		local showR = ((okH and HUB and HUB.R_PARK) or 162) + 24
+		local showA = math.rad(35)
+		local show = CFrame.new(math.cos(showA) * showR, 0.6, math.sin(showA) * showR)
+			* CFrame.Angles(0, math.atan2(-math.cos(showA), -math.sin(showA)), 0)
 		local sm = Cars.display("sports", show, D.folder)
 		if sm then
 			local ap = sm.PrimaryPart or sm:FindFirstChildWhichIsA("BasePart")

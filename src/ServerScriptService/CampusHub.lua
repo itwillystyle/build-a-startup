@@ -47,6 +47,12 @@ local GOLD = Color3.fromRGB(224, 182, 90)
 local TRUNK = Color3.fromRGB(150, 96, 62)
 local LEAF = Color3.fromRGB(78, 168, 92)
 local OAK = Color3.fromRGB(192, 138, 85)
+local LEAF_D = Color3.fromRGB(62, 142, 76)
+local STEEL = Color3.fromRGB(150, 155, 162)
+local CHARCOAL = Color3.fromRGB(58, 62, 70)
+local HEDGE = Color3.fromRGB(74, 132, 66)
+local LAMP_GLASS = Color3.fromRGB(255, 240, 205)
+local JOINT = Color3.fromRGB(182, 174, 158)
 
 local function part(parent, props)
 	local p = Instance.new("Part")
@@ -121,39 +127,92 @@ local function flatDisc(parent, name, r, y, height, colour, opts)
 	return p
 end
 
-local function tree(parent, x, z, s)
+--[[ A TREE, not a lollipop. The first version was one 15-stud sphere on a
+	square 11-stud post: at eye level that reads as a plank holding a balloon,
+	and 24 identical ones read as wallpaper. This is a tapered trunk and three
+	offset masses of falling size, seeded off its own position so no two in the
+	ring are the same. ]]
+local function tree(parent, x, z, s, seed)
 	s = s or 1
+	local rng = Random.new(seed or math.floor(x * 31 + z * 17))
+	local h = (9 + rng:NextNumber() * 2.5) * s
 	part(parent, {
-		Name = "ParkTreeTrunk",
-		Size = Vector3.new(1.8 * s, 11 * s, 1.8 * s),
-		CFrame = CFrame.new(x, 5.5 * s, z),
-		Color = TRUNK,
-		Material = Enum.Material.Wood,
+		Name = "ParkTrunk", Size = Vector3.new(2.2 * s, h * 0.55, 2.2 * s),
+		CFrame = CFrame.new(x, h * 0.275, z), Color = TRUNK, Material = Enum.Material.Wood,
 	})
 	part(parent, {
-		Name = "ParkTreeLeaf",
-		Size = Vector3.new(15 * s, 13 * s, 15 * s),
-		CFrame = CFrame.new(x, 16 * s, z),
-		Color = LEAF,
-		Material = Enum.Material.Grass,
-		Shape = Enum.PartType.Ball,
+		Name = "ParkTrunk", Size = Vector3.new(1.5 * s, h * 0.6, 1.5 * s),
+		CFrame = CFrame.new(x, h * 0.72, z), Color = TRUNK, Material = Enum.Material.Wood,
+	})
+	local lift = h * 0.95
+	local masses = { { 0, 0, 8.2 }, { 2.1, -1.4, 6.0 }, { -1.9, 1.7, 5.4 } }
+	for i, m in ipairs(masses) do
+		local w = m[3] * s * (0.92 + rng:NextNumber() * 0.2)
+		part(parent, {
+			Name = "ParkLeaf", Size = Vector3.new(w, w * 0.86, w),
+			CFrame = CFrame.new(x + m[1] * s, lift + (i == 1 and w * 0.34 or w * 0.12) + rng:NextNumber() * 1.4, z + m[2] * s),
+			Color = (i == 1) and LEAF or LEAF_D, Material = Enum.Material.Grass,
+			Shape = Enum.PartType.Ball,
+		})
+	end
+end
+
+-- a bench with a seat, a back, arms and legs: the old one was two slabs
+local function bench(parent, x, z, yaw)
+	local base = CFrame.new(x, 0, z) * CFrame.Angles(0, yaw, 0)
+	local function at(dx, dy, dz, sx, sy, sz, col, name)
+		part(parent, {
+			Name = name, Size = Vector3.new(sx, sy, sz),
+			CFrame = base * CFrame.new(dx, dy, dz), Color = col,
+			Material = (col == OAK) and Enum.Material.Wood or Enum.Material.Metal,
+		})
+	end
+	for i, dz in ipairs({ -0.85, 0, 0.85 }) do
+		at(0, 2.5, dz, 7.6, 0.4, 0.68, OAK, "BenchSlat")
+	end
+	for i, dy in ipairs({ 3.3, 4.1 }) do
+		at(0, dy, -1.35, 7.6, 0.55, 0.35, OAK, "BenchBack")
+	end
+	for _, dx in ipairs({ -3.4, 3.4 }) do
+		at(dx, 1.25, 0, 0.42, 2.5, 2.3, STEEL, "BenchLeg")
+		at(dx, 3.0, -0.55, 0.38, 1.6, 1.3, STEEL, "BenchArm")
+	end
+end
+
+local function bollard(parent, x, z)
+	part(parent, {
+		Name = "Bollard", Size = Vector3.new(1.0, 3.6, 1.0),
+		CFrame = CFrame.new(x, 1.8, z), Color = STEEL, Material = Enum.Material.Metal,
+	})
+	part(parent, {
+		Name = "BollardCap", Size = Vector3.new(1.3, 0.35, 1.3),
+		CFrame = CFrame.new(x, 3.75, z), Color = CHARCOAL, Material = Enum.Material.Metal,
 	})
 end
 
-local function bench(parent, x, z, yaw)
+local function litterBin(parent, x, z)
 	part(parent, {
-		Name = "ParkBench",
-		Size = Vector3.new(8, 1.1, 2.4),
-		CFrame = CFrame.new(x, 2.6, z) * CFrame.Angles(0, yaw, 0),
-		Color = OAK,
-		Material = Enum.Material.Wood,
+		Name = "Bin", Size = Vector3.new(2.4, 3.4, 2.4),
+		CFrame = CFrame.new(x, 1.7, z), Color = CHARCOAL, Material = Enum.Material.Metal,
 	})
 	part(parent, {
-		Name = "ParkBenchBack",
-		Size = Vector3.new(8, 2.6, 0.5),
-		CFrame = CFrame.new(x, 4.0, z) * CFrame.Angles(0, yaw, 0) * CFrame.new(0, 0, -1.0),
-		Color = OAK,
-		Material = Enum.Material.Wood,
+		Name = "BinLid", Size = Vector3.new(2.8, 0.4, 2.8),
+		CFrame = CFrame.new(x, 3.6, z), Color = STEEL, Material = Enum.Material.Metal,
+	})
+end
+
+local function parkLamp(parent, x, z)
+	part(parent, {
+		Name = "ParkLampBase", Size = Vector3.new(1.5, 1.0, 1.5),
+		CFrame = CFrame.new(x, 0.5, z), Color = CHARCOAL, Material = Enum.Material.Metal,
+	})
+	part(parent, {
+		Name = "ParkLampPost", Size = Vector3.new(0.6, 15, 0.6),
+		CFrame = CFrame.new(x, 8, z), Color = CHARCOAL, Material = Enum.Material.Metal,
+	})
+	part(parent, {
+		Name = "ParkLampHead", Size = Vector3.new(2.2, 1.4, 2.2),
+		CFrame = CFrame.new(x, 15.6, z), Color = LAMP_GLASS, Material = Enum.Material.Neon,
 	})
 end
 
@@ -176,15 +235,47 @@ function CampusHub.build(parent)
 	-- the player walks on this and the tiers read as depth.
 	flatDisc(f, "ParkFloor", R_PARK + 4, -0.4, 1.2, PAVE_D, { canCollide = true, canQuery = true })
 
-	-- outward from the middle
+	--[[ OUTWARD FROM THE MIDDLE.
+
+	The first pass laid this out as four flat discs of one colour, and at eye
+	level it was a white plane with a lollipop tree on it. Everything below is
+	about giving the eye something to measure: a kerb wherever one material
+	meets another, banding so the paving has a grain, step nosings so the tiers
+	read as steps from the side, and a hedge so the lawn has an edge instead of
+	fading into stone. ]]
+
+	-- the sunken court and the three tiers down to it
 	flatDisc(f, "ParkCourt", R_COURT, 0.4, 0.5, PAVE_W)
 	ring(f, "ParkTier3", (R_COURT + R_STEP - 38) / 2, (R_STEP - 38) - R_COURT, 0.4, 1.4, PAVE)
 	ring(f, "ParkTier2", (R_STEP - 38 + R_STEP - 20) / 2, 18, 1.0, 1.6, PAVE_D)
 	ring(f, "ParkTier1", (R_STEP - 20 + R_STEP) / 2, 20, 2.0, 1.8, PAVE)
+	-- a pale nosing on each tread edge: without it the steps vanish side-on
+	for _, nz in ipairs({ { R_STEP - 38, 1.8 }, { R_STEP - 20, 2.6 }, { R_STEP, 3.8 } }) do
+		ring(f, "ParkNosing", nz[1] - 0.9, 2.2, nz[2] - 0.35, 0.4, PAVE_W, { seg = 40 })
+	end
+
+	-- the lawn, kerbed on both sides and hedged on the outside
+	ring(f, "ParkKerbIn", R_STEP + 1.6, 3.2, 3.2, 1.5, CONCRETE, { seg = 40 })
 	ring(f, "ParkLawn", (R_STEP + R_PARK - 36) / 2, (R_PARK - 36) - R_STEP, 3.2, 1.2, LAWN,
 		{ material = Enum.Material.Grass })
-	ring(f, "ParkWalk", R_PARK - 20, 32, 3.2, 1.3, PAVE)
+	ring(f, "ParkKerbMid", R_PARK - 37, 3.2, 3.2, 1.5, CONCRETE, { seg = 40 })
+	ring(f, "ParkHedge", R_PARK - 39.5, 4.0, 4.4, 3.2, HEDGE, { material = Enum.Material.Grass, seg = 40 })
+
+	-- the outer walk: banded, so a 32-stud ring of stone has a grain
+	ring(f, "ParkWalk", R_PARK - 28, 14, 3.2, 1.3, PAVE, { seg = 44 })
+	ring(f, "ParkWalkBand", R_PARK - 20, 2.0, 3.2, 1.35, JOINT, { seg = 44 })
+	ring(f, "ParkWalk", R_PARK - 12, 14, 3.2, 1.3, PAVE_D, { seg = 44 })
 	ring(f, "ParkKerb", R_PARK, 7, 3.2, 2.0, CONCRETE)
+	-- radial joints across the walk, every 15 degrees
+	for i = 0, 23 do
+		local a = i * math.pi / 12
+		part(f, {
+			Name = "ParkJoint",
+			Size = Vector3.new(32, 1.42, 0.7),
+			CFrame = CFrame.new(math.cos(a) * (R_PARK - 20), 3.9, math.sin(a) * (R_PARK - 20)) * CFrame.Angles(0, -a, 0),
+			Color = JOINT,
+		})
+	end
 
 	-- eight walks cutting the lawn ring, so the park is crossed not skirted
 	for i = 0, 7 do
@@ -192,54 +283,78 @@ function CampusHub.build(parent)
 		local rMid = (R_STEP + R_PARK - 36) / 2
 		part(f, {
 			Name = "ParkPath",
-			-- same axis order as the rings: X is radial (the path's length), Z
-			-- is tangential (its width)
+			-- X is radial (the path's length), Z is tangential (its width)
 			Size = Vector3.new((R_PARK - 36) - R_STEP + 4, 1.4, 14),
 			CFrame = CFrame.new(math.cos(a) * rMid, 3.9, math.sin(a) * rMid) * CFrame.Angles(0, -a, 0),
 			Color = PAVE_W,
 		})
+		for _, side in ipairs({ -7.6, 7.6 }) do
+			part(f, {
+				Name = "ParkPathKerb",
+				Size = Vector3.new((R_PARK - 36) - R_STEP + 4, 1.9, 1.2),
+				CFrame = CFrame.new(math.cos(a) * rMid, 4.1, math.sin(a) * rMid)
+					* CFrame.Angles(0, -a, 0) * CFrame.new(0, 0, side),
+				Color = CONCRETE,
+			})
+		end
 	end
 
-	-- four reflecting pools on the diagonals
+	-- four reflecting pools on the diagonals, each with a raised stone lip
 	for i = 0, 3 do
 		local a = math.pi / 4 + i * math.pi / 2
 		local rMid = (R_STEP + R_PARK - 36) / 2
+		local base = CFrame.new(math.cos(a) * rMid, 0, math.sin(a) * rMid) * CFrame.Angles(0, -a, 0)
+		part(f, { Name = "PoolLip", Size = Vector3.new(50, 2.2, 38), CFrame = base * CFrame.new(0, 4.3, 0), Color = CONCRETE })
 		part(f, {
-			Name = "ParkPool",
-			Size = Vector3.new(46, 1.0, 34),
-			CFrame = CFrame.new(math.cos(a) * rMid, 4.0, math.sin(a) * rMid) * CFrame.Angles(0, -a, 0),
-			Color = WATER,
-			Material = Enum.Material.Glass,
-			Transparency = 0.25,
+			Name = "ParkPool", Size = Vector3.new(44, 1.0, 32), CFrame = base * CFrame.new(0, 5.0, 0),
+			Color = WATER, Material = Enum.Material.Glass, Transparency = 0.25,
 		})
 	end
 
-	-- the fountain, and the monument the whole ring points at
-	flatDisc(f, "FountainRim", 20, 0.9, 1.4, CONCRETE)
-	flatDisc(f, "FountainWater", 16, 1.1, 1.2, WATER, { material = Enum.Material.Glass })
-	part(f, {
-		Name = "Monument",
-		Size = Vector3.new(5, 34, 5),
-		CFrame = CFrame.new(0, 18, 0),
-		Color = PAVE_W,
-	})
-	part(f, {
-		Name = "MonumentCap",
-		Size = Vector3.new(9, 4, 9),
-		CFrame = CFrame.new(0, 37, 0),
-		Color = GOLD,
-		Material = Enum.Material.Neon,
-	})
+	--[[ THE FOUNTAIN. Three basins falling into each other, which is what makes
+	a fountain read as a fountain rather than a lit puddle: a wide low pool, a
+	stem, a mid bowl, and a crown bowl under the monument. ]]
+	flatDisc(f, "FountainBasin", 22, 0.4, 2.2, CONCRETE)
+	flatDisc(f, "FountainWater", 19, 1.4, 1.0, WATER, { material = Enum.Material.Glass })
+	ring(f, "FountainLip", 21, 2.6, 0.4, 2.6, PAVE_W, { seg = 36 })
+	flatDisc(f, "FountainStem", 5.5, 2.4, 6.0, CONCRETE)
+	flatDisc(f, "FountainBowl2", 11, 8.4, 1.3, CONCRETE)
+	flatDisc(f, "FountainWater2", 9.4, 9.0, 0.8, WATER, { material = Enum.Material.Glass })
+	flatDisc(f, "FountainStem2", 3.2, 9.4, 4.6, CONCRETE)
+	flatDisc(f, "FountainBowl3", 6.4, 13.6, 1.1, CONCRETE)
+	flatDisc(f, "FountainWater3", 5.2, 14.1, 0.7, WATER, { material = Enum.Material.Glass })
+	for i = 0, 7 do
+		local a = i * math.pi / 4
+		part(f, {
+			Name = "FountainJet", Size = Vector3.new(0.8, 7 + (i % 3) * 3, 0.8),
+			CFrame = CFrame.new(math.cos(a) * 13, 4.5, math.sin(a) * 13),
+			Color = WATER, Material = Enum.Material.Glass, Transparency = 0.45,
+		})
+	end
+	part(f, { Name = "Monument", Size = Vector3.new(4.2, 26, 4.2), CFrame = CFrame.new(0, 27, 0), Color = PAVE_W })
+	part(f, { Name = "MonumentCap", Size = Vector3.new(8, 3.6, 8), CFrame = CFrame.new(0, 41.5, 0), Color = GOLD, Material = Enum.Material.Neon })
 
-	-- seating on the tiers: an amphitheatre is where people sit
+	-- seating on the tiers, facing the water
 	for i = 0, 11 do
 		local a = i * math.pi / 6 + 0.13
 		bench(f, math.cos(a) * (R_STEP - 9), math.sin(a) * (R_STEP - 9), -a + math.pi / 2)
 	end
-	-- the tree walk
+	-- the tree walk, with lamps, bins and bollards along the kerb
 	for i = 0, 23 do
 		local a = i * math.pi / 12
-		tree(f, math.cos(a) * (R_PARK - 20), math.sin(a) * (R_PARK - 20), 1.1)
+		tree(f, math.cos(a) * (R_PARK - 20), math.sin(a) * (R_PARK - 20), 1.0, i * 977)
+	end
+	for i = 0, 11 do
+		local a = i * math.pi / 6 + math.pi / 12
+		parkLamp(f, math.cos(a) * (R_PARK - 6), math.sin(a) * (R_PARK - 6))
+	end
+	for i = 0, 7 do
+		local a = i * math.pi / 4 + math.pi / 8
+		litterBin(f, math.cos(a) * (R_PARK - 8), math.sin(a) * (R_PARK - 8))
+	end
+	for i = 0, 35 do
+		local a = i * math.pi / 18
+		bollard(f, math.cos(a) * (R_PARK + 5), math.sin(a) * (R_PARK + 5))
 	end
 
 	-- THE RING ROADS. Collidable so cars drive on them, and tagged so the
