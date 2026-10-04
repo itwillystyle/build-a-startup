@@ -647,9 +647,23 @@ local function buildSegment(plot, L, dept, model)
 	wider than the shaft with a deep entrance on the road side, so the tower
 	stands on something instead of meeting the ground.
 
-	Built once, with wafer 1's first piece, because it is not a level anybody
-	buys -- it appears the moment the building starts. ]]
-	if pc.wafer == 1 and pc.storey == 0 and pc.seg == 1 then
+	It wraps the ground floor on purpose -- a podium IS the ground-floor
+	envelope -- which is why it is G.H * 1.4 tall and overlaps storey 0.
+
+	So it waits for wafer 1 to be finished and arrives with the FIRST PIECE OF
+	WAFER 2 -- the moment the building stops being one ring and becomes a stack.
+	The podium is 18.4 studs tall against a 13-stud storey and is wider than a
+	single ring, so a player who owned only storey 0 watched their whole
+	building vanish inside its own base: it read as an empty grey stadium and
+	the floors looked deleted. Measured on all three paths: at level 9 the base
+	buries everything, at level 10 it still out-masses the single storey above
+	it, and at level 19 the shaft is 2.2x the base and it finally reads as a
+	base. This also makes it a reward instead of a surprise.
+
+	It is gated on a SEGMENT, not on wafer 1's deck, because this whole block
+	lives in buildSegment -- a deck-kind test here would never fire and the
+	podium would disappear from the game entirely. ]]
+	if pc.wafer == 2 and pc.seg == 1 and pc.storey == 3 then
 		local px, pz = centre(1)
 		local pa = plot.pivot * CFrame.new(px, 0, pz)
 		local pod = mesh(model, pa, "W_Podium", nil, { CastShadow = true })
