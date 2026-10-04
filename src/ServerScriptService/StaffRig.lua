@@ -315,6 +315,7 @@ local TROUSERS = {
 	Color3.fromRGB(96, 100, 110), Color3.fromRGB(44, 48, 60),
 }
 local STRIP = { Animate = true, HumanoidDescription = true, BodyColors = true }
+local HEAD_SCALE = 1.24          -- v4.7: cartoon proportions, measured in game
 
 local templates = {}          -- hair index -> prepared Model (in ServerStorage)
 local prewarmDone = false
@@ -371,6 +372,20 @@ local function prepareTemplate(hairId)
 		end
 	end
 	convertJoints(m)
+	--[[ v4.7 THE CARTOON PASS: a bigger head. Nothing reads cartoon faster on a
+		character, and it is free -- no upload, no description scaling (the body
+		scale values are stripped two lines above, so HumanoidDescription.HeadScale
+		would not survive). The head grows about its own centre, so the Neck's C1
+		is pulled down by half the growth to keep the chin on the neck. Legs are
+		untouched, so root-to-sole and everything seated on it are unchanged. ]]
+	local head = m:FindFirstChild("Head")
+	local upper = m:FindFirstChild("UpperTorso")
+	local neck = upper and upper:FindFirstChild("Neck")
+	if head and neck and neck:IsA("Motor6D") then
+		local was = head.Size
+		head.Size = was * HEAD_SCALE
+		neck.C1 = neck.C1 + Vector3.new(0, -(head.Size.Y - was.Y) / 2, 0)
+	end
 	local root = hrp:FindFirstChild("Root")
 	if not root then m:Destroy() return nil end
 	-- root-to-sole from the JOINT CHAIN, not from part positions: the freshly
@@ -473,7 +488,7 @@ local function buildAvatar(tpl, roleKey, index)
 	end
 	local head = m:FindFirstChild("Head")
 	local tag = nameTag(head, personName, role.name, role.color)
-	tag.StudsOffset = Vector3.new(0, 2.5, 0)       -- avatars wear hair: the tag floats clear of it (1.9 suited the bald block rig)
+	tag.StudsOffset = Vector3.new(0, 2.9, 0)       -- avatars wear hair: the tag floats clear of it (1.9 suited the bald block rig; v4.7 added 0.4 for the bigger head)
 	CollectionService:AddTag(m, StaffRig.TAG)
 	m:SetAttribute("Role", roleKey)
 	m:SetAttribute("PersonName", personName)
@@ -588,7 +603,7 @@ function StaffRig.say(model, text, seconds)
 	local bb = Instance.new("BillboardGui")
 	bb.Name = "Bubble"
 	bb.Size = UDim2.new(0, 220, 0, 40)
-	bb.StudsOffset = Vector3.new(0, model:GetAttribute("Avatar") and 3.9 or 3.4, 0)
+	bb.StudsOffset = Vector3.new(0, model:GetAttribute("Avatar") and 4.3 or 3.4, 0)   -- v4.7: clears the bigger head
 	bb.AlwaysOnTop = false
 	bb.MaxDistance = 60
 	bb.Parent = head

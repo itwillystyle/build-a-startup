@@ -264,6 +264,10 @@ local function loopPoint(p)
 	return Vector3.new(qx, 0, qz) + d.Unit * L.r
 end
 
+-- v4.7: GlobalShadows is off for the cartoon look, so anything standing on
+-- the ground needs its shadow drawn under it or it floats (measured in the A/B)
+local FlatLook = require(script.Parent:WaitForChild("FlatLook"))
+
 local PATH = Color3.fromRGB(214, 208, 196)
 local PATH_EDGE = Color3.fromRGB(168, 162, 150)
 local CAMPUS_LAWN = Color3.fromRGB(136, 172, 96)
@@ -928,15 +932,18 @@ local function tree(parent, cf, height, pool, rng)
 		local now, s3 = t:GetBoundingBox()
 		t:PivotTo(t:GetPivot() + Vector3.new(0, cf.Position.Y - (now.Position.Y - s3.Y / 2), 0))
 		t.Parent = parent
+		FlatLook.contact(parent, cf.Position.X, cf.Position.Z, height * 0.3)
 		return t
 	end
 	mk(parent, { Name = "Trunk", Size = Vector3.new(0.8, height * 0.45, 0.8), CFrame = cf * CFrame.new(0, height * 0.225, 0),
 		Color = Color3.fromRGB(120, 86, 60), CanCollide = false })
 	mk(parent, { Name = "Crown", Shape = Enum.PartType.Ball, Size = Vector3.new(height * 0.6, height * 0.6, height * 0.6),
 		CFrame = cf * CFrame.new(0, height * 0.7, 0), Color = LAWN, CanCollide = false })
+	FlatLook.contact(parent, cf.Position.X, cf.Position.Z, height * 0.3)
 end
 
 local function bench(parent, cf)
+	FlatLook.contact(parent, cf.Position.X, cf.Position.Z, 3.6, 0.2)
 	mk(parent, { Name = "BenchBase", Size = Vector3.new(6, 1.2, 1.8), CFrame = cf * CFrame.new(0, 0.6, 0),
 		Color = PLINTH, Material = Enum.Material.Concrete, CanCollide = false })
 	mk(parent, { Name = "BenchTop", Size = Vector3.new(6.4, 0.3, 2), CFrame = cf * CFrame.new(0, 1.35, 0),
@@ -1082,8 +1089,10 @@ function CampusArch.grounds(folder, pivot, slab, path, seed)
 		pavement comes in. ]]
 		mk(f, { Name = "ForecourtPanelKerb", Size = Vector3.new(27, 1.4, 39), CFrame = g(sx * 27, 0.7, 95),
 			Color = PATH_EDGE, Material = Enum.Material.Concrete, CanCollide = false, CastShadow = false })
+		-- queryable, unlike most decor: this is the surface things stand ON, and
+		-- a raycast that falls through it puts their contact shadow under the kerb
 		mk(f, { Name = "ForecourtPanel", Size = Vector3.new(25.4, 0.5, 37.4), CFrame = g(sx * 27, 1.35, 95),
-			Color = CAMPUS_LAWN, Material = Enum.Material.Grass, CanCollide = false, CanQuery = false, CastShadow = false })
+			Color = CAMPUS_LAWN, Material = Enum.Material.Grass, CanCollide = false, CastShadow = false })
 		for _, t in ipairs({ { sx * 20, 83 }, { sx * 34, 95 }, { sx * 20, 107 } }) do
 			tree(f, g(t[1], 1.6, t[2]), rng:NextNumber(10.5, 13), { "tree_detailed", "tree_oak" }, rng)
 		end

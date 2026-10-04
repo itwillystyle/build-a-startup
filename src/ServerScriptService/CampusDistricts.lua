@@ -90,7 +90,7 @@ local function slab(parent, name, a, r, t, w, h, d, colour, opts)
 		Material = opts.material or Enum.Material.SmoothPlastic,
 		Shape = opts.shape,
 		CanCollide = opts.solid or false,
-		CanQuery = opts.solid or false,
+		CanQuery = opts.solid or opts.query or false,
 		Transparency = opts.transparency or 0,
 	})
 end
@@ -106,12 +106,17 @@ local function pad(parent, a, r, t, w, d, colour, y)
 	local base = (y or 0)
 	slab(parent, "PadVerge", a, r, t, w + 22, 0.8, d + 22, LAWN, { y = base - 0.4, material = Enum.Material.Grass })
 	slab(parent, "PadKerb", a, r, t, w + 6, 1.4, d + 6, CONCRETE, { y = base - 0.4 })
-	return slab(parent, "Pad", a, r, t, w, 1.0, d, colour, { y = base - 0.5 + 0.55 })
+	-- queryable: a pad is a floor, and anything asking what it is standing on
+	-- (contact shadows, idle spots, candidates) has to be able to find it
+	return slab(parent, "Pad", a, r, t, w, 1.0, d, colour, { y = base - 0.5 + 0.55, query = true })
 end
+
+local FlatLook = require(script.Parent:WaitForChild("FlatLook"))   -- v4.7 contact shadows
 
 local function tree(parent, a, r, t, s)
 	s = s or 1
 	local p = at(a, r, t)
+	FlatLook.contact(parent, p.X, p.Z, 6.6 * s)
 	part(parent, {
 		Name = "DistTrunk", Size = Vector3.new(1.7 * s, 10 * s, 1.7 * s),
 		CFrame = CFrame.new(p.X, 5 * s, p.Z), Color = TRUNK, Material = Enum.Material.Wood,

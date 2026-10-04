@@ -57,9 +57,18 @@ Lighting.GeographicLatitude = 37.4             -- Mountain View
 local grade = Lighting:FindFirstChild("SVGrade") or Instance.new("ColorCorrectionEffect")
 grade.Name = "SVGrade"
 grade.Parent = Lighting
+--[[ v4.7: set once, because nothing else in the game writes them. Shadows off
+	is the single biggest cartoon change available and it also REMOVES work on
+	a phone (293 casters were being drawn into a shadow map). Specular 0 kills
+	the highlight that was sliding across every surface as the sun moved. ]]
+Lighting.GlobalShadows = false
+Lighting.ShadowSoftness = 1
+Lighting.EnvironmentSpecularScale = 0
+Lighting.EnvironmentDiffuseScale = 0.3
+
 local rays = Lighting:FindFirstChild("SVRays") or Instance.new("SunRaysEffect")
 rays.Name = "SVRays"
-rays.Intensity = 0.04
+rays.Intensity = 0
 rays.Spread = 0.7
 rays.Parent = Lighting
 -- v3.6 (PLAN v6 V6): the architect's-model cue. Everything within ~230 studs (your
@@ -234,10 +243,19 @@ crickets.Volume = 0
 crickets.Parent = SoundService
 crickets:Play()
 
--- v3.5 (ART.md): warm key, cool shadow. The old fill (128,132,140) lifted
--- every shadow to grey, which is most of why daylight read flat.
-local DAY_AMB, NIGHT_AMB = Color3.fromRGB(80, 82, 94), Color3.fromRGB(36, 40, 62)
-local DAY_OUT, NIGHT_OUT = Color3.fromRGB(108, 118, 144), Color3.fromRGB(54, 60, 92)
+--[[ v4.7 THE CARTOON PASS. He asked for a cartoonish feel. Measured in the
+	A/B: hard cast shadows plus a specular highlight on every surface are what
+	made this read photographed, and they are both free to turn off.
+
+	v3.5 pushed the other way on purpose -- "warm key, cool shadow", a dark
+	fill so daylight did not read flat. Flat is now the point. DAY ambient goes
+	up and the key comes down, so a sunlit face and a shaded face are close in
+	value; NIGHT is left alone, because the lit-window effect needs the dark.
+
+	Not the blunt version from the test: that ran ambient at 176 and washed the
+	colour out of the hills. ]]
+local DAY_AMB, NIGHT_AMB = Color3.fromRGB(142, 140, 150), Color3.fromRGB(36, 40, 62)
+local DAY_OUT, NIGHT_OUT = Color3.fromRGB(176, 182, 196), Color3.fromRGB(54, 60, 92)
 local DAY_SHIFT, GOLD_SHIFT = Color3.fromRGB(34, 20, 4), Color3.fromRGB(96, 52, 14)   -- warmth on sunlit faces
 local DAY_TINT, GOLD_TINT, NIGHT_TINT = Color3.fromRGB(255, 250, 242), Color3.fromRGB(255, 238, 214), Color3.fromRGB(196, 206, 255)
 local DAY_ATM, GOLD_ATM, NIGHT_ATM = Color3.fromRGB(214, 210, 200), Color3.fromRGB(230, 208, 174), Color3.fromRGB(42, 50, 82)
@@ -332,14 +350,14 @@ RunService.Heartbeat:Connect(function(dt)
 	if type(ov) == "number" then h = ov end
 	Lighting.ClockTime = h
 	local day, golden = lightFactors(h)
-	Lighting.Brightness = 0.6 + 1.7 * day
+	Lighting.Brightness = 0.5 + 1.0 * day       -- v4.7: was 0.6 + 1.7, a 2.3 key against a dark fill
 	Lighting.Ambient = lerpC(NIGHT_AMB, DAY_AMB, day)
 	Lighting.OutdoorAmbient = lerpC(NIGHT_OUT, DAY_OUT, day)
 	grade.TintColor = lerpC(lerpC(NIGHT_TINT, DAY_TINT, day), GOLD_TINT, golden)
-	grade.Saturation = 0.02 + 0.1 * day
-	grade.Contrast = 0.08 + 0.04 * golden
+	grade.Saturation = 0.02 + 0.26 * day       -- v4.7: poster colour, not photographic
+	grade.Contrast = 0.05 * golden - 0.03 * day
 	Lighting.ColorShift_Top = lerpC(lerpC(Color3.new(0, 0, 0), DAY_SHIFT, day), GOLD_SHIFT, golden)
-	rays.Intensity = 0.02 + 0.08 * golden
+	rays.Intensity = 0                         -- v4.7: god rays are a photographic effect
 	local atm = Lighting:FindFirstChildOfClass("Atmosphere")
 	if atm then
 		atm.Color = lerpC(lerpC(NIGHT_ATM, DAY_ATM, day), GOLD_ATM, golden * 0.8)
