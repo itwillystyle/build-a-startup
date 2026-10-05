@@ -35,6 +35,20 @@
 	    is the bug. Within one ScreenGui, the layout is somebody's decision.
 	  * NOT ANCESTOR vs DESCENDANT. A label inside its own card always overlaps
 	    it, by definition.
+
+	AND A SECOND CHECK, added the same day the first one was not enough.
+
+	The quest card's X did not work and this tool said the screen was clean.
+	It was: the thing eating the click was "Hit", a full-card TextButton at
+	ZIndex 20 with a transparent background and no text. It paints NOTHING, so
+	a paint-based check skips it by design -- and an invisible button is the
+	worst thing to be blind to, because the only symptom is a control that
+	silently does nothing.
+
+	So the second pass asks the engine instead. For every button on screen it
+	calls PlayerGui:GetGuiObjectsAtPosition at that button's own centre, and
+	if the topmost interactive thing there is not that button, something is
+	sitting on it. That check found the X in one call.
 ]]
 
 local Players = game:GetService("Players")
@@ -131,4 +145,42 @@ local out = {
 }
 for _, h in ipairs(hits) do table.insert(out, h.line) end
 table.insert(out, ("OVERLAPS: %d"):format(#hits))
+
+--[[ BUTTONS SOMETHING ELSE WILL SWALLOW. A control drawn in the wrong place
+	is at least visible; a control that cannot be clicked fails silently. ]]
+local function interactive(o)
+	return o:IsA("GuiButton") or (o:IsA("GuiObject") and o.Active)
+end
+
+local blocked = 0
+table.insert(out, "-- BUTTONS SOMETHING ELSE WILL SWALLOW --")
+for _, it in ipairs(items) do
+	local o = it.obj
+	if o:IsA("GuiButton") then
+		local x = math.floor(o.AbsolutePosition.X + o.AbsoluteSize.X / 2)
+		local y = math.floor(o.AbsolutePosition.Y + o.AbsoluteSize.Y / 2)
+		local ok, stack = pcall(function() return pg:GetGuiObjectsAtPosition(x, y) end)
+		if ok then
+			local top
+			for _, candidate in ipairs(stack) do
+				if interactive(candidate) then
+					top = candidate
+					break
+				end
+			end
+			if top and top ~= o then
+				local names, g = {}, top
+				while g and g ~= pg do
+					table.insert(names, 1, g.Name)
+					g = g.Parent
+				end
+				blocked += 1
+				table.insert(out, ("  %-40s covered at its centre by %s (ZIndex %d vs %d)")
+					:format(path(it), table.concat(names, "."), top.ZIndex, o.ZIndex))
+			end
+		end
+	end
+end
+table.insert(out, ("BLOCKED BUTTONS: %d"):format(blocked))
+
 return table.concat(out, "\n")

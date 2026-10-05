@@ -241,7 +241,11 @@ local sub = UIKit.label(card, "", 16, UIKit.MUTED_TEXT, {
 	Dismissing hides THIS objective only. The moment the game asks for something
 	else the card comes back, because the key no longer matches -- so you can
 	wave off a goal you are ignoring without switching the guide off for good. ]]
-local dismissedKey = nil
+--[[ The dismissed goal is a player ATTRIBUTE, not an upvalue. Two reasons:
+	it can be read and set from anywhere (so the behaviour is testable, which
+	an upvalue buried in a LocalScript is not), and it survives this card being
+	rebuilt. ]]
+local DISMISS_ATTR = "GuideDismissed"
 local closeBtn = Instance.new("TextButton")
 closeBtn.Name = "Dismiss"
 closeBtn.AnchorPoint = Vector2.new(1, 0)
@@ -253,7 +257,12 @@ closeBtn.Text = "\u{00D7}"
 closeBtn.TextColor3 = UIKit.MUTED_TEXT
 closeBtn.TextSize = 20
 closeBtn.Font = Enum.Font.GothamBold
-closeBtn.ZIndex = 8
+--[[ ABOVE "Hit" (ZIndex 20), which is the whole-card tap target that turns the
+	camera to the goal. At ZIndex 8 the X was UNDER it, so every click on the X
+	went to Hit and swung the camera instead -- which from the player's seat
+	looks exactly like a button that does nothing. Found with
+	PlayerGui:GetGuiObjectsAtPosition on the X's own centre. ]]
+closeBtn.ZIndex = 21
 closeBtn.AutoButtonColor = true
 closeBtn.Parent = card
 Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(1, 0)
@@ -576,7 +585,7 @@ local function readObjective()
 		That is most of what "the UI all pops up at once" actually was. ]]
 	local menu = UIKit.menuOpen()
 	card.Visible = show and key ~= "product" and player:GetAttribute("NamingOpen") ~= true
-		and key ~= dismissedKey and not menu
+		and key ~= player:GetAttribute(DISMISS_ATTR) and not menu
 	gui.Enabled = show and player:GetAttribute("NamingOpen") ~= true and not menu
 	local showMarker = show and target ~= nil
 	pin.Enabled = showMarker
@@ -752,11 +761,18 @@ RunService.RenderStepped:Connect(function()
 	edge.Visible = true
 end)
 
-closeBtn.MouseButton1Click:Connect(function()
-	dismissedKey = lastKey
+-- Activated, not MouseButton1Click: it covers touch and gamepad as well as the
+-- mouse, and this game is meant to be played on a phone
+local function dismissCurrent()
+	player:SetAttribute(DISMISS_ATTR, lastKey)
 	card.Visible = false
 	Notify.reserveTop(0)
-end)
+end
+
+closeBtn.Activated:Connect(dismissCurrent)
+
+-- the card re-reads the attribute, so clearing it anywhere brings the goal back
+player:GetAttributeChangedSignal(DISMISS_ATTR):Connect(function() pcall(readObjective) end)
 
 --[[ TELL THE DIRECTOR WHERE THE TOP ENDS. Measured, not assumed: the card's
 	own height changes with a wrapped subtitle and with the big-goal meter, so a
