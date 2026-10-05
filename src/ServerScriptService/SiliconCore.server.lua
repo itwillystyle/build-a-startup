@@ -671,6 +671,23 @@ if CampusHub then
 			warn("[SV] CampusDistricts failed: " .. tostring(errD2))
 		end
 	end
+	--[[ v4.9 THE GROUND SWEEP. Everything that paves ground has now run, so
+		this is the one place where "who built first" stops mattering: any
+		valley greenery still standing on reserved ground goes, and the zones
+		are published for tools/world_overlap.luau to check from outside. ]]
+	local Ground = tryRequire(ServerScriptService, "Ground")
+	if Ground then
+		local okG, removed, byZone = pcall(Ground.sweep, { world:FindFirstChild("LowPolyWorld"), world:FindFirstChild("Valley") })
+		if okG then
+			local parts = {}
+			for k, v in pairs(byZone or {}) do table.insert(parts, ("%s %d"):format(k, v)) end
+			print(("[SV] ground sweep: %d pieces of greenery cleared off paving%s"):format(
+				removed or 0, #parts > 0 and (" (" .. table.concat(parts, ", ") .. ")") or ""))
+		else
+			warn("[SV] ground sweep failed: " .. tostring(removed))
+		end
+		pcall(Ground.publish, world)
+	end
 end
 
 -- hub spawn: only used before a plot is assigned, or by a 7th body
