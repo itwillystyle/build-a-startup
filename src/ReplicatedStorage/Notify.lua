@@ -274,6 +274,36 @@ function Notify.state() return get().env.state() end
 -- v4.3: for overlays that must never HOLD a lane (the HUD tips, CoachClient): is
 -- something on screen they should step aside for? A card or banner in the centre
 -- or top lane, or driving / carrying / a cutscene / a menu.
+--[[ THE TOP INSET (v4.9).
+
+	REPORTED 4 Oct, with a screenshot: the phone's "a GENIUS is waiting" banner
+	printed straight across the quest card. Measured in a live session -- the
+	quest card occupies y 48..132, and the banner's y was a hardcoded 96. Dead
+	centre. Every other top-lane card had its own magic number too: 80, 94, 96,
+	100.
+
+	The director never stopped it because GuideClient has no idea the director
+	exists: the quest card never asks for a lane, so `top` always looks free.
+	notify_spec passes 17/17 and could never have caught this -- it can only see
+	elements that registered.
+
+	The fix is not another magic number. The quest card now reports its real
+	bottom edge here, and every top-lane card asks where the top actually ends.
+	Reserve 0 means nothing is up there and the old defaults apply. ]]
+local topReserve = 0
+local TOP_GAP = 12
+
+function Notify.reserveTop(px)
+	topReserve = math.max(0, tonumber(px) or 0)
+end
+
+-- where a top-lane card should start: its own default, or below whatever is parked up there
+function Notify.topY(default)
+	default = tonumber(default) or 96
+	if topReserve <= 0 then return default end
+	return math.max(default, math.floor(topReserve) + TOP_GAP)
+end
+
 function Notify.busy()
 	local d = get()
 	local c, tp = d.lanes.centre, d.lanes.top
