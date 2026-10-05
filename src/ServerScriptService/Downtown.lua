@@ -176,9 +176,16 @@ function Downtown.build(world)
 	f.Parent = world
 	Downtown.folder = f
 
-	-- 1. the plaza: paving over the whole flat end of the valley, a darker border
-	part(f, { Name = "Plaza", Size = Vector3.new(172, 0.8, 196), CFrame = CFrame.new(706, PLAZA_Y - 0.4, 0),
+	--[[ 1. the plaza: paving over the whole flat end of the valley, a darker border.
+		v4.9: it reserves its ground (Ground.lua), so the valley's trees are swept
+		off it rather than left standing in the paving. SVCheck's "paving nobody
+		reserved" pass is what found this one -- it was the only unclaimed slab
+		left in the game after the districts were done. ]]
+	local plaza = part(f, { Name = "Plaza", Size = Vector3.new(172, 0.8, 196), CFrame = CFrame.new(706, PLAZA_Y - 0.4, 0),
 		Color = PAVING, Material = Enum.Material.Pavement })
+	pcall(function()
+		require(script.Parent:WaitForChild("Ground")).reservePart(plaza, "DowntownPlaza")
+	end)
 	part(f, { Name = "PlazaEdge", Size = Vector3.new(176, 0.7, 200), CFrame = CFrame.new(706, PLAZA_Y - 0.5, 0),
 		Color = PAVING_DARK, Material = Enum.Material.Concrete, CanQuery = false })
 	-- the road from the end of the Kenney tiles to the roundabout
