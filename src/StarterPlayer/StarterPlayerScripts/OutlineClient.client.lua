@@ -45,8 +45,40 @@ local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
-local BUDGET = 220                  -- measured: 1 draw call each, on top of ~250
-local IN_R, OUT_R = 190, 240        -- hysteresis, so nothing flickers on the edge
+--[[ v4.9 THE CUTOFF WAS THE BUG, and my own cost estimate was why it existed.
+
+	Reported 4 Oct with a screenshot: outlines stop at a visible ring and the far
+	half of the view is drawn plain. Measured live at that moment: 556 objects
+	tagged, 41 outlined, 527 tagged objects IN FRAME past the 240-stud cutoff.
+
+	That cutoff came from my own measurement of "1 draw call per Highlight".
+	Re-measured by outlining every tagged object and reading the counter:
+
+	    street level, districts   425 -> 609 draws   (+184 for 513 outlines)
+	    hub, across the ring      530 -> 744         (+214)
+	    high over the campus      570 -> 877         (+307)
+
+	0.61 draw calls each, not 1.0 -- occluded and off-screen adornees cost
+	nothing. The worst view found lands at 877 against Roblox's documented
+	1000-call phone budget, so the cutoff was buying headroom nobody needed.
+	Triangles barely moved: 839k -> 909k.
+
+	So the reach goes out to MAX_R, and -- the part that actually answers the
+	complaint -- the outline FADES over the last stretch instead of stopping
+	dead. There is no visible ring at any reach.
+
+	The reach is adaptive too. That 877 was a ONE-player server; six players at
+	thirty staff each adds ~180 tagged objects, about +110 calls, which is on
+	the ceiling rather than under it. So rather than guess a safe constant, the
+	reach watches the real draw count and pulls in when the frame gets dear.
+	Because of the fade, pulling in is invisible: those outlines had already
+	faded to nothing. ]]
+local BUDGET = 600                  -- effectively all of them; the reach is the real limiter
+local MAX_R, MIN_R = 820, 200
+local FADE = 0.26                   -- the outer quarter of the reach fades away
+local DRAW_CEIL = 880
+local DRAW_EASE = 120
+local reach = MAX_R
 local LINE = Color3.fromRGB(26, 24, 30)
 --[[ TWO TIERS, and the order matters. Tier 1 is what you are looking at and
 	chasing -- people, vehicles, trees. Tier 2 is the street itself: lamps,
@@ -97,9 +129,9 @@ local function refresh()
 					local ok, pivot = pcall(function() return m:GetPivot().Position end)
 					if ok then
 						local d = (pivot - eye).Magnitude
-						-- already lit? it keeps its line out to OUT_R. Not lit? it
-						-- has to come inside IN_R to earn one.
-						if d < (lit[m] and OUT_R or IN_R) then table.insert(out, { m, d }) end
+						-- already lit? its line reaches a little further, so nothing
+						-- flickers on the boundary
+						if d < reach * (lit[m] and 1.08 or 1.0) then table.insert(out, { m, d }) end
 					end
 				end
 			end
@@ -115,11 +147,19 @@ local function refresh()
 	for _, tags in ipairs({ TIER1, TIER2 }) do
 		gather(tags, near)
 		for i = 1, math.min(BUDGET - spent, #near) do
-			local m = near[i][1]
+			local m, d = near[i][1], near[i][2]
 			keep[m] = true
 			spent = spent + 1
 			local h = lit[m]
-			if not h or not h.Parent then lit[m] = outline(m) end
+			if not h or not h.Parent then
+				h = outline(m)
+				lit[m] = h
+			end
+			--[[ THE FADE. Solid until the last quarter of the reach, then eased out
+				to nothing. A line that thins away reads as distance; a line that stops
+				dead reads as a bug, which is what he saw. ]]
+			local k = (d - reach * (1 - FADE)) / (reach * FADE)
+			h.OutlineTransparency = k <= 0 and 0 or (k >= 1 and 1 or k * k)
 		end
 		if spent >= BUDGET then break end
 	end
@@ -131,10 +171,27 @@ local function refresh()
 	end
 end
 
+--[[ Steer the reach by what the frame actually costs rather than by a constant
+	I guessed. It moves 8% a step at most, four times a second, so it cannot
+	oscillate visibly -- and the fade means the boundary is never on screen to be
+	seen moving. ]]
+local Stats = game:GetService("Stats")
+
+local function steer()
+	local ok, draws = pcall(function() return Stats.SceneDrawcallCount end)
+	if not ok or type(draws) ~= "number" or draws <= 0 then return end
+	if draws > DRAW_CEIL then
+		reach = math.max(MIN_R, reach * 0.92)
+	elseif draws < DRAW_CEIL - DRAW_EASE then
+		reach = math.min(MAX_R, reach * 1.04)
+	end
+end
+
 local acc = 0
 RunService.Heartbeat:Connect(function(dt)
 	acc += dt
 	if acc < 0.3 then return end
 	acc = 0
+	steer()
 	refresh()
 end)
