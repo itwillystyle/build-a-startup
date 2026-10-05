@@ -72,7 +72,6 @@ function Cars.display(id, cf, parent)
 	local bb, size = m:GetBoundingBox()
 	m:PivotTo(cf * CFrame.new(0, size.Y / 2 + 0.05 - (bb.Position.Y - m:GetPivot().Position.Y), 0))
 	m.Parent = parent
-	CollectionService:AddTag(m, "SVOutline")
 	return m
 end
 
@@ -194,7 +193,6 @@ local function build(player, entry, cf)
 	m:SetAttribute("Speed", entry.speed)
 	m:SetAttribute("Accel", entry.accel)
 	CollectionService:AddTag(m, "SVCar")
-	CollectionService:AddTag(m, "SVOutline")        -- v4.7.1: your own car gets the line
 	m.Parent = workspace
 	return m
 end
@@ -424,15 +422,123 @@ function Cars.init(a)
 		if sm then
 			local ap = sm.PrimaryPart or sm:FindFirstChildWhichIsA("BasePart")
 			if ap then
-				local pad = Instance.new("Part")
-				pad.Name = "ShowroomPad"
-				pad.Anchored = true
-				pad.CanCollide = false
-				pad.Size = Vector3.new(22, 0.3, 14)
-				pad.CFrame = show * CFrame.new(0, -0.45, 0)
-				pad.Color = Color3.fromRGB(226, 220, 206)
-				pad.Material = Enum.Material.SmoothPlastic
-				pad.Parent = D.folder
+				--[[ THE STAND (v5.0). Reported 5 Oct: "there is a Valley Motors
+					car rotating in front of my building, and it's rotating when
+					there's literally nothing else around it, which is not normal."
+
+					He is right, and the rotation is not the fault. A car turning
+					on a plinth under a sign is one of the most legible objects in
+					any retail park; a car turning on a bare slab in the middle of
+					a lawn is a glitch. What was missing was everything that says
+					DISPLAY -- so the car had showroom BEHAVIOUR with no showroom
+					around it, and the eye reads the odd one out as broken.
+
+					So it gets the furniture the behaviour implies: a stepped
+					plinth, a pylon sign, four posts with a rope between them, and
+					two spots aimed down at the paint. Nothing here is decoration
+					for its own sake -- each piece is one of the cues that tells
+					you at a glance this is a thing on show and not a thing left
+					behind. ]]
+				local function sp(props)
+					local q = Instance.new("Part")
+					q.Anchored = true
+					q.CanCollide = false
+					q.CanQuery = false
+					q.Material = Enum.Material.SmoothPlastic
+					for k, v in pairs(props) do q[k] = v end
+					q.Parent = D.folder
+					return q
+				end
+				local STONE = Color3.fromRGB(214, 209, 198)
+				local DARK  = Color3.fromRGB(58, 62, 70)
+				local BRASS = Color3.fromRGB(198, 162, 86)
+
+				--[[ v5.0b, after looking at the first attempt on screen rather
+					than trusting the maths: the pylon stood on the approach axis
+					so a black slab covered the car, the ropes were built from a
+					hand-rolled angle and ran THROUGH it, and the plinth was the
+					same stone as the paving it sat on, so there was no plinth to
+					see. Rebuilt with the sign off to one side, the ropes aimed
+					with CFrame.lookAt between their own posts, and a dark rim the
+					disc can read against. ]]
+				local R_DISC = 10.5
+
+				-- plinth: dark rim, pale inlay, raised enough to throw a shadow
+				sp({ Name = "ShowroomRim", Shape = Enum.PartType.Cylinder,
+					Size = Vector3.new(1.1, R_DISC * 2 + 1.6, R_DISC * 2 + 1.6), Color = DARK,
+					CFrame = show * CFrame.new(0, 0.05, 0) * CFrame.Angles(0, 0, math.rad(90)) })
+				sp({ Name = "ShowroomPad", Shape = Enum.PartType.Cylinder,
+					Size = Vector3.new(1.2, R_DISC * 2, R_DISC * 2), Color = STONE,
+					CFrame = show * CFrame.new(0, 0.12, 0) * CFrame.Angles(0, 0, math.rad(90)) })
+				sp({ Name = "ShowroomInlay", Shape = Enum.PartType.Cylinder,
+					Size = Vector3.new(1.24, R_DISC * 0.9, R_DISC * 0.9), Color = BRASS,
+					Material = Enum.Material.Metal,
+					CFrame = show * CFrame.new(0, 0.13, 0) * CFrame.Angles(0, 0, math.rad(90)) })
+
+				-- four posts, and a rope aimed between its own two posts
+				local R_POST = R_DISC + 2.6
+				local post = {}
+				for i = 0, 3 do
+					local a = math.rad(45 + i * 90)
+					post[i] = Vector3.new(math.cos(a) * R_POST, 0, math.sin(a) * R_POST)
+					sp({ Name = "ShowroomPost", Size = Vector3.new(0.34, 2.9, 0.34),
+						CFrame = show * CFrame.new(post[i] + Vector3.new(0, 1.45, 0)), Color = DARK })
+					sp({ Name = "ShowroomPostCap", Shape = Enum.PartType.Ball,
+						Size = Vector3.new(0.58, 0.58, 0.58),
+						CFrame = show * CFrame.new(post[i] + Vector3.new(0, 3.05, 0)), Color = BRASS })
+				end
+				for i = 0, 3 do
+					local a, b = post[i] + Vector3.new(0, 2.25, 0), post[(i + 1) % 4] + Vector3.new(0, 2.25, 0)
+					local mid = (a + b) / 2 - Vector3.new(0, 0.28, 0)   -- a rope sags
+					sp({ Name = "ShowroomRope", Size = Vector3.new(0.14, 0.14, (b - a).Magnitude),
+						CFrame = show * CFrame.lookAt(mid, mid + (b - a).Unit),
+						Color = Color3.fromRGB(150, 36, 40) })
+				end
+
+				--[[ The sign stands at the back-left quarter, clear of the sight
+					line you approach on, so it labels the car instead of hiding
+					it. ]]
+				local signAt = Vector3.new(-12.4, 0, -12.4)
+				sp({ Name = "ShowroomPylonFoot", Size = Vector3.new(2.8, 0.6, 2.8),
+					CFrame = show * CFrame.new(signAt + Vector3.new(0, 0.3, 0)), Color = DARK })
+				local mast = sp({ Name = "ShowroomPylon", Size = Vector3.new(0.75, 7.6, 0.75),
+					CFrame = show * CFrame.new(signAt + Vector3.new(0, 4.1, 0)), Color = DARK })
+				local blade = sp({ Name = "ShowroomBlade", Size = Vector3.new(6.4, 2.9, 0.4),
+					CFrame = show * CFrame.new(signAt + Vector3.new(0, 9.3, 0)) * CFrame.Angles(0, math.rad(45), 0),
+					Color = Color3.fromRGB(246, 244, 238) })
+				for _, face in ipairs({ Enum.NormalId.Front, Enum.NormalId.Back }) do
+					local sg = Instance.new("SurfaceGui")
+					sg.Face = face
+					sg.PixelsPerStud = 42
+					sg.Parent = blade
+					local t = Instance.new("TextLabel")
+					t.Size = UDim2.fromScale(1, 1)
+					t.BackgroundTransparency = 1
+					t.Font = Enum.Font.FredokaOne
+					t.Text = "VALLEY MOTORS"
+					t.TextColor3 = DARK
+					t.TextScaled = true
+					t.Parent = sg
+				end
+
+				--[[ Two spots raked in from the front corners. A lit car under a
+					sign is the whole reason a turntable reads as a display rather
+					than as something spinning for no reason. ]]
+				for _, sx in ipairs({ -1, 1 }) do
+					sp({ Name = "ShowroomSpot", Size = Vector3.new(0.26, 7.4, 0.26),
+						CFrame = show * CFrame.new(sx * 12.2, 3.7, 11.6), Color = DARK })
+					local head = sp({ Name = "ShowroomSpotHead", Size = Vector3.new(0.85, 0.55, 0.85),
+						CFrame = show * CFrame.new(sx * 12.2, 7.3, 11.6), Color = Color3.fromRGB(255, 244, 214),
+						Material = Enum.Material.Neon })
+					local l = Instance.new("SpotLight")
+					l.Angle = 78
+					l.Range = 26
+					l.Brightness = 1.6
+					l.Face = Enum.NormalId.Bottom
+					l.Color = Color3.fromRGB(255, 246, 224)
+					l.Parent = head
+				end
+				mast.CanQuery = false
 				CollectionService:AddTag(sm, "SVTurntable")
 				local pp = Instance.new("ProximityPrompt")
 				pp.ActionText = "Cars"

@@ -352,30 +352,143 @@ local function checkWorld(say)
 	return onPaving == 0 and unclaimed == 0 and grown == 0
 end
 
--- ---------------------------------------------------------------- 4. outlines
-local function checkOutlines(say)
-	local CS = game:GetService("CollectionService")
-	local tagged = 0
-	for _, t in ipairs({ "SVOutline", "SVOutline2", "SVStaff", "TrafficCar" }) do
-		tagged += #CS:GetTagged(t)
+-- ---------------------------------------------------------------- 4. placement
+--[[ THE PASS THAT REPLACED THE OUTLINE CHECK (v5.0).
+
+	The outline is gone -- it never covered everything, and where it did land
+	it did not earn its pixels. What took its place as the thing worth
+	checking every build is the fault it kept being asked about instead: a
+	tree standing in a road.
+
+	This pass finds paving by SHAPE, not by name: broad, thin, horizontal and
+	not green. That matters more than it sounds. The previous check read a
+	list of reserved zone names, so it kept returning "clean" while the world
+	grew paving it had never heard of -- 8 zones known out of 967 paved parts.
+	A geometric test cannot go stale when somebody adds a builder.
+
+	It runs on the CLIENT, so it cannot require ServerScriptService.Placement;
+	the classifier is small enough to state twice, and stating it twice means
+	the check is an independent witness rather than the same code grading its
+	own homework. ]]
+local function checkPlacement(say)
+	local sv = workspace:FindFirstChild("SiliconValley")
+	if not sv then say("PLACE    no SiliconValley"); return false end
+
+	local SOFT = {
+		[Enum.Material.Grass] = true, [Enum.Material.LeafyGrass] = true,
+		[Enum.Material.Ground] = true, [Enum.Material.Mud] = true,
+		[Enum.Material.Sand] = true, [Enum.Material.Snow] = true,
+		[Enum.Material.Water] = true,
+	}
+	local function soft(p)
+		if SOFT[p.Material] then return true end
+		local c = p.Color
+		return c.G > c.R + 0.06 and c.G > c.B + 0.06
 	end
-	local lit, parts, fading = 0, 0, 0
-	for _, d in ipairs(workspace:GetDescendants()) do
-		if d:IsA("Highlight") and d.Adornee then
-			lit += 1
-			if d.Adornee:IsA("BasePart") then parts += 1 end
-			if d.OutlineTransparency > 0.05 and d.OutlineTransparency < 0.99 then fading += 1 end
+
+	local CS = game:GetService("CollectionService")
+	local CELL = 16
+	local hard, grid = {}, {}
+	for _, d in ipairs(sv:GetDescendants()) do
+		-- terrain is ground, not paving; it is tagged where it is built
+		if d:IsA("BasePart") and not CS:HasTag(d, "SVTerrain") and d.Transparency <= 0.9
+			and d.Size.Y <= 5 and d.Size.X * d.Size.Z >= 60
+			and d.CFrame.UpVector.Y >= 0.9 and not soft(d) then
+			table.insert(hard, d)
+			local i, pos = #hard, d.Position
+			local reach = math.max(d.Size.X, d.Size.Z) / 2
+			for gx = math.floor((pos.X - reach) / CELL), math.floor((pos.X + reach) / CELL) do
+				for gz = math.floor((pos.Z - reach) / CELL), math.floor((pos.Z + reach) / CELL) do
+					local k = gx .. "," .. gz
+					grid[k] = grid[k] or {}
+					table.insert(grid[k], i)
+				end
+			end
 		end
 	end
-	say("OUTLINES %d tagged objects, %d currently outlined (%d loose parts, %d mid-fade)",
-		tagged, lit, parts, fading)
-	--[[ The regression this guards: outlines once stopped dead at 240 studs and
-		only 41 objects carried one, which is what "it only shows on half the
-		objects" was. A fade band means the edge is never visible; no fade at all
-		means something has gone back to a hard cutoff. ]]
-	if lit < 200 then say("   !! coverage has collapsed -- it was 1,096"); return false end
-	if fading == 0 and lit > 0 then say("   !! nothing is mid-fade: the edge may be hard again"); return false end
-	return true
+
+	local WORDS = { "tree", "bush", "palm", "oak", "pine", "redwood", "eucalypt",
+		"orchard", "grove", "shrub", "plant", "hedge" }
+	--[[ whole words only: "RingStreet" contains "tree" as a substring, which
+		is how the first version of this check reported the ring road as a
+		tree standing in itself ]]
+	local function green(n)
+		local spaced = n:gsub("(%l)(%u)", "%1_%2"):gsub("(%a)(%d)", "%1_%2"):lower()
+		local w = {}
+		for x in spaced:gmatch("[%a]+") do
+			if x == "pit" or x == "soil" then return false end   -- a TreePit is not a tree
+			w[#w + 1] = x
+		end
+		for _, x in ipairs(w) do
+			for _, p in ipairs(WORDS) do
+				if x == p or x == p .. "s" then return true end
+			end
+		end
+		return false
+	end
+
+	local checked, bad, worst, worstN, pits, elevated = 0, 0, 0, "", 0, 0
+	for _, d in ipairs(sv:GetDescendants()) do
+		if d.Name == "TreePit" then pits += 1 end
+		if (d:IsA("Model") or d:IsA("BasePart")) and green(d.Name)
+			and not d:GetAttribute("SVPitted")
+			and not (d.Parent and green(d.Parent.Name)) then
+			local pos, sz
+			if d:IsA("Model") then
+				local ok, c, e = pcall(function() local a, b = d:GetBoundingBox() return a, b end)
+				if ok and e then pos, sz = c.Position, e end
+			else
+				pos, sz = d.Position, d.Size
+			end
+			-- a plant with a roof over it is in a room, not in a road
+			local indoor = false
+			if pos and sz then
+				local rp = RaycastParams.new()
+				rp.FilterType = Enum.RaycastFilterType.Exclude
+				rp.FilterDescendantsInstances = { d }
+				indoor = workspace:Raycast(pos + Vector3.new(0, sz.Y / 2 + 0.5, 0),
+					Vector3.new(0, 40, 0), rp) ~= nil
+			end
+			--[[ nothing in the landscape stands 12 studs up, so anything that
+				does is on a floor, a terrace or a roof: deliberate decor, and
+				counted separately from the thing this gate is for ]]
+			local up = pos and sz and (pos.Y - sz.Y / 2) > 12
+			if up and not indoor then elevated += 1 end
+			if pos and sz and sz.Y > 0.6 and not indoor and not up then
+				checked += 1
+				local base = pos.Y - sz.Y / 2
+				local cell = grid[math.floor(pos.X / CELL) .. "," .. math.floor(pos.Z / CELL)]
+				if cell then
+					for _, i in ipairs(cell) do
+						local p = hard[i]
+						local top = p.Position.Y + p.Size.Y / 2
+						if top >= base - 8 and top <= base + 10 then
+							--[[ the TRUNK has to be inside the paving. A crown
+								leaning over a footpath is what a street looks
+								like, not a defect. ]]
+							local lp = p.CFrame:PointToObjectSpace(Vector3.new(pos.X, p.CFrame.Position.Y, pos.Z))
+							local dx = p.Size.X / 2 - math.abs(lp.X)
+							local dz = p.Size.Z / 2 - math.abs(lp.Z)
+							-- 0.3: a trunk on the kerb line is kerbside, not in the road
+							if dx > 0.3 and dz > 0.3 then
+								bad += 1
+								local pen = math.min(dx, dz)
+								if pen > worst then worst, worstN = pen, d.Name .. " on " .. p.Name end
+								break
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+
+	say("PLACE    %d hard surfaces found by shape, %d greenery checked, %d tree pits",
+		#hard, checked, pits)
+	say("   greenery standing in paving: %d", bad)
+	if bad > 0 then say("      worst %.1f studs: %s", worst, worstN) end
+	if elevated > 0 then say("   (%d on terraces and interior floors, not counted)", elevated) end
+	return bad == 0
 end
 
 -- ---------------------------------------------------------------- 5. client errors
@@ -517,7 +630,7 @@ function SVCheck.run()
 	local results = {}
 	for _, pass in ipairs({
 		{ "budget", checkBudget }, { "screen", checkUI },
-		{ "world", checkWorld }, { "outlines", checkOutlines }, { "errors", checkErrors },
+		{ "world", checkWorld }, { "placement", checkPlacement }, { "errors", checkErrors },
 	}) do
 		local ok, res = pcall(pass[2], say)
 		results[pass[1]] = ok and res or false

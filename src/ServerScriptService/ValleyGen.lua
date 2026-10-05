@@ -663,6 +663,24 @@ function ValleyGen.buildLowPoly(world, lp, placeH, opts)
 			made.clouds += 1
 		end
 	end
+
+	--[[ v5.0: TAG THE GROUND AS GROUND.
+
+		Placement classifies a hard surface by shape -- broad, thin,
+		horizontal, not green -- which is what stops it going stale when a
+		new builder invents a new road. The one thing that test cannot tell
+		apart is paving from the ground paving is laid on: FloorSlab is 1480
+		x 1250 x 4 and the colour of dry grass, so it answered yes, and the
+		first live run treated every tree standing on the valley floor as a
+		tree standing in a road. SVCheck caught it (178 reported, worst
+		"LP_Oak_B on LP_4_4" -- a terrain tile).
+
+		A tag written where the terrain is MADE is the honest fix: there is
+		exactly one place that builds ground, so there is exactly one place
+		that has to say so. ]]
+	for _, d in ipairs(f:GetDescendants()) do
+		if d:IsA("BasePart") then CS:AddTag(d, "SVTerrain") end
+	end
 	return made
 end
 
@@ -721,12 +739,26 @@ the mesh's real proportions, and no new trunk closer than ROOM x (r1 + r2) to
 an existing one. Crowns may touch; they may not grow through each other.
 Shared with CampusArch and CityKit so the campus and the street respect the
 valley's trees too (one registry, cleared at the start of each build). ]]
+--[[ v5.0: the grid moved to ServerScriptService.Placement and grew a second
+	job -- it now knows about PAVING as well as about other trees. Every
+	caller this module already had (the valley, CampusArch, CityKit) becomes
+	surface-aware here, at one edit point, with no change at the call site.
+	The local fallback keeps the valley buildable if Placement is missing. ]]
+local okP, Place = pcall(function()
+	return require(game:GetService("ServerScriptService"):WaitForChild("Placement", 5))
+end)
+if not okP then Place = nil end
+ValleyGen.Place = Place
+
 local ROOM = 0.8
 local TREE_CELL = 16
 local treeGrid = {}
 local aspectCache = {}
 
-function ValleyGen.resetTrees() treeGrid = {} end
+function ValleyGen.resetTrees()
+	treeGrid = {}
+	if Place then Place.reset() end
+end
 
 -- width / height of a library mesh (SVMeshes), for a crown radius before placing
 function ValleyGen.meshAspect(name)
@@ -744,6 +776,7 @@ function ValleyGen.meshAspect(name)
 end
 
 function ValleyGen.treeRoom(x, z, r)
+	if Place then return Place.clearOfProps(x, z, r) end
 	local reach = r + 12
 	for gx = math.floor((x - reach) / TREE_CELL), math.floor((x + reach) / TREE_CELL) do
 		for gz = math.floor((z - reach) / TREE_CELL), math.floor((z + reach) / TREE_CELL) do
@@ -760,6 +793,7 @@ function ValleyGen.treeRoom(x, z, r)
 end
 
 function ValleyGen.claimTree(x, z, r)
+	if Place then return Place.claim(x, z, r) end
 	local k = math.floor(x / TREE_CELL) .. "," .. math.floor(z / TREE_CELL)
 	treeGrid[k] = treeGrid[k] or {}
 	table.insert(treeGrid[k], { x, z, r })
