@@ -126,6 +126,42 @@ end
 
 function Wafers.floorY(s) return G.FLOOR_Y + s * G.H end
 
+--[[ THE SILHOUETTE (v4.9). The massing of the FINISHED tower -- every wafer's
+	radius and the y band it occupies -- derived from the same PIECES plan the
+	real building is built from, so the two can never drift.
+
+	The opening flyover draws this as a translucent ghost on an empty lot, which
+	is the only way a brand-new player can see where they are going: on a fresh
+	server nobody has built anything yet, so there is no real tower to point at.
+
+	Encoded as a string because attributes cannot hold tables:
+		"r:y0:y1|r:y0:y1|..."   (plot-local studs) ]]
+function Wafers.towerSpec()
+	local band = {}
+	for _, pc in ipairs(P.PIECES) do
+		if pc.kind == "segment" then
+			local b = band[pc.wafer]
+			if b then
+				b.lo, b.hi = math.min(b.lo, pc.storey), math.max(b.hi, pc.storey)
+			else
+				band[pc.wafer] = { lo = pc.storey, hi = pc.storey }
+			end
+		end
+	end
+	local out = {}
+	for w = 1, 4 do
+		local b = band[w]
+		if b then
+			table.insert(out, ("%d:%d:%d"):format(G.WAFER[w].r,
+				math.floor(Wafers.floorY(b.lo) - G.SLAB), math.floor(Wafers.floorY(b.hi) + G.H)))
+		end
+	end
+	-- the crown: the pavilion ring and the mast above wafer 4
+	table.insert(out, ("%d:%d:%d"):format(G.PAVILION.rout,
+		math.floor(Wafers.floorY(14)), math.floor(Wafers.floorY(15) + 8)))
+	return table.concat(out, "|")
+end
+
 -- the old HQ level (1-5) this level stands for: recruit tiers, homes, the journey
 function Wafers.stage(level)
 	if level >= 18 then return 5 elseif level >= 13 then return 4 elseif level >= 9 then return 3

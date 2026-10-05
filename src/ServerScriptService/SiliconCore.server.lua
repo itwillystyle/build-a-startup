@@ -2655,6 +2655,13 @@ if Econ then
 			plotOf = plotOf,
 		})
 		if ok then Econ.WAFERS = true else warn("[SV] Wafers init failed: " .. tostring(err)); Econ.Wafers = nil end
+		-- v4.9: the finished tower's massing, for the opening flyover's ghost.
+		-- It has to go HERE and not where plotsFolder is made: Econ.Wafers is
+		-- required on this line, ~2100 lines later, so an earlier set was a
+		-- pcall quietly swallowing "index nil".
+		if Econ.WAFERS then
+			pcall(function() plotsFolder:SetAttribute("TowerSpec", Econ.Wafers.towerSpec()) end)
+		end
 	else
 		Econ.Wafers = nil
 	end
@@ -3478,6 +3485,27 @@ if Econ then
 		if not ok then warn("[SV] Ranks init failed: " .. tostring(err)); Econ.Ranks = nil end
 	else
 		Econ.Ranks = nil
+	end
+end
+
+-- v4.9 THE VALLEY: the other five founders, made visible (see Valley.lua).
+-- Lives here because this is where plotsFolder, sessions, plotOf, cashOf,
+-- toast, fmt and Econ.Wafers are all in scope at once.
+do
+	local Valley = tryRequire(ServerScriptService, "Valley")
+	if Valley and Valley.init then
+		local ok, err = pcall(Valley.init, {
+			plots = plotsFolder,
+			session = function(p) return sessions[p.UserId] end,
+			plotOf = plotOf,
+			cash = cashOf,
+			fmt = fmt,
+			toast = function(text, kind) toast:FireAllClients(text, kind or "news") end,
+			level = function(plot) return Econ and Econ.Wafers and Econ.Wafers.level(plot) or 1 end,
+		})
+		if not ok then warn("[SV] Valley init failed: " .. tostring(err)) end
+		-- no handle kept on purpose: SiliconCore is at the 200 top-level local
+		-- limit, and require() is cached, so a test just requires Valley again.
 	end
 end
 
