@@ -232,11 +232,11 @@ if lostRemote then
 				lostSerial += 1
 				local mine = lostSerial
 				lostText.Text = tostring(text or "They got away")
-				lostCard.Position = UDim2.new(0.5, 0, 0, 60)
+				lostCard.Position = UDim2.new(0.5, 0, 0, Notify.topY(96) - 36)
 				lostCard.Size = UDim2.new(0, centreWidth(440, lostCard), 0, 74)
 				lostCard.Visible = true
 				TweenService:Create(lostCard, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-					{ Position = UDim2.new(lostCard.Position.X.Scale, lostCard.Position.X.Offset, 0, 96) }):Play()
+					{ Position = UDim2.new(lostCard.Position.X.Scale, lostCard.Position.X.Offset, 0, Notify.topY(96)) }):Play()
 				UIKit.sfx("thunk", 0.55, 0.8)
 				for _, f in ipairs(lostEdges) do
 					f.BackgroundTransparency = 0.35
@@ -291,7 +291,10 @@ RunService.RenderStepped:Connect(function(dt)
 			end
 		end
 		if nearest then
-			if not danger.Visible then danger.Size = UDim2.new(0, centreWidth(330, danger), 0, 50) end
+			if not danger.Visible then
+				danger.Size = UDim2.new(0, centreWidth(330, danger), 0, 50)
+				danger.Position = UDim2.new(0.5, 0, 0, Notify.topY(96))   -- v4.9: clear the quest card
+			end
 			danger.Visible = true
 			setDanger(true)
 			local close = dashing or nearest < 20

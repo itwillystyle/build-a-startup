@@ -29,7 +29,7 @@ if not remote then return end
 
 local HOLD = { [2] = 2.6, [3] = 3.4, [4] = 4.2, [5] = 5.5 }
 local SOUND = { [2] = "ding", [3] = "star", [4] = "genius", [5] = "unicorn" }
-local TOP = 96          -- under the money and the income line
+local TOP = 96          -- under the money and the income line (v4.9: a floor now, see Notify.topY)
 local CARD_H = 124
 
 local gui = Instance.new("ScreenGui")
@@ -284,7 +284,7 @@ local function showCard(d, done)
 	player:SetAttribute("Celebrating", true)
 	card.Position = UDim2.new(0, cardX, 0, -CARD_H - 20)
 	TweenService:Create(card, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-		{ Position = UDim2.new(0, cardX, 0, TOP) }):Play()
+		{ Position = UDim2.new(0, cardX, 0, Notify.topY(TOP)) }):Play()
 	titleScale.Scale = 0.3
 	TweenService:Create(titleScale, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 	UIKit.sfx(SOUND[tier] or "ding", tier == 2 and 1.15 or 1)

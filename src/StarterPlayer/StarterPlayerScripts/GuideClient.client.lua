@@ -35,6 +35,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
+local Notify = require(game:GetService("ReplicatedStorage"):WaitForChild("Notify"))
 local Cine = ReplicatedStorage:FindFirstChild("Cine") and require(ReplicatedStorage.Cine)
 
 local GOLD, INK = UIKit.GOLD, UIKit.INK
@@ -226,13 +227,37 @@ local function tint(name)
 end
 
 local title = UIKit.label(card, "", 20, UIKit.INK, {
-	Name = "Title", Position = UDim2.new(0, TEXT_X, 0, PAD), Size = UDim2.new(1, -(TEXT_X + PAD), 0, 24),
+	Name = "Title", Position = UDim2.new(0, TEXT_X, 0, PAD), Size = UDim2.new(1, -(TEXT_X + PAD + 24), 0, 24),
 	TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top,
 }, UIKit.HEAD)
 local sub = UIKit.label(card, "", 16, UIKit.MUTED_TEXT, {
-	Name = "Sub", Position = UDim2.new(0, TEXT_X, 0, 36), Size = UDim2.new(1, -(TEXT_X + PAD), 0, 20),
+	Name = "Sub", Position = UDim2.new(0, TEXT_X, 0, 36), Size = UDim2.new(1, -(TEXT_X + PAD + 24), 0, 20),
 	TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top,
 }, UIKit.BODY)
+--[[ DISMISS (v4.9). Reported 4 Oct: "there's no way for me to get rid of this
+	genius goal popping up on my screen." There was not. The card was permanent
+	by design and that design is wrong the moment the player does not want it.
+
+	Dismissing hides THIS objective only. The moment the game asks for something
+	else the card comes back, because the key no longer matches -- so you can
+	wave off a goal you are ignoring without switching the guide off for good. ]]
+local dismissedKey = nil
+local closeBtn = Instance.new("TextButton")
+closeBtn.Name = "Dismiss"
+closeBtn.AnchorPoint = Vector2.new(1, 0)
+closeBtn.Position = UDim2.new(1, -8, 0, 8)
+closeBtn.Size = UDim2.new(0, 26, 0, 26)
+closeBtn.BackgroundColor3 = UIKit.SURFACE_2
+closeBtn.BorderSizePixel = 0
+closeBtn.Text = "\u{00D7}"
+closeBtn.TextColor3 = UIKit.MUTED_TEXT
+closeBtn.TextSize = 20
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.ZIndex = 8
+closeBtn.AutoButtonColor = true
+closeBtn.Parent = card
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(1, 0)
+
 -- a reward reads as a green chip ("x1.5 money, forever", "Unlocks STAR hires"); it
 -- wraps to a second line instead of shrinking (v4.4 shrank it to 10 pt)
 local chip = Instance.new("TextLabel")
@@ -544,8 +569,15 @@ local function readObjective()
 
 	local show = key ~= nil and text ~= nil
 	-- a waiting LAUNCH is the bottom slot's (HudClient); the name box sits over everything
+	--[[ v4.9. The header above used to claim "UIKit.solo still hides it behind a
+		full menu". It does not: solo only touches UIKit.MENUS, and Quest is not
+		in that list, so the quest card printed straight over the DAILY REWARD
+		panel on every join. Measured by tools/ui_overlap.luau: 430 x 130 px.
+		That is most of what "the UI all pops up at once" actually was. ]]
+	local menu = UIKit.menuOpen()
 	card.Visible = show and key ~= "product" and player:GetAttribute("NamingOpen") ~= true
-	gui.Enabled = show and player:GetAttribute("NamingOpen") ~= true
+		and key ~= dismissedKey and not menu
+	gui.Enabled = show and player:GetAttribute("NamingOpen") ~= true and not menu
 	local showMarker = show and target ~= nil
 	pin.Enabled = showMarker
 	pinPart.Parent = showMarker and workspace or nil
@@ -719,3 +751,31 @@ RunService.RenderStepped:Connect(function()
 	edgeDist.Text = ("%dm"):format(math.floor(dist / 3.5 + 0.5))
 	edge.Visible = true
 end)
+
+closeBtn.MouseButton1Click:Connect(function()
+	dismissedKey = lastKey
+	card.Visible = false
+	Notify.reserveTop(0)
+end)
+
+--[[ TELL THE DIRECTOR WHERE THE TOP ENDS. Measured, not assumed: the card's
+	own height changes with a wrapped subtitle and with the big-goal meter, so a
+	constant here would be the same mistake as the 96 it replaces. ]]
+task.spawn(function()
+	while true do
+		task.wait(0.4)
+		local bottom = 0
+		if gui.Enabled and card.Visible then
+			bottom = holder.AbsolutePosition.Y + holder.AbsoluteSize.Y
+			for _, d in ipairs(card:GetDescendants()) do
+				if d:IsA("GuiObject") and d.Visible and d.AbsoluteSize.Y > 0 then
+					bottom = math.max(bottom, d.AbsolutePosition.Y + d.AbsoluteSize.Y)
+				end
+			end
+		end
+		Notify.reserveTop(bottom)
+	end
+end)
+
+-- a menu opening or closing changes whether the card may draw, so re-run the render
+UIKit.onMenuChange(function() pcall(readObjective) end)

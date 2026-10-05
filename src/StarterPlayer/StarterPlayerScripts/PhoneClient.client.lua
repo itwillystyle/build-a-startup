@@ -870,7 +870,8 @@ local function centreOn(frame, maxW, minW, h, y)
 	frame.AnchorPoint = Vector2.new(0.5, 0)
 	local cx, w = UIKit.hudGap(maxW)
 	frame.Size = UDim2.new(0, math.max(minW, w), 0, h)
-	frame.Position = UDim2.new(0, cx - notify.AbsolutePosition.X, 0, y or 96)
+	-- v4.9: 96 was a guess that the top of the screen was empty. It is not.
+	frame.Position = UDim2.new(0, cx - notify.AbsolutePosition.X, 0, y or Notify.topY(96))
 end
 local function atY(frame, y) return UDim2.new(0, frame.Position.X.Offset, 0, y) end
 
