@@ -82,22 +82,16 @@ function FlatLook.watch(root)
 	end)
 end
 
---[[ A PROP (v4.7.1). Street furniture is built as loose parts -- a lamp is a
-	pole and a head, a bench is nine slats and legs -- and a Highlight adorns a
-	Model, so loose parts can only be outlined one box at a time. Wrapping each
-	helper's output in a Model gives it ONE line round the whole object.
-
-	Tagged SVOutline2, the second tier: OutlineClient fills its budget with
-	people, vehicles and trees FIRST and spends what is left on props, so a
-	street full of benches can never crowd the line off the thing you are
-	chasing. ]]
-local CollectionService = game:GetService("CollectionService")
-
+--[[ A PROP. Street furniture is built as loose parts -- a lamp is a pole and
+	a head, a bench is nine slats and legs -- so each helper wraps its output
+	in a Model. That grouping was introduced for the outline (one line round
+	the whole object instead of one per slat); the outline is gone as of
+	v5.0, but the grouping is worth keeping on its own merits: it is what
+	lets a prop be moved, scaled or culled as one thing. ]]
 function FlatLook.prop(parent, name)
 	local m = Instance.new("Model")
 	m.Name = name
 	m.Parent = parent
-	CollectionService:AddTag(m, "SVOutline2")
 	return m
 end
 
@@ -144,7 +138,6 @@ function FlatLook.propMesh(parent, name, cf, height)
 	local at, e2 = m:GetBoundingBox()
 	m:PivotTo(m:GetPivot() + (cf.Position - (at.Position - Vector3.new(0, e2.Y / 2, 0))))
 	m.Parent = parent
-	CollectionService:AddTag(m, "SVOutline2")
 	return m
 end
 

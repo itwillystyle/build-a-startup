@@ -64,10 +64,8 @@ local function pick(t) return t[rng:NextInteger(1, #t)] end
 local function newPerson(kind)
 	local skin, shirt, pants = pick(SKIN), pick(SHIRT), pick(PANTS)
 	if kind == "jog" then shirt = pick({ Color3.fromRGB(255, 120, 60), Color3.fromRGB(60, 200, 230), Color3.fromRGB(230, 60, 150) }) end
-	--[[ v4.7.1: each person is a Model now. They were loose parts in one folder,
-		which meant OutlineClient could not give them a line -- a Highlight
-		adorns a Model and draws its silhouette, and eight loose limbs are eight
-		silhouettes. BulkMoveTo does not care either way. ]]
+	-- each person is one Model; BulkMoveTo does not care either way, and a
+	-- grouped body is what lets the shadow and cull passes treat it as one thing
 	local body = Instance.new("Model")
 	body.Name = "Walker"
 	body.Parent = folder
@@ -91,7 +89,6 @@ local function newPerson(kind)
 		p.bar = part({ Name = "Bar", Size = Vector3.new(1.6, 0.25, 0.25), Color = Color3.fromRGB(40, 40, 44) }, body)
 	end
 	body.PrimaryPart = p.torso
-	game:GetService("CollectionService"):AddTag(body, "SVOutline")
 	--[[ park them underground until they are first posed. A new Part lands at
 		the world origin, and the world origin is the middle of the park's
 		fountain court: 14 unposed people were standing in the fountain, which

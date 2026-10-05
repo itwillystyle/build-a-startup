@@ -141,7 +141,6 @@ local function tree(parent, a, r, t, s)
 		Shape = Enum.PartType.Ball,
 	})
 	m.PrimaryPart = trunk
-	CollectionService:AddTag(m, "SVOutline")
 end
 
 --[[ A PARKED CAR. It was two boxes -- a 5x3.2x11 slab with a smaller glass
@@ -172,7 +171,6 @@ local function car(parent, a, r, t, colour)
 		-- them nose-in to the kerb instead of across the bay
 		m:PivotTo(CFrame.new(pos.X, 1.6, pos.Z) * CFrame.Angles(0, -a + math.pi / 2, 0))
 		m.Parent = parent
-		CollectionService:AddTag(m, "SVOutline")                      -- v4.7.1
 		return m
 	end
 	slab(parent, "DistCar", a, r, t, 5, 3.2, 11, colour or CAR_COLOURS[rng:NextInteger(1, #CAR_COLOURS)], { y = 0.6 })

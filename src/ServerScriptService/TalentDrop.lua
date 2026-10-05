@@ -185,7 +185,6 @@ local function spawnCandidate(plot, i)
 	rig:SetAttribute("Seed", seed)
 	rig:PivotTo(CFrame.new(x, y + 2.62, z) * CFrame.Angles(0, face, 0))   -- root to sole is 2.61: feet ON the pavement
 	rig:SetAttribute("Candidate", true)
-	CollectionService:AddTag(rig, "SVOutline")     -- v4.7: OutlineClient draws the line
 	rig:SetAttribute("Tier", tier.id)
 	rig:SetAttribute("Owner", plot.owner)
 	rig:SetAttribute("Wander", Vector3.new(1.2, 0, 1.2))
@@ -389,7 +388,6 @@ local function spawnHunter(player, c, fromPos, second)
 	local rival = api.RIVALS[math.random(1, #api.RIVALS)]
 	local rig = StaffRig.build("sales", math.random(1, 99999))
 	rig.Name = "Headhunter"
-	CollectionService:AddTag(rig, "SVOutline")
 	-- the dark suit: tints the shirt and trousers on an avatar, the torso on a block rig
 	if StaffRig.setOutfit then
 		StaffRig.setOutfit(rig, Color3.fromRGB(40, 42, 50), Color3.fromRGB(30, 32, 38))

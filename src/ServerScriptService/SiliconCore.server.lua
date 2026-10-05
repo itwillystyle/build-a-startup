@@ -688,6 +688,41 @@ if CampusHub then
 		end
 		pcall(Ground.publish, world)
 	end
+
+	--[[ v5.0 THE PLACEMENT PASS -- the one that is not allowed to go stale.
+
+		Ground.sweep above still runs, because clearing valley greenery off a
+		district slab is a job it does well. What it could not do is notice
+		paving nobody had named: it knew 8 reserved zones out of 967 paved
+		parts, and it was forbidden from touching a builder's own folder, so
+		100 of CampusHub's trees stood in CampusHub's own footpaths.
+
+		This pass finds surfaces by SHAPE -- broad, thin, horizontal, not
+		green -- across the whole world, including every folder the sweep was
+		told to spare. A tree with a small intrusion gets a stone pit, which
+		is what a street tree has in life; a tree too far in is walked to
+		clear ground; one with nowhere to go is removed. ]]
+	local Place = tryRequire(ServerScriptService, "Placement")
+	if Place then
+		local okS, found, skipped = pcall(Place.scanSurfaces, world)
+		if okS then
+			local roots = { world }
+			local before = #Place.violations(roots)
+			local okR, pitted, moved, gone = pcall(Place.resolve, roots)
+			if okR then
+				local after = #Place.violations(roots)
+				print(("[SV] placement: %d hard surfaces (%d parts skipped) | %d greenery in paving -> %d pits, %d moved, %d removed | %d left")
+					:format(found, skipped, before, pitted, moved, gone, after))
+				if after > 0 then
+					warn(("[SV] placement: %d pieces of greenery are STILL standing in paving"):format(after))
+				end
+			else
+				warn("[SV] placement resolve failed: " .. tostring(pitted))
+			end
+		else
+			warn("[SV] placement scan failed: " .. tostring(found))
+		end
+	end
 end
 
 -- hub spawn: only used before a plot is assigned, or by a 7th body
@@ -970,6 +1005,21 @@ local function buildPlot(index, def)
 	if CampusArch then
 		local ok, tag = pcall(CampusArch.grounds, folder, def.pivot, slab, path, index * 31)
 		if ok then plot.monumentTag = tag else warn("[SV] grounds failed: " .. tostring(tag)) end
+	end
+
+	--[[ A plot pours its own paving and plants its own lawn, which is new
+		ground the world-build placement pass never saw. Re-run it over this
+		plot so a campus tree cannot end up standing in the forecourt it was
+		planted next to. ]]
+	do
+		local Place = tryRequire(ServerScriptService, "Placement")
+		if Place and Place.pass then
+			local okP, _, before, pits, moved, gone, left = pcall(Place.pass, folder, { folder })
+			if okP and (before or 0) > 0 then
+				print(("[SV] placement %s: %d in paving -> %d pits, %d moved, %d removed | %d left")
+					:format(folder.Name, before, pits, moved, gone, left))
+			end
+		end
 	end
 
 	buildShell(plot, 1, false)
@@ -2890,6 +2940,25 @@ end
 for i, def in ipairs(CFG.PLOT_DEFS) do
 	plots[i] = buildPlot(i, def)
 	wirePlot(plots[i])
+end
+
+--[[ One last pass once every plot exists. Each plot fixes itself as it is
+	built, but plot 1's lawn can run onto plot 2's promenade, and plot 2 is
+	not poured yet when plot 1 checks. Three bushes survived exactly that way.
+	A final sweep over the finished world costs one scan and closes the whole
+	class of ordering bug, which is the thing this system exists to end. ]]
+do
+	local Place = tryRequire(ServerScriptService, "Placement")
+	if Place and Place.pass then
+		local okP, _, before, pits, moved, gone, left = pcall(Place.pass, world, { world })
+		if okP and (before or 0) > 0 then
+			print(("[SV] placement final: %d in paving -> %d pits, %d moved, %d removed | %d left")
+				:format(before, pits, moved, gone, left))
+		end
+		if okP and (left or 0) > 0 then
+			warn(("[SV] placement: %d greenery still standing in paving after the final pass"):format(left))
+		end
+	end
 end
 
 -- ============ INCOME ============

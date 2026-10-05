@@ -933,7 +933,6 @@ local function tree(parent, cf, height, pool, rng)
 		t:PivotTo(t:GetPivot() + Vector3.new(0, cf.Position.Y - (now.Position.Y - s3.Y / 2), 0))
 		t.Parent = parent
 		FlatLook.contact(parent, cf.Position.X, cf.Position.Z, height * 0.3)
-		game:GetService("CollectionService"):AddTag(t, "SVOutline")   -- v4.7.1
 		return t
 	end
 	mk(parent, { Name = "Trunk", Size = Vector3.new(0.8, height * 0.45, 0.8), CFrame = cf * CFrame.new(0, height * 0.225, 0),

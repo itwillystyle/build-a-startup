@@ -57,14 +57,34 @@ Lighting.GeographicLatitude = 37.4             -- Mountain View
 local grade = Lighting:FindFirstChild("SVGrade") or Instance.new("ColorCorrectionEffect")
 grade.Name = "SVGrade"
 grade.Parent = Lighting
---[[ v4.7: set once, because nothing else in the game writes them. Shadows off
-	is the single biggest cartoon change available and it also REMOVES work on
-	a phone (293 casters were being drawn into a shadow map). Specular 0 kills
-	the highlight that was sliding across every surface as the sun moved. ]]
-Lighting.GlobalShadows = false
-Lighting.ShadowSoftness = 1
-Lighting.EnvironmentSpecularScale = 0
-Lighting.EnvironmentDiffuseScale = 0.3
+--[[ v5.0 THE CARTOON PASS IS REVERSED, on his call: "let's just remove the
+	cartoony look because it kind of sucks".
+
+	The outline was only the visible half of that look. The other half was
+	here, and it was doing more damage: v4.7 set GlobalShadows = false, so
+	NOTHING in the valley cast a sun shadow at all -- not a tree, not a
+	building, not the player. An object with no shadow does not look stylised,
+	it looks unplaced, and that is most of what reads as cheap. Specular 0
+	then removed every sheen, so glass, paint and water all rendered as the
+	same matte plastic.
+
+	What goes back on, and why each:
+	  GlobalShadows      objects are attached to the ground again
+	  ShadowSoftness .22 crisp, because faceted geometry is read by its edges
+	                     and a soft shadow smears exactly those edges (the
+	                     same reason the far-blur was switched off in v4.1)
+	  EnvSpecular  0.35  sky sheen on glass and car paint, not a mirror
+	  EnvDiffuse   0.85  sky bounce fills the shadows, so a shadow is a cooler
+	                     blue rather than a black hole -- this is what keeps
+	                     restored shadows from looking heavy
+
+	The cost that v4.7 was avoiding is real, so it is paid selectively:
+	ShadowClient casts only what is near the camera, on a budget, instead of
+	every part in the world. ]]
+Lighting.GlobalShadows = true
+Lighting.ShadowSoftness = 0.22
+Lighting.EnvironmentSpecularScale = 0.35
+Lighting.EnvironmentDiffuseScale = 0.85
 
 local rays = Lighting:FindFirstChild("SVRays") or Instance.new("SunRaysEffect")
 rays.Name = "SVRays"
@@ -354,8 +374,14 @@ RunService.Heartbeat:Connect(function(dt)
 	Lighting.Ambient = lerpC(NIGHT_AMB, DAY_AMB, day)
 	Lighting.OutdoorAmbient = lerpC(NIGHT_OUT, DAY_OUT, day)
 	grade.TintColor = lerpC(lerpC(NIGHT_TINT, DAY_TINT, day), GOLD_TINT, golden)
-	grade.Saturation = 0.02 + 0.26 * day       -- v4.7: poster colour, not photographic
-	grade.Contrast = 0.05 * golden - 0.03 * day
+	--[[ v5.0: the grade stops flattening. Contrast was NEGATIVE in daylight
+		(-0.03), which is a deliberate wash -- it was there to stop the flat
+		unshadowed world looking harsh. With shadows back, the shading does
+		that job, so the grade can carry a little punch instead of hiding the
+		lack of it. Saturation keeps its stylised lift; this is not a move
+		toward photographic. ]]
+	grade.Saturation = 0.04 + 0.22 * day
+	grade.Contrast = 0.06 * day + 0.06 * golden
 	Lighting.ColorShift_Top = lerpC(lerpC(Color3.new(0, 0, 0), DAY_SHIFT, day), GOLD_SHIFT, golden)
 	rays.Intensity = 0                         -- v4.7: god rays are a photographic effect
 	local atm = Lighting:FindFirstChildOfClass("Atmosphere")
