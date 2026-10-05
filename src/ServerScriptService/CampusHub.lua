@@ -41,7 +41,16 @@ local PAVE = Color3.fromRGB(222, 215, 200)
 local PAVE_D = Color3.fromRGB(196, 188, 172)
 local PAVE_W = Color3.fromRGB(236, 231, 220)
 local CONCRETE = Color3.fromRGB(207, 198, 182)
-local LAWN = Color3.fromRGB(122, 170, 80)
+--[[ CAMPUS LAWN (v5.0). Was two different greens -- 122,170,80 in the hub and
+	the districts, 136,172,96 on the plots -- and both were the loudest thing
+	on screen. The grass is the least important object in the frame and it was
+	out-shouting the towers, the staff and the cars.
+
+	Pulled ~20% out of the saturation, a little out of the value, and the hue
+	pushed from 92 to 97 degrees (toward blue-green, away from yellow). Nothing
+	else changes; the lawn simply stops competing with the subject. One value
+	now, in every builder, matching ART.md. ]]
+local LAWN = Color3.fromRGB(118, 160, 92)
 local WATER = Color3.fromRGB(96, 164, 196)
 local ASPHALT = Color3.fromRGB(64, 64, 68)
 local GOLD = Color3.fromRGB(224, 182, 90)

@@ -64,7 +64,7 @@ local PALETTE = {
 	-- Terrain textures darken and saturate their tint, so these sit brighter
 	-- and softer than the palette swatches they are aiming at.
 	Grass      = Color3.fromRGB(200, 168, 96),    -- dry California grass (ART: California Gold)
-	LeafyGrass = Color3.fromRGB(136, 172, 96),    -- irrigated lawns (ART: Campus Lawn); the texture darkens it ~35%
+	LeafyGrass = Color3.fromRGB(118, 160, 92),    -- irrigated lawns (ART: Campus Lawn); the texture darkens it ~35%
 	Mud        = Color3.fromRGB(78, 100, 60),     -- oak woodland / redwood ridge, closer to the gold so the edge is not a cliff
 	Ground     = Color3.fromRGB(150, 126, 94),    -- dirt: orchard floors, levees, the rail bed
 	Sand       = Color3.fromRGB(150, 140, 116),    -- bay mudflats and the bed under the water
