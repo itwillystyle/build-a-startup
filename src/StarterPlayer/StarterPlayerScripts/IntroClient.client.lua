@@ -172,16 +172,135 @@ local function runIntro()
 	every second here is paid for twice. Now ONE continuous 3.3 s descent from the
 	valley to the laptop, keeping only the two beats that teach: this is yours,
 	start here. The scale shot is not cut, it is the start of the same move. ]]
-	local ok = Cine.play({
-		-- framed by eye: at 260/150/330 the garage was one box among many and the
-		-- caption lied; this height still shows the hills and the road but the lot
-		-- is unmistakably the subject
-		{ pos = P(140, 80, 180), look = P(0, 10, 0), t = 0,
-			title = "THIS LOT IS YOURS", sub = "A garage, a laptop, and zero dollars." },
-		{ pos = P(50, 30, 78), look = hq, t = 2.0 },
-		{ pos = P(6, 6.5, 6), look = laptop, t = 1.3, title = "START HERE",
-			sub = isTouch and "Tap the laptop to write your first app." or "Click the laptop to write your first app." },
-	}, { fov = 60, hold = 0.4 })
+	--[[ v4.9 THE OPENING FLIP. The flyover above opened on an empty lot and the
+	caption said "a garage, a laptop, and zero dollars" -- the smallest thing in a
+	game that contains a hundred-floor tower. Measured against the 2026 playbook
+	that is backwards: the first ninety seconds have to carry a wow that also
+	plays on video, and first-play bounce is a top-tier ranking signal.
+
+	So shot one now opens on the DESTINATION, looking up:
+	  * if another founder in this server has built past their lobby, theirs --
+	    a real tower with a real name on it, which is social proof the game
+	    cannot fake;
+	  * otherwise a translucent ghost of the finished building standing on your
+	    own lot, built from Wafers.towerSpec() so it is the real massing.
+	Then the camera pulls back to your lot and down to the laptop, as before.
+	Three beats became four and 3.3 s became ~3.8 s: half a second bought the
+	only shot in the intro worth filming. ]]
+	local ghost, hero, heroLook, heroName = nil, nil, nil, nil
+
+	-- the tallest FINISHED-ENOUGH tower belonging to someone else, if there is one
+	do
+		local sv = workspace:FindFirstChild("SiliconValley")
+		local plots = sv and sv:FindFirstChild("Plots")
+		local best = 0
+		for _, other in ipairs(plots and plots:GetChildren() or {}) do
+			-- plot.Wafers is a FOLDER, not a Model: GetBoundingBox does not exist
+			-- on it, so measure the parts. (The first draft tested IsA("Model")
+			-- and therefore never found a neighbour at all.)
+			local w = other ~= pf and other:FindFirstChild("Wafers")
+			if w then
+				local base = other:GetAttribute("Pivot")
+				local top
+				for _, d in ipairs(w:GetDescendants()) do
+					if d:IsA("BasePart") then
+						local y = d.Position.Y + d.Size.Y / 2
+						if not top or y > top then top = y end
+					end
+				end
+				local height = top and base and (top - base.Position.Y) or 0
+				if base and height > 45 and height > best then
+					best = height
+					-- stand back on the road side, proportional to how tall it actually is
+					local out = base.LookVector * (top * 1.25) + base.RightVector * (top * 0.35)
+					hero = Vector3.new(base.Position.X, top * 0.62, base.Position.Z) + out
+					heroLook = Vector3.new(base.Position.X, top * 0.45, base.Position.Z)
+					heroName = other:GetAttribute("Company")
+				end
+			end
+		end
+	end
+
+	-- nobody has built yet: show them their own finished building as a blueprint
+	if not hero then
+		local spec = pf.Parent and pf.Parent:GetAttribute("TowerSpec")
+		if spec and spec ~= "" then
+			ghost = Instance.new("Model")
+			ghost.Name = "SVTowerGhost"
+			local top = 0
+			for band in string.gmatch(spec, "[^|]+") do
+				local r, y0, y1 = string.match(band, "(%-?%d+):(%-?%d+):(%-?%d+)")
+				r, y0, y1 = tonumber(r), tonumber(y0), tonumber(y1)
+				if r and y1 and y1 > y0 then
+					local c = Instance.new("Part")
+					c.Shape = Enum.PartType.Cylinder
+					c.Size = Vector3.new(y1 - y0, r * 2, r * 2)
+					c.CFrame = CFrame.new(P(0, (y0 + y1) / 2, 0)) * CFrame.Angles(0, 0, math.pi / 2)
+					c.Anchored, c.CanCollide, c.CanQuery, c.CanTouch = true, false, false, false
+					c.CastShadow = false
+					--[[ MEASURED: ForceField at 0.62 was all but invisible against the
+						afternoon sky the flyover forces -- it rendered as a faint sliver.
+						Translucent SmoothPlastic plus the game's own Highlight outline
+						reads as a blueprint and keeps the silhouette crisp. ]]
+					c.Material = Enum.Material.SmoothPlastic
+					c.Color = Color3.fromRGB(96, 170, 226)
+					c.Transparency = 0.5
+					c.Parent = ghost
+					top = math.max(top, y1)
+				end
+			end
+			if #ghost:GetChildren() > 0 then
+				local hl = Instance.new("Highlight")
+				hl.Adornee = ghost
+				hl.FillTransparency = 1
+				hl.OutlineColor = Color3.fromRGB(24, 44, 70)
+				hl.DepthMode = Enum.HighlightDepthMode.Occluded
+				hl.Parent = ghost
+				ghost.Parent = workspace
+				--[[ framing is a FRACTION of the tower's own height, not fixed studs:
+					at a fixed 168 back the crown clipped off the top of frame. At
+					1.25x height back and 0.62x up, a 205-stud tower fills about
+					70% of a 16:9 frame at FOV 60 with the garage still in shot --
+					the scale contrast is the whole point of the picture. ]]
+				hero = P(top * 0.35, top * 0.62, top * 1.25)
+				heroLook = P(0, top * 0.45, 0)
+			else
+				ghost:Destroy()
+				ghost = nil
+			end
+		end
+	end
+
+	local shots = {}
+	if hero then
+		table.insert(shots, { pos = hero, look = heroLook, t = 0,
+			title = heroName and heroName ~= "" and ("%s IS ALREADY BUILDING"):format(string.upper(heroName))
+				or "ONE HUNDRED FLOORS",
+			sub = heroName and heroName ~= "" and "Six founders share this valley. One lot is still empty."
+				or "That is what you are here to build. It starts with a garage." })
+	end
+	-- framed by eye: at 260/150/330 the garage was one box among many and the
+	-- caption lied; this height still shows the hills and the road but the lot
+	-- is unmistakably the subject
+	table.insert(shots, { pos = P(140, 80, 180), look = P(0, 10, 0), t = hero and 1.5 or 0,
+		title = "THIS LOT IS YOURS", sub = "A garage, a laptop, and zero dollars." })
+	table.insert(shots, { pos = P(50, 30, 78), look = hq, t = hero and 1.2 or 2.0 })
+	table.insert(shots, { pos = P(6, 6.5, 6), look = laptop, t = hero and 1.1 or 1.3, title = "START HERE",
+		sub = isTouch and "Tap the laptop to write your first app." or "Click the laptop to write your first app." })
+	local ok = Cine.play(shots, { fov = 60, hold = 0.4 })
+	if ghost then
+		-- fade it out as the camera arrives, so it never stands over the real lot
+		task.spawn(function()
+			local parts = ghost:GetChildren()
+			for k = 0, 1, 0.05 do
+				for _, c in ipairs(parts) do
+					if c:IsA("BasePart") then c.Transparency = 0.5 + 0.5 * k end
+				end
+				task.wait(0.03)
+			end
+			ghost:Destroy()
+		end)
+	end
 	local _ = ok
 	lightTheLaptop(pf)
 	task.spawn(function()

@@ -97,6 +97,15 @@ return function(core)
 			return ("talent=%s x%.1f rate=%d"):format(t.name, t.mult, s.rate)
 		elseif action == "save" then
 			return SaveLoad.saveNow(player) and "saved" or "NOT saved"
+		elseif action == "bell" then
+			--[[ v4.9. Driving Valley from an execute_luau require does NOT work:
+				that require returns a FRESH copy of the module, so forceBell()
+				mutates a second, unused bell. Required from inside a real server
+				script it is the same cached instance the game is running. ]]
+			local V = require(script.Parent:WaitForChild("Valley"))
+			if arg == "end" then V.endBell() return "bell ending" end
+			V.forceBell()
+			return "bell opening"
 		elseif action == "rival" then
 			return "hit " .. rivalLaunch()
 		elseif action == "launch" then
