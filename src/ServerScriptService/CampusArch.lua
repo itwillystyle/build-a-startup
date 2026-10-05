@@ -43,7 +43,16 @@ local MULLION = Color3.fromRGB(52, 56, 64)
 local GLASS = Color3.fromRGB(164, 204, 226)
 local PLINTH = Color3.fromRGB(196, 193, 186)
 local PAVER = Color3.fromRGB(184, 180, 171)
-local LAWN = Color3.fromRGB(136, 172, 96)          -- v3.5: matches the terrain lawn (ART.md Campus Lawn)
+--[[ CAMPUS LAWN (v5.0). Was two different greens -- 122,170,80 in the hub and
+	the districts, 136,172,96 on the plots -- and both were the loudest thing
+	on screen. The grass is the least important object in the frame and it was
+	out-shouting the towers, the staff and the cars.
+
+	Pulled ~20% out of the saturation, a little out of the value, and the hue
+	pushed from 92 to 97 degrees (toward blue-green, away from yellow). Nothing
+	else changes; the lawn simply stops competing with the subject. One value
+	now, in every builder, matching ART.md. ]]
+local LAWN = Color3.fromRGB(118, 160, 92)          -- ART.md Campus Lawn
 local WOOD = Color3.fromRGB(168, 122, 82)
 
 local MONT = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.SemiBold)
@@ -270,7 +279,7 @@ local FlatLook = require(script.Parent:WaitForChild("FlatLook"))
 
 local PATH = Color3.fromRGB(214, 208, 196)
 local PATH_EDGE = Color3.fromRGB(168, 162, 150)
-local CAMPUS_LAWN = Color3.fromRGB(136, 172, 96)
+local CAMPUS_LAWN = Color3.fromRGB(118, 160, 92)   -- the same lawn as LAWN above
 
 -- a saved furniture position (plot-local) in an older layout -> this layout
 function CampusArch.migrate(lx, lz, yaw, layout, W, D)

@@ -58,7 +58,7 @@ Wafers.BLURB = {
 local SEAT_ROOM = { lobby = "office", eng = "office", studio = "studio", cafe = "cafe", labs = "labs" }
 local PAPER = Color3.fromRGB(243, 239, 230)
 local CHARCOAL = Color3.fromRGB(46, 50, 58)
-local LAWN = Color3.fromRGB(122, 170, 80)
+local LAWN = Color3.fromRGB(118, 160, 92)   -- ART.md Campus Lawn (see CampusHub)
 local GOLD = Color3.fromRGB(255, 194, 61)
 
 -- tinted glass for the kit's glass meshes (they are vertex white)
@@ -829,6 +829,43 @@ local function buildSegment(plot, L, dept, model)
 		local glass = mesh(model, shellA, glassName, facadeTint(dept), { Material = Enum.Material.Glass, Transparency = 0.28, CastShadow = false })
 		if shell then table.insert(visual, shell) end
 		if glass then table.insert(visual, glass) end
+	end
+
+	--[[ THE DEPARTMENT BAND (v5.0).
+
+		Choosing a department is a decision the player makes up to 100 times,
+		and until now it was INVISIBLE from more than a few studs away. The
+		glass already carries the department colour, but FACADE_MIX dilutes it
+		78% toward a common blue-grey so the tower reads as one building --
+		which it should -- and what survives is 22% of a hue, seen through
+		glass at 0.28 transparency. From the ring road that is grey.
+
+		Both things can be true at once, and real curtain walls solve it the
+		same way: the MASS stays one colour, and a narrow solid spandrel at
+		each floor line carries the accent. So the glass is left exactly as it
+		was and the band is new. Up close it labels the floor; from across the
+		campus the stack of bands is a readable record of how somebody built
+		their company.
+
+		It sits on the slab edge, just proud of the facade, and is opaque --
+		a tinted band would lose the one job it has. ]]
+	do
+		local bandC = Wafers.TINT[dept]
+		if bandC and variant ~= "bridge" then
+			local bandProps = { Name = "DeptBand", Color = bandC,
+				Material = Enum.Material.SmoothPlastic, CastShadow = false, CanQuery = false }
+			local band = {}
+			--[[ Sizing, after looking at it from both distances. At 0.8 deep and
+				2.2 tall it was tucked behind the mesh's slab edge and read as
+				two pixels from the ring road -- visible up close, useless at
+				the range that matters. Pushed proud of the slab and raised to
+				3.0, which is still under a quarter of a 13-stud storey, so the
+				tower stays mostly glass. ]]
+			for _, q in ipairs(arcBoxes(-half, half, 3, r + 0.55, 1.05, -G.SLAB - 0.05, 3.0, bandProps)) do
+				table.insert(band, q)
+			end
+			for _, q in ipairs(placeAll(model, anchor, band)) do table.insert(visual, q) end
+		end
 	end
 	--[[ THE PODIUM (v7). The base half of the tripartite division: a plinth
 	wider than the shaft with a deep entrance on the road side, so the tower

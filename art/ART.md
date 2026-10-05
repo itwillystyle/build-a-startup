@@ -32,7 +32,7 @@ Why this and not "bright cartoon": the fantasy is *building a company campus*. A
 | Warm Concrete | 207, 198, 182 | Plinths, paths, plazas | ~12% |
 | Oak | 192, 138, 85 | Fins, soffits, benches, decks | ~6% |
 | Tinted Glass | 118, 158, 176 | Glazing | ~10% |
-| Campus Lawn | 122, 170, 80 | Lawns, near foliage | ~15% |
+| Campus Lawn | 118, 160, 92 | Lawns, near foliage | ~15% |
 | California Gold | 224, 182, 90 | The hills | ~10% |
 | Valley Blue | 62, 110, 158 | Shade tint, info, solar panels | ~3% |
 | Ink | 30, 37, 48 | Text, mullions, asphalt | ~3% |
