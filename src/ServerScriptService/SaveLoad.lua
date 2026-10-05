@@ -7,6 +7,7 @@ them is assigned before this point and never reassigned, so aliasing is safe. ]]
 return function(core)
 	local CFG = core.CFG
 	local Prog = core.Prog
+	local Mom = core.Mom
 	local Journey = core.Journey
 	local CampusArch = core.CampusArch
 	local Econ = core.Econ
@@ -92,6 +93,7 @@ return function(core)
 			ipo = s.ipo or false,
 			launches = s.launches or 0,
 			rl = s.runLaunches or 0,   -- v4.5: this company's launches (the work need)
+			mo = s.momentum or 0,      -- v5.0: momentum banked but not yet spent on a build
 			rate = s.rate,
 			lastSeen = os.time(),
 			tiers = (function()
@@ -354,6 +356,9 @@ return function(core)
 		s.streak = clampInt(data.streak, 0, 7, 0)
 		-- v4.0: the apartment (clamped) and the cars (validated against the catalog)
 		s.apt = clampInt(data.apt, 0, 3, 0)
+		-- derived through the module's own sanitizer, so a crafted save cannot
+		-- mint a permanent discount (same doctrine as tiers and streaks)
+		s.momentum = Mom.sanitize(data.mo)
 		s.vipDay = clampInt(data.vipDay, 0, 1e7, 0)
 		s.jr = Journey.cleanFlags(data.jr)        -- v4.3 only known flags survive a load
 		s.tips = Journey.cleanTips(data.tips)

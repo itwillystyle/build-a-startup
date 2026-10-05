@@ -519,7 +519,10 @@ local function stepCarry(player, c, dt)
 	end
 	local plot = api.plotOf(player)
 	if plot and inLot(plot, hrp.Position) then
+		-- `kind` is what the trip was worth: it is set only here, on a carry that
+		-- actually reached the lot, so no hire made from inside the garage pays
 		local ok = api.hire(player, plot, { floor = c.tier.floor, fee = c.fee, luck = c.luck,
+			kind = c.vip and "vip" or c.tier.id,
 			role = c.model:GetAttribute("RoleKey"), seed = c.model:GetAttribute("Seed") })
 		endCarry(player, ok and "" or ("Couldn't sign " .. c.name .. " (need $" .. api.fmt(c.fee) .. " and a free seat)"))
 		return
