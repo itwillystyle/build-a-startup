@@ -664,6 +664,38 @@ function ValleyGen.buildLowPoly(world, lp, placeH, opts)
 		end
 	end
 
+	--[[ v5.0 PER-INSTANCE VARIATION -- the cheapest honest win in the frame.
+
+		Measured before the change: 4,568 hill trees shared exactly ONE colour,
+		and all 315 valley trees were untinted white. Heights already varied,
+		which is why the hills read as a field of identical stamps rather than
+		as obviously broken -- the eye catches repeated COLOUR far faster than
+		repeated silhouette.
+
+		The meshes carry their own vertex colours, so a tint multiplies rather
+		than replaces: a small spread around white shifts each tree's green
+		without touching the art direction. Seeded from the tree's own position
+		so the valley looks the same on every server and in every screenshot.
+
+		Costs nothing at runtime: it is one property per part, written once. ]]
+	do
+		local hills = f:FindFirstChild("HillTrees")
+		if hills then
+			for _, d in ipairs(hills:GetChildren()) do
+				if d:IsA("BasePart") then
+					local n = math.noise(d.Position.X * 0.015, d.Position.Z * 0.015, 3.7)
+					local m = math.noise(d.Position.X * 0.004, d.Position.Z * 0.004, 8.2)
+					-- value spread, then a small push between yellow-green and blue-green
+					local v = 0.90 + n * 0.14
+					d.Color = Color3.new(
+						math.clamp(v + m * 0.07, 0.7, 1.12),
+						math.clamp(v, 0.7, 1.12),
+						math.clamp(v - m * 0.06, 0.7, 1.12))
+				end
+			end
+		end
+	end
+
 	--[[ v5.0: TAG THE GROUND AS GROUND.
 
 		Placement classifies a hard surface by shape -- broad, thin,
@@ -754,6 +786,12 @@ local ROOM = 0.8
 local TREE_CELL = 16
 local treeGrid = {}
 local aspectCache = {}
+
+local TREE_NAMES = { LP_Oak_A = 1, LP_Oak_B = 1, LP_Palm_A = 1, LP_Palm_B = 1,
+	LP_Eucalypt = 1, LP_Orchard = 1, LP_Redwood_A = 1, LP_Redwood_B = 1,
+	LP_Bush = 1, LP_Grove = 1, LP_RedwoodGrove = 1 }
+
+function ValleyGen.isTree(name) return TREE_NAMES[name] == 1 end
 
 function ValleyGen.resetTrees()
 	treeGrid = {}
@@ -1365,11 +1403,34 @@ function ValleyGen.build(world, opts)
 			Color = Color3.fromRGB(70, 108, 116), Material = Enum.Material.SmoothPlastic, Reflectance = 0.12 }, folder)
 	end
 
+	--[[ The same variation the hills got, over the valley's own trees. All 315
+		were Color 1,1,1 -- the mesh's vertex colours straight through, so a
+		row of orchard trees was 145 identical objects. Tinting is applied
+		once, here, rather than in each of the four placers, because the rule
+		is about how the valley READS and does not belong to any one of them. ]]
+	do
+		local tinted = 0
+		for _, d in ipairs(folder:GetDescendants()) do
+			if d:IsA("MeshPart") and ValleyGen.isTree(d.Name) then
+				local pos = d.Position
+				local n = math.noise(pos.X * 0.02, pos.Z * 0.02, 1.3)
+				local m = math.noise(pos.X * 0.006, pos.Z * 0.006, 5.9)
+				local v = 0.91 + n * 0.13
+				d.Color = Color3.new(
+					math.clamp(v + m * 0.07, 0.72, 1.12),
+					math.clamp(v, 0.72, 1.12),
+					math.clamp(v - m * 0.06, 0.72, 1.12))
+				tinted += 1
+			end
+		end
+		made.tinted = tinted
+	end
+
 	return {
 		chunks = chunks, maxHeight = maxH, seconds = os.clock() - t0,
 		oaks = made.oaks, redwoods = made.redwoods, verge = made.verge,
 		palms = dressed.palms, eucalypts = dressed.eucalypts, orchard = dressed.orchard, landmarks = dressed.landmarks,
-		height = height,
+		tinted = made.tinted, height = height,
 	}
 end
 
