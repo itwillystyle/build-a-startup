@@ -397,6 +397,115 @@ local function checkErrors(say)
 	return errs == 0
 end
 
+-- ---------------------------------------------------------------- the visual sweep
+--[[ EVERY CHECK ABOVE READS DATA. None of them can see "the boxes look
+	awkward" or "this reads as slop", because those are not properties of the
+	data -- they are properties of the rendered image, and until now the only
+	thing in this project that ever looked at the rendered image was Luke,
+	one screenshot at a time, after the fact.
+
+	So: a fixed set of framings, the same ones every build, aimed at the places
+	bugs actually live -- inside the garage where the furniture is, the lobby,
+	the street, and a shot deliberately composed with something between the
+	camera and an outlined object, because that is where the outline leaks.
+
+	Usage, one shot at a time so the capture is reliable:
+	    local C = require(game.ReplicatedStorage.SVCheck)
+	    C.shot(1)        -- returns its name; screenshot; then C.shot(2) ...
+	    C.endShots()     -- puts the camera, the character and the HUD back
+]]
+--[[ Framings found by hand on 5 Oct and frozen here. The first draft put the
+	camera at z 26, which is OUTSIDE the garage door and looks straight into
+	the tower ring -- it showed a wall of building and none of the furniture
+	anybody was asking about. The garage interior is x +-18, z +-15, floor top
+	y 1, roof y 14, so a camera has to live inside that box. ]]
+SVCheck.SHOTS = {
+	{ "garage: desk and laptop", { 0, 6, 11 }, { 0, 4.3, -15 }, 62, true },
+	{ "garage: the box corner", { -8, 5.5, 7 }, { 16, 3, -14 }, 60, true },
+	{ "garage: the pads and the floor", { 5, 3.2, 12 }, { -11, 1.2, 3 }, 68, true },
+	{ "garage: from the seat", { 3, 4.6, -5 }, { 0, 4.0, -12 }, 55, true },
+	{ "the plot from the street", { 0, 16, 110 }, { 0, 24, 0 }, 60, false },
+	{ "street, props close", { -72, 7, 70 }, { -72, 5, -60 }, 70, false },
+	{ "the hub, wide", { 0, 90, 360 }, { 0, 20, -40 }, 60, false },
+}
+
+local shotState = nil
+
+function SVCheck.shot(i)
+	local RunService = game:GetService("RunService")
+	local player = game:GetService("Players").LocalPlayer
+	local spec = SVCheck.SHOTS[i]
+	if not spec then return "no shot " .. tostring(i) end
+	local plots = workspace:FindFirstChild("SiliconValley")
+	plots = plots and plots:FindFirstChild("Plots")
+	local pf = plots and plots:FindFirstChild("Plot" .. tostring(player:GetAttribute("Plot")))
+	local pivot = pf and pf:GetAttribute("Pivot")
+	if not pivot then return "no plot yet" end
+
+	if not shotState then
+		local cam = workspace.CurrentCamera
+		shotState = { cam = cam, type = cam.CameraType, cf = cam.CFrame, fov = cam.FieldOfView, gui = {} }
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		shotState.root = root and root.CFrame or nil
+		for _, g in ipairs(player.PlayerGui:GetChildren()) do
+			if g:IsA("ScreenGui") then shotState.gui[g] = g.Enabled end
+		end
+	end
+
+	local name, from, to, fov, hideHud = spec[1], spec[2], spec[3], spec[4], spec[5]
+	local P = function(v) return pivot:PointToWorldSpace(Vector3.new(v[1], v[2], v[3])) end
+	local a, b = P(from), P(to)
+	--[[ Outlines anchor on the CHARACTER, not the camera, so the character has to
+		stand where the shot is taken or half the frame has no line. But standing
+		them AT the camera fills the foreground with their own avatar -- the first
+		sweep came back with a black mass across the bottom of every garage shot,
+		and it was his own character at point-blank range. Stand them there and
+		make them invisible locally. ]]
+	local char = player.Character
+	local root = char and char:FindFirstChild("HumanoidRootPart")
+	if root then root.CFrame = CFrame.new(a - Vector3.new(0, 2, 0)) end
+	if char then
+		for _, d in ipairs(char:GetDescendants()) do
+			if d:IsA("BasePart") or d:IsA("Decal") then d.LocalTransparencyModifier = 1 end
+		end
+		shotState.hidChar = true
+	end
+	for g, _ in pairs(shotState.gui) do
+		if g.Parent then g.Enabled = not hideHud end
+	end
+	if shotState.conn then shotState.conn:Disconnect() end
+	local cam = workspace.CurrentCamera
+	shotState.conn = RunService.RenderStepped:Connect(function()
+		cam.CameraType = Enum.CameraType.Scriptable
+		cam.FieldOfView = fov
+		cam.CFrame = CFrame.lookAt(a, b)
+		cam.Focus = CFrame.new(b)
+	end)
+	task.wait(1.2)
+	return ("shot %d/%d  %s"):format(i, #SVCheck.SHOTS, name)
+end
+
+function SVCheck.endShots()
+	if not shotState then return "no sweep running" end
+	if shotState.conn then shotState.conn:Disconnect() end
+	local cam = shotState.cam
+	cam.CameraType, cam.CFrame, cam.FieldOfView = shotState.type, shotState.cf, shotState.fov
+	local player = game:GetService("Players").LocalPlayer
+	local char = player.Character
+	local root = char and char:FindFirstChild("HumanoidRootPart")
+	if root and shotState.root then root.CFrame = shotState.root end
+	if char and shotState.hidChar then
+		for _, d in ipairs(char:GetDescendants()) do
+			if d:IsA("BasePart") or d:IsA("Decal") then d.LocalTransparencyModifier = 0 end
+		end
+	end
+	for g, on in pairs(shotState.gui) do
+		if g.Parent then g.Enabled = on end
+	end
+	shotState = nil
+	return "sweep ended, camera and HUD restored"
+end
+
 -- ---------------------------------------------------------------- run
 function SVCheck.run()
 	local out = {}

@@ -872,6 +872,7 @@ local function centreOn(frame, maxW, minW, h, y)
 	frame.Size = UDim2.new(0, math.max(minW, w), 0, h)
 	-- v4.9: 96 was a guess that the top of the screen was empty. It is not.
 	frame.Position = UDim2.new(0, cx - notify.AbsolutePosition.X, 0, y or Notify.topY(96))
+	if not y then Notify.followTop(frame, 96) end
 end
 local function atY(frame, y) return UDim2.new(0, frame.Position.X.Offset, 0, y) end
 

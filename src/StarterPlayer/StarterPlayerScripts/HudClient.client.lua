@@ -627,6 +627,7 @@ local function hqBanner(e, done)
 		task.delay(0.35 + i * 0.15, function() tween(sc, 0.3, { Scale = 1 }, Enum.EasingStyle.Back) end)
 	end
 	tween(card, 0.45, { Position = UDim2.new(0, x, 0, Notify.topY(100)) }, Enum.EasingStyle.Back)
+	Notify.followTop(card, 100)
 	-- confetti
 	local colours = { UIKit.GOLD, UIKit.GREEN, UIKit.BLUE, UIKit.RED, UIKit.ORANGE }
 	for k = 1, 40 do
