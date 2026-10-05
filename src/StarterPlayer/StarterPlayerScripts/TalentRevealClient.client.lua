@@ -285,6 +285,7 @@ local function showCard(d, done)
 	card.Position = UDim2.new(0, cardX, 0, -CARD_H - 20)
 	TweenService:Create(card, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
 		{ Position = UDim2.new(0, cardX, 0, Notify.topY(TOP)) }):Play()
+	Notify.followTop(card, TOP)        -- the quest card above can grow while this is up
 	titleScale.Scale = 0.3
 	TweenService:Create(titleScale, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 	UIKit.sfx(SOUND[tier] or "ding", tier == 2 and 1.15 or 1)

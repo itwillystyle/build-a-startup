@@ -127,6 +127,11 @@ local function buildScenery()
 			table.insert(scenery, { part, part.Position })
 		end
 	end
+	--[[ Interior furniture is deliberately NOT gathered here. It is all loose
+		MeshParts, and measured on 5 Oct a Highlight on those does not render at
+		all -- part-adorned or wrapped in a Model, red, AlwaysOnTop, nine studs
+		away, with every other Highlight destroyed. Adding them only spends
+		budget on lines nobody ever sees. ]]
 	-- and every model nobody tagged
 	for _, name in ipairs({ "Valley", "Plots", "Downtown", "KenneyCity" }) do
 		local folder = sv:FindFirstChild(name)
@@ -161,10 +166,18 @@ local function outline(model)
 	-- not a cartoon. An object half behind something is half outlined, which is
 	-- what it should be.
 	h.DepthMode = Enum.HighlightDepthMode.Occluded
-	--[[ Parented to the adornee when it is a Model so nothing leaks, but a
-		BasePart cannot hold a Highlight in every case, so those go on the
-		camera and are cleaned up by the same keep/sweep below. ]]
-	h.Parent = model:IsA("Model") and model or workspace.CurrentCamera
+	--[[ MEASURED 5 Oct, and it corrects something I asserted without testing.
+
+		I had parented part-adorned Highlights to the CAMERA, on the assumption
+		that "a BasePart cannot hold a Highlight in every case". That assumption
+		was never checked, and it was wrong in the direction that matters: the
+		Highlights existed, the adornee was right, the count said 1,096 -- and
+		nothing drew. A close shot of the garage chair showed bare geometry while
+		the code happily reported it outlined.
+
+		A BasePart holds a Highlight perfectly well. Parent it to the adornee,
+		always. ]]
+	h.Parent = model
 	return h
 end
 

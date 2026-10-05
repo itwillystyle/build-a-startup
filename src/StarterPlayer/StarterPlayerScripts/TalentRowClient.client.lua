@@ -237,6 +237,7 @@ if lostRemote then
 				lostCard.Visible = true
 				TweenService:Create(lostCard, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
 					{ Position = UDim2.new(lostCard.Position.X.Scale, lostCard.Position.X.Offset, 0, Notify.topY(96)) }):Play()
+				Notify.followTop(lostCard, 96)
 				UIKit.sfx("thunk", 0.55, 0.8)
 				for _, f in ipairs(lostEdges) do
 					f.BackgroundTransparency = 0.35
@@ -294,6 +295,7 @@ RunService.RenderStepped:Connect(function(dt)
 			if not danger.Visible then
 				danger.Size = UDim2.new(0, centreWidth(330, danger), 0, 50)
 				danger.Position = UDim2.new(0.5, 0, 0, Notify.topY(96))   -- v4.9: clear the quest card
+				Notify.followTop(danger, 96)
 			end
 			danger.Visible = true
 			setDanger(true)

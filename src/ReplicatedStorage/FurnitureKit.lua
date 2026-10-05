@@ -759,12 +759,27 @@ function FurnitureKit.dressGarage(garage, g, parts)
 	parts.laptop = FurnitureKit.swap(parts.laptop, "laptop",
 		{ floorTop = deskTop, scale = 1.15 })
 
-	-- the Screen follows the surface down, keeping its tilt. It stays PRIMITIVE
-	-- and Neon on purpose: it is the big glowing target the eye goes to at 0:00,
-	-- writeCode() flashes its Color, and the whole onboarding hangs on the
-	-- player noticing it. A grey mesh monitor is a worse object for that job.
+	--[[ THE LAPTOP HAD NO SCREEN, reported 5 Oct with a screenshot.
+
+		Measured: the primitive Screen sat at z -9.8 and the swapped-in laptop
+		MESH is 1.6 deep centred at z -9.0, so it spans -9.8 to -8.2. The lit
+		panel was therefore buried INSIDE the mesh at its rear edge -- sized 2.6
+		wide for a primitive laptop that no longer existed, against a mesh 1.8
+		wide. From the room you saw the laptop's back and no screen at all.
+
+		The fix was already in this file. glow() fires a ray at a mesh from its
+		front and lays the lit plane flush on whatever surface it hits; it was
+		written for the monitors in v3.0.3 after 14 of 19 glows landed on their
+		backs. It just never ran for the laptop. Now it does, and the lit plane
+		is the object SiliconCore keeps as plot.screen, so writeCode() still
+		flashes the thing the player is actually looking at. ]]
 	local scr = garage:FindFirstChild("Screen")
-	if scr then
+	local lit = FurnitureKit.glow(parts.laptop, SCREEN_ON)
+	if lit then
+		lit.Name = "Screen"
+		parts.screen = lit
+		if scr then scr:Destroy() end
+	elseif scr then
 		scr.CFrame = g(0, deskTop + scr.Size.Y / 2 + 0.02, -9.8)
 			* CFrame.Angles(math.rad(-15), 0, 0)
 	end
@@ -808,11 +823,15 @@ function FurnitureKit.dressGarage(garage, g, parts)
 	local boxes = garage:FindFirstChild("Boxes")
 	if boxes and FurnitureKit.has("cardboardBoxClosed") then
 		boxes:Destroy()
-		FurnitureKit.put("cardboardBoxClosed", g(14.5, F, -13), garage, { scale = 1.3 })
-		FurnitureKit.put("cardboardBoxOpen", g(12.4, F, -12.0), garage,
+		--[[ MEASURED: the open box's right edge was 13.8 and the closed box's
+			left edge 13.7, so they interpenetrated, and both sat a stride out
+			from the corner looking dropped rather than stacked. Pushed into the
+			corner (walls are x 18, z -15) with a clear gap between them. ]]
+		FurnitureKit.put("cardboardBoxClosed", g(15.2, F, -13.4), garage, { scale = 1.3 })
+		FurnitureKit.put("cardboardBoxOpen", g(11.9, F, -13.6), garage,
 			{ scale = 1.3, yaw = 28 })
 		FurnitureKit.put("cardboardBoxClosed",
-			g(14.5, F + SIZE.cardboardBoxClosed.Y * 1.3, -13)
+			g(15.2, F + SIZE.cardboardBoxClosed.Y * 1.3, -13.4)
 				* CFrame.Angles(0, math.rad(14), 0), garage, { scale = 1.3 })
 	end
 

@@ -981,7 +981,9 @@ local function buildPlot(index, def)
 	end
 
 	local garage = plot.garage
-	part({ Name = "Shelf", Size = Vector3.new(6, 4, 1.2), CFrame = g(-14, 2.5, -13.5),
+	-- y 3.0 not 2.5: at 2.5 its base was 0.50 and the floor top is 1.00, so it
+	-- stood half a stud inside the floor (measured 5 Oct)
+	part({ Name = "Shelf", Size = Vector3.new(6, 4, 1.2), CFrame = g(-14, 3.0, -13.5),
 		Color = Color3.fromRGB(120, 92, 60), Material = Enum.Material.WoodPlanks }, garage)
 	part({ Name = "Boxes", Size = Vector3.new(3, 3, 3), CFrame = g(14.5, 2, -13),
 		Color = Color3.fromRGB(150, 118, 80), Material = Enum.Material.Cardboard }, garage)
@@ -1003,6 +1005,18 @@ local function buildPlot(index, def)
 		local swapped = { desk = desk, laptop = laptop }
 		FurnitureKit.dressGarage(garage, g, swapped)
 		desk, laptop = swapped.desk, swapped.laptop
+		-- the kit lays the lit panel flush on the laptop's own screen and hands
+		-- it back; that part is what writeCode() flashes from here on
+		if swapped.screen then screen = swapped.screen end
+
+		--[[ NO OUTLINE ON THE GARAGE FURNITURE, and it is not for want of trying.
+			Measured 5 Oct: a Highlight on these imported furniture meshes does not
+			render, adorning the MeshPart or a Model wrapped round it, at nine studs,
+			in pure red with DepthMode AlwaysOnTop, with every other Highlight in the
+			world destroyed. The same Highlight settings on a staff rig draw fine.
+			The cause is not the count (13 in the world), the adornee, the parenting,
+			the transparency or the depth mode -- all ruled out by experiment. Left
+			unexplained rather than papered over with structure that does nothing. ]]
 	end
 	plot.desk, plot.laptop, plot.screen = desk, laptop, screen
 
@@ -1013,11 +1027,21 @@ local function buildPlot(index, def)
 		table.insert(plot.fixed, { key = "desk", x = wp.X, z = wp.Z, w = 4.32, d = 2.31, top = 2.26, y = 1.0 })
 	end
 
-	plot.hirePad = part({ Name = "HirePad", Size = Vector3.new(7, 0.3, 7), CFrame = g(-11, 1.15, 4), Color = CFG.TRIM }, garage)
+	--[[ CFG.TRIM is near-black, and on a dark garage floor a 7x7 charcoal slab
+		does not read as a pad, it reads as a HOLE. Pale paving with a painted
+		look says "stand here" instead. ]]
+	plot.hirePad = part({ Name = "HirePad", Size = Vector3.new(7, 0.3, 7), CFrame = g(-11, 1.15, 4),
+		Color = Color3.fromRGB(206, 201, 190), Material = Enum.Material.SmoothPlastic }, garage)
 	plot.hireLabel = label(plot.hirePad, "", 20, 3, 34)
 
+	--[[ NOT NEON. Reported 5 Oct as "a yellow blob through the wall", and that
+		is exactly what a 6x6 Neon slab becomes once bloom gets hold of it at
+		three studs: the halo is screen-space, so it spills past the garage wall
+		and loses its own edges. ART.md already says Neon is for lights and
+		screens only, and v3.5 took the IPO roof plate off Neon for this same
+		reason. Painted gold keeps the colour and gets its shape back. ]]
 	plot.hqPad = part({ Name = "HQPad", Size = Vector3.new(6, 0.4, 6), CFrame = g(13, 1.2, 8),
-		Color = CFG.GOLD, Material = Enum.Material.Neon }, garage)
+		Color = CFG.GOLD, Material = Enum.Material.SmoothPlastic }, garage)
 	plot.hqLabel = label(plot.hqPad, "", 18, 3, 34)
 
 	local bulb = part({ Name = "Bulb", Size = Vector3.new(1.6, 0.3, 1.6), CFrame = g(0, 13.2, -8),
@@ -1034,7 +1058,7 @@ local function buildPlot(index, def)
 	-- z=0, not 6: the default camera sits ~12.5 studs behind the character,
 	-- and from z=6 that is OUTSIDE the closed door (door at z=15). Seen live:
 	-- the first frame after the intro was diamond plate with a slit.
-	sp.CFrame = g(0, 1.1, 0)
+	sp.CFrame = g(0, 1.5, 0)        -- 1.1 put its base at 0.60, inside the 1.00 floor
 	sp.Transparency = 1
 	sp.CanCollide = false
 	sp.Anchored = true
@@ -1398,9 +1422,14 @@ local function updateHirePad(player)
 	local plot = plotOf(player)
 	if not s or not plot then return end
 	local cap = capacityOf(player)
+	--[[ PAD_OFF, not CFG.TRIM. TRIM is near-black, and a 7x7 near-black slab on a
+		dark garage floor does not read as a dormant pad -- it reads as a hole in
+		the floor, which is what it looked like in his 5 Oct screenshot. Pale
+		stone reads as "a pad, not yet active". ]]
+	local PAD_OFF = Color3.fromRGB(176, 172, 164)
 	if not s.shipped then
 		plot.hireLabel.Text = ""
-		plot.hirePad.Color = CFG.TRIM
+		plot.hirePad.Color = PAD_OFF
 	elseif s.staff >= cap then
 		plot.hireLabel.Text = "SEATS FULL  ·  add a station (B) or upgrade a room"
 		if Econ and Econ.V3 then
@@ -1415,7 +1444,7 @@ local function updateHirePad(player)
 		plot.hirePad.Color = CFG.GOLD
 	elseif Econ and Econ.RECRUIT and Econ.Drop then
 		plot.hireLabel.Text = "HIRING HAPPENS ON THE STREET  ·  candidates wait on the sidewalk"
-		plot.hirePad.Color = CFG.TRIM
+		plot.hirePad.Color = PAD_OFF
 	else
 		plot.hireLabel.Text = string.format("HIRE  ·  $%s  ·  rolls talent", fmt(hireCostOf(s, plot)))
 		plot.hirePad.Color = CFG.GOLD

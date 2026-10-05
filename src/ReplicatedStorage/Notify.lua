@@ -304,6 +304,56 @@ function Notify.topY(default)
 	return math.max(default, math.floor(topReserve) + TOP_GAP)
 end
 
+--[[ FOLLOWING, not sampling (v4.9.1).
+
+	The first version of topY replaced a hardcoded 96 with a measurement, and
+	I shipped it as fixed. Then he sent a screenshot of two cards stacked
+	anyway, and the reason was mine: all nine call sites read topY ONCE, at the
+	moment a card is positioned, while reserveTop republishes every 0.4 s
+	because the quest card's height genuinely changes -- a wrapped subtitle, a
+	BIG GOAL row, a READY bar all move its bottom edge.
+
+	A constant replaced by a one-time measurement of a moving quantity is still
+	a constant. So a card REGISTERS here instead, and is moved whenever the top
+	changes under it.
+
+	It waits for the card's own entrance to finish (SETTLE) so it never fights
+	a slide-in tween, and it eases rather than snaps, so a quest card growing
+	mid-animation nudges the card down instead of teleporting it. ]]
+local followers = {}
+local SETTLE = 0.7
+
+function Notify.followTop(frame, default)
+	if not frame then return end
+	followers[frame] = { default = tonumber(default) or 96, since = os.clock() }
+end
+
+function Notify.unfollowTop(frame)
+	followers[frame] = nil
+end
+
+task.spawn(function()
+	while true do
+		task.wait(0.2)
+		local want = Notify.topY(96)
+		for frame, f in pairs(followers) do
+			if not frame.Parent then
+				followers[frame] = nil
+			elseif frame.Visible and os.clock() - f.since > SETTLE then
+				local target = math.max(f.default, want - 96 + f.default)
+				if topReserve <= 0 then target = f.default end
+				local y = frame.Position.Y.Offset
+				if math.abs(y - target) > 1.5 then
+					frame.Position = UDim2.new(frame.Position.X.Scale, frame.Position.X.Offset,
+						frame.Position.Y.Scale, y + (target - y) * 0.35)
+				end
+			elseif not frame.Visible then
+				f.since = os.clock()        -- a card that hides and returns gets its settle again
+			end
+		end
+	end
+end)
+
 function Notify.busy()
 	local d = get()
 	local c, tp = d.lanes.centre, d.lanes.top
