@@ -463,12 +463,22 @@ RunService.RenderStepped:Connect(function(dt)
 	if rate then
 		local r = rate.Value
 		local away = player:GetAttribute("Away") == true
-		local key = r .. "|" .. tostring(away)
+		--[[ v5.0 MOMENTUM shares the income line rather than taking a new corner
+			of the screen. It only appears when you have some, so a player who
+			never leaves the garage sees exactly the HUD they saw before, and
+			it reads as a DISCOUNT rather than a number -- "22% off" is a thing
+			you can act on, "7 momentum" is a thing you have to be taught. ]]
+		local mom = player:GetAttribute("Momentum") or 0
+		local key = r .. "|" .. tostring(away) .. "|" .. tostring(mom)
 		if key ~= lastRate then
 			lastRate = key
 			if away then
 				rateText.Text = "Away: move to earn 100%"
 				rateText.TextColor3 = UIKit.ORANGE
+			elseif mom > 0 then
+				local off = math.floor(math.min(mom, 12) * 3 + 0.5)
+				rateText.Text = ("+%s / sec   ·   NEXT BUILD %d%% OFF"):format(UIKit.money(r), off)
+				rateText.TextColor3 = UIKit.GOLD or UIKit.MONEY
 			else
 				rateText.Text = r > 0 and ("+" .. UIKit.money(r) .. " / sec") or ""
 				rateText.TextColor3 = UIKit.MONEY

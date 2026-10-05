@@ -61,6 +61,7 @@ local CampusDistricts = tryRequire(ServerScriptService, "CampusDistricts")   -- 
 local Econ = tryRequire(ServerScriptService, "RoomEconomy")   -- v2.6.0 room economy (stations, caps, fit, wages)
 local Journey = require(ServerScriptService:WaitForChild("Journey"))   -- v4.3 the guided loop (pure, tested offline)
 local Prog = require(ServerScriptService:WaitForChild("Progression"))   -- v4.3 spin-off curve + offline rule (pure, tested offline)
+local Mom = require(ServerScriptService:WaitForChild("Momentum"))       -- v5.0 what you bring back from outside (pure, tested offline)
 if not Telemetry then
 	local noop = function() end
 	Telemetry = { joined = noop, step = noop, platform = noop, event = noop, left = noop }
@@ -124,9 +125,18 @@ end
 -- what the player is saving for: the next HQ level, or the spin-off at HQ 5 (windfalls are capped against it)
 -- v4.6 THE WAFERS: the next BUILD tap for this company: first level, last level (a rebuilt
 -- storey is several), price. nil at the top of the blueprint.
+--[[ v5.0: MOMENTUM comes off here, in the one function that both the pads and
+	the purchase read. Applying it at the till instead would mean the sign
+	says one number and the register takes another, which is a bug this file
+	has shipped before and should not ship again. Returns the stock that would
+	be spent as a fourth value so the caller can deduct exactly what it
+	charged for. ]]
 local function wafersNext(s, plot)
 	if not (Econ and Econ.WAFERS and plot and plot.wafer and s) then return nil end
-	return Econ.Wafers.nextBuild(plot, s.record or 1, scaleOf(s), Econ.Wafers.Plan.blueprint(s.spinoffs or 0))
+	local L, last, price = Econ.Wafers.nextBuild(plot, s.record or 1, scaleOf(s), Econ.Wafers.Plan.blueprint(s.spinoffs or 0))
+	if not L then return nil end
+	local stock = s.momentum or 0
+	return L, last, Mom.priceAfter(price, stock), Mom.spend(stock)
 end
 local function nextGoalOf(s, plot)
 	if Econ and Econ.WAFERS and plot and plot.wafer then
@@ -1851,6 +1861,11 @@ end)
 -- v3.0: `recruit` = { floor, fee } when a Talent Row candidate reaches your
 -- door (TalentDrop). The pad itself only hires the free first intern; every
 -- hire after that is a recruit run. Returns true when someone was hired.
+--[[ Forward-declared because hire() has to redraw the HQ pad the moment it
+	awards momentum -- the price on that sign just changed. Same pattern this
+	file already uses for refreshFacade and spinOff. ]]
+local refreshHqPad
+
 local function hire(player, plot, recruit)
 	if plotOf(player) ~= plot then return false end
 	local s = sessions[player.UserId]
@@ -1927,13 +1942,30 @@ local function hire(player, plot, recruit)
 	else
 		popup(torso or plot.hirePad, (cost == 0) and "INTERN HIRED" or ("HIRED  -$" .. fmt(cost)), CFG.GOOD)
 	end
+	--[[ v5.0 MOMENTUM. Only a hire that WALKED IN pays -- recruit.kind is set
+		by TalentDrop when a carry reaches your lot. The free intern off the
+		pad and any internal rehire pay nothing, because the whole point is to
+		reward the trip, not the transaction. ]]
+	if recruit and recruit.kind then
+		local before = s.momentum or 0
+		-- the roll outranks the tier: a Unicorn carried home is the best trip
+		-- there is, and the award table would otherwise never reach its top row
+		s.momentum = Mom.add(before, (talent and talent >= 5) and "unicorn" or recruit.kind)
+		local gained = s.momentum - before
+		if gained > 0 then
+			player:SetAttribute("Momentum", s.momentum)
+			local d = Mom.discount(s.momentum)
+			toast:FireClient(player, ("+%d MOMENTUM  ·  next build %d%% off"):format(gained, math.floor(d * 100 + 0.5)))
+			refreshHqPad(plot)      -- the price just changed; the sign has to say so
+		end
+	end
 	updateHirePad(player)
 	return true
 end
 
 local spinOff   -- assigned below releasePlot (it needs it); forward-declared like refreshFacade
 local goPublic  -- v4.3 assigned in the IPO section (it needs refreshSign / tickerOf)
-local function refreshHqPad(plot)
+function refreshHqPad(plot)      -- forward-declared above hire()
 	local nxt = CFG.HQ_LEVELS[plot.hq.level + 1]
 	local s = plot.owner and sessions[plot.owner]
 	local owner = plot.owner and Players:GetPlayerByUserId(plot.owner)
@@ -1963,14 +1995,22 @@ local function refreshHqPad(plot)
 		end
 		if L then
 			local need = WP.aptRequired(L)
+			--[[ v5.0: the pad SAYS the discount. Measured on the live game before
+				this existed: the pad read $1.5M and the till took $1.2M, because
+				the label is only redrawn on a few events and momentum had been
+				earned since the last one. Paying less than the sign says is a
+				pleasant bug and still a bug -- worse, it hides the discount at
+				the exact moment the player is deciding whether to go out again. ]]
+			local off = Mom.discount(s and s.momentum or 0)
+			local tail = off > 0 and ("  ·  %d%% OFF"):format(math.floor(off * 100 + 0.5)) or ""
 			if s and (s.apt or 0) < need and Econ.Apt then
 				plot.hqLabel.Text = ("BUILD  ·  needs a %s downtown"):format(Econ.Apt.TIERS[need].name)
 				plot.hqPad.Color = Color3.fromRGB(150, 146, 140)
 			elseif last > L then
-				plot.hqLabel.Text = ("REBUILD LEVELS %d-%d  ·  $%s"):format(L, last, fmt(price))
+				plot.hqLabel.Text = ("REBUILD LEVELS %d-%d  ·  $%s%s"):format(L, last, fmt(price), tail)
 				plot.hqPad.Color = CFG.GOLD
 			else
-				plot.hqLabel.Text = ("BUILD LEVEL %d%s  ·  $%s"):format(L, rec ~= "" and ("  ·  " .. (Econ.Wafers.NAME[rec] or rec)) or "", fmt(price))
+				plot.hqLabel.Text = ("BUILD LEVEL %d%s  ·  $%s%s"):format(L, rec ~= "" and ("  ·  " .. (Econ.Wafers.NAME[rec] or rec)) or "", fmt(price), tail)
 				plot.hqPad.Color = CFG.GOLD
 			end
 			return
@@ -2050,7 +2090,7 @@ local function wafersBuild(player, plot, s, cash, chosen)
 		-- no client listening (a very old client): fall through and build as Wafers
 	end
 
-	local L, last, price = wafersNext(s, plot)
+	local L, last, price, momSpend = wafersNext(s, plot)
 	if not L then return end
 	local need = WP.aptRequired(L)
 	if (s.apt or 0) < need and Econ.Apt then
@@ -2062,10 +2102,21 @@ local function wafersBuild(player, plot, s, cash, chosen)
 		while last > L and WP.aptRequired(last) > (s.apt or 0) do last -= 1 end
 		price = 0
 		for x = L, last do price += WP.price(x, scaleOf(s), s.record or 1) end
+		-- the truncated storey is re-priced, so the discount has to be re-applied
+		-- here too or this one path would charge full price with a cheaper sign
+		price = Mom.priceAfter(price, s.momentum or 0)
 	end
 	if cash.Value < price then popup(plot.hqPad, "Need $" .. fmt(price), CFG.BAD) return end
 	plot.busy = true
 	cash.Value -= price
+	--[[ The stock is consumed by the build it paid for. Holding it instead
+		would make it a stat that only goes up, and a stat that only goes up
+		stops being a decision by minute ten. Spending it is what turns the
+		street into a loop: go out, come back, build cheap, go out. ]]
+	if (momSpend or 0) > 0 then
+		s.momentum = math.max(0, (s.momentum or 0) - momSpend)
+		if player then player:SetAttribute("Momentum", s.momentum) end
+	end
 	s.lastBuy = os.clock()
 	local stageBefore = plot.hq.level
 	s.blueprint = s.blueprint or {}
@@ -3109,6 +3160,15 @@ local function launchProduct(player, plot, market, mod, auto)
 	s.launches = (s.launches or 0) + 1
 	s.runLaunches = (s.runLaunches or 0) + 1   -- v4.5: this company's launches (the work need)
 	if not auto then s.jr = s.jr or {}; s.jr.launched = true end   -- v4.3: the LAUNCH lesson is learned
+	--[[ v5.0: a launch you CHOSE pays momentum; the 60-second auto-ship does
+		not. An auto-ship is what happens while you are not playing, and
+		paying it would reward exactly the behaviour momentum exists to make
+		less attractive. ]]
+	if not auto then
+		local before = s.momentum or 0
+		s.momentum = Mom.add(before, "launch")
+		if s.momentum > before then player:SetAttribute("Momentum", s.momentum) end
+	end
 	Telemetry.step(player, "first_product")
 	s.markets[market.id] = true          -- now a rival can come for this market
 	s.share = 1                          -- shipping takes the share back
@@ -3658,6 +3718,7 @@ end)
 local SaveLoad = require(ServerScriptService:WaitForChild("SaveLoad"))({
 	Journey = Journey,
 	Prog = Prog,
+	Mom = Mom,
 	CFG = CFG,
 	CampusArch = CampusArch,
 	Econ = Econ,
