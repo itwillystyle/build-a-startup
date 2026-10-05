@@ -73,7 +73,7 @@ local RunService = game:GetService("RunService")
 	reach watches the real draw count and pulls in when the frame gets dear.
 	Because of the fade, pulling in is invisible: those outlines had already
 	faded to nothing. ]]
-local BUDGET = 600                  -- effectively all of them; the reach is the real limiter
+local BUDGET = 1100                 -- the reach and the draw ceiling are the real limiters
 local MAX_R, MIN_R = 820, 200
 local FADE = 0.26                   -- the outer quarter of the reach fades away
 local DRAW_CEIL = 880
@@ -88,9 +88,69 @@ local LINE = Color3.fromRGB(26, 24, 30)
 local TIER1 = { "SVOutline", "SVStaff", "TrafficCar" }
 local TIER2 = { "SVOutline2" }
 
+--[[ TIER 3, THE SCENERY -- and the answer to "it is still not on everything".
+
+	Measured 5 Oct. Two reasons things had no line, and neither was the budget:
+
+	  1. THE 4,568 HILL TREES ARE BasePARTS, not Models. They live as loose
+	     parts under LowPolyWorld.HillTrees, and every gather in this file
+	     tested m:IsA("Model"), so all 4,568 were skipped silently. A Highlight
+	     adorns a BasePart perfectly well; nobody had ever pointed one at them.
+	  2. 454 MODELS WERE NEVER TAGGED AT ALL -- 327 in Valley (palms, orchard,
+	     the landmarks), 124 in Plots (campus architecture), plus Downtown and
+	     KenneyCity. CampusHub and CampusDistricts were already complete, which
+	     is why the campus looked right and nothing else did.
+
+	Both are fixed here rather than in five builder files, because this list is
+	purely a rendering concern and the objects are STATIC. Their positions are
+	read once and cached, so a refresh is a cheap distance test against an
+	array instead of thousands of GetPivot calls. ]]
+local scenery = {}               -- { instance, position } for everything static
+local sceneryReady = false
+
+local function cachePos(inst)
+	if inst:IsA("BasePart") then return inst.Position end
+	local ok, cf = pcall(function() return inst:GetPivot().Position end)
+	return ok and cf or nil
+end
+
+local function buildScenery()
+	local sv = workspace:FindFirstChild("SiliconValley")
+	if not sv then return false end
+	local hills = sv:FindFirstChild("LowPolyWorld")
+	hills = hills and hills:FindFirstChild("HillTrees")
+	if not hills then return false end
+	table.clear(scenery)
+	-- the hill trees: loose parts, the whole reason the far hills were bare
+	for _, part in ipairs(hills:GetChildren()) do
+		if part:IsA("BasePart") then
+			table.insert(scenery, { part, part.Position })
+		end
+	end
+	-- and every model nobody tagged
+	for _, name in ipairs({ "Valley", "Plots", "Downtown", "KenneyCity" }) do
+		local folder = sv:FindFirstChild(name)
+		if folder then
+			for _, m in ipairs(folder:GetDescendants()) do
+				if m:IsA("Model") and #m:GetChildren() > 0
+					and not CollectionService:HasTag(m, "SVOutline")
+					and not CollectionService:HasTag(m, "SVOutline2")
+					and not CollectionService:HasTag(m, "SVStaff")
+					and not CollectionService:HasTag(m, "TrafficCar") then
+					local pos = cachePos(m)
+					if pos then table.insert(scenery, { m, pos }) end
+				end
+			end
+		end
+	end
+	sceneryReady = #scenery > 0
+	return sceneryReady
+end
+
 local player = Players.LocalPlayer
 local lit = {}
 
+-- the adornee can be a Model OR a BasePart; the hill trees are parts
 local function outline(model)
 	local h = Instance.new("Highlight")
 	h.Adornee = model
@@ -101,7 +161,10 @@ local function outline(model)
 	-- not a cartoon. An object half behind something is half outlined, which is
 	-- what it should be.
 	h.DepthMode = Enum.HighlightDepthMode.Occluded
-	h.Parent = model
+	--[[ Parented to the adornee when it is a Model so nothing leaks, but a
+		BasePart cannot hold a Highlight in every case, so those go on the
+		camera and are cleaned up by the same keep/sweep below. ]]
+	h.Parent = model:IsA("Model") and model or workspace.CurrentCamera
 	return h
 end
 
@@ -144,8 +207,24 @@ local function refresh()
 		spent = 1
 		if not lit[char] or not lit[char].Parent then lit[char] = outline(char) end
 	end
-	for _, tags in ipairs({ TIER1, TIER2 }) do
-		gather(tags, near)
+	--[[ Scenery is gathered from the cached array rather than from tags: 4,568
+		distance tests against a flat table, three times a second, which is far
+		cheaper than asking CollectionService for them and calling GetPivot on
+		each. ]]
+	local function gatherScenery(out)
+		table.clear(out)
+		for _, entry in ipairs(scenery) do
+			local m = entry[1]
+			if m.Parent then
+				local d = (entry[2] - eye).Magnitude
+				if d < reach * (lit[m] and 1.08 or 1.0) then table.insert(out, { m, d }) end
+			end
+		end
+		table.sort(out, function(a, b) return a[2] < b[2] end)
+	end
+
+	for _, tags in ipairs({ TIER1, TIER2, "scenery" }) do
+		if tags == "scenery" then gatherScenery(near) else gather(tags, near) end
 		for i = 1, math.min(BUDGET - spent, #near) do
 			local m, d = near[i][1], near[i][2]
 			keep[m] = true
@@ -186,6 +265,33 @@ local function steer()
 		reach = math.min(MAX_R, reach * 1.04)
 	end
 end
+
+--[[ The world is built at runtime, so the scenery cache cannot be made on
+	load. Try until it is there, then stop. ]]
+task.spawn(function()
+	--[[ MEASURED THE FIRST TIME THIS RAN: it cached 2,346 objects and the log
+		line landed BEFORE "[SV] low-poly valley", i.e. it scanned while the
+		valley was still being built and caught about half the hill trees. The
+		world has no "finished" signal, so rescan on a decaying schedule until
+		the count stops growing, then stop. ]]
+	local t0, best, settled = os.clock(), 0, 0
+	while os.clock() - t0 < 150 do
+		buildScenery()
+		if #scenery > best then
+			best = #scenery
+			settled = 0
+		else
+			settled += 1
+			if settled >= 3 and best > 0 then break end
+		end
+		task.wait(os.clock() - t0 < 30 and 3 or 10)
+	end
+	if sceneryReady then
+		print(("[SV] outlines: %d scenery objects cached (hill trees + untagged models)"):format(#scenery))
+	else
+		warn("[SV] outlines: no scenery found; hills and towers will have no line")
+	end
+end)
 
 local acc = 0
 RunService.Heartbeat:Connect(function(dt)
