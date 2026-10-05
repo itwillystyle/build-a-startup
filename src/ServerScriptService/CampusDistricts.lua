@@ -104,9 +104,16 @@ end
 	slab dropped on the valley floor, so the retail plaza and the parking lot
 	had no edges at all. The kerb sits 1.2 studs proud and 3 wider than the pad
 	on each side, with a grass verge outside it. ]]
+local Ground = require(script.Parent:WaitForChild("Ground"))   -- v4.9 footprint registry
+
 local function pad(parent, a, r, t, w, d, colour, y)
 	local base = (y or 0)
-	slab(parent, "PadVerge", a, r, t, w + 22, 0.8, d + 22, LAWN, { y = base - 0.4, material = Enum.Material.Grass })
+	--[[ v4.9: claim this ground. The valley plants its trees long before this
+		runs, so without the claim they stay standing in the middle of the pad
+		(measured 4 Oct: 18 of them). Reserving the VERGE covers the kerb and
+		the pad inside it too, since it is the outermost piece. ]]
+	local verge = slab(parent, "PadVerge", a, r, t, w + 22, 0.8, d + 22, LAWN, { y = base - 0.4, material = Enum.Material.Grass })
+	Ground.reservePart(verge, "PadVerge")
 	slab(parent, "PadKerb", a, r, t, w + 6, 1.4, d + 6, CONCRETE, { y = base - 0.4 })
 	-- queryable: a pad is a floor, and anything asking what it is standing on
 	-- (contact shadows, idle spots, candidates) has to be able to find it
@@ -470,7 +477,8 @@ local function retail(f, a, R)
 	for i, shop in ipairs(SHOPS) do
 		local t = 34 + (i - 1) * 46
 		slab(f, "ShopUnit", a, R + 38, t, 44, 20, 42, shop.colour, { solid = true })
-		slab(f, "ShopRoof", a, R + 38, t, 48, 3, 46, PAVE_D, { y = 20 })
+		-- a roof is ground too: 14 valley trees were measured standing on these
+		Ground.reservePart(slab(f, "ShopRoof", a, R + 38, t, 48, 3, 46, PAVE_D, { y = 20 }), "ShopRoof")
 		slab(f, "ShopGlass", a, R + 17.2, t, 34, 11, 0.5, GLASS, { y = 1.4, transparency = 0.34 })
 		slab(f, "ShopDoor", a, R + 16.9, t - 12, 7, 9.0, 0.6, Color3.fromRGB(70, 78, 90), { y = 1.0 })
 		local fascia = slab(f, "ShopFascia", a, R + 16.6, t, 40, 4.6, 0.5, Color3.fromRGB(38, 42, 50), { y = 13.4 })

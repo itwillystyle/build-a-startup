@@ -86,6 +86,25 @@ pinPart.CastShadow = false
 local pin = Instance.new("BillboardGui")
 pin.Name = "Pin"
 pin.Size = UDim2.new(0, 72, 0, 88)
+--[[ THE MARKER IS SIZED IN PIXELS; THE THING IT MARKS IS SIZED IN STUDS.
+	Reported 4 Oct: "the floating UI icon over the genius is covering the whole
+	character and it doesn't even raise as you get closer." Measured at the
+	exact distance in that screenshot, 262 studs: the candidate is 6.5 px tall
+	and this marker is 88 px. Fourteen times their size. At 600 studs it is
+	thirty-one times.
+
+	And the lift had the same mistake inverted. The pin part sat a FIXED 8.3
+	studs above the candidate's feet, which at 262 studs is about ten pixels of
+	screen -- nothing. A constant world lift is a SHRINKING screen lift.
+
+	So: keep the marker a constant readable size (that part was right, it has
+	to be legible from 600 studs), and lift it by however many studs buy a
+	constant PIN_CLEAR_PX of screen clearance at the current distance. Then
+	hide it entirely up close, because once you can see the person the sign is
+	just noise standing in front of them. ]]
+local PIN_CLEAR_PX = 46        -- screen gap kept between the marker and the target
+local PIN_NEAR = 22            -- inside this, you can see the thing: no marker
+local PIN_MAX_LIFT = 70
 pin.AlwaysOnTop = true          -- a goal behind a wall still shows where it is
 pin.MaxDistance = 600
 pin.LightInfluence = 0
@@ -666,6 +685,16 @@ end
 
 RunService.RenderStepped:Connect(function()
 	local now = os.clock()
+
+	-- keep the marker clear of whatever it is pointing at, at any distance
+	if pinPart.Parent then
+		local cam = workspace.CurrentCamera
+		local d = (pinPart.Position - cam.CFrame.Position).Magnitude
+		local studsPerScreen = 2 * d * math.tan(math.rad(cam.FieldOfView) / 2)
+		local lift = PIN_CLEAR_PX * studsPerScreen / math.max(1, cam.ViewportSize.Y)
+		pin.StudsOffsetWorldSpace = Vector3.new(0, math.clamp(lift, 1.5, PIN_MAX_LIFT), 0)
+		pin.Enabled = d > PIN_NEAR
+	end
 	table.insert(history, { now, cashNow() })
 	while history[1] and now - history[1][1] > 2.5 do table.remove(history, 1) end
 
