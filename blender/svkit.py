@@ -189,7 +189,42 @@ def weld(obj, dist=1e-4):
     return obj
 
 
-def finish(obj, width=0.16, segments=1, angle=35, ao=0.35):
+def uvproject(obj, studs=8.0):
+    """World-proportional UVs by cube projection.
+
+    PBR needs UVs and these meshes had none at all -- zero layers, colour lived
+    entirely in vertex data. Smart UV Project is the usual answer and is wrong
+    here: it normalises every island into 0-1, so a 2-stud mullion and a
+    90-stud slab get the same number of texels and a tiling detail map reads at
+    wildly different scales across one building.
+
+    Cube projection keeps UV distance proportional to world distance, so one
+    tile of the detail map covers `studs` studs everywhere in the game.
+    """
+    if bpy.context.object and bpy.context.object.mode != "OBJECT":
+        bpy.ops.object.mode_set(mode="OBJECT")
+    bpy.ops.object.select_all(action="DESELECT")
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    me = obj.data
+    if not me.uv_layers:
+        me.uv_layers.new(name="UVMap")
+    try:
+        bpy.ops.object.mode_set(mode="EDIT")
+        bpy.ops.mesh.select_all(action="SELECT")
+        bpy.ops.uv.cube_project(cube_size=float(studs), correct_aspect=True)
+    except Exception as e:
+        print("   uvproject failed on %s: %s" % (obj.name, e))
+    finally:
+        try:
+            bpy.ops.object.mode_set(mode="OBJECT")
+        except Exception:
+            pass
+    obj.select_set(False)
+    return obj
+
+
+def finish(obj, width=0.16, segments=1, angle=35, ao=0.35, uv=8.0):
     """Bevel, shade and bake AO -- the two ART.md surface rules, in one call.
 
     Rule 1 is "no sharp 90 degree edge on anything bigger than 2 studs", and
@@ -205,6 +240,8 @@ def finish(obj, width=0.16, segments=1, angle=35, ao=0.35):
     #[[ ONE segment, not two. A chamfer catches the same edge highlight as a
     #   rounded bevel and costs 2.4x the triangles instead of 4.5x; at 4.5x the
     #   kit alone would have pushed the worst view past the 500k budget. ]]
+    if uv:
+        uvproject(obj, uv)
     if ao is not None:          # glass bevels but takes no AO: dark creases on glazing read as dirt
         dirty(obj, strength=ao)
     return obj
