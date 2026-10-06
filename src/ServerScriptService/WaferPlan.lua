@@ -175,6 +175,21 @@ function W.recommend(level, counts, freeSeats)
 	return "eng"
 end
 
+--[[ HOW FAR EACH PATH'S GLASS STANDS INSIDE THE SLAB EDGE.
+
+	The Dome puts its glass seven studs in, under the canopy overhang -- that
+	recess IS the Dome. The Wafers and the Terrafab glaze at the slab edge.
+
+	It lives here because three separate things need it and they were not
+	agreeing: dome.py builds the mesh with it, Wafers.lua must lay furniture
+	inside it, and SVCheck has to be able to assert that nothing crossed it.
+	Furniture was placed for twenty studs of room in a thirteen-stud room for
+	exactly as long as this number existed only in the Blender script.
+
+	Keep in step with INSET in blender/dome.py. ]]
+W.INSET = { W_ = 0.0, T_ = 0.0, D_ = 7.0 }
+W.GLASS_BAND = 0.9                 -- glass + mullions, inboard of the inset line
+
 -- ---------------------------------------------------------------- the numbers
 function W.capAt(level) return W.CAP[clampLevel(level)] end
 function W.multAt(level) return W.MULT[clampLevel(level)] end

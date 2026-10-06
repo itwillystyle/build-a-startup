@@ -541,42 +541,106 @@ local function checkPlacement(say)
 		return best
 	end
 
-	--[[ What counts as furniture, by SIZE rather than by a list of names. The
-		first valley-wide run returned 367 "overlaps" whose worst case was
-		"Residences_Tower in Residences_Tower_Glass" -- a tower inside its own
-		curtain wall. Prefix exclusions could never keep up: every builder
-		names its meshes differently, and a car, a tree and a skyscraper all
-		slipped through.
+	--[[ WHAT COUNTS AS FURNITURE: WHERE IT WAS PLACED, not how big it is.
 
-		A chair, a desk, a fridge and a sofa all fit inside 10 studs. A
-		building, a vehicle and a tree do not. So the bound is on the object,
-		not on its name, and a new builder cannot quietly feed architecture
-		into a furniture check. ]]
-	local FURN_MAX = 10
+		The size bound was the second wrong answer in a row here. Bounding by
+		name let a tower into a furniture check; bounding by size (<=10 studs)
+		then let CampusDistricts' DistCar in -- ONE Model holding 94 cars' parts
+		-- so the gate compared one car's wheel to another car's wheel and
+		reported 859 faults out of 891 pieces.
 
-	local furn = {}
-	for _, d in ipairs(sv:GetDescendants()) do
-		-- the class test has to come FIRST: a Folder has no Size, and reading
-		-- it threw the whole pass away on the first run
-		if d:IsA("MeshPart") and d.Size.Y > 0.3
-			and math.max(d.Size.X, d.Size.Y, d.Size.Z) <= FURN_MAX
-			and d.Name:sub(1, 2) ~= "D_" and d.Name:sub(1, 2) ~= "W_" and d.Name:sub(1, 2) ~= "T_"
-			and d.Name:sub(1, 3) ~= "LP_" and d.Name:sub(1, 2) ~= "HQ"
-		then
-			-- a person is not furniture; a rig may sit under a Folder, so the
-			-- ancestor lookup has to tolerate there being no Model at all
-			local m = d:FindFirstAncestorOfClass("Model")
-			if not (m and m:FindFirstChildOfClass("Humanoid")) then
-				furn[#furn + 1] = d
+		Worse, it had reported ONE fault for the same world a minute earlier,
+		because the districts had not finished building when I read it. An
+		instrument whose answer depends on WHEN you run it is not an instrument,
+		and it is why three reports in a row said clean.
+
+		Every fault he has photographed has been furniture INSIDE a building. So
+		the set is the interiors, named by the folders the placers actually write
+		into: a plot's Garage, Rooms, Placed and Wafers, plus the downtown
+		apartments. Street decor, traffic and campus grounds are not furniture
+		and have their own gates above. ]]
+	local interiors = {}
+	do
+		local plots = sv:FindFirstChild("Plots")
+		if plots then
+			for _, plot in ipairs(plots:GetChildren()) do
+				for _, n in ipairs({ "Garage", "Rooms", "Placed", "Wafers" }) do
+					local f = plot:FindFirstChild(n)
+					if f then interiors[#interiors + 1] = f end
+				end
 			end
 		end
+		local dt = sv:FindFirstChild("Downtown")
+		if dt then
+			for _, d in ipairs(dt:GetChildren()) do
+				if d.Name:sub(1, 4) == "Apt_" then interiors[#interiors + 1] = d end
+			end
+		end
+	end
+
+	-- a loose sanity guard, not the definition: the largest real piece in the
+	-- game is a 7.6-stud double bed, so anything past 12 spans a room
+	local FURN_MAX = 12
+
+	--[[ PROP OR STRUCTURE -- one predicate, so nothing can be neither.
+
+		Restricting this gate to MeshParts was the THIRD version of the same
+		blindness. A Terrafab studio floor holds zero MeshParts and seventeen
+		kinds of Part -- Metrology, Scope, FOUP, Stool, the OHT rail -- so the
+		pass read "clean" for that format while checking none of its interior.
+		Measured, not assumed: 0 meshes, 17 Part types.
+
+		So the split is by shape. Structure is a Part taller than two studs
+		that is not something props stand on; everything else inside a
+		building, mesh or Part, is a prop. The two sets are complements, which
+		is the property that stops a whole asset family falling through the
+		gap between them again. ]]
+	local SKIP_STRUCT = { Floor = 1, FloorPlate = 1, FloorCorner = 1, AptFloor = 1,
+		ContactShadow = 1, HirePad = 1, HQPad = 1, Path = 1, CampusSlab = 1, Deck = 1 }
+	local function structural(d)
+		return not d:IsA("MeshPart") and d.Size.Y > 2 and not SKIP_STRUCT[d.Name]
+	end
+
+	local furn, walls = {}, {}
+	for _, root in ipairs(interiors) do
+		for _, d in ipairs(root:GetDescendants()) do
+			-- the class test has to come FIRST: a Folder has no Size, and reading
+			-- it threw the whole pass away on the first run
+			if d:IsA("BasePart")
+				and d.Name:sub(1, 2) ~= "D_" and d.Name:sub(1, 2) ~= "W_" and d.Name:sub(1, 2) ~= "T_"
+				and d.Name:sub(1, 3) ~= "LP_" and d.Name:sub(1, 2) ~= "HQ"
+			then
+				-- a person is not furniture; a rig may sit under a Folder, so the
+				-- ancestor lookup has to tolerate there being no Model at all
+				local m = d:FindFirstAncestorOfClass("Model")
+				if not (m and m:FindFirstChildOfClass("Humanoid")) then
+					if structural(d) then
+						walls[#walls + 1] = d
+					elseif d.Size.Y > 0.3 and math.max(d.Size.X, d.Size.Y, d.Size.Z) <= FURN_MAX then
+						furn[#furn + 1] = d
+					end
+				end
+			end
+		end
+	end
+
+	--[[ Parts of ONE object are allowed to interpenetrate -- that is how the
+		object is built, and a desk's drawer inside its own carcass is not a
+		fault. A piece belongs to its nearest Model, EXCEPT where that Model is
+		the room itself: a wafer storey holds every piece on that floor flat, so
+		treating it as one object would blind the gate completely. ]]
+	local function objectOf(p)
+		local m = p:FindFirstAncestorOfClass("Model")
+		if not m or m.Name:match("^L%d+_") then return nil end
+		return m
 	end
 
 	local jam, worstJam, worstJamN = 0, 0, ""
 	for i = 1, #furn do
 		for j = i + 1, #furn do
 			local a, b = furn[i], furn[j]
-			if (a.Position - b.Position).Magnitude < 12 then
+			local oa, ob = objectOf(a), objectOf(b)
+			if (a.Position - b.Position).Magnitude < 12 and not (oa and oa == ob) then
 				local stacked = math.abs((a.Position.Y - a.Size.Y / 2) - (b.Position.Y + b.Size.Y / 2)) < 0.4
 					or math.abs((b.Position.Y - b.Size.Y / 2) - (a.Position.Y + a.Size.Y / 2)) < 0.4
 				local tuck = (anyOf(a.Name, SEAT) and anyOf(b.Name, TABLE))
@@ -592,14 +656,140 @@ local function checkPlacement(say)
 		end
 	end
 
+	--[[ FURNITURE BURIED IN STRUCTURE -- the test that should have existed
+		three days ago, and the reason three reports in a row said "clean"
+		while he was looking at furniture in a wall.
+
+		Everything I wrote tested furniture against OTHER FURNITURE. The faults
+		were furniture against WALLS, and two separate mistakes hid them:
+
+		  1. The collision walls are INVISIBLE (Transparency 1 once the shell
+		     mesh is present), and every sweep I wrote skipped transparent
+		     parts. So in the only configuration that ships, the walls were
+		     not in the comparison set at all.
+
+		  2. I judged depth in absolute studs and called 0.82 "minor". On a
+		     1.47-deep bookcase that is 56% of it inside the glass. The number
+		     that matters is the FRACTION of the piece that is buried, not the
+		     stud count.
+
+		Floors, pads and rugs are excluded because things stand on them, and
+		ContactShadow is excluded because it is a fake-AO disc deliberately
+		placed under a prop. ]]
+	local buried, worstB, worstBN = 0, 0, ""
+	for _, f in ipairs(furn) do
+		local thin = math.min(f.Size.X, f.Size.Y, f.Size.Z)
+		local of = objectOf(f)
+		for _, w in ipairs(walls) do
+			-- a load port bolted to its own tool is the machine, not a burial:
+			-- the same-object rule has to apply here too, or grouping a
+			-- machine silences the jam gate and leaves this one shouting
+			if (f.Position - w.Position).Magnitude < 14 and not (of and of == objectOf(w)) then
+				local pen = sat(f, w)
+				if pen > 0.3 and pen / thin > 0.2 then
+					buried += 1
+					if pen > worstB then
+						worstB = pen
+						worstBN = ("%s %.0f%% into %s"):format(f.Name, pen / thin * 100, w.Name)
+					end
+				end
+			end
+		end
+	end
+
+	--[[ FURNITURE THROUGH THE GLASS -- the check that would have caught the
+		fault he photographed three times while every other pass read clean.
+
+		Nothing inside the game can see where a building's glass is. It is
+		baked into the shell mesh, which ships CanQuery = false with Box
+		collision, so raycasts miss it, collision misses it, and part-versus-
+		part sweeps have nothing to compare against. Every test I wrote before
+		this one was therefore asking a question the geometry could not answer.
+
+		The glass line is an arithmetic fact instead: a wafer's radius minus
+		the path's inset, which WaferPlan now owns. So the assertion is that
+		every furniture corner lies between the inner glass and the outer
+		glass of its own wafer -- no collision needed, and it is exact. ]]
+	local glassOut, glassIn, glassWorst, glassWorstN = 0, 0, 0, ""
+	do
+		local okP, WP = pcall(function()
+			return require(game:GetService("ReplicatedStorage"):FindFirstChild("WaferPlan")
+				or game:GetService("ServerScriptService"):FindFirstChild("WaferPlan"))
+		end)
+		local plots = sv:FindFirstChild("Plots")
+		if okP and WP and WP.INSET and plots then
+			for _, plot in ipairs(plots:GetChildren()) do
+				local wf = plot:FindFirstChild("Wafers")
+				local pv = plot:GetAttribute("Pivot")
+				if wf and pv then
+					-- which path is this plot built in? read it off a shell mesh
+					local path
+					for _, seg in ipairs(wf:GetChildren()) do
+						for _, d in ipairs(seg:GetDescendants()) do
+							if d:IsA("MeshPart") and WP.INSET[d.Name:sub(1, 2)] then
+								path = d.Name:sub(1, 2)
+								break
+							end
+						end
+						if path then break end
+					end
+					if path then
+						for _, seg in ipairs(wf:GetChildren()) do
+							local L = tonumber(seg.Name:match("^L(%d+)"))
+							local pc = L and WP.PIECES[L]
+							if pc and pc.kind == "segment" then
+								local R = WP.GEO.WAFER[pc.wafer].r
+								local rout = R - WP.INSET[path] - WP.GLASS_BAND
+								local rin = R - WP.GEO.DEPTH + 0.6
+								for _, d in ipairs(seg:GetDescendants()) do
+									if d:IsA("MeshPart") and d.Name:sub(1, 2) ~= path
+										and d.Size.Y > 0.3
+										and math.max(d.Size.X, d.Size.Y, d.Size.Z) <= 10 then
+										local far, near = 0, math.huge
+										for ix = -1, 1, 2 do
+											for iz = -1, 1, 2 do
+												local q = pv:PointToObjectSpace(
+													d.CFrame * Vector3.new(ix * d.Size.X / 2, 0, iz * d.Size.Z / 2))
+												local rr = math.sqrt(q.X * q.X + q.Z * q.Z)
+												far = math.max(far, rr)
+												near = math.min(near, rr)
+											end
+										end
+										if far > rout + 0.05 then
+											glassOut += 1
+											if far - rout > glassWorst then
+												glassWorst = far - rout
+												glassWorstN = d.Name .. " out of " .. seg.Name
+											end
+										elseif near < rin - 0.05 then
+											glassIn += 1
+											if rin - near > glassWorst then
+												glassWorst = rin - near
+												glassWorstN = d.Name .. " through the courtyard glass in " .. seg.Name
+											end
+										end
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+
 	say("PLACE    %d hard surfaces found by shape, %d greenery checked, %d tree pits",
 		#hard, checked, pits)
 	say("   furniture inside furniture: %d  (of %d pieces)", jam, #furn)
 	if jam > 0 then say("      worst %.2f studs: %s", worstJam, worstJamN) end
+	say("   furniture buried in a wall: %d", buried)
+	if buried > 0 then say("      worst %.2f studs: %s", worstB, worstBN) end
+	say("   furniture through the glass: %d out, %d in", glassOut, glassIn)
+	if glassOut + glassIn > 0 then say("      worst %.2f studs: %s", glassWorst, glassWorstN) end
 	say("   greenery standing in paving: %d", bad)
 	if bad > 0 then say("      worst %.1f studs: %s", worst, worstN) end
 	if elevated > 0 then say("   (%d on terraces and interior floors, not counted)", elevated) end
-	return bad == 0 and jam == 0
+	return bad == 0 and jam == 0 and buried == 0 and glassOut == 0 and glassIn == 0
 end
 
 -- ---------------------------------------------------------------- 5. client errors

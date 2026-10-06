@@ -365,11 +365,72 @@ The Wafers and the Terrafab keep the original rows: a fab SHOULD look like
 rows of tool bays, and Samsung's floors genuinely are open-plan desks. ]]
 local TIMBER = Color3.fromRGB(198, 154, 102)
 
+--[[ THE DOME'S ROOM IS NOT THE FULL DEPTH, and this furnisher did not know.
+
+	dome.py sets INSET = 7.0: the Dome's glass stands seven studs INSIDE the
+	slab edge, under the canopy overhang, which is the whole look of the path.
+	The Wafers and the Terrafab have no inset -- their glass is at the slab
+	edge -- so only this one is affected.
+
+	Everything here was laid out around `r - DEPTH/2`, the centre of the FULL
+	twenty-stud slab, which for the Dome is 3.5 studs outboard of the real
+	room. Pieces near the middle looked merely pushed out; anything with a
+	large outward offset went straight through the glass and stood on the
+	apron. That is the lobby bookcase, the cafe's kitchen run and the studio's
+	pin-up wall -- the three things he kept photographing.
+
+	Nothing could catch it from inside the game: the glass is baked into the
+	shell mesh, which is CanQuery = false with Box collision, so no raycast,
+	no collision test and no part-versus-part sweep can see where it is. The
+	only place that fact exists is dome.py, so the number is mirrored here
+	with a comment pointing at it.
+
+	The partition code at the bottom of this file already compensated for the
+	same inset. This function simply never did. ]]
+
+--[[ THE MIDDLE OF THE ROOM YOU CAN ACTUALLY WALK IN.
+
+	Not `r - DEPTH/2`, which is the middle of the structural slab. The Dome
+	glazes seven studs inside that edge, so for the Dome those are different
+	numbers and every placer that used the slab centre pushed its furniture
+	out through the glass.
+
+	Three separate functions had their own copy of `r - G.DEPTH / 2`:
+	domeFurnish, station, and the two other paths' furnishers. Correcting one
+	of them simply moved the collision to the next. One helper, so the room is
+	the same room to everything that furnishes it. ]]
+local function roomMid(r)
+	local inset = P.INSET[CUR] or 0
+	local rin = r - G.DEPTH
+	local rout = r - inset - P.GLASS_BAND
+	return (rin + rout) / 2, rin, rout
+end
+
 local function domeFurnish(model, anchor, dept, r, L)
 	local FK = api.FK
 	local seats = {}
 	if not FK then return seats end
-	local rm = r - G.DEPTH / 2
+	local rm, rin, rout = roomMid(r)
+	--[[ Flush against that glass -- and the lateral offset has to be part of
+		the sum. The wall is an ARC but `place` takes a straight z, so a piece
+		set at the same z as its neighbour sits progressively closer to the
+		glass the further it is from the segment's centre line. A bookcase at
+		x -11.5 reached 1.33 studs further out than its z implied.
+
+		So: the far corner is what has to clear the arc. Solve for the z whose
+		outermost corner lands on the glass, given how wide the piece is and
+		how far off centre it stands. ]]
+	local function wall(depth, x, width)
+		local lat = math.abs(x or 0) + (width or 0) / 2
+		local z = math.sqrt(math.max(rout * rout - lat * lat, 1))
+		return z - depth / 2 - 0.2
+	end
+	--[[ The same for the courtyard side. Pulling the layout in off the outer
+		glass pushed whatever faced the courtyard through the INNER glass --
+		18 lounge chairs, by up to a stud. A room has two walls and a fix that
+		only respects one of them just moves the fault across the floor. ]]
+	local rinner = rin + 0.6                     -- the outside face of the inner glass
+	local function courtyard(depth) return rinner + depth / 2 + 0.2 end
 	local base = anchor
 	local rng = Random.new(L * 7919)          -- variety, but the same every rebuild
 
@@ -413,7 +474,7 @@ local function domeFurnish(model, anchor, dept, r, L)
 		place("chairDesk", sp - 0.4, rm - 1.0, 30)
 		seatAt(-sp + 0.4, rm - 1.0, 0, rm + 4)
 		seatAt(sp - 0.4, rm - 1.0, 0, rm + 4)
-		place("loungeChair", 0, rm - 5.0, 180)
+		place("loungeChair", 0, courtyard(2.41), 180)
 		place("pottedPlant", -10.5, rm + 2.0, 0)
 		place("plantSmall" .. (1 + rng:NextInteger(0, 2)), 10.5, rm + 2.0, 0)
 	elseif dept == "studio" then
@@ -426,7 +487,7 @@ local function domeFurnish(model, anchor, dept, r, L)
 		seatAt(4.4, rm - 1.6, 0, rm + 4)
 		-- the pin-up wall: Bay View's "playful materials", and a reason to look
 		for i = -1, 1 do
-			place("pictureframe_" .. (i == 0 and "large_A" or "medium"), i * 5.0, rm + 8.4, 0)
+			place("pictureframe_" .. (i == 0 and "large_A" or "medium"), i * 5.0, wall(0.3, i * 5.0, 5.0), 0)
 		end
 	elseif dept == "cafe" then
 		--[[ THE KITCHENETTE, rebuilt 5 Oct from his report that furniture is
@@ -455,7 +516,10 @@ local function domeFurnish(model, anchor, dept, r, L)
 		local b1 = left + BAR_W / 2
 		local b2 = b1 + BAR_W
 		local cap = b2 + BAR_W / 2 + END_W / 2
-		local z = rm + 7.6
+		-- ONE z for the whole run, set by its outermost corner (the fridge's far
+		-- edge) so the counter stays a straight line and still clears the arc
+		local fridgeX = cap + END_W / 2 + 0.2 + FRIDGE_W / 2
+		local z = wall(1.72, fridgeX, FRIDGE_W)
 		place("kitchenBar", b1, z, 0)
 		place("kitchenBar", b2, z, 0)
 		place("kitchenBarEnd", cap, z, 0)
@@ -494,9 +558,18 @@ local function domeFurnish(model, anchor, dept, r, L)
 		place("loungeSofaLong", -6.5, rm + 2.0, 90)
 		place("loungeSofaLong", 6.5, rm + 2.0, -90)
 		place("tableCoffee", 0, rm + 2.0, 0)
-		place("loungeChairRelax", 0, rm - 4.5, 180)
-		for _, x in ipairs({ -12, 12 }) do place("pottedPlant", x, rm + 5.0, 0) end
-		place("bookcaseOpen", -11.5, rm + 7.8, 0)
+		place("loungeChairRelax", 0, courtyard(3.97), 180)
+		for _, x in ipairs({ -12, 12 }) do place("pottedPlant", x, wall(1.42, x, 1.25), 0) end
+		--[[ THE BOOKCASE IS GONE, and that is the fix rather than a fourth
+			position for it. It was buried 56% into the outer glass at x -11.5,
+			landed on the planter when pulled flush, and hit the long sofa when
+			moved along the wall. The only clear span left on that wall is the
+			2.46 studs between the sofa's end and the planter, for a piece 2.35
+			wide -- a 0.06-stud clearance, which is the near-miss this whole
+			pass exists to stop shipping.
+
+			A lobby is reception, seating, a table and plants. It was never
+			short of a bookcase; the bookcase was short of a wall. ]]
 	end
 	return seats
 end
@@ -559,24 +632,57 @@ local function fabFurnish(model, anchor, dept, r, L)
 		box("ChaseDrop", 0.5, 5.4, 0.5, x, 4.6, rm + 6.2, ANOD, Enum.Material.Metal)
 	end
 
-	-- THE OVERHEAD TRACK: the rail, and two carriers parked on it
-	box("OHTRail", 32, 0.45, 0.9, 0, G.H - 3.1, rm + 1.4, STEEL, Enum.Material.Metal)
+	--[[ THE OVERHEAD TRACK runs over the AISLE, at rm - 0.4, not over the
+		tools at rm + 3.4. It used to share both the tools' z and their x, so
+		each hanging carrier passed 0.75 studs through a ToolHead and 0.55
+		into the Tool body -- a 1.9-stud box hanging inside a machine.
+
+		A real fab hangs the hoist over the walkway in front of the tool
+		fronts, which is also the only z here that clears the load ports
+		(rm + 0.3) below and the service chase (rm + 6.2) behind. ]]
+	local OHT_Z = rm - 0.4
+	box("OHTRail", 32, 0.45, 0.9, 0, G.H - 3.1, OHT_Z, STEEL, Enum.Material.Metal)
 	for _, x in ipairs({ -8.5, 7.0 }) do
-		box("OHTHanger", 0.3, 1.1, 0.3, x, G.H - 3.8, rm + 1.4, ANOD, Enum.Material.Metal)
-		box("FOUP", 2.2, 1.9, 1.9, x, G.H - 5.0, rm + 1.4, Color3.fromRGB(226, 232, 238))
-		box("FOUPLid", 2.3, 0.3, 2.0, x, G.H - 4.0, rm + 1.4, litho and LITHO or Color3.fromRGB(120, 190, 210))
+		-- strap, pod and lid are one carrier: the strap grips the lid, so they
+		-- share space on purpose (same reason the process tool is a Model)
+		local pod = box("FOUP", 2.2, 1.9, 1.9, x, G.H - 5.0, OHT_Z, Color3.fromRGB(226, 232, 238))
+		local carrier = Instance.new("Model")
+		carrier.Name = "OHTCarrier"
+		for _, prt in ipairs({ pod,
+			box("OHTHanger", 0.3, 1.1, 0.3, x, G.H - 3.8, OHT_Z, ANOD, Enum.Material.Metal),
+			box("FOUPLid", 2.3, 0.3, 2.0, x, G.H - 4.0, OHT_Z, litho and LITHO or Color3.fromRGB(120, 190, 210)) })
+		do
+			prt.Parent = carrier
+		end
+		carrier.PrimaryPart = pod
+		carrier.Parent = model
 	end
 
 	if dept == "eng" or dept == "labs" then
 		-- TOOL BAY: two process tools, a loadport each, and an operator at a
 		-- console facing the tool (not a desk facing a window)
 		for _, x in ipairs({ -8.5, 7.0 }) do
-			box("Tool", 7.0, 7.6, 4.4, x, 3.8, rm + 3.4, Color3.fromRGB(228, 230, 234))
-			box("ToolHead", 5.6, 1.0, 3.6, x, 8.1, rm + 3.4, ANOD, Enum.Material.Metal)
-			box("LoadPort", 2.4, 1.2, 1.4, x, 4.3, rm + 1.0, STEEL, Enum.Material.Metal)
-			box("ToolLamp", 4.2, 0.18, 2.6, x, 7.55, rm + 3.4,
-				litho and LITHO or Color3.fromRGB(190, 240, 255), Enum.Material.Neon,
-				{ CanCollide = false, CanQuery = false })
+			--[[ ONE MODEL PER MACHINE. The head sits on the body and the load
+				port is bolted to its face, so those overlaps are how the tool
+				is built, not faults -- but a flat pile of parts cannot say so,
+				and SVCheck read them as three separate things colliding.
+
+				Grouping them states the relationship in the geometry, so the
+				checker learns it from the builder instead of from a list of
+				names it has to be taught. A carrier swinging into the tool is
+				still a different object, and still gets caught. ]]
+			local body = box("Tool", 7.0, 7.6, 4.4, x, 3.8, rm + 3.4, Color3.fromRGB(228, 230, 234))
+			local parts = { body,
+				box("ToolHead", 5.6, 1.0, 3.6, x, 8.1, rm + 3.4, ANOD, Enum.Material.Metal),
+				box("LoadPort", 2.4, 1.2, 1.4, x, 4.3, rm + 1.0, STEEL, Enum.Material.Metal),
+				box("ToolLamp", 4.2, 0.18, 2.6, x, 7.55, rm + 3.4,
+					litho and LITHO or Color3.fromRGB(190, 240, 255), Enum.Material.Neon,
+					{ CanCollide = false, CanQuery = false }) }
+			local machine = Instance.new("Model")
+			machine.Name = "ProcessTool"
+			for _, prt in ipairs(parts) do prt.Parent = machine end
+			machine.PrimaryPart = body
+			machine.Parent = model
 			box("Console", 2.6, 0.2, 1.4, x, 3.5, rm - 1.6, CHARCOAL)
 			box("ConsoleScreen", 2.4, 1.4, 0.12, x, 4.4, rm - 2.2,
 				litho and LITHO or Color3.fromRGB(150, 220, 240), Enum.Material.Neon,
@@ -754,7 +860,7 @@ local STATION_COOLDOWN = 420      -- 7 minutes per floor
 local function station(model, anchor, dept, r, plot, L)
 	local def = STATION[dept]
 	if not (def and api and api.prompt and api.grant) then return end
-	local rm = r - G.DEPTH / 2
+	local rm = roomMid(r)          -- the room, not the slab: see roomMid above
 	local body = add(model, {
 		Name = "Station",
 		Size = Vector3.new(3.2, 4.4, 1.8),
@@ -1233,11 +1339,23 @@ end
 local function liftButton(plot, st, s, core, stand)
 	local HQ = api.HQFloors
 	local side = (s == 0) and 1 or -1           -- ground: facing the garage; above: at the bridge
+	--[[ BOTH PARTS GO IN st.core, and that is the whole bug fix.
+
+		buildCore destroys st.core and rebuilds, and bridgeBetween tracks
+		every part it makes -- but liftButton parented its two straight to
+		st.folder and tracked neither. So every rebuild left the previous set
+		behind: measured 14 LiftCallLit at exactly 7 positions, each one built
+		twice, each carrying its own live "Take the lift" prompt.
+
+		Found by the furniture gate only after it was widened to plain Parts.
+		Nothing else in the project would have reported it, because two parts
+		in exactly the same place look like one part. ]]
 	local btn = add(st.folder, { Name = "LiftCall", Size = Vector3.new(1.2, 2, 0.4),
 		CFrame = core * CFrame.new(3.2 * side, 4.2, side * (G.CORE.r + 1.0)) * CFrame.Angles(0, side > 0 and 0 or math.pi, 0),
 		Color = CHARCOAL, CanCollide = false, CastShadow = false })
-	add(st.folder, { Name = "LiftCallLit", Shape = Enum.PartType.Ball, Size = Vector3.new(0.5, 0.5, 0.5), CFrame = btn.CFrame * CFrame.new(0, 0.3, -0.25),
-		Color = GOLD, Material = Enum.Material.Neon, CanCollide = false, CanQuery = false, CastShadow = false })
+	table.insert(st.core, btn)
+	table.insert(st.core, add(st.folder, { Name = "LiftCallLit", Shape = Enum.PartType.Ball, Size = Vector3.new(0.5, 0.5, 0.5), CFrame = btn.CFrame * CFrame.new(0, 0.3, -0.25),
+		Color = GOLD, Material = Enum.Material.Neon, CanCollide = false, CanQuery = false, CastShadow = false }))
 	local id = (s == 0) and "L" or ("F" .. s)
 	local pp = Instance.new("ProximityPrompt")
 	pp.ActionText = "Take the lift"
