@@ -40,7 +40,7 @@ import svkit as K  # noqa: E402
 import wafers as W  # noqa: E402
 
 MB = W.MB
-band, obox = W.band, W.obox
+band, obox, SLAB_GAP = W.band, W.obox, W.SLAB_GAP
 glass_band, thick_wall, mullions = W.glass_band, W.thick_wall, W.mullions
 door_frame, rails = W.door_frame, W.rails
 
@@ -109,9 +109,9 @@ def build_segment(w, variant):
 
     # slabs. Bay View's soffits are timber, and the overhang is deep.
     band(mb, rin - OVH, r + OVH, 0.0, SLAB, ph,
-         dict(t=FLOOR, b=TIMBER, o=WHITE, i=WHITE, c=WHITE), "tboi", "se")
+         dict(t=FLOOR, b=TIMBER, o=WHITE, i=WHITE, c=WHITE), "tboi", "se", SLAB_GAP)
     band(mb, rin - OVH, r + OVH, CEIL0, CEIL1, ph,
-         dict(t=PAPER, b=TIMBER, o=WHITE, i=WHITE, c=WHITE), "tboi", "se")
+         dict(t=PAPER, b=TIMBER, o=WHITE, i=WHITE, c=WHITE), "tboi", "se", SLAB_GAP)
 
     op_out = op_in = None
     if variant == "lobby":

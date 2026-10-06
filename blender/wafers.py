@@ -97,6 +97,9 @@ WAFER = GEO["WAFER"]
 CORE_X, CORE_Z, CORE_R = GEO["CORE"]
 PAV_IN, PAV_OUT = GEO["PAV"]
 
+# (depth, height) of the shadow gap under a slab edge -- see band()
+SLAB_GAP = (0.22, 0.30)
+
 # piece-local heights (slab-bottom frame)
 FLOOR_TOP = SLAB           # 1.5: the walking surface of a storey
 SILL = 3.7                 # top of the solid spandrel
@@ -229,8 +232,18 @@ class MB:
 
 
 # ------------------------------------------------------------------ primitives
-def band(mb, r0, r1, z0, z1, ph, cols, faces="tboi", caps=""):
-    """An annular band on chords between the angles ph, r0 < r1. cols: t b o i c."""
+def band(mb, r0, r1, z0, z1, ph, cols, faces="tboi", caps="", gap=None):
+    """An annular band on chords between the angles ph, r0 < r1. cols: t b o i c.
+
+    `gap` = (depth, height) cuts a SHADOW GAP into the bottom of the outer
+    face: the fascia stops short, a soffit returns inward, and a recessed strip
+    runs beneath it. It is the detail that separates a drawn building from an
+    extruded box -- every real slab edge has one, and at any distance it reads
+    as a crisp dark line under each floor.
+
+    It costs three faces instead of one, on slabs only, and it pairs with the
+    baked AO: a recess is concave, so the AO pass darkens it for free.
+    """
     C = lambda k: cols.get(k, cols.get("*", PAPER))  # noqa: E731
     for a, b in zip(ph, ph[1:]):
         i0, i1, o0, o1 = P(r0, a), P(r0, b), P(r1, a), P(r1, b)
@@ -239,7 +252,16 @@ def band(mb, r0, r1, z0, z1, ph, cols, faces="tboi", caps=""):
             mb.face([v3(i0, z1), v3(o0, z1), v3(o1, z1), v3(i1, z1)], C("t"), (0, 0, 1))
         if "b" in faces:
             mb.face([v3(i0, z0), v3(i1, z0), v3(o1, z0), v3(o0, z0)], C("b"), (0, 0, -1))
-        if "o" in faces:
+        if "o" in faces and gap:
+            gd, gh = gap
+            zg = z0 + gh
+            rg = r1 - gd
+            g0, g1 = P(rg, a), P(rg, b)
+            mb.quad(o0, o1, zg, z1, C("o"), (rd[0], rd[1], 0))              # the fascia
+            mb.face([v3(g0, zg), v3(g1, zg), v3(o1, zg), v3(o0, zg)],       # soffit, facing down
+                    C("b"), (0, 0, -1))
+            mb.quad(g0, g1, z0, zg, C("o"), (rd[0], rd[1], 0))              # the recess
+        elif "o" in faces:
             mb.quad(o0, o1, z0, z1, C("o"), (rd[0], rd[1], 0))
         if "i" in faces:
             mb.quad(i0, i1, z0, z1, C("i"), (-rd[0], -rd[1], 0))
@@ -483,8 +505,8 @@ def build_segment(w, variant):
     mb = MB(floors=[FLOOR_TOP], unders=unders)
     gl = MB()
     # slabs: the floor (oak soffit under it, seen at cantilevers) and the ceiling
-    band(mb, rin - OVH, r + OVH, 0.0, SLAB, ph, dict(t=FLOOR, b=OAK, o=PAPER, i=PAPER, c=PAPER), "tboi", "se")
-    band(mb, rin - OVH, r + OVH, CEIL0, CEIL1, ph, dict(t=ROOF, b=CEILING, o=PAPER, i=PAPER, c=PAPER), "tboi", "se")
+    band(mb, rin - OVH, r + OVH, 0.0, SLAB, ph, dict(t=FLOOR, b=OAK, o=PAPER, i=PAPER, c=PAPER), "tboi", "se", SLAB_GAP)
+    band(mb, rin - OVH, r + OVH, CEIL0, CEIL1, ph, dict(t=ROOF, b=CEILING, o=PAPER, i=PAPER, c=PAPER), "tboi", "se", SLAB_GAP)
     op_out = op_in = None
     if variant == "lobby":
         op_out = dict(x=(-LOBBY_W / 2, LOBBY_W / 2), z=FLOOR_TOP + LOBBY_H, y=1)

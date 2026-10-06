@@ -46,6 +46,7 @@ import wafers as W  # noqa: E402  (guarded: importing it does not export the Waf
 
 MB = W.MB
 band, obox, rbox, prism = W.band, W.obox, W.rbox, W.prism
+SLAB_GAP = W.SLAB_GAP
 glass_band, thick_wall, mullions = W.glass_band, W.thick_wall, W.mullions
 door_frame, seg_angles, rails = W.door_frame, W.seg_angles, W.rails
 P, v3 = W.P, W.v3
@@ -143,9 +144,9 @@ def build_segment(w, variant):
     # slabs. A fab floor is a deep waffle slab on close columns, so the soffit
     # reads heavier than the Wafers' oak one.
     band(mb, rin - OVH, r + OVH, 0.0, SLAB, ph,
-         dict(t=FLOOR, b=STEEL_D, o=PANEL_D, i=PANEL_D, c=PANEL_D), "tboi", "se")
+         dict(t=FLOOR, b=STEEL_D, o=PANEL_D, i=PANEL_D, c=PANEL_D), "tboi", "se", SLAB_GAP)
     band(mb, rin - OVH, r + OVH, CEIL0, CEIL1, ph,
-         dict(t=ROOF, b=CEILING, o=PANEL_D, i=PANEL_D, c=PANEL_D), "tboi", "se")
+         dict(t=ROOF, b=CEILING, o=PANEL_D, i=PANEL_D, c=PANEL_D), "tboi", "se", SLAB_GAP)
 
     op_out = op_in = None
     if variant == "lobby":
