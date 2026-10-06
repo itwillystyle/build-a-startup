@@ -167,31 +167,96 @@ end
 local CollectionService = game:GetService("CollectionService")
 local MAX_LIT, LIT_RANGE = 24, 230
 local glowing = {}
+local panes = {}                 -- every glass pane, found once per nightfall
 local lampLights = {}
 local nightOn = false
+
+--[[ GLOWING WINDOWS, AND WHY THEY ARE DISTANCE-GATED (fixed 5 Oct).
+
+	The effect is right: after sunset the campus should read as a lit building
+	rather than a dark block, and the cheapest way to get it is to switch the
+	glass to Neon so each pane emits instead of reflecting.
+
+	The failure is that Neon IGNORES LIGHTING ENTIRELY. From 100 studs away a
+	Neon pane is a warm window. From one stud away -- which is where you are
+	when you walk up to the glass INSIDE your own tower -- it is a flat,
+	unshaded, full-brightness orange wall filling half the screen, with a hard
+	vertical edge where the pane ends. That is exactly what his screenshot
+	showed: the room on the left, a solid yellow field on the right.
+
+	So a pane glows only once you are far enough away for it to read as a
+	window. Close up it stays ordinary glass and you can see through it. This
+	is the same rule the lamps above already use, for the same reason: the
+	version of a thing you need depends on how far away you are standing. ]]
+local GLOW_NEAR = 46             -- inside this, a pane is a window you look THROUGH
+local GLOW_HYST = 8              -- stop it flickering on the boundary
+local GLOW_COLOR = Color3.fromRGB(236, 168, 96)
+
+local function lightPane(d)
+	if glowing[d] then return end
+	glowing[d] = { d.Color, d.Transparency }
+	d.Material = Enum.Material.Neon
+	d.Color = GLOW_COLOR
+	d.Transparency = math.max(0.3, d.Transparency * 0.6)
+end
+
+local function unlightPane(d)
+	local v = glowing[d]
+	if not v then return end
+	if d.Parent then
+		d.Material = Enum.Material.Glass
+		d.Color = v[1]
+		d.Transparency = v[2]
+	end
+	glowing[d] = nil
+end
+
+local function collectPanes()
+	table.clear(panes)
+	local sv = workspace:FindFirstChild("SiliconValley")
+	local plots = sv and sv:FindFirstChild("Plots")
+	if not plots then return end
+	for _, d in ipairs(plots:GetDescendants()) do
+		-- v3.6: hidden collision glass stays hidden
+		if d:IsA("BasePart") and d.Material == Enum.Material.Glass and d.Transparency < 0.99 then
+			table.insert(panes, d)
+		end
+	end
+end
+
 local function setNight(on)
 	if nightOn == on then return end
 	nightOn = on
 	workspace:SetAttribute("SVNight", on)       -- client-local: LifeClient lights the train
-	local plots = workspace:FindFirstChild("SiliconValley") and workspace.SiliconValley:FindFirstChild("Plots")
-	if on and plots then
-		for _, d in ipairs(plots:GetDescendants()) do
-			if d:IsA("BasePart") and d.Material == Enum.Material.Glass and d.Transparency < 0.99 then   -- v3.6: hidden collision glass stays hidden
-				glowing[d] = { d.Color, d.Transparency }
-				d.Material = Enum.Material.Neon
-				d.Color = Color3.fromRGB(236, 168, 96)
-				d.Transparency = math.max(0.3, d.Transparency * 0.6)
-			end
-		end
+	if on then
+		collectPanes()
 	else
-		for p, v in pairs(glowing) do
-			if p.Parent then p.Material = Enum.Material.Glass; p.Color = v[1]; p.Transparency = v[2] end
-		end
+		for d in pairs(glowing) do unlightPane(d) end
 		glowing = {}
+		table.clear(panes)
 		for head, l in pairs(lampLights) do
 			if l.Parent then l:Destroy() end
 		end
 		lampLights = {}
+	end
+end
+
+--[[ Run on the same 2 Hz tick as the lamps: a pane does not move, and the
+	band is wide enough that walking cannot cross it between passes. ]]
+local function updatePanes(eye)
+	for i = #panes, 1, -1 do
+		local d = panes[i]
+		if not d.Parent then
+			glowing[d] = nil
+			table.remove(panes, i)
+		else
+			local dist = (d.Position - eye).Magnitude
+			if glowing[d] then
+				if dist < GLOW_NEAR then unlightPane(d) end
+			elseif dist > GLOW_NEAR + GLOW_HYST then
+				lightPane(d)
+			end
+		end
 	end
 end
 
@@ -214,6 +279,7 @@ local function updateLamps(dt)
 			if d < LIT_RANGE then table.insert(near, { head, d }) end
 		end
 	end
+	updatePanes(eye)
 	table.sort(near, function(a, b) return a[2] < b[2] end)
 	local keep = {}
 	for i = 1, math.min(MAX_LIT, #near) do
@@ -242,12 +308,11 @@ task.spawn(function()
 	local plots = sv:WaitForChild("Plots")
 	plots.DescendantAdded:Connect(function(d)
 		if nightOn and d:IsA("BasePart") then
+			-- joins the list; the distance pass decides whether it glows yet,
+			-- so a storey built while you stand in it does not flash orange
 			task.defer(function()
 				if nightOn and d.Parent and d.Material == Enum.Material.Glass and d.Transparency < 0.99 then
-					glowing[d] = { d.Color, d.Transparency }
-					d.Material = Enum.Material.Neon
-					d.Color = Color3.fromRGB(236, 168, 96)
-					d.Transparency = math.max(0.3, d.Transparency * 0.6)
+					table.insert(panes, d)
 				end
 			end)
 		end
