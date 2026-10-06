@@ -492,22 +492,74 @@ local function checkPlacement(say)
 		by name: a seat tucked under a table, and anything standing ON another
 		piece (its base at about the other's top). Everything else that shares
 		volume is a mistake. ]]
-	local SEAT = { chair = 1, stool = 1, sofa = 1, bench = 1, lounge = 1 }
-	local TABLE = { table = 1, desk = 1, bar = 1, counter = 1 }
-	local function wordsOf(n)
-		local t = {}
-		for w in n:gsub("(%l)(%u)", "%1_%2"):lower():gmatch("[%a]+") do t[#t + 1] = w end
-		return t
-	end
+	--[[ FURNITURE IN FURNITURE.
+
+		The first version of this gate compared axis-aligned sizes against
+		world-axis distances, which is simply wrong for anything rotated: a
+		bookcase turned 90 degrees has its depth measured as its width. Tested
+		against the penthouse it reported a bookcase 1.16 studs inside the TV
+		cabinet; the exact test says they are 3.3 studs apart and never touch.
+		A gate that invents faults is worse than no gate, because the next
+		person spends an hour moving furniture that was already right.
+
+		So it is a real separating-axis test now, on the oriented boxes. Two
+		overlaps are MEANT to happen and are excluded by shape rather than by
+		name: a seat tucked under a table, and anything standing ON another
+		piece. It also covers the whole valley, not just Plots -- the
+		apartments live downtown and the first version never looked at them. ]]
+	local SEAT = { chair = 1, stool = 1, sofa = 1, bench = 1, lounge = 1, lounger = 1, bed = 1 }
+	local TABLE = { table = 1, desk = 1, bar = 1, counter = 1, island = 1 }
 	local function anyOf(n, set)
-		for _, w in ipairs(wordsOf(n)) do if set[w] then return true end end
+		for w in n:gsub("(%l)(%u)", "%1_%2"):lower():gmatch("[%a]+") do
+			if set[w] then return true end
+		end
 		return false
 	end
 
+	-- separation along the 15 candidate axes; 0 means they do not touch
+	local function sat(a, b)
+		local as, bs = a.Size / 2, b.Size / 2
+		local R = a.CFrame:ToObjectSpace(b.CFrame)
+		local m = { R.XVector, R.YVector, R.ZVector }
+		local best = math.huge
+		local function axis(ax, ra, rb)
+			local dd = math.abs(R.Position:Dot(ax))
+			if dd > ra + rb then return false end
+			best = math.min(best, ra + rb - dd)
+			return true
+		end
+		for _, ax in ipairs({ Vector3.xAxis, Vector3.yAxis, Vector3.zAxis }) do
+			local ra = math.abs(as.X * ax.X) + math.abs(as.Y * ax.Y) + math.abs(as.Z * ax.Z)
+			local rb = math.abs(bs.X * m[1]:Dot(ax)) + math.abs(bs.Y * m[2]:Dot(ax)) + math.abs(bs.Z * m[3]:Dot(ax))
+			if not axis(ax, ra, rb) then return 0 end
+		end
+		for i, ax in ipairs(m) do
+			local ra = math.abs(as.X * ax.X) + math.abs(as.Y * ax.Y) + math.abs(as.Z * ax.Z)
+			local rb = (i == 1 and bs.X) or (i == 2 and bs.Y) or bs.Z
+			if not axis(ax, ra, rb) then return 0 end
+		end
+		return best
+	end
+
+	--[[ What counts as furniture, by SIZE rather than by a list of names. The
+		first valley-wide run returned 367 "overlaps" whose worst case was
+		"Residences_Tower in Residences_Tower_Glass" -- a tower inside its own
+		curtain wall. Prefix exclusions could never keep up: every builder
+		names its meshes differently, and a car, a tree and a skyscraper all
+		slipped through.
+
+		A chair, a desk, a fridge and a sofa all fit inside 10 studs. A
+		building, a vehicle and a tree do not. So the bound is on the object,
+		not on its name, and a new builder cannot quietly feed architecture
+		into a furniture check. ]]
+	local FURN_MAX = 10
+
 	local furn = {}
-	local plots = sv:FindFirstChild("Plots")
-	for _, d in ipairs(plots and plots:GetDescendants() or {}) do
+	for _, d in ipairs(sv:GetDescendants()) do
+		-- the class test has to come FIRST: a Folder has no Size, and reading
+		-- it threw the whole pass away on the first run
 		if d:IsA("MeshPart") and d.Size.Y > 0.3
+			and math.max(d.Size.X, d.Size.Y, d.Size.Z) <= FURN_MAX
 			and d.Name:sub(1, 2) ~= "D_" and d.Name:sub(1, 2) ~= "W_" and d.Name:sub(1, 2) ~= "T_"
 			and d.Name:sub(1, 3) ~= "LP_" and d.Name:sub(1, 2) ~= "HQ"
 		then
@@ -524,25 +576,16 @@ local function checkPlacement(say)
 	for i = 1, #furn do
 		for j = i + 1, #furn do
 			local a, b = furn[i], furn[j]
-			local d = (a.Position - b.Position)
-			if d.Magnitude < 10 then
-				local topA = a.Position.Y + a.Size.Y / 2
-				local topB = b.Position.Y + b.Size.Y / 2
-				local baseA = a.Position.Y - a.Size.Y / 2
-				local baseB = b.Position.Y - b.Size.Y / 2
-				local stacked = math.abs(baseA - topB) < 0.4 or math.abs(baseB - topA) < 0.4
+			if (a.Position - b.Position).Magnitude < 12 then
+				local stacked = math.abs((a.Position.Y - a.Size.Y / 2) - (b.Position.Y + b.Size.Y / 2)) < 0.4
+					or math.abs((b.Position.Y - b.Size.Y / 2) - (a.Position.Y + a.Size.Y / 2)) < 0.4
 				local tuck = (anyOf(a.Name, SEAT) and anyOf(b.Name, TABLE))
 					or (anyOf(b.Name, SEAT) and anyOf(a.Name, TABLE))
 				if not stacked and not tuck then
-					local gx = math.abs(d.X) - (a.Size.X + b.Size.X) / 2
-					local gy = math.abs(d.Y) - (a.Size.Y + b.Size.Y) / 2
-					local gz = math.abs(d.Z) - (a.Size.Z + b.Size.Z) / 2
-					if gx < 0 and gy < 0 and gz < 0 then
-						local pen = math.min(-gx, -gz)
-						if pen > 0.35 then
-							jam += 1
-							if pen > worstJam then worstJam, worstJamN = pen, a.Name .. " in " .. b.Name end
-						end
+					local pen = sat(a, b)
+					if pen > 0.4 then
+						jam += 1
+						if pen > worstJam then worstJam, worstJamN = pen, a.Name .. " in " .. b.Name end
 					end
 				end
 			end
