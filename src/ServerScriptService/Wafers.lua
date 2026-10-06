@@ -399,6 +399,33 @@ local TIMBER = Color3.fromRGB(198, 154, 102)
 	domeFurnish, station, and the two other paths' furnishers. Correcting one
 	of them simply moved the collision to the next. One helper, so the room is
 	the same room to everything that furnishes it. ]]
+--[[ A SERVER-ROOM EXTRACT FAN. Two parts: a static housing and a blade cross
+	that MotionClient spins, because a tagged part costs nothing until a player
+	is near enough to resolve it.
+
+	Server floors were the one department with no sign of life -- racks and a
+	light strip, all of it frozen. A turning fan behind glass is the cheapest
+	thing in the game that says a building is running. ]]
+local function serverFan(model, cf, size, rpm)
+	add(model, {
+		Name = "FanHousing", Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.35, size, size),
+		CFrame = cf * CFrame.Angles(0, math.rad(90), 0),
+		Color = Color3.fromRGB(48, 52, 60), Material = Enum.Material.Metal,
+		CanCollide = false, CanQuery = false, CastShadow = false,
+	})
+	local blades = add(model, {
+		Name = "FanBlades", Size = Vector3.new(size * 0.86, size * 0.14, 0.08),
+		CFrame = cf * CFrame.new(0, 0, 0.12),
+		Color = Color3.fromRGB(86, 92, 102), Material = Enum.Material.Metal,
+		CanCollide = false, CanQuery = false, CastShadow = false,
+	})
+	CollectionService:AddTag(blades, "SVSpin")
+	blades:SetAttribute("Rpm", rpm or 150)
+	blades:SetAttribute("Axis", "Z")
+	return blades
+end
+
 local function roomMid(r)
 	local inset = P.INSET[CUR] or 0
 	local rin = r - G.DEPTH
@@ -537,8 +564,14 @@ local function domeFurnish(model, anchor, dept, r, L)
 		for _, x in ipairs({ -6, -2, 2, 6 }) do
 			add(model, { Name = "Rack", Size = Vector3.new(3, 7, 2.2), CFrame = base * CFrame.new(x, 3.5, rm + 3),
 				Color = Color3.fromRGB(38, 42, 52), Material = Enum.Material.Metal, CastShadow = false })
-			add(model, { Name = "RackLight", Size = Vector3.new(2.2, 0.2, 0.1), CFrame = base * CFrame.new(x, 5.6, rm + 1.85),
+			local lit = add(model, { Name = "RackLight", Size = Vector3.new(2.2, 0.2, 0.1), CFrame = base * CFrame.new(x, 5.6, rm + 1.85),
 				Color = Color3.fromRGB(120, 240, 200), Material = Enum.Material.Neon, CanCollide = false, CanQuery = false, CastShadow = false })
+			CollectionService:AddTag(lit, "SVPulse")
+			lit:SetAttribute("Hz", 0.35)
+			lit:SetAttribute("Depth", 0.30)
+		end
+		for _, x in ipairs({ -9, 9 }) do
+			serverFan(model, base * CFrame.new(x, 6.2, rm + 3.1), 3.0, 170)
 		end
 		add(model, { Name = "Screen", Size = Vector3.new(20, 5.2, 0.4), CFrame = base * CFrame.new(0, 3.1, rm - 2.2),
 			Color = TIMBER, Material = Enum.Material.WoodPlanks, CanCollide = false, CanQuery = false, CastShadow = false })
@@ -802,8 +835,14 @@ local function furnish(model, anchor, dept, r, L)
 		for _, x in ipairs({ -6, -2, 2, 6 }) do
 			add(model, { Name = "Rack", Size = Vector3.new(3, 7, 2.2), CFrame = base * CFrame.new(x, 3.5, rm + 3),
 				Color = Color3.fromRGB(38, 42, 52), Material = Enum.Material.Metal, CastShadow = false })
-			add(model, { Name = "RackLight", Size = Vector3.new(2.2, 0.2, 0.1), CFrame = base * CFrame.new(x, 5.6, rm + 1.85),
+			local lit = add(model, { Name = "RackLight", Size = Vector3.new(2.2, 0.2, 0.1), CFrame = base * CFrame.new(x, 5.6, rm + 1.85),
 				Color = Color3.fromRGB(120, 240, 200), Material = Enum.Material.Neon, CanCollide = false, CanQuery = false, CastShadow = false })
+			CollectionService:AddTag(lit, "SVPulse")
+			lit:SetAttribute("Hz", 0.35)
+			lit:SetAttribute("Depth", 0.30)
+		end
+		for _, x in ipairs({ -9, 9 }) do
+			serverFan(model, base * CFrame.new(x, 6.2, rm + 3.1), 3.0, 170)
 		end
 	elseif dept == "board" then
 		pcall(FK.onFloor, "tableCross", base, -2.2, rm, 0, model)
