@@ -400,6 +400,16 @@ for (ti, tj), fl in sorted(tiles.items()):
     if me.color_attributes:
         me.color_attributes.active_color = me.color_attributes[0]
         me.color_attributes.render_color_index = 0
+        #[[ AO into the terrain, multiplied into the colours already baked in.
+        #   The valley floor is the largest surface in every frame and the only
+        #   one with no shading of any kind -- flat facets, flat colour. The
+        #   folds between hills had nothing to tell the eye they were folds.
+        #   Vertices do not move, so LowPolyData and the collision grid are
+        #   unchanged by this. ]]
+        try:
+            K.dirty(o, strength=0.30)
+        except Exception as e:
+            print("   AO skipped on %s: %s" % (name, e))
     mins = [min(v.co[k] for v in me.vertices) for k in range(3)]
     maxs = [max(v.co[k] for v in me.vertices) for k in range(3)]
     cb = [(mins[k] + maxs[k]) / 2 for k in range(3)]

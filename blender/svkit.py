@@ -112,52 +112,64 @@ def ensure_col(obj, base=(1.0, 1.0, 1.0)):
 
 
 def dirty(obj, strength=0.35, blur=1, dirt_angle=0.0):
-    """Darken creases and inside corners into the vertex colours.
+    """Multiply baked ambient occlusion into the vertex colours.
 
     ART.md calls baked AO "the single biggest 'crafted by hand' cue, and it
-    fakes the global illumination Roblox doesn't have" -- and then nothing in
-    the pipeline ever did it. Roblox multiplies vertex colour by BasePart.Color,
-    so a mesh that is white in the open and darker in its corners reads as a
-    real object under any tint the game picks.
+    fakes the global illumination Roblox doesn't have" -- and nothing in the
+    pipeline ever did it. Roblox multiplies vertex colour by BasePart.Color, so
+    a mesh that is white in the open and darker in its corners reads as a real
+    object under any tint the game picks.
 
-    Dirty Vertex Colors rather than a Cycles bake: no UVs, no image, no bake
-    time, and the result is per-corner data the FBX already carries.
+    IT HAS TO BE A MULTIPLY, not a blend. The first version ran the operator and
+    then mixed the result toward white, which is only correct when the mesh
+    starts white. On a mesh that already carries colour -- every valley tile --
+    that lightened a 0.30/0.72/0.35 green to 0.73/0.84/0.74, washing the
+    landscape out. So the original colours are saved, AO is baked against WHITE,
+    and the two are multiplied.
     """
     ensure_col(obj)
+    me = obj.data
+    attr = me.color_attributes.get("Col")
+    if attr is None:
+        return obj
+
+    def read(d):
+        return d.color_srgb if hasattr(d, "color_srgb") else d.color
+
+    def write(d, c):
+        if hasattr(d, "color_srgb"):
+            d.color_srgb = (c[0], c[1], c[2], 1.0)
+        else:
+            d.color = (c[0], c[1], c[2], 1.0)
+
+    base = [tuple(read(d))[:3] for d in attr.data]
+    for d in attr.data:                      # bake AO against white
+        write(d, (1.0, 1.0, 1.0))
+
     bpy.context.view_layer.objects.active = obj
-    prev = obj.mode
     try:
         bpy.ops.object.mode_set(mode="VERTEX_PAINT")
         #[[ normalize=True stretches the result to the full range, so on a mesh
         #   made of thin members -- mullions, rails, columns -- almost every
-        #   corner reads as concave and the whole object comes out BLACK. One
-        #   render caught it; a tri count never would have. ]]
+        #   corner reads as concave and the whole object comes out BLACK. ]]
         bpy.ops.paint.vertex_color_dirt(
             blur_strength=1.0, blur_iterations=int(blur),
             clean_angle=math.radians(180.0), dirt_angle=float(dirt_angle),
             dirt_only=False, normalize=False)
-        bpy.ops.object.mode_set(mode="OBJECT")
-        # pull the result back toward white: AO is a hint, not a paint job
-        me = obj.data
-        attr = me.color_attributes.get("Col")
-        if attr is not None:
-            k = max(0.0, min(1.0, float(strength)))
-            for d in attr.data:
-                c = d.color_srgb if hasattr(d, "color_srgb") else d.color
-                mixed = tuple(1.0 - (1.0 - c[i]) * k for i in range(3))
-                if hasattr(d, "color_srgb"):
-                    d.color_srgb = (mixed[0], mixed[1], mixed[2], 1.0)
-                else:
-                    d.color = (mixed[0], mixed[1], mixed[2], 1.0)
     except Exception as e:
         print("   dirty() skipped on %s: %s" % (obj.name, e))
     finally:
         try:
-            bpy.ops.object.mode_set(mode=prev if prev != "VERTEX_PAINT" else "OBJECT")
-        except Exception:
             bpy.ops.object.mode_set(mode="OBJECT")
-    return obj
+        except Exception:
+            pass
 
+    k = max(0.0, min(1.0, float(strength)))
+    for i, d in enumerate(attr.data):
+        ao = tuple(read(d))[:3]
+        src = base[i] if i < len(base) else (1.0, 1.0, 1.0)
+        write(d, tuple(src[c] * (1.0 - (1.0 - ao[c]) * k) for c in range(3)))
+    return obj
 
 def weld(obj, dist=1e-4):
     """Merge coincident vertices so faces share edges.
