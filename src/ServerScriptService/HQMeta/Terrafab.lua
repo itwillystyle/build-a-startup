@@ -27,7 +27,7 @@ return {
 	T_Halo = { c = Vector3.new(0.000, 1.250, 0.000), s = Vector3.new(102.364, 7.500, 102.364) },  -- 2848 tris
 	T_Lantern = { c = Vector3.new(0.000, 5.600, 0.000), s = Vector3.new(15.200, 11.200, 15.200) },  -- 338 tris
 	T_LanternGlass = { c = Vector3.new(0.000, 5.100, 0.000), s = Vector3.new(11.400, 8.200, 11.400) },  -- 48 tris
-	T_Lobby = { c = Vector3.new(0.000, 6.500, 54.293), s = Vector3.new(46.452, 13.000, 36.153) },  -- 684 tris
+	T_Lobby = { c = Vector3.new(0.000, 6.500, 54.293), s = Vector3.new(46.534, 13.000, 36.153) },  -- 680 tris
 	T_LobbyGlass = { c = Vector3.new(0.000, 6.700, 48.468), s = Vector3.new(45.731, 10.400, 22.564) },  -- 52 tris
 	T_Mast = { c = Vector3.new(0.000, 29.920, 0.000), s = Vector3.new(4.065, 59.840, 4.065) },  -- 124 tris
 	T_Pav = { c = Vector3.new(0.000, 6.550, 35.032), s = Vector3.new(61.964, 13.100, 19.135) },  -- 858 tris
@@ -35,12 +35,12 @@ return {
 	T_Podium = { c = Vector3.new(0.000, 9.000, 0.872), s = Vector3.new(133.587, 18.000, 135.331) },  -- 3782 tris
 	T_Roof = { c = Vector3.new(-0.203, 5.650, 0.000), s = Vector3.new(101.794, 11.300, 102.200) },  -- 2948 tris
 	T_RoofGlass = { c = Vector3.new(0.000, 1.900, 0.000), s = Vector3.new(95.116, 3.200, 95.116) },  -- 64 tris
-	T_SegB_1 = { c = Vector3.new(0.000, 6.500, 46.194), s = Vector3.new(46.412, 13.000, 19.956) },  -- 444 tris
-	T_SegB_2 = { c = Vector3.new(0.000, 6.500, 42.498), s = Vector3.new(43.350, 13.000, 19.956) },  -- 444 tris
-	T_SegB_3 = { c = Vector3.new(0.000, 6.500, 38.803), s = Vector3.new(40.289, 13.000, 19.956) },  -- 444 tris
-	T_SegB_4 = { c = Vector3.new(0.000, 6.500, 35.107), s = Vector3.new(37.227, 13.000, 19.956) },  -- 444 tris
-	T_Seg_1 = { c = Vector3.new(0.000, 6.500, 46.194), s = Vector3.new(46.412, 13.000, 19.956) },  -- 344 tris
-	T_Seg_2 = { c = Vector3.new(0.000, 6.500, 42.498), s = Vector3.new(43.350, 13.000, 19.956) },  -- 344 tris
-	T_Seg_3 = { c = Vector3.new(0.000, 6.500, 38.803), s = Vector3.new(40.289, 13.000, 19.956) },  -- 344 tris
-	T_Seg_4 = { c = Vector3.new(0.000, 6.500, 35.107), s = Vector3.new(37.227, 13.000, 19.956) },  -- 344 tris
+	T_SegB_1 = { c = Vector3.new(0.000, 6.500, 46.194), s = Vector3.new(46.534, 13.000, 19.956) },  -- 440 tris
+	T_SegB_2 = { c = Vector3.new(0.000, 6.500, 42.498), s = Vector3.new(43.473, 13.000, 19.956) },  -- 440 tris
+	T_SegB_3 = { c = Vector3.new(0.000, 6.500, 38.803), s = Vector3.new(40.411, 13.000, 19.956) },  -- 440 tris
+	T_SegB_4 = { c = Vector3.new(0.000, 6.500, 35.107), s = Vector3.new(37.350, 13.000, 19.956) },  -- 440 tris
+	T_Seg_1 = { c = Vector3.new(0.000, 6.500, 46.194), s = Vector3.new(46.534, 13.000, 19.956) },  -- 340 tris
+	T_Seg_2 = { c = Vector3.new(0.000, 6.500, 42.498), s = Vector3.new(43.473, 13.000, 19.956) },  -- 340 tris
+	T_Seg_3 = { c = Vector3.new(0.000, 6.500, 38.803), s = Vector3.new(40.411, 13.000, 19.956) },  -- 340 tris
+	T_Seg_4 = { c = Vector3.new(0.000, 6.500, 35.107), s = Vector3.new(37.350, 13.000, 19.956) },  -- 340 tris
 }
