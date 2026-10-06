@@ -483,12 +483,80 @@ local function checkPlacement(say)
 		end
 	end
 
+	--[[ FURNITURE IN FURNITURE (added 5 Oct). The greenery gate above caught a
+		tree in a road; it said nothing about a coffee machine in a counter,
+		which is the same fault one storey up. Both of this room's faults were
+		measurable and neither was measured, so they shipped.
+
+		Two overlaps are MEANT to happen and are excluded by shape rather than
+		by name: a seat tucked under a table, and anything standing ON another
+		piece (its base at about the other's top). Everything else that shares
+		volume is a mistake. ]]
+	local SEAT = { chair = 1, stool = 1, sofa = 1, bench = 1, lounge = 1 }
+	local TABLE = { table = 1, desk = 1, bar = 1, counter = 1 }
+	local function wordsOf(n)
+		local t = {}
+		for w in n:gsub("(%l)(%u)", "%1_%2"):lower():gmatch("[%a]+") do t[#t + 1] = w end
+		return t
+	end
+	local function anyOf(n, set)
+		for _, w in ipairs(wordsOf(n)) do if set[w] then return true end end
+		return false
+	end
+
+	local furn = {}
+	local plots = sv:FindFirstChild("Plots")
+	for _, d in ipairs(plots and plots:GetDescendants() or {}) do
+		if d:IsA("MeshPart") and d.Size.Y > 0.3
+			and d.Name:sub(1, 2) ~= "D_" and d.Name:sub(1, 2) ~= "W_" and d.Name:sub(1, 2) ~= "T_"
+			and d.Name:sub(1, 3) ~= "LP_" and d.Name:sub(1, 2) ~= "HQ"
+		then
+			-- a person is not furniture; a rig may sit under a Folder, so the
+			-- ancestor lookup has to tolerate there being no Model at all
+			local m = d:FindFirstAncestorOfClass("Model")
+			if not (m and m:FindFirstChildOfClass("Humanoid")) then
+				furn[#furn + 1] = d
+			end
+		end
+	end
+
+	local jam, worstJam, worstJamN = 0, 0, ""
+	for i = 1, #furn do
+		for j = i + 1, #furn do
+			local a, b = furn[i], furn[j]
+			local d = (a.Position - b.Position)
+			if d.Magnitude < 10 then
+				local topA = a.Position.Y + a.Size.Y / 2
+				local topB = b.Position.Y + b.Size.Y / 2
+				local baseA = a.Position.Y - a.Size.Y / 2
+				local baseB = b.Position.Y - b.Size.Y / 2
+				local stacked = math.abs(baseA - topB) < 0.4 or math.abs(baseB - topA) < 0.4
+				local tuck = (anyOf(a.Name, SEAT) and anyOf(b.Name, TABLE))
+					or (anyOf(b.Name, SEAT) and anyOf(a.Name, TABLE))
+				if not stacked and not tuck then
+					local gx = math.abs(d.X) - (a.Size.X + b.Size.X) / 2
+					local gy = math.abs(d.Y) - (a.Size.Y + b.Size.Y) / 2
+					local gz = math.abs(d.Z) - (a.Size.Z + b.Size.Z) / 2
+					if gx < 0 and gy < 0 and gz < 0 then
+						local pen = math.min(-gx, -gz)
+						if pen > 0.35 then
+							jam += 1
+							if pen > worstJam then worstJam, worstJamN = pen, a.Name .. " in " .. b.Name end
+						end
+					end
+				end
+			end
+		end
+	end
+
 	say("PLACE    %d hard surfaces found by shape, %d greenery checked, %d tree pits",
 		#hard, checked, pits)
+	say("   furniture inside furniture: %d  (of %d pieces)", jam, #furn)
+	if jam > 0 then say("      worst %.2f studs: %s", worstJam, worstJamN) end
 	say("   greenery standing in paving: %d", bad)
 	if bad > 0 then say("      worst %.1f studs: %s", worst, worstN) end
 	if elevated > 0 then say("   (%d on terraces and interior floors, not counted)", elevated) end
-	return bad == 0
+	return bad == 0 and jam == 0
 end
 
 -- ---------------------------------------------------------------- 5. client errors

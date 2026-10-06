@@ -383,6 +383,15 @@ local function domeFurnish(model, anchor, dept, r, L)
 		o.yaw = yaw
 		pcall(FK.onFloor, key, base, x, z, 0, model, o)
 	end
+	--[[ The same, but standing on a surface instead of the floor. A kettle or a
+		coffee machine belongs on the worktop; placed with `place` it ends up on
+		the floor at the counter's feet, which from the room reads as a machine
+		buried in the cabinetry. ]]
+	local function onTop(key, x, z, yaw, surfaceY, opts)
+		local o = opts or {}
+		o.yaw = yaw
+		pcall(FK.onFloor, key, base, x, z, surfaceY, model, o)
+	end
 
 	-- every Dome floor: a timber soffit band and the lit clerestory seam.
 	-- This is the path's signature indoors, the way the track is outdoors.
@@ -420,12 +429,39 @@ local function domeFurnish(model, anchor, dept, r, L)
 			place("pictureframe_" .. (i == 0 and "large_A" or "medium"), i * 5.0, rm + 8.4, 0)
 		end
 	elseif dept == "cafe" then
-		-- a kitchenette, which Bay View puts on every floor instead of one canteen
-		place("kitchenBar", -3.0, rm + 7.6, 0)
-		place("kitchenBar", 0.0, rm + 7.6, 0)
-		place("kitchenBarEnd", 3.0, rm + 7.6, 0)
-		place("kitchenCoffeeMachine", -3.0, rm + 7.0, 0)
-		place("kitchenFridge", 7.4, rm + 7.6, 0)
+		--[[ THE KITCHENETTE, rebuilt 5 Oct from his report that furniture is
+			"misplaced to be overlapping". Both faults were real and both were
+			visible from inside the room:
+
+			  THE RUN HAD GAPS. Units were spaced on a 3.0 grid while a
+			  kitchenBar is 2.53 wide, so every joint showed 0.47 studs of
+			  daylight, and the end cap sat 1.4 studs clear of the run
+			  entirely. Apartments.lua and HQFloors.lua both lay the same
+			  pieces at 2.53 and look right -- this was a copy whose spacing
+			  had drifted off the piece width.
+
+			  THE COFFEE MACHINE WAS ON THE FLOOR. It was placed with the same
+			  floor-level call as the cabinets, 0.6 studs in front of one, so
+			  it interpenetrated the counter by 0.72 studs and read as a
+			  machine half-buried in the joinery. It stands on the worktop now.
+
+			Laid out from a measured left edge rather than by eye, so the run
+			is flush by construction and a different piece width cannot
+			silently reopen the gaps. ]]
+		local BAR_W, END_W, FRIDGE_W = 2.53, 0.60, 2.53
+		local BAR_TOP = 2.47                     -- the worktop height
+		local runW = BAR_W * 2 + END_W
+		local left = -runW / 2                   -- the run, centred on the wedge
+		local b1 = left + BAR_W / 2
+		local b2 = b1 + BAR_W
+		local cap = b2 + BAR_W / 2 + END_W / 2
+		local z = rm + 7.6
+		place("kitchenBar", b1, z, 0)
+		place("kitchenBar", b2, z, 0)
+		place("kitchenBarEnd", cap, z, 0)
+		onTop("kitchenCoffeeMachine", b1, z, 0, BAR_TOP)
+		-- the fridge closes the run, with a hand's width to open its door
+		place("kitchenFridge", cap + END_W / 2 + 0.2 + FRIDGE_W / 2, z, 0)
 		place("tableRound", 0, rm - 1.2, 0, { canCollide = true })
 		for _, o in ipairs({ { 0, 2.6, 180 }, { 0, -2.6, 0 }, { 2.4, 0, -90 }, { -2.4, 0, 90 } }) do
 			place("chairRounded", o[1], rm - 1.2 + o[2], o[3])
