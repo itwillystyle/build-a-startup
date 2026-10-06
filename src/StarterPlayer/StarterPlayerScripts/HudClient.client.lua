@@ -192,6 +192,12 @@ that filled it: his Wilz run never pressed it in 19 minutes).
 When something else is the goal (build, hire, upgrade), WRITE CODE steps down
 a size so the goal card and the world marker are the loud things (DESIGN.md
 principle 1). It pulses only when writing code IS the goal. ]]
+local Sfx = (function()
+	local ok, m = pcall(require, game:GetService("ReplicatedStorage"):WaitForChild("Sfx", 5))
+	return ok and m or nil
+end)()
+local keyFlip = false
+
 local writeCodeRemote = remotes:WaitForChild("WriteCode", 10)
 local pickMarket = remotes:WaitForChild("PickMarket", 10)
 local productReady = remotes:WaitForChild("ProductReady", 10)
@@ -388,6 +394,18 @@ local combo, lastTap = 0, 0
 codeBtn.MouseButton1Click:Connect(function()
 	if launchState then doLaunch() return end
 	if writeCodeRemote then writeCodeRemote:FireServer() end
+	--[[ The verb the player presses most in the whole game made no sound at
+		all. Two alternating key samples at a jittered pitch, so holding the
+		button reads as typing rather than as one sample retriggering. ]]
+	if Sfx then
+		local head = player.Character and player.Character:FindFirstChild("Head")
+		if head then
+			keyFlip = not keyFlip
+			Sfx.play(head, keyFlip and "keyboard" or "keyTap", {
+				volume = 0.35, pitch = 0.92 + math.random() * 0.22, life = 2, max = 24,
+			})
+		end
+	end
 	local now = os.clock()
 	combo = (now - lastTap < 0.8) and math.min(combo + 1, 10) or 0
 	lastTap = now

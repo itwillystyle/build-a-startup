@@ -1499,6 +1499,33 @@ local function buildPiece(plot, L, dept, animate)
 		player buys arrives in the pack's own colours while the rest of the
 		campus is in the palette. ]]
 	if api.Palette then api.Palette.enforce(model) end
+	--[[ THE FLOOR SOUNDS LIKE WHAT YOU BUILT ON IT. Department is a choice the
+		player makes on every one of a hundred levels and, until now, one you
+		could only see. A floor of engineers murmurs, a server floor hums, the
+		cafe has a room full of people in it, and all of it fades a few studs
+		past the glass so walking in and out is audible.
+
+		Parented to its own anchor part rather than to a wall, so a rebuild of
+		the storey takes the sound with it and nothing is left playing in an
+		empty sky. ]]
+	if api.Sfx and dept then
+		local room = api.Sfx.ROOM[dept]
+		if room then
+			local ok, cf = pcall(function() return select(1, model:GetBoundingBox()) end)
+			if ok and cf then
+				local anchor = add(model, {
+					Name = "RoomTone", Size = Vector3.new(1, 1, 1), CFrame = cf,
+					Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false,
+					CastShadow = false,
+				})
+				api.Sfx.emitter(anchor, room.key, {
+					volume = room.volume, pitch = room.pitch, min = 14, max = 58,
+					-- stagger the loops so forty floors do not pulse in unison
+					offset = (L * 3.7) % 30,
+				})
+			end
+		end
+	end
 	return model
 end
 

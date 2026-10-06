@@ -2813,7 +2813,7 @@ if Econ then
 	Econ.Wafers = tryRequire(ServerScriptService, "Wafers")
 	if Econ.Wafers and Econ.Wafers.init and Econ.V3 then
 		local ok, err = pcall(Econ.Wafers.init, {
-			part = part, rise = rise, FK = FurnitureKit, Palette = Pal, HQFloors = tryRequire(ServerScriptService, "HQFloors"),
+			part = part, rise = rise, FK = FurnitureKit, Palette = Pal, Sfx = tryRequire(ReplicatedStorage, "Sfx"), HQFloors = tryRequire(ServerScriptService, "HQFloors"),
 			-- v7: floor stations need to talk back to the game
 			prompt = prompt, popup = popup, session = function(pl) return sessions[pl.UserId] end,
 			grant = function(pl, id, n) return Econ.Inv and Econ.Inv.grant(pl, id, n, "floor") end,
