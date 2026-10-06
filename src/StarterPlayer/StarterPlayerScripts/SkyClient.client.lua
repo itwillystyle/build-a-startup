@@ -339,9 +339,19 @@ crickets:Play()
 
 	Not the blunt version from the test: that ran ambient at 176 and washed the
 	colour out of the hills. ]]
-local DAY_AMB, NIGHT_AMB = Color3.fromRGB(142, 140, 150), Color3.fromRGB(36, 40, 62)
-local DAY_OUT, NIGHT_OUT = Color3.fromRGB(176, 182, 196), Color3.fromRGB(54, 60, 92)
-local DAY_SHIFT, GOLD_SHIFT = Color3.fromRGB(34, 20, 4), Color3.fromRGB(96, 52, 14)   -- warmth on sunlit faces
+--[[ S6: GOLDEN HOUR, COMMITTED.
+
+	The style is named after a lighting condition and the game was lit bright
+	and nearly neutral, so every asset kept its own colours and the light did
+	no unifying work at all. ART.md asks for a warm key against a cool, LOW
+	ambient; the ambient was a bright neutral grey, which is why the frame had
+	almost no value below 0.7 and why restoring shadows changed so little.
+
+	Saturation lift drops too. It was +0.26 in daylight, which was compensating
+	for a world whose colours disagreed; now that they agree, it only shouts. ]]
+local DAY_AMB, NIGHT_AMB = Color3.fromRGB(84, 92, 116), Color3.fromRGB(30, 34, 54)
+local DAY_OUT, NIGHT_OUT = Color3.fromRGB(120, 132, 160), Color3.fromRGB(46, 52, 80)
+local DAY_SHIFT, GOLD_SHIFT = Color3.fromRGB(56, 34, 8), Color3.fromRGB(122, 70, 20)   -- warmth on sunlit faces
 local DAY_TINT, GOLD_TINT, NIGHT_TINT = Color3.fromRGB(255, 250, 242), Color3.fromRGB(255, 238, 214), Color3.fromRGB(196, 206, 255)
 local DAY_ATM, GOLD_ATM, NIGHT_ATM = Color3.fromRGB(214, 210, 200), Color3.fromRGB(230, 208, 174), Color3.fromRGB(42, 50, 82)
 local DAY_DECAY, GOLD_DECAY, NIGHT_DECAY = Color3.fromRGB(140, 152, 172), Color3.fromRGB(200, 130, 96), Color3.fromRGB(20, 24, 42)
@@ -435,7 +445,12 @@ RunService.Heartbeat:Connect(function(dt)
 	if type(ov) == "number" then h = ov end
 	Lighting.ClockTime = h
 	local day, golden = lightFactors(h)
-	Lighting.Brightness = 0.5 + 1.0 * day       -- v4.7: was 0.6 + 1.7, a 2.3 key against a dark fill
+	--[[ S6: the key comes DOWN. At 1.5 the sun washed every surface toward
+		white, which is why the lawn read as the loudest thing on screen while
+		measuring as exactly the colour ART.md asks for -- the colour was never
+		the problem, the exposure was. A lower key with a warmer shift lets the
+		palette show and gives the shadows somewhere to go. ]]
+	Lighting.Brightness = 0.35 + 0.65 * day
 	Lighting.Ambient = lerpC(NIGHT_AMB, DAY_AMB, day)
 	Lighting.OutdoorAmbient = lerpC(NIGHT_OUT, DAY_OUT, day)
 	grade.TintColor = lerpC(lerpC(NIGHT_TINT, DAY_TINT, day), GOLD_TINT, golden)
@@ -445,8 +460,8 @@ RunService.Heartbeat:Connect(function(dt)
 		that job, so the grade can carry a little punch instead of hiding the
 		lack of it. Saturation keeps its stylised lift; this is not a move
 		toward photographic. ]]
-	grade.Saturation = 0.04 + 0.22 * day
-	grade.Contrast = 0.06 * day + 0.06 * golden
+	grade.Saturation = 0.02 + 0.09 * day
+	grade.Contrast = 0.10 * day + 0.08 * golden
 	Lighting.ColorShift_Top = lerpC(lerpC(Color3.new(0, 0, 0), DAY_SHIFT, day), GOLD_SHIFT, golden)
 	rays.Intensity = 0                         -- v4.7: god rays are a photographic effect
 	local atm = Lighting:FindFirstChildOfClass("Atmosphere")

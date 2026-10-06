@@ -44,6 +44,11 @@ local api
 local remotes = {}
 local spawned = {}          -- [userId] = Model
 
+local Pal = (function()
+	local ok, m = pcall(require, game:GetService("ReplicatedStorage"):WaitForChild("Palette", 5))
+	return ok and m or nil
+end)()
+
 local function template(entry)
 	local kit = RS:FindFirstChild("KenneyKit")
 	return kit and (kit:FindFirstChild(entry.model) or (entry.fallback and kit:FindFirstChild(entry.fallback)))
@@ -54,6 +59,10 @@ local function part(parent, props)
 	p.TopSurface = Enum.SurfaceType.Smooth
 	p.BottomSurface = Enum.SurfaceType.Smooth
 	for k, v in pairs(props) do p[k] = v end
+	-- author in the palette: an unnamed Color used to inherit Roblox default grey
+	if Pal then
+		p.Color = props.Color and Pal.map(props.Color) or Pal.map(Color3.fromRGB(163, 162, 165))
+	end
 	p.Parent = parent
 	return p
 end

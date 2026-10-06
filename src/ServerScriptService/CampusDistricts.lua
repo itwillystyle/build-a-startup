@@ -52,6 +52,11 @@ local CAR_COLOURS = {
 
 local rng = Random.new(90210)
 
+local Pal = (function()
+	local ok, m = pcall(require, game:GetService("ReplicatedStorage"):WaitForChild("Palette", 5))
+	return ok and m or nil
+end)()
+
 local function part(parent, props)
 	local p = Instance.new("Part")
 	p.Anchored = true
@@ -64,6 +69,10 @@ local function part(parent, props)
 	p.BottomSurface = Enum.SurfaceType.Smooth
 	for k, v in pairs(props) do
 		p[k] = v
+	end
+	-- author in the palette: an unnamed Color used to inherit Roblox default grey
+	if Pal then
+		p.Color = props.Color and Pal.map(props.Color) or Pal.map(Color3.fromRGB(163, 162, 165))
 	end
 	p.Parent = parent
 	return p

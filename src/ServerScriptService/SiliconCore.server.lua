@@ -370,8 +370,19 @@ local SLOT_LOCAL = (CampusArch and CampusArch.LOTS) or {
 	axis-aligned box test in world space, and it stays exact under 180.
 ]]
 
+local Pal = (function()
+	local ok, m = pcall(require, game:GetService("ReplicatedStorage"):WaitForChild("Palette", 5))
+	if ok then return m end
+	warn("[SV] Palette missing; colours will not be mapped")
+	return nil
+end)()
+
 -- ============ HELPERS (above every caller, always) ============
 
+--[[ Every part this game builds comes through here or through one of the
+	module helpers that mirrors it, so this is where the palette is applied at
+	AUTHORING time. A part with no Color named used to inherit Roblox's default
+	grey, which is how 719 of them ended up identical and off-palette. ]]
 local function part(props, parent)
 	local p = Instance.new("Part")
 	p.Anchored = true
@@ -380,6 +391,9 @@ local function part(props, parent)
 	p.BottomSurface = Enum.SurfaceType.Smooth
 	p.CastShadow = false
 	for k, v in pairs(props) do p[k] = v end
+	if Pal then
+		p.Color = props.Color and Pal.map(props.Color) or Pal.map(Color3.fromRGB(163, 162, 165))
+	end
 	p.Parent = parent
 	return p
 end
@@ -1029,6 +1043,10 @@ local function buildPlot(index, def)
 				print(("[SV] placement %s: %d in paving -> %d pits, %d moved, %d removed | %d left")
 					:format(folder.Name, before, pits, moved, gone, left))
 			end
+		end
+		if Pal then
+			local n = Pal.enforce(folder)
+			if n > 0 then print(("[SV] palette %s: re-tinted %d parts"):format(folder.Name, n)) end
 		end
 	end
 
@@ -2795,7 +2813,7 @@ if Econ then
 	Econ.Wafers = tryRequire(ServerScriptService, "Wafers")
 	if Econ.Wafers and Econ.Wafers.init and Econ.V3 then
 		local ok, err = pcall(Econ.Wafers.init, {
-			part = part, rise = rise, FK = FurnitureKit, HQFloors = tryRequire(ServerScriptService, "HQFloors"),
+			part = part, rise = rise, FK = FurnitureKit, Palette = Pal, HQFloors = tryRequire(ServerScriptService, "HQFloors"),
 			-- v7: floor stations need to talk back to the game
 			prompt = prompt, popup = popup, session = function(pl) return sessions[pl.UserId] end,
 			grant = function(pl, id, n) return Econ.Inv and Econ.Inv.grant(pl, id, n, "floor") end,
@@ -3008,6 +3026,25 @@ do
 		end
 		if okP and (left or 0) > 0 then
 			warn(("[SV] placement: %d greenery still standing in paving after the final pass"):format(left))
+		end
+	end
+	--[[ The world-wide re-tint. Imported packs -- cars, furniture, meshes --
+		are cloned straight into the world and never touch a builder helper, so
+		they arrive carrying the pack's own colours. That is the single largest
+		source of "five hands made this", and this sweep is the only thing in
+		the project that can reach it. ]]
+	if Pal then
+		local n, washed, tagged = Pal.enforce(world)
+		print(("[SV] palette: re-tinted %d parts, washed %d pack meshes, tagged %d emissives")
+			:format(n, washed, tagged))
+		-- and from here on, anything entering the world is mapped as it arrives
+		Pal.watch(world)
+	end
+	do
+		local Shapes = tryRequire(ServerScriptService, "Shapes")
+		if Shapes and Shapes.apply then
+			local okS, hosts, made = pcall(Shapes.apply, world)
+			if okS then print(("[SV] motif: rounded %d lawn slabs with %d parts"):format(hosts, made)) end
 		end
 	end
 end
