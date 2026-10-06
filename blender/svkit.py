@@ -73,9 +73,21 @@ def shaded(color, top=1.08, bottom=0.72):
 
 
 def apply_mods(obj):
+    """Apply every modifier. modifier_apply needs OBJECT mode, the object
+    selected AND active -- miss any of those and it fails silently, which is
+    how a bevel pass once ran over a whole kit and changed nothing (424 tris
+    in, 424 tris out)."""
+    if bpy.context.object and bpy.context.object.mode != "OBJECT":
+        bpy.ops.object.mode_set(mode="OBJECT")
+    bpy.ops.object.select_all(action="DESELECT")
+    obj.select_set(True)
     bpy.context.view_layer.objects.active = obj
     for m in list(obj.modifiers):
-        bpy.ops.object.modifier_apply(modifier=m.name)
+        try:
+            bpy.ops.object.modifier_apply(modifier=m.name)
+        except Exception as e:
+            print("   apply_mods FAILED on %s/%s: %s" % (obj.name, m.name, e))
+    obj.select_set(False)
 
 
 def bevel(obj, width=0.1, segments=2, angle=40):
@@ -85,6 +97,105 @@ def bevel(obj, width=0.1, segments=2, angle=40):
     m.limit_method = "ANGLE"
     m.angle_limit = math.radians(angle)
     return m
+
+
+def ensure_col(obj, base=(1.0, 1.0, 1.0)):
+    """A white CORNER colour layer, so there is something for AO to darken."""
+    me = obj.data
+    if "Col" not in me.color_attributes:
+        me.color_attributes.new(name="Col", type="BYTE_COLOR", domain="CORNER")
+        attr = me.color_attributes["Col"]
+        for d in attr.data:
+            d.color_srgb = (base[0], base[1], base[2], 1.0)
+    me.color_attributes.active_color = me.color_attributes["Col"]
+    return obj
+
+
+def dirty(obj, strength=0.35, blur=1, dirt_angle=0.0):
+    """Darken creases and inside corners into the vertex colours.
+
+    ART.md calls baked AO "the single biggest 'crafted by hand' cue, and it
+    fakes the global illumination Roblox doesn't have" -- and then nothing in
+    the pipeline ever did it. Roblox multiplies vertex colour by BasePart.Color,
+    so a mesh that is white in the open and darker in its corners reads as a
+    real object under any tint the game picks.
+
+    Dirty Vertex Colors rather than a Cycles bake: no UVs, no image, no bake
+    time, and the result is per-corner data the FBX already carries.
+    """
+    ensure_col(obj)
+    bpy.context.view_layer.objects.active = obj
+    prev = obj.mode
+    try:
+        bpy.ops.object.mode_set(mode="VERTEX_PAINT")
+        #[[ normalize=True stretches the result to the full range, so on a mesh
+        #   made of thin members -- mullions, rails, columns -- almost every
+        #   corner reads as concave and the whole object comes out BLACK. One
+        #   render caught it; a tri count never would have. ]]
+        bpy.ops.paint.vertex_color_dirt(
+            blur_strength=1.0, blur_iterations=int(blur),
+            clean_angle=math.radians(180.0), dirt_angle=float(dirt_angle),
+            dirt_only=False, normalize=False)
+        bpy.ops.object.mode_set(mode="OBJECT")
+        # pull the result back toward white: AO is a hint, not a paint job
+        me = obj.data
+        attr = me.color_attributes.get("Col")
+        if attr is not None:
+            k = max(0.0, min(1.0, float(strength)))
+            for d in attr.data:
+                c = d.color_srgb if hasattr(d, "color_srgb") else d.color
+                mixed = tuple(1.0 - (1.0 - c[i]) * k for i in range(3))
+                if hasattr(d, "color_srgb"):
+                    d.color_srgb = (mixed[0], mixed[1], mixed[2], 1.0)
+                else:
+                    d.color = (mixed[0], mixed[1], mixed[2], 1.0)
+    except Exception as e:
+        print("   dirty() skipped on %s: %s" % (obj.name, e))
+    finally:
+        try:
+            bpy.ops.object.mode_set(mode=prev if prev != "VERTEX_PAINT" else "OBJECT")
+        except Exception:
+            bpy.ops.object.mode_set(mode="OBJECT")
+    return obj
+
+
+def weld(obj, dist=1e-4):
+    """Merge coincident vertices so faces share edges.
+
+    The kit builders emit loose quads: D_Lobby came out 212 polygons with 848
+    vertices, which is exactly 4 unmerged verts per quad. With no shared edges
+    there is no angle between adjacent faces, so a Bevel set to ANGLE has
+    nothing to act on and silently does nothing -- which is why the whole kit
+    bevelled to a zero-byte difference.
+    """
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=dist)
+    bm.to_mesh(obj.data)
+    bm.free()
+    obj.data.update()
+    return obj
+
+
+def finish(obj, width=0.16, segments=1, angle=35, ao=0.35):
+    """Bevel, shade and bake AO -- the two ART.md surface rules, in one call.
+
+    Rule 1 is "no sharp 90 degree edge on anything bigger than 2 studs", and
+    svkit has had a bevel() helper the whole time that none of the three HQ
+    kits ever called. Applied BEFORE the caller measures its bounding box, so
+    HQMeta records the geometry that actually ships. A bevel cuts corners off a
+    convex box without moving its faces, so the box itself does not change size.
+    """
+    weld(obj)
+    bevel(obj, width=width, segments=segments, angle=angle)
+    apply_mods(obj)
+    smooth(obj, angle)
+    #[[ ONE segment, not two. A chamfer catches the same edge highlight as a
+    #   rounded bevel and costs 2.4x the triangles instead of 4.5x; at 4.5x the
+    #   kit alone would have pushed the worst view past the 500k budget. ]]
+    if ao is not None:          # glass bevels but takes no AO: dark creases on glazing read as dirt
+        dirty(obj, strength=ao)
+    return obj
 
 
 def smooth(obj, angle=40):

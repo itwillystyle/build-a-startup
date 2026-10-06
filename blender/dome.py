@@ -329,12 +329,14 @@ def main():
             continue
         shell, glass = fn()
         o = shell.to_object(name)
+        K.finish(o)                      # ART.md: bevelled edges + baked AO
         record(o)
         K.export(os.path.join(OUT, name + ".fbx"), [o])
         total += META[name]["tris"]
         line = "%-16s %5d tris" % (name, META[name]["tris"])
         if glass is not None:
             g = glass.to_object(gname)
+            K.finish(g, width=0.08, ao=None)
             record(g)
             K.export(os.path.join(OUT, gname + ".fbx"), [g])
             total += META[gname]["tris"]

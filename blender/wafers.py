@@ -53,7 +53,13 @@ import svkit as K  # noqa: E402
 
 OUT = os.path.join(HERE, "out", "IMPORT_WAFERS")
 ART = os.path.join(ROOT, "art", "concepts", "wafers_kit")
-PLAN_LUA = os.path.join(ROOT, "game", "src", "ServerScriptService", "WaferPlan.lua")
+#[[ gamedir walks up to the directory that actually holds src/ServerScriptService.
+#   The old hardcoded ROOT/game/... hop resolved to game/game/... once the
+#   blender folder moved inside game/, so the WaferPlan contract silently failed
+#   to load and every kit since has been built against the fallback instead --
+#   exactly the silent half-wiring gamedir.py was written to stop. ]]
+import gamedir  # noqa: E402
+PLAN_LUA = os.path.join(gamedir.server_dir(HERE), "WaferPlan.lua")
 os.makedirs(OUT, exist_ok=True)
 os.makedirs(ART, exist_ok=True)
 
@@ -873,11 +879,13 @@ def main():
             continue
         shell, glass = fn()
         o = shell.to_object(name)
+        K.finish(o)                      # ART.md: bevelled edges + baked AO
         record(o)
         K.export(os.path.join(OUT, name + ".fbx"), [o])
         made.append(o)
         if glass is not None:
             g = glass.to_object(gname)
+            K.finish(g, width=0.08, ao=None)
             record(g)
             K.export(os.path.join(OUT, gname + ".fbx"), [g])
             made.append(g)
