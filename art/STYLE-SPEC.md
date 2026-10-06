@@ -178,11 +178,11 @@ useful: the instrument first, then the fixes.
 | Phase | Work | Why in this order |
 |---|---|---|
 | **S1** | `SVStyle` + the baseline file, no fixes | **DONE 6 Oct.** Nothing can be verified until it is measured, and the numbers stop getting worse immediately |
-| **S2** | Re-tint on entry: one `Palette.map(color)` that every builder and every import passes through | Kills the biggest gap (1,962 shades to 9 hue families) and is mostly one function |
-| **S3** | The 730 default-grey parts and the 797 pure extremes | Largest visible win per hour; these are parts nobody ever coloured |
-| **S4** | Cars into the palette | 381 parts, explicitly on the "never" list, and they move, so the eye tracks them |
-| **S5** | The motif: radiused slabs and discs in `CampusArch`, `CityKit`, grounds | The expensive one; needs Blender work, so it goes after the cheap wins |
-| **S6** | The light: commit golden hour, lower the ambient, author the clock | Last, because re-lighting a world whose colours are still wrong means tuning twice |
+| **S2** | DONE. Re-tint on entry: one `Palette.map(color)` that every builder and every import passes through | Kills the biggest gap (1,962 shades to 9 hue families) and is mostly one function |
+| **S3** | DONE. The 730 default-grey parts and the 797 pure extremes | Largest visible win per hour; these are parts nobody ever coloured |
+| **S4** | DONE. Cars into the palette | 381 parts, explicitly on the "never" list, and they move, so the eye tracks them |
+| **S5** | PARTIAL. The motif: radiused slabs and discs in `CampusArch`, `CityKit`, grounds | The expensive one; needs Blender work, so it goes after the cheap wins |
+| **S6** | DONE. The light: commit golden hour, lower the ambient, author the clock | Last, because re-lighting a world whose colours are still wrong means tuning twice |
 
 S1 to S4 need no Blender and no uploads.
 
@@ -228,3 +228,66 @@ why so few games pay it.
 - `neonLoose` currently counts "not tagged `SVEmissive`" rather than "Neon on
   something that is not a light". No tag exists yet, so the 94 is an upper
   bound; the number only becomes meaningful once S2 tags the legitimate ones.
+
+
+---
+
+## S2-S6 results, measured 6 Oct
+
+| Count | Before | After |
+|---|---|---|
+| off-palette | 998 | **2** |
+| untinted grey | 724 | **0** |
+| pack-coloured meshes | 418 | **0** |
+| untagged Neon | 94 | **7** |
+| authored colours | 191 | **153** |
+| sharp blocks | 2,951 | 2,951 (untouched) |
+
+`Palette.enforce` is idempotent: a second pass changes 0 parts. Getting there
+took four fixes, each found by the instrument disagreeing with itself rather
+than by looking at the game:
+
+- **Any anchor may accept a colour.** Four anchors share hue 0.11 and differ
+  only in saturation, so nearest-hue-then-test failed warm off-whites against
+  BrandGold that PaperWhite would have taken.
+- **A MeshPart's `Color` is a tint multiplier, not a colour.** Reading it as a
+  colour put 4,568 hill-tree parts into the palette gate at saturation 0.04.
+- **Hue tolerance has to widen as colour drains out.** 8-bit RGB encodes the
+  whole hue circle in a few levels at low saturation, so `map()` was not a
+  fixed point: enforce rewrote the same 148 parts forever and the fault count
+  never moved. Nobody can see the hue of a 5%-saturated grey anyway.
+- **Colour comparisons must happen in 8-bit space.** `BasePart.Color`
+  quantises on assignment while `Color3` equality is float-exact, so the
+  fixer kept "changing" parts to the value they already had.
+
+Plus one that only showed up at the band edge: snapping saturation ONTO the
+tolerance limit needs a correction finer than one 8-bit step, so the stored
+colour bounced straight back. It now snaps to 85% of the tolerance.
+
+### What the numbers could not tell me
+
+The lawn measured as exactly the colour `ART.md` specifies and still read as
+the loudest thing on screen. The colour was never the problem; the exposure
+was. `Lighting.Brightness` ran at 1.5 and washed every surface toward white,
+which is also why restoring shadows in S1 changed less than expected. S6
+drops the key to 1.0 at noon, cools and lowers the ambient to ART.md's figures
+and cuts the daylight saturation lift from +0.26 to +0.11.
+
+This is the one place where the instrument was green and the game was still
+wrong, and it is worth remembering: a passing check means the rules are being
+followed, not that the frame is good.
+
+### Not done, and why
+
+- **The architecture is still square.** 2,951 sharp blocks, mostly road kerbs,
+  verges, markings and plot structure. Rounding them properly means bevelling
+  the HQ mesh kit in Blender and re-importing, which needs Luke's hands for
+  the import step. The motif ships as lawn aprons: a rounded apron laid on top
+  of each lawn slab, non-collidable, which changes the silhouette without
+  touching collision or the paving scan.
+- **The valley floor cannot be re-coloured from Luau.** Its colours live in
+  the vertex data of 100 imported meshes. Only a uniform tint multiplier is
+  available, and a single multiply cannot desaturate one hue without dragging
+  the others with it. A warm wash was tried live and looked good on the hills;
+  it is not committed, because it was one sample and not iterated.
+- **No part of this has been seen on a phone.**

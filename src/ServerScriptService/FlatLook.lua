@@ -38,6 +38,11 @@ local KEEP = {
 
 local FLAT = Enum.Material.SmoothPlastic
 
+local Pal = (function()
+	local ok, m = pcall(require, game:GetService("ReplicatedStorage"):WaitForChild("Palette", 5))
+	return ok and m or nil
+end)()
+
 local function flatten(p)
 	if p.Material == FLAT or KEEP[p.Material] then return false end
 	if p.MaterialVariant ~= "" then return false end     -- SV_CampusPavers and anything like it
@@ -157,6 +162,7 @@ function FlatLook.contact(parent, x, z, radius, strength)
 	p.Size = Vector3.new(0.08, radius * 2, radius * 2)
 	p.CFrame = CFrame.new(x, hit.Position.Y + 0.05, z) * CFrame.Angles(0, 0, math.rad(90))
 	p.Color = hit.Instance.Color:Lerp(Color3.fromRGB(26, 30, 44), strength or 0.26)
+	if Pal then p.Color = Pal.map(p.Color) end
 	p.Material = FLAT
 	p.Anchored = true
 	p.CanCollide = false

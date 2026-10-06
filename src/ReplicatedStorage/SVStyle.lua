@@ -33,17 +33,10 @@ local SVStyle = {}
 	not swatches: nine flat colours cannot build a world, which is why the
 	palette was quietly abandoned. Lightness is free, hue and saturation are
 	not. So Oak is not one brown, it is every brown on that hue. ]]
-SVStyle.ANCHORS = {
-	{ name = "PaperWhite", rgb = { 243, 239, 230 } },
-	{ name = "WarmConcrete", rgb = { 207, 198, 182 } },
-	{ name = "Oak", rgb = { 192, 138, 85 } },
-	{ name = "TintedGlass", rgb = { 118, 158, 176 } },
-	{ name = "CampusLawn", rgb = { 118, 160, 92 } },
-	{ name = "CaliforniaGold", rgb = { 224, 182, 90 } },
-	{ name = "ValleyBlue", rgb = { 62, 110, 158 } },
-	{ name = "Ink", rgb = { 30, 37, 48 } },
-	{ name = "BrandGold", rgb = { 255, 194, 61 } },
-}
+--[[ ONE anchor list, shared with Palette. Two copies of a palette is two
+	palettes: the check would pass colours the fixer rewrites, or flag the ones
+	it just wrote. Palette owns it; this reads it. ]]
+SVStyle.ANCHORS = require(game:GetService("ReplicatedStorage"):WaitForChild("Palette")).ANCHORS
 
 --[[ Meshes our own Blender pipeline produced. svkit.py guarantees these
 	prefixes, so this reads a contract rather than guessing at a name. They
@@ -94,29 +87,16 @@ end
 	rejected before hue is even considered, because hue is meaningless on a
 	grey -- and an untinted grey is precisely the fault (ART.md: no pure white,
 	no pure black, every neutral tinted toward the brand hue). ]]
+--[[ The rule lives in Palette and this reads it. Two implementations of one
+	rule is how a checker starts passing colours the fixer rewrites, and
+	flagging the ones it just wrote -- which is exactly what happened: enforce
+	changed 150 parts per pass and the off-palette count moved by two. ]]
 function SVStyle.classify(c)
-	local h, s = c:ToHSV()
+	local _, s = c:ToHSV()
 	if s < SVStyle.NEUTRAL_MIN then return "neutral", false end
-	--[[ ANY anchor may accept it, and that is load-bearing. The first draft
-		picked the nearest anchor by hue and only then tested saturation, which
-		is structurally wrong here: PaperWhite, WarmConcrete, CaliforniaGold
-		and BrandGold all sit within 0.01 of hue 0.11. They are one warm family
-		that differs only in saturation.
-
-		So a warm off-white (214,208,196) was assigned to BrandGold -- nearest
-		hue by 0.0032 -- and then failed for being 0.68 less saturated, while
-		PaperWhite and WarmConcrete would both have accepted it. That one
-		mistake accounted for thousands of phantom off-palette parts, and it
-		would have been frozen into the baseline. ]]
-	local best, bestGap = nil, math.huge
-	for _, a in ipairs(anchors()) do
-		local g = hueGap(h, a.h)
-		if g <= SVStyle.HUE_TOL and math.abs(s - a.s) <= SVStyle.SAT_TOL then
-			return a.name, true
-		end
-		if g < bestGap then best, bestGap = a, g end
-	end
-	return best and best.name or "?", false
+	local Pal = require(game:GetService("ReplicatedStorage"):WaitForChild("Palette"))
+	local ok, name = Pal.compliant(c)
+	return ok and name or "offPalette", ok
 end
 
 -- which top-level system owns this part, for pointing the work at a file
@@ -225,7 +205,7 @@ function SVStyle.scan(root)
 
 					Read off the OWN_PREFIX naming contract that svkit.py
 					guarantees, not off a guess about what a name means. ]]
-				if SVStyle.isOurs(d.Name) then
+				if SVStyle.isOurs(d.Name) or CS:HasTag(d, "SVWashed") then
 					c.untintedOwn += 1
 				else
 					c.untintedPack += 1

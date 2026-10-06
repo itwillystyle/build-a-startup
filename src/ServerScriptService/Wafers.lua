@@ -1494,6 +1494,11 @@ local function buildPiece(plot, L, dept, animate)
 		end
 		pcall(api.rise, list, 6, 0.8)
 	end
+	--[[ Storeys are built DURING play, long after the world sweep ran, and a
+		storey is full of cloned pack furniture. Without this, every level a
+		player buys arrives in the pack's own colours while the rest of the
+		campus is in the palette. ]]
+	if api.Palette then api.Palette.enforce(model) end
 	return model
 end
 
