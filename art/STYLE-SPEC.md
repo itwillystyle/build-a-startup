@@ -33,15 +33,42 @@ All figures measured live, 6 Oct, Dome path at wafer level 43, world settled:
 
 | `ART.md` rule | Reality | Verdict |
 |---|---|---|
-| A palette of 9 colours | **1,962 distinct colours** across 10,224 opaque parts | the headline failure |
-| Every neutral tinted, no pure white or black | **730 parts at Roblox default grey (163,162,165)**; 797 pure white or black | colour was never set at all |
-| No sharp 90 degree edge over 2 studs | **2,955 sharp blocks (24% of parts)**, 2,721 of them over 6 studs | the shape language is absent |
-| Neon only on lights, screens, effects | **53 of 106 Neon parts are neither** (Clerestory 40, TierRing 5, TierPillar 4) | partly held |
-| No built-in Brick/Wood/DiamondPlate/Cobblestone | **0 violations** | **passing** — the bible is followable |
-| Cars in the palette, never toy primaries | 381 car parts off-palette (RingCar 201, DistCar 115, Car 65) | explicitly on the "never" list |
+| A palette of 9 colours | **191 authored colours** | 21x the palette |
+| Every neutral tinted, no pure white or black | **724 untinted greys**, 719 of them the single Roblox default (163,162,165) | colour was never set at all |
+| No sharp 90 degree edge over 2 studs | **2,951 sharp blocks (29% of parts)** | the shape language is absent |
+| Imported packs re-tinted on entry | **418 pack meshes rendering in the pack's own colours** | the "dropped in" feeling, as a number |
+| Hue and saturation match an anchor | **998 parts match none** | real colour drift |
+| Neon only on lights, screens, effects | **94 Neon parts untagged** (Clerestory 40, RackLight 12) | no tag existed to hold the rule |
+| No built-in Brick/Wood/DiamondPlate/Cobblestone | **0 violations** | **passing** - the bible is followable |
 
-Worst off-palette families by owner: `Plot1` 346, `RingCar` 201, `ParkLeaf`
-144, `ParkTrunk` 144, `DistCar` 115, `SVP_Lamp` 68.
+Measured 6 Oct, Dome path at wafer level 43, world settled, stable across two
+runs 8 s apart. Frozen in `src/ReplicatedStorage/StyleBaseline.lua`.
+
+Worst single offenders: `RingCar` 201 and `DistCar` 115 untinted (cars are on
+ART.md's "never" list), `ParkLeaf` 216 off-palette, `Plot1` 403 sharp blocks,
+`RoadKerb` 256 sharp.
+
+### Two numbers in the first draft of this spec were wrong
+
+Written down because the correction is the useful part. The first pass reported
+1,962 colours and 5,290 off-palette parts. Both were instrument faults, found
+by interrogating the instrument before trusting it:
+
+- **The classifier picked the nearest anchor by hue and only then tested
+  saturation.** PaperWhite, WarmConcrete, CaliforniaGold and BrandGold all sit
+  within 0.01 of hue 0.11 - one warm family differing only in saturation - so a
+  warm off-white was assigned to BrandGold and failed for being 0.68 less
+  saturated, while two other anchors would have accepted it. A colour now
+  passes if ANY anchor accepts it.
+- **On a MeshPart, `Color` is a multiplier over the asset's own vertex colours,
+  not a colour.** The per-instance variation pass leaves 4,568 hill-tree parts
+  at values like 223,225,227 - a 2% tint, not a grey tree. Reading those as
+  colours produced 45% of the off-palette count and 65% of the flat-grey count,
+  and counting them as distinct colours measured the variation pass, which is
+  deliberate and good, and called it sprawl.
+
+Had either shipped, the baseline would have frozen thousands of phantom faults
+and the instrument would have been useless in the direction that matters.
 
 **The read:** this is not an art-talent problem and not a low-poly problem.
 Low-poly is a technique thousands of games share; it cannot make anything
@@ -150,7 +177,7 @@ useful: the instrument first, then the fixes.
 
 | Phase | Work | Why in this order |
 |---|---|---|
-| **S1** | `SVStyle` + the baseline file, no fixes | Nothing can be verified until it is measured, and the numbers stop getting worse immediately |
+| **S1** | `SVStyle` + the baseline file, no fixes | **DONE 6 Oct.** Nothing can be verified until it is measured, and the numbers stop getting worse immediately |
 | **S2** | Re-tint on entry: one `Palette.map(color)` that every builder and every import passes through | Kills the biggest gap (1,962 shades to 9 hue families) and is mostly one function |
 | **S3** | The 730 default-grey parts and the 797 pure extremes | Largest visible win per hour; these are parts nobody ever coloured |
 | **S4** | Cars into the palette | 381 parts, explicitly on the "never" list, and they move, so the eye tracks them |
@@ -158,6 +185,24 @@ useful: the instrument first, then the fixes.
 | **S6** | The light: commit golden hour, lower the ambient, author the clock | Last, because re-lighting a world whose colours are still wrong means tuning twice |
 
 S1 to S4 need no Blender and no uploads.
+
+### What S1 found that S2 has to decide
+
+**The palette is probably missing two anchors,** and this is a judgement call,
+not a measurement:
+
+- **Foliage green.** `CampusLawn` is hue 0.270. Park and hill foliage sits at
+  hue 0.36 (62,142,76 / 78,168,92 / 74,132,66). A mown lawn and a tree canopy
+  are not the same green in any real palette, so either the foliage moves to
+  the lawn hue or the palette gains a `Foliage` anchor.
+- **A dark neutral ramp.** `Ink` is one very specific dark blue-grey
+  (saturation 0.375). Road and kerb greys (46,50,58 / 64,64,68) share its hue
+  but are far less saturated, so they fail on saturation alone.
+
+Widening the tolerance is the wrong fix for both: the sweep shows that going
+four times looser (hue 0.08, saturation 0.30) only takes off-palette from 998
+to 472, so the remainder is genuine colour disagreement rather than a
+threshold artefact. **The tolerances stay at 0.02 / 0.08.**
 
 ---
 
@@ -177,6 +222,9 @@ why so few games pay it.
   that is taste, and it should be seen in a styleframe before S5 is funded.
 - That golden hour unifies mismatched assets is standard practice, not
   something measured in this project.
-- The HSV tolerances (0.02 hue, 0.08 saturation) are a starting guess. S1 will
-  show how many parts they pass, and they should be tuned against that before
-  S2 rewrites any colours.
+- The HSV tolerances were a guess and are now checked: the S1 sweep kept them
+  at 0.02 / 0.08, because loosening them four times over recovers only half the
+  faults, which means the rest are real.
+- `neonLoose` currently counts "not tagged `SVEmissive`" rather than "Neon on
+  something that is not a light". No tag exists yet, so the 94 is an upper
+  bound; the number only becomes meaningful once S2 tags the legitimate ones.
