@@ -40,8 +40,13 @@ local carToast = remotes:WaitForChild("CarToast")
 -- ============ DRIVING ============
 local RIDE = 0.8
 local driving = nil         -- { model, chassis, seat, align, axles, v, spin, steer, lat, fx }
-local MOTOR = "rbxassetid://9119386571"   -- PSE "Spacecraft Engine Idle Constant Mild Roar 2", pitched as an EV hum
-local SKID = "rbxassetid://9120399077"    -- PSE "Vehicle Skids Long Heavy Tire Squeal 3"
+--[[ Engine sound is per CAR TIER, not one hum for all six. The licensed
+	library has no six separate car recordings, so the ladder is built from one
+	base loop shifted in pitch and weight, a high whine layer the fast cars get
+	and the slow ones do not, and a bark on hard acceleration. Sfx.CAR holds the
+	numbers and the reasoning. ]]
+local Sfx = require(game:GetService("ReplicatedStorage"):WaitForChild("Sfx"))
+local SKID = Sfx.url("skid")
 local NITRO_SND = "rbxassetid://9126228631"
 local NITRO = { mult = 1.35, time = 2.2, recharge = 7 }
 local camera = workspace.CurrentCamera
@@ -87,8 +92,23 @@ local function startDrive(m, seat)
 		table.insert(fx, x)
 		return x
 	end
-	fx.motor = snd(MOTOR, true)
+	local tier = Sfx.car(m:GetAttribute("CarId"))
+	fx.tier = tier
+	-- the door shuts behind you: the cheapest possible cue that you are IN a car
+	Sfx.play(chassis, "carDoor", { volume = 0.55, pitch = 0.95, life = 3 })
+	fx.motor = snd(Sfx.url(tier.base), true)
+	fx.motor.PlaybackSpeed = tier.pitch
 	fx.motor:Play()
+	if tier.whine > 0 then
+		fx.whine = snd(Sfx.url("engineLow"), true)
+		fx.whine.PlaybackSpeed = tier.wpitch
+		fx.whine:Play()
+	end
+	--[[ Tyre roar is separate from the engine so it can rise with SPEED while
+		the engine rises with throttle. It is what stops a fast car sounding
+		like a slow car played faster. ]]
+	fx.tyres = snd(Sfx.url("tyres"), true)
+	fx.tyres:Play()
 	fx.skid = snd(SKID, true)
 	for _, side in ipairs({ -1, 1 }) do
 		local a = att("SmokeL" .. side, Vector3.new(side * size.X * 0.42, -size.Y * 0.4, size.Z * 0.42))
@@ -155,6 +175,17 @@ end
 UserInputService.InputBegan:Connect(function(input, processed)
 	if processed then return end
 	if input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.RightShift or input.KeyCode == Enum.KeyCode.ButtonX then nitro() end
+	--[[ The horn. Pitched DOWN as the car gets more expensive: a small car has
+		a small horn. It is the one sound here a player makes on purpose, so it
+		is worth having it say which car they are in. ]]
+	if (input.KeyCode == Enum.KeyCode.H or input.KeyCode == Enum.KeyCode.ButtonY)
+		and driving and driving.chassis then
+		local t = driving.fx and driving.fx.tier
+		Sfx.play(driving.chassis, "horn", {
+			volume = 0.5, life = 3,
+			pitch = t and (1.25 - 0.45 * (t.whine / 0.26)) or 1.1,
+		})
+	end
 end)
 
 local function approach(v, target, rate)
@@ -232,9 +263,26 @@ RunService.Heartbeat:Connect(function(dt)
 	local fx = d.fx
 	if fx then
 		local sp = math.clamp(speedAbs / d.top, 0, 1.4)
+		local tier = fx.tier or Sfx.car(nil)
 		if fx.motor then
-			fx.motor.PlaybackSpeed = 0.55 + 0.85 * sp + (boosting and 0.15 or 0)
-			fx.motor.Volume = 0.12 + 0.2 * math.min(sp, 1)
+			fx.motor.PlaybackSpeed = tier.pitch + 0.85 * sp + (boosting and 0.15 or 0)
+			fx.motor.Volume = tier.vol * (0.45 + 0.55 * math.min(sp, 1))
+		end
+		if fx.whine then
+			fx.whine.PlaybackSpeed = tier.wpitch + 1.10 * sp + (boosting and 0.25 or 0)
+			fx.whine.Volume = tier.whine * math.min(sp, 1) ^ 1.5
+		end
+		if fx.tyres then
+			fx.tyres.PlaybackSpeed = 0.85 + 0.45 * sp
+			fx.tyres.Volume = 0.16 * math.clamp((sp - 0.12) / 0.6, 0, 1)
+		end
+		--[[ The bark: one short note when the throttle is opened hard from low
+			speed, rate-limited so it punctuates instead of stuttering. Only the
+			tiers that have one -- the quiet cars stay quiet. ]]
+		if tier.bark and throttle and throttle > 0.6 and sp < 0.55
+			and (now - (fx.barkAt or 0)) > 2.2 then
+			fx.barkAt = now
+			Sfx.play(d.chassis, tier.bark, { volume = 0.35 + 0.25 * tier.whine, pitch = 0.9 + 0.3 * sp, life = 4 })
 		end
 		local slide = math.clamp((math.abs(d.lat) - 4) / 10, 0, 1)
 		if fx.skid then
