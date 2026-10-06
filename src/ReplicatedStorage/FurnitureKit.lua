@@ -828,7 +828,10 @@ function FurnitureKit.dressGarage(garage, g, parts)
 			from the corner looking dropped rather than stacked. Pushed into the
 			corner (walls are x 18, z -15) with a clear gap between them. ]]
 		FurnitureKit.put("cardboardBoxClosed", g(15.2, F, -13.4), garage, { scale = 1.3 })
-		FurnitureKit.put("cardboardBoxOpen", g(11.9, F, -13.6), garage,
+		-- z -13.6 at yaw 28 clipped the back wall by 0.48 studs (30% of the
+		-- box); the yaw widens its footprint, so the corner reached further
+		-- back than the un-rotated depth suggested
+		FurnitureKit.put("cardboardBoxOpen", g(11.9, F, -12.9), garage,
 			{ scale = 1.3, yaw = 28 })
 		FurnitureKit.put("cardboardBoxClosed",
 			g(15.2, F + SIZE.cardboardBoxClosed.Y * 1.3, -13.4)
