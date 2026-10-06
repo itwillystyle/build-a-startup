@@ -43,9 +43,56 @@ local Pal = (function()
 	return ok and m or nil
 end)()
 
+--[[ THE GROUND KEEPS ITS GRAIN (the A4 item in ART.md).
+
+	The cartoon pass was right about buildings and wrong about the floor. It
+	flattened ~3,300 parts to SmoothPlastic, and SmoothPlastic has NO surface
+	detail at all -- so a 170-stud plaza became a flat field of one colour, and
+	the largest surface in every frame became the least interesting.
+
+	Roblox's own material system is already PBR: Concrete and Asphalt ship with
+	real normal and roughness maps. Using them on the floor costs nothing, needs
+	no upload, and holds up at distance where a colour alone does not.
+
+	ART.md allows exactly this and no more -- "SmoothPlastic and meshes for
+	architecture, Glass for glazing, Neon for lights, and terrain materials on
+	the ground" -- so the test is geometric and capped in height: a roof is
+	also big, thin and horizontal, and a roof is architecture.
+
+	Lawns stay flat on purpose. Grass grain was listed in ART.md's own gap
+	table as a fault ("saturated green with a dark noise texture"), not a
+	feature, and putting it back would undo a fix. ]]
+local GROUND_TOP_Y = 8        -- above this it is a roof or a shelf, not the floor
+local GROUND_MIN_AREA = 60
+
+local function isGround(p)
+	return p.Size.Y <= 5
+		and p.Size.X * p.Size.Z >= GROUND_MIN_AREA
+		and p.CFrame.UpVector.Y >= 0.9
+		and (p.Position.Y + p.Size.Y / 2) <= GROUND_TOP_Y
+end
+
+local function groundMaterial(p)
+	local h, sat, v = p.Color:ToHSV()
+	if sat > 0.18 and h > 0.20 and h < 0.45 then return nil end   -- lawn: stays flat
+	return v < 0.45 and Enum.Material.Asphalt or Enum.Material.Concrete
+end
+
 local function flatten(p)
-	if p.Material == FLAT or KEEP[p.Material] then return false end
+	if KEEP[p.Material] then return false end
 	if p.MaterialVariant ~= "" then return false end     -- SV_CampusPavers and anything like it
+	--[[ The ground branch sits ABOVE the already-flat early-out, so a floor the
+		sweep flattened on an earlier pass still gets upgraded, and so the live
+		watcher re-applies it instead of flattening it straight back. ]]
+	if isGround(p) then
+		local want = groundMaterial(p) or FLAT
+		if p.Material ~= want then
+			p.Material = want
+			return true
+		end
+		return false
+	end
+	if p.Material == FLAT then return false end
 	p.Material = FLAT
 	return true
 end
