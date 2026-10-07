@@ -29,14 +29,24 @@ local Apartments = {}
 -- v4.3: the tier table and the pure rules below live in Progression.lua (tested
 -- offline in Lune); these names stay so every caller keeps working.
 local Prog = require(SSS:WaitForChild("Progression"))
+local Econ = require(SSS:WaitForChild("RoomEconomy"))
 Apartments.TIERS = Prog.APARTMENTS
 
-function Apartments.mult(s)
-	local m = 1
-	for _, t in ipairs(Apartments.TIERS) do
-		if (s and s.apt or 0) >= t.id then m += t.bonus end
-	end
-	return m
+--[[ RoomEconomy owns SPINOFF_BASE and does NOT require this module (SiliconCore
+	wires Econ.Apt at startup), so requiring it here is safe and not circular.
+	Checked before writing this, because a circular require fails at load with a
+	message that blames the wrong file. ]]
+-- homePrice(tier, nil) is $1, so a missing base must stop the server at load, not
+-- quietly sell a home for a dollar.
+assert(type(Econ.SPINOFF_BASE) == "number" and Econ.SPINOFF_BASE > 0,
+	"Apartments: RoomEconomy.SPINOFF_BASE missing; home prices are a share of it")
+
+--[[ What this home costs YOU, now. A share of the spin-off you are saving for,
+	so the choice between five keeper slots and restarting sooner is the same
+	choice in company one and company nine. ]]
+function Apartments.priceOf(s, tierId)
+	local spin = Prog.spinCost((s and s.spinoffs) or 0, Econ.SPINOFF_BASE)
+	return Prog.homePrice(tierId, spin)
 end
 
 --[[ v4.2 HOME TURF (1): your home keeps the business running while you are away.
@@ -412,8 +422,7 @@ local function statusFor(player)
 		if owned >= t.id then state = "owned"
 		elseif t.id > owned + 1 then state = "locked"; why = "Buy the " .. Apartments.TIERS[t.id - 1].name .. " first"
 		elseif hq < t.minHQ then state = "locked"; why = "Unlocks at HQ level " .. t.minHQ end
-		table.insert(list, { id = t.id, name = t.name, price = t.price, blurb = t.blurb, state = state, why = why,
-			bonus = math.floor(t.bonus * 100 + 0.5) })
+		table.insert(list, { id = t.id, name = t.name, price = Apartments.priceOf(s, t.id), blurb = t.blurb, state = state, why = why })
 	end
 	return { tiers = list, apt = owned, cash = api.cash(player) and api.cash(player).Value or 0 }
 end
@@ -441,11 +450,12 @@ local function buy(player, tierId)
 	if (s.apt or 0) ~= t.id - 1 then return end
 	if (plot.hq and plot.hq.level or 1) < t.minHQ then return end
 	local cash = api.cash(player)
-	if not cash or cash.Value < t.price then
+	local price = Apartments.priceOf(s, t.id)
+	if not cash or cash.Value < price then
 		remotes.menu:FireClient(player, statusFor(player))
 		return
 	end
-	cash.Value -= t.price
+	cash.Value -= price
 	s.apt = t.id
 	s.lastBuy = os.clock()
 	player:SetAttribute("Apt", s.apt)
@@ -458,7 +468,7 @@ local function buy(player, tierId)
 	local n = Apartments.floorOf(player, t.id)
 	local floorY = (Downtown.RES * CFrame.new(0, R.lobby + n * R.floor + 5, 0)).Position.Y
 	remotes.cinema:FireClient(player, {
-		kind = "movein", name = t.name, bonus = math.floor(t.bonus * 100 + 0.5),
+		kind = "movein", name = t.name,
 		tower = Downtown.RES.Position, facing = -Downtown.RES.LookVector, floorY = floorY,
 		view = unit and unit:GetAttribute("View"), stand = unit and unit:GetAttribute("Stand"),
 	})
@@ -581,8 +591,10 @@ function Apartments.botBuy(player)
 	if not s or not plot then return false end
 	local t = Apartments.TIERS[(s.apt or 0) + 1]
 	local cash = api.cash(player)
-	if not t or not cash or cash.Value < t.price or (plot.hq.level or 1) < t.minHQ then return false end
-	cash.Value -= t.price
+	if not t or not cash or (plot.hq.level or 1) < t.minHQ then return false end
+	local price = Apartments.priceOf(s, t.id)
+	if cash.Value < price then return false end
+	cash.Value -= price
 	s.apt = t.id
 	player:SetAttribute("Apt", s.apt)
 	api.recompute(player)
