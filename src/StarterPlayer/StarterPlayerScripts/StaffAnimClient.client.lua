@@ -50,7 +50,7 @@ cheerAnim.AnimationId = CHEER_ANIM
 	falls back to the Lua sine-pose below, exactly as before -- nothing breaks
 	before the upload, it just does not look like running. ]]
 local HUNTER_ANIM = { windup = "rbxassetid://76836764246835", lunge = "rbxassetid://131389875339938",
-	run = "" }
+	run = "rbxassetid://129982348627259" }
 local hunterAnims = {}
 for which, id in pairs(HUNTER_ANIM) do
 	if id ~= "" then
