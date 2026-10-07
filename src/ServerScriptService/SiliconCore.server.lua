@@ -2874,12 +2874,22 @@ spinOff = function(player, plot)
 	if not plot.spinArmed or os.clock() - plot.spinArmed > 30 then
 		plot.spinArmed = os.clock()
 		refreshHqPad(plot)
-		local keepN = 0
-		for _, r in ipairs(s.rigs or {}) do if (r.talent or 1) >= ((Econ and Econ.KEEP_TALENT) or 3) then keepN += 1 end end
-		keepN = math.min(keepN, (Econ and Econ.KEEP_MAX) or keepN)
+		--[[ The home decides how many come with you; the player will decide which
+			(the pick UI is the next task). Eligibility is still KEEP_TALENT (Star
+			and above). Sorted best-first so the default selection, the top `slots`,
+			is already the one a player would pick. ]]
+		local slots = Prog.keepSlots(s.apt)
+		local eligible = {}
+		for i, r in ipairs(s.rigs or {}) do
+			if (r.talent or 1) >= ((Econ and Econ.KEEP_TALENT) or 3) then
+				table.insert(eligible, { idx = i, talent = r.talent or 1,
+					name = (r.rig and r.rig:GetAttribute("PersonName")) or "someone" })
+			end
+		end
+		table.sort(eligible, function(a, b) return a.talent > b.talent end)
 		if Econ and Econ.celebrate then
 			Econ.celebrate:FireClient(player, { kind = "spinAsk", cost = cost, from = spinMultOf(s), to = nextSpinMultOf(s),
-				keep = keepN, number = (s.spinoffs or 0) + 1 })
+				keep = math.min(#eligible, slots), slots = slots, eligible = eligible, number = (s.spinoffs or 0) + 1 })
 		end
 		task.delay(30.5, function()
 			if plot.spinArmed and os.clock() - plot.spinArmed >= 30 then plot.spinArmed = nil; refreshHqPad(plot) end
@@ -2894,9 +2904,10 @@ spinOff = function(player, plot)
 		for _, r in ipairs(s.rigs or {}) do
 			if (r.talent or 1) >= Econ.KEEP_TALENT then table.insert(keep, { talent = r.talent, who = r.who }) end
 		end
-		-- v3.0: recruiting makes Star+ common (the sim kept ~12), so only the best few come along
+		-- recruiting makes Star+ common (the sim kept ~12), so the home you own decides how many come along
 		table.sort(keep, function(a, b) return a.talent > b.talent end)
-		while Econ.KEEP_MAX and #keep > Econ.KEEP_MAX do table.remove(keep) end
+		local slots = Prog.keepSlots(s.apt)
+		while #keep > slots do table.remove(keep) end
 	end
 	cash.Value = 0
 	releasePlot(plot)                -- wipes rooms, furniture, staff; shell back to the garage

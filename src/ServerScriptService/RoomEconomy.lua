@@ -356,7 +356,6 @@ Econ.TIERS = {
 	{ id = "star",    name = "STAR",    east = 280, floor = 3, fee = 8,  restock = 120, chase = true,  pillar = 16, hq = 2, minFee = 2500,  hhSpeed = 12, hhDash = 19 },
 	{ id = "genius",  name = "GENIUS",  east = 440, floor = 4, fee = 20, restock = 300, chase = true,  pillar = 24, hq = 3, minFee = 25000, hhSpeed = 13, hhDash = 21 },
 }
-Econ.KEEP_MAX = 3              -- the spin-off keeps your 3 best (recruiting makes Star+ common: sim kept ~12)
 Econ.OFFER_BASE = 14           -- offer timer: base seconds ...
 Econ.OFFER_PER_STUD = 0.11     -- ... + this per stud from the candidate to your plot (~1.7x a steady walk)
 -- v4.3: THE CHASE MOVED TO ChaseRules.lua (a tension band, lunges, lead pursuit, BOOST).
