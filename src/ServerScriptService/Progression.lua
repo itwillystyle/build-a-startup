@@ -104,13 +104,12 @@ function P.capWindfall(kind, amount, nextGoal, day)
 end
 
 -- ---------------------------------------------------------------- apartments
--- gateHQ: the HQ level you can't build without owning this apartment
 P.APARTMENTS = {
-	{ id = 1, key = "studio", name = "STUDIO", price = 20000, minHQ = 2, gateHQ = 3, bonus = 0.10,
+	{ id = 1, key = "studio", name = "STUDIO", price = 20000, minHQ = 2, bonus = 0.10,
 	  blurb = "A place of your own. Floor-to-ceiling windows." },
-	{ id = 2, key = "loft", name = "LOFT", price = 150000, minHQ = 3, gateHQ = 4, bonus = 0.10,
+	{ id = 2, key = "loft", name = "LOFT", price = 150000, minHQ = 3, bonus = 0.10,
 	  blurb = "Room to host: a kitchen island, a real bedroom." },
-	{ id = 3, key = "penthouse", name = "PENTHOUSE", price = 2000000, minHQ = 4, gateHQ = 5, bonus = 0.10,
+	{ id = 3, key = "penthouse", name = "PENTHOUSE", price = 2000000, minHQ = 4, bonus = 0.10,
 	  blurb = "The top of the tower. An indoor pool. A view of your valley." },
 }
 
@@ -151,13 +150,6 @@ function P.homePrice(tierId, spinCost)
 	if not share then return 0 end
 	return P.niceDown(math.max(1, (tonumber(spinCost) or 0) * share))
 end
--- the apartment you must own before building HQ `level` (0 = none)
-function P.aptNeeded(level)
-	for _, t in ipairs(P.APARTMENTS) do
-		if t.gateHQ == level then return t.id end
-	end
-	return 0
-end
 
 -- ---------------------------------------------------------------- coming back
 --[[ v4.2 HOME TURF: your apartment decides how much of the wait for your next
@@ -169,22 +161,20 @@ P.WINDOW = { [0] = 40 * 60, 2 * 3600, 4 * 3600, 8 * 3600 }
 P.OFFLINE_RATE = 0.25
 P.OFFLINE_FLOOR = 600        -- seconds of full income: the old cap, now the floor
 
--- your next two steps: each HQ level with the apartment it needs, then the spin-off, then HQ 2
-function P.ladder(level, apt, hqCost, spinCost)
+--[[ Your next two steps: each HQ level, then the spin-off, then HQ 2.
+
+	`apt` is still taken so no caller needs an edit, and is deliberately unused:
+	homes stopped gating HQ levels, so the step to the next level is its price
+	and nothing else. ]]
+function P.ladder(level, _apt, hqCost, spinCost)
 	local steps = {}
-	local l, a = level or 1, apt or 0
+	local l = level or 1
 	while #steps < 2 do
 		if l >= 5 then
 			table.insert(steps, spinCost)
-			l = 1                        -- a spin-off: the garage again (the apartment stays yours)
+			l = 1                        -- a spin-off: the garage again (the home stays yours)
 		else
-			local c = hqCost(l + 1) or 0
-			local need = P.aptNeeded(l + 1)
-			if need > 0 and a < need then
-				c += P.APARTMENTS[need].price
-				a = need
-			end
-			table.insert(steps, c)
+			table.insert(steps, hqCost(l + 1) or 0)
 			l += 1
 		end
 	end

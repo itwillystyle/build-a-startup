@@ -14,13 +14,15 @@ test("the HQ price ladder the tests assume is the live one", function()
 	for i, v in want do assert(E.HQ_COST[i] == v, "HQ_COST[" .. i .. "] = " .. tostring(E.HQ_COST[i])) end
 end)
 
-test("ladder: HQ 2 with no apartment is HQ 3 + Studio, then HQ 4 + Loft", function()
+test("the ladder is HQ steps and the spin-off: homes do not gate it", function()
 	local n, a = P.ladder(2, 0, hqCost, 4e6)
-	assert(n == 37500 + 20000 and a == 225000 + 150000, ("got %s, %s"):format(n, a))
+	assert(n == 37500 and a == 225000, ("got %s, %s"):format(n, a))
 end)
-test("ladder: a Studio already owned is not charged again", function()
-	local n, a = P.ladder(2, 1, hqCost, 4e6)
-	assert(n == 37500 and a == 375000, ("got %s, %s"):format(n, a))
+
+test("owning no home changes nothing about the ladder", function()
+	local n0, a0 = P.ladder(3, 0, hqCost, 4e6)
+	local n3, a3 = P.ladder(3, 3, hqCost, 4e6)
+	assert(n0 == n3 and a0 == a3, "the ladder must not look at the home any more")
 end)
 test("ladder: HQ 4 with a Penthouse is HQ 5, then the spin-off", function()
 	local n, a = P.ladder(4, 3, hqCost, 4e6)
@@ -71,8 +73,10 @@ test("offline property over 3,000 random returns", function()
 	assert(bad == 0, bad .. " bad returns: >= the old cap (unless that buys two steps), never two steps, never negative")
 end)
 
-test("the apartment gates: Studio for HQ 3, Loft for HQ 4, Penthouse for HQ 5", function()
-	assert(P.aptNeeded(2) == 0 and P.aptNeeded(3) == 1 and P.aptNeeded(4) == 2 and P.aptNeeded(5) == 3, "expected: P.aptNeeded(2) == 0 and P.aptNeeded(3) == 1 and P.aptNeeded(4) == 2 and P.aptNeeded(5) == 3")
+test("the gates are gone from both paths", function()
+	assert(P.aptNeeded == nil, "Progression.aptNeeded must be deleted")
+	local W = require("../../src/ServerScriptService/WaferPlan")
+	assert(W.aptRequired == nil, "WaferPlan.aptRequired must be deleted")
 end)
 
 

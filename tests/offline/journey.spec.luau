@@ -7,9 +7,12 @@ local E = require("../../src/ServerScriptService/RoomEconomy")
 local T = {}
 local function test(name, fn) table.insert(T, { name = name, fn = fn }) end
 
--- the apartment the NEXT HQ level needs, from the real Progression table
+-- Journey still understands a `need` payload (its apartment branch is exercised below),
+-- but production no longer sends one: homes stopped gating HQ levels. These are the
+-- old gates, kept test-local so the branch stays covered until it is removed.
+local GATE = { [3] = 1, [4] = 2, [5] = 3 }
 local function needFor(hq)
-	local id = P.aptNeeded(hq + 1)
+	local id = GATE[hq + 1] or 0
 	if id == 0 then return nil end
 	local a = P.APARTMENTS[id]
 	return { tier = a.id, name = a.name:sub(1, 1) .. a.name:sub(2):lower(), price = a.price }

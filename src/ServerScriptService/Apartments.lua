@@ -31,9 +31,6 @@ local Apartments = {}
 local Prog = require(SSS:WaitForChild("Progression"))
 Apartments.TIERS = Prog.APARTMENTS
 
--- the apartment you must own before building HQ `level`
-Apartments.need = Prog.aptNeeded
-
 function Apartments.mult(s)
 	local m = 1
 	for _, t in ipairs(Apartments.TIERS) do
@@ -416,7 +413,7 @@ local function statusFor(player)
 		elseif t.id > owned + 1 then state = "locked"; why = "Buy the " .. Apartments.TIERS[t.id - 1].name .. " first"
 		elseif hq < t.minHQ then state = "locked"; why = "Unlocks at HQ level " .. t.minHQ end
 		table.insert(list, { id = t.id, name = t.name, price = t.price, blurb = t.blurb, state = state, why = why,
-			gate = t.gateHQ, bonus = math.floor(t.bonus * 100 + 0.5) })
+			bonus = math.floor(t.bonus * 100 + 0.5) })
 	end
 	return { tiers = list, apt = owned, cash = api.cash(player) and api.cash(player).Value or 0 }
 end
@@ -464,7 +461,6 @@ local function buy(player, tierId)
 		kind = "movein", name = t.name, bonus = math.floor(t.bonus * 100 + 0.5),
 		tower = Downtown.RES.Position, facing = -Downtown.RES.LookVector, floorY = floorY,
 		view = unit and unit:GetAttribute("View"), stand = unit and unit:GetAttribute("Stand"),
-		gate = t.gateHQ,
 	})
 	task.delay(2.6, function()
 		local stand = Apartments.homeStand(player)
