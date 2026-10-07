@@ -48,30 +48,15 @@ end)
 if not okCine then Cine = nil end
 
 -- ---------------------------------------------------------------- tuning
---[[ Every number here is meant to be changed while we look at it. They are
-	grouped by the question they answer rather than by type. ]]
-local T = {
-	-- where the camera sits, relative to the player, at rest and at full fear
-	DIST_FAR = 15,        -- studs behind when the hunter is nowhere near
-	DIST_NEAR = 11,       -- ... and when it is breathing down your neck
-	HEIGHT_FAR = 6.5,     -- studs above
-	HEIGHT_NEAR = 4.0,    -- lower as it closes: more ground rushing past
-	-- how far the camera turns off your travel line so the hunter is visible
-	YAW_FAR = 8,          -- degrees, when it is far behind
-	YAW_NEAR = 34,        -- degrees, when it is on you
-	-- the lens
-	FOV_BASE = 70,
-	FOV_SPEED = 14,       -- added at full carry speed
-	FOV_WINDUP = -8,      -- the crouch tell punches IN (B only)
-	-- how fast the camera reacts. Lower is snappier.
-	SMOOTH = 0.12,
-	-- distances that define "far" and "near" for all of the above
-	FEAR_FAR = 26,
-	FEAR_NEAR = 6,
-	-- beats (B only)
+--[[ The framing lives in ReplicatedStorage.ChaseCam so the Edit-mode lab
+	(tools/chase_lab.luau) can drive THE SAME maths without Play. Tune there,
+	not here; this file only owns the beats (letterbox, slam, shake, hush). ]]
+local ChaseCam = require(ReplicatedStorage:WaitForChild("ChaseCam"))
+local T = ChaseCam.T
+
+local BEATS = {
 	ENTRY = 0.8,
 	EXIT = 0.6,
-	SHAKE = 0.55,         -- studs of shake at a full lunge
 }
 
 -- ---------------------------------------------------------------- state
@@ -234,8 +219,6 @@ local function release()
 end
 
 -- ---------------------------------------------------------------- the frame
-local function lerp(a, b, t) return a + (b - a) * t end
-
 RunService.RenderStepped:Connect(function(dt)
 	camera = workspace.CurrentCamera
 	mode = tostring(player:GetAttribute("ChaseCam") or "off")
@@ -258,7 +241,7 @@ RunService.RenderStepped:Connect(function(dt)
 	if not active then
 		if not takeCamera() then return end
 		if mode == "B" then
-			entryUntil = os.clock() + T.ENTRY
+			entryUntil = os.clock() + BEATS.ENTRY
 			letterbox(true, 0.25)
 			local tier = tostring(player:GetAttribute("Carrying") or ""):upper()
 			slam(tier ~= "" and (tier .. "  ·  GET THEM HOME") or "GET THEM HOME")
@@ -269,48 +252,28 @@ RunService.RenderStepped:Connect(function(dt)
 	if t > nextScan then nextScan = t + 0.4 rescan() end
 	local hunter, dist, wind, lunge = nearestHunter(hrp.Position)
 
-	-- 0 = safe, 1 = it is on you
-	local fear = 0
-	if dist then
-		fear = math.clamp((T.FEAR_FAR - dist) / (T.FEAR_FAR - T.FEAR_NEAR), 0, 1)
-	end
-
 	-- the direction you are travelling: velocity when moving, facing when not
 	local vel = hrp.AssemblyLinearVelocity
 	local flat = Vector3.new(vel.X, 0, vel.Z)
 	local speed = flat.Magnitude
-	local travel = speed > 2 and flat.Unit or hrp.CFrame.LookVector
-	travel = Vector3.new(travel.X, 0, travel.Z)
-	travel = travel.Magnitude > 0.01 and travel.Unit or Vector3.new(0, 0, -1)
+	local travel = speed > 2 and flat or hrp.CFrame.LookVector
 
-	--[[ THE WHOLE IDEA. The camera sits behind you on the travel line, then
-		yaws toward the side the hunter is on. At full fear that is 34 degrees,
-		which is enough to hold the hunter in frame without losing the road. ]]
-	local yawDeg = lerp(T.YAW_FAR, T.YAW_NEAR, fear)
-	local side = 1
-	if hunter and hunter.PrimaryPart then
-		local toH = hunter.PrimaryPart.Position - hrp.Position
-		local right = Vector3.new(-travel.Z, 0, travel.X)
-		side = (toH:Dot(right) >= 0) and 1 or -1
-	end
-	local back = CFrame.Angles(0, math.rad(yawDeg * side), 0) * (-travel)
-
-	local distBack = lerp(T.DIST_FAR, T.DIST_NEAR, fear)
-	local height = lerp(T.HEIGHT_FAR, T.HEIGHT_NEAR, fear)
-	local want = hrp.Position + back * distBack + Vector3.new(0, height, 0)
-	local look = hrp.Position + travel * 6 + Vector3.new(0, 1.5, 0)
-	local target = CFrame.lookAt(want, look)
+	local target, fov = ChaseCam.solve({
+		pos = hrp.Position,
+		travel = travel,
+		hunterPos = hunter and hunter.PrimaryPart and hunter.PrimaryPart.Position or nil,
+		dist = dist,
+		speed = speed,
+		carrySpeed = player:GetAttribute("CarrySpeed") or 16,
+		mode = mode,
+		windup = wind,
+	})
 
 	-- the entry beat eases from wherever the camera was; after it, it tracks
 	local k = 1 - math.exp(-dt / math.max(T.SMOOTH, 0.01))
 	if mode == "B" and t < entryUntil then k = 1 - math.exp(-dt / 0.06) end
 	smoothed = smoothed and smoothed:Lerp(target, k) or target
-
-	-- the lens
-	local carrySpeed = player:GetAttribute("CarrySpeed") or 16
-	local fov = T.FOV_BASE + T.FOV_SPEED * math.clamp(speed / math.max(carrySpeed, 1), 0, 1)
-	if mode == "B" and wind then fov += T.FOV_WINDUP end
-	camera.FieldOfView = lerp(camera.FieldOfView, fov, 1 - math.exp(-dt / 0.18))
+	camera.FieldOfView = ChaseCam.lerp(camera.FieldOfView, fov, 1 - math.exp(-dt / 0.18))
 
 	-- the strike
 	if mode == "B" and lunge then shakeUntil, shakeAmt = t + 0.25, T.SHAKE end
@@ -326,7 +289,7 @@ end)
 player.CharacterAdded:Connect(function() if active then release() end end)
 player:GetAttributeChangedSignal("Carrying"):Connect(function()
 	if player:GetAttribute("Carrying") == nil and active then
-		if mode == "B" then letterbox(false, T.EXIT) end
+		if mode == "B" then letterbox(false, BEATS.EXIT) end
 		release()
 	end
 end)
