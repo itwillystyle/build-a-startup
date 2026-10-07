@@ -27,12 +27,11 @@ test("prices, money and staff caps match the sim's tables", function()
 	end
 end)
 
-test("departments allowed and homes needed, per level", function()
+test("departments allowed, per level", function()
 	for L = 1, 100 do
 		local a, g = W.allowed(L), G.allowed[L]
 		assert(#a == #g, ("allowed L%d: %d vs %d"):format(L, #a, #g))
 		for i = 1, #g do assert(a[i] == g[i], ("allowed L%d #%d: %s vs %s"):format(L, i, a[i], g[i])) end
-		assert(W.aptRequired(L) == G.apt[L], ("homes needed L%d"):format(L))
 	end
 end)
 

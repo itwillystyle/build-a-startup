@@ -92,8 +92,6 @@ local function showMenu(st)
 		UIKit.label(c, t.name, 22, UIKit.CARD_TEXT, { Size = UDim2.new(1, -16, 0, 26), Position = UDim2.new(0, 8, 0, 66), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.HEAD)
 		UIKit.label(c, ("+%d%% money, for good"):format(t.bonus or 10), 16, UIKit.GREEN_DEEP, {
 			Size = UDim2.new(1, -16, 0, 18), Position = UDim2.new(0, 8, 0, 94), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.BOLD)
-		UIKit.label(c, ("Unlocks HQ level %d"):format(t.gate or 0), 14, UIKit.MUTED_TEXT, {
-			Size = UDim2.new(1, -16, 0, 16), Position = UDim2.new(0, 8, 0, 113), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.BOLD)
 		UIKit.label(c, t.blurb or "", 14, UIKit.INK_SOFT, {
 			Size = UDim2.new(1, -20, 0, 32), Position = UDim2.new(0, 10, 0, 134), TextWrapped = true,
 			TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Top }, UIKit.BODY)
@@ -185,7 +183,7 @@ cinema.OnClientEvent:Connect(function(e)
 			Cine.play({
 				{ pos = p0 + Vector3.new(-6, 0, 0), look = p0 + fwd * 30, t = 0 },
 				{ pos = p0 + Vector3.new(2, 0.5, 0) + fwd * 6, look = p0 + fwd * 34 + Vector3.new(6, -2, 0), t = 2.4,
-					title = e.name or "HOME", sub = ("+%d%% money for good   ·   HQ level %d unlocked"):format(e.bonus or 10, e.gate or 0) },
+					title = e.name or "HOME", sub = ("+%d%% money for good"):format(e.bonus or 10) },
 			}, { fov = 62, hold = 0.6 })
 		else
 			Cine.handBack()

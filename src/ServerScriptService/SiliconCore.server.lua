@@ -1554,12 +1554,6 @@ local function journeyState(player, s, plot)
 	local cash = held and held.Value or 0
 	local lv = plot.hq.level
 	local nxt = CFG.HQ_LEVELS[lv + 1]
-	local need
-	if Econ and Econ.Apt and nxt then
-		local id = Econ.Apt.need(lv + 1)
-		local t = id > 0 and Econ.Apt.TIERS[id]
-		if t then need = { tier = t.id, name = t.name:sub(1, 1) .. t.name:sub(2):lower(), price = t.price } end
-	end
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 	local desk = Econ and Econ.Apt and Econ.Apt.deskPosition and Econ.Apt.deskPosition()
 	local nearRes = (root and desk and (root.Position - desk).Magnitude < 120) or false
@@ -1582,9 +1576,6 @@ local function journeyState(player, s, plot)
 			msCost = 0
 			for L = wlevel + 1, msLevel do msCost += WP.price(L, scaleOf(s), s.record or 1) end
 		end
-		local id = WP.aptRequired(msLevel or wlevel)
-		local t = id > (s.apt or 0) and Econ.Apt and Econ.Apt.TIERS[id]
-		need = t and { tier = t.id, name = t.name:sub(1, 1) .. t.name:sub(2):lower(), price = t.price } or nil
 	end
 	return {
 		level = wlevel, capLevel = wcap, msLevel = msLevel, msCost = msCost, atCap = atCap,
@@ -1592,7 +1583,7 @@ local function journeyState(player, s, plot)
 		hq = lv, shipped = s.shipped == true, staff = s.staff or 0, cap = cap, cash = cash, rate = s.rate or 0,
 		apt = s.apt or 0, listed = s.listed == true, spinCost = spinoffCostOf(s),
 		nextMult = (string.format("%.1f", nextSpinMultOf(s)):gsub("%.0$", "")),
-		nextHqCost = nxt and hqCostOf(s, lv + 1) or nil, nextHqName = nxt and nxt.name or nil, need = need,
+		nextHqCost = nxt and hqCostOf(s, lv + 1) or nil, nextHqName = nxt and nxt.name or nil,
 		hasCar = (Econ and Econ.Cars and Econ.Cars.hasCar(player)) and true or false, seated = seated, nearRes = nearRes,
 		vipStanding = (Econ and Econ.Drop and Econ.Drop.hasVip and Econ.Drop.hasVip(player)) or false,
 		vipDone = (s.vipDay or 0) ~= 0, geniusAvailable = gen ~= nil and (s.staff or 0) < cap, geniusPos = gen and gen.pos or nil,
@@ -1803,24 +1794,6 @@ local function refreshObjective(player)
 				s.decorTeachEnd = s.decorTeachEnd or (os.clock() + 120)
 				best = decorOffer
 			end
-			-- v4.0 THE APARTMENT RUNG: whenever the guide would send you to the HQ pad
-			-- and the next level needs a home, it sends you downtown instead
-			local aptNeed = Econ and Econ.Apt and Econ.Apt.need(plot.hq.level + 1) or 0
-			if Econ and Econ.WAFERS and plot.wafer then aptNeed = Econ.Wafers.Plan.aptRequired(plot.wafer.level + 1) end   -- v4.6
-			if best and best.k == "hq" and Econ and Econ.Apt and (s.apt or 0) < aptNeed then
-				local t = Econ.Apt.TIERS[(s.apt or 0) + 1] or Econ.Apt.TIERS[aptNeed]   -- the next rung you can buy
-				local has = held and held.Value >= t.price
-				local drive = Econ.Cars and Econ.Cars.hasCar(player)
-				local deskAt = Econ.Apt.deskPosition()
-				local rootP = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-				local nearDesk = deskAt and rootP and (rootP.Position - deskAt).Magnitude < 180
-				local nice = t.name:sub(1, 1) .. t.name:sub(2):lower()
-				best = { c = t.price, k = "apartment", t = has and ("Buy a %s"):format(nice) or ("Save for a %s"):format(nice),
-					at = deskAt, sub = nearDesk and "Sales desk, in the lobby" or (drive and "Drive downtown: CAR button" or "The Residences, downtown") }
-				-- v4.6: while the home is out of reach, keep growing the team (the sim's rule:
-				-- a home when affordable, else a recruit). The BIG GOAL card still names the home.
-				if not has and Econ.WAFERS and s.guideRecruit then best = s.guideRecruit end
-			end
 			if not best then best = { k = "wait", t = "Write code", at = nil, sub = "Tap WRITE CODE for cash" } end
 			key, text, pos, sub, cost = best.k, best.t, best.at, best.sub, best.cost or best.c
 		end
@@ -2009,10 +1982,9 @@ function refreshHqPad(plot)      -- forward-declared above hire()
 			owner:SetAttribute("WaferPrice", price or 0)
 			owner:SetAttribute("WaferRec", rec)
 			owner:SetAttribute("WaferAllowed", allowed)
-			owner:SetAttribute("WaferNeed", L and WP.aptRequired(L) > ((s and s.apt) or 0) and WP.aptRequired(L) or 0)
+			owner:SetAttribute("WaferNeed", 0)   -- homes no longer gate a level; the client still reads the field
 		end
 		if L then
-			local need = WP.aptRequired(L)
 			--[[ v5.0: the pad SAYS the discount. Measured on the live game before
 				this existed: the pad read $1.5M and the till took $1.2M, because
 				the label is only redrawn on a few events and momentum had been
@@ -2021,10 +1993,7 @@ function refreshHqPad(plot)      -- forward-declared above hire()
 				the exact moment the player is deciding whether to go out again. ]]
 			local off = Mom.discount(s and s.momentum or 0)
 			local tail = off > 0 and ("  ·  %d%% OFF"):format(math.floor(off * 100 + 0.5)) or ""
-			if s and (s.apt or 0) < need and Econ.Apt then
-				plot.hqLabel.Text = ("BUILD  ·  needs a %s downtown"):format(Econ.Apt.TIERS[need].name)
-				plot.hqPad.Color = Color3.fromRGB(150, 146, 140)
-			elseif last > L then
+			if last > L then
 				plot.hqLabel.Text = ("REBUILD LEVELS %d-%d  ·  $%s%s"):format(L, last, fmt(price), tail)
 				plot.hqPad.Color = CFG.GOLD
 			else
@@ -2035,11 +2004,7 @@ function refreshHqPad(plot)      -- forward-declared above hire()
 		end
 		nxt = nil   -- the top of the blueprint: GO PUBLIC, then SPIN OFF (below)
 	end
-	local needApt = nxt and s and Econ and Econ.Apt and (s.apt or 0) < Econ.Apt.need(plot.hq.level + 1)
-	if needApt then
-		plot.hqLabel.Text = ("UPGRADE HQ  ·  needs a %s downtown"):format(Econ.Apt.TIERS[Econ.Apt.need(plot.hq.level + 1)].name)
-		plot.hqPad.Color = Color3.fromRGB(150, 146, 140)
-	elseif nxt then
+	if nxt then
 		plot.hqLabel.Text = ("UPGRADE HQ  ·  $%s"):format(fmt(hqCostOf(s, plot.hq.level + 1)))
 		plot.hqPad.Color = CFG.GOLD
 	elseif s and not s.listed then
@@ -2110,20 +2075,6 @@ local function wafersBuild(player, plot, s, cash, chosen)
 
 	local L, last, price, momSpend = wafersNext(s, plot)
 	if not L then return end
-	local need = WP.aptRequired(L)
-	if (s.apt or 0) < need and Econ.Apt then
-		popup(plot.hqPad, ("Buy your %s downtown first"):format(Econ.Apt.TIERS[need].name), CFG.BAD)
-		return
-	end
-	-- a home gate inside a rebuilt storey stops the storey there
-	if WP.aptRequired(last) > (s.apt or 0) then
-		while last > L and WP.aptRequired(last) > (s.apt or 0) do last -= 1 end
-		price = 0
-		for x = L, last do price += WP.price(x, scaleOf(s), s.record or 1) end
-		-- the truncated storey is re-priced, so the discount has to be re-applied
-		-- here too or this one path would charge full price with a cheaper sign
-		price = Mom.priceAfter(price, s.momentum or 0)
-	end
 	if cash.Value < price then popup(plot.hqPad, "Need $" .. fmt(price), CFG.BAD) return end
 	plot.busy = true
 	cash.Value -= price
@@ -2216,11 +2167,6 @@ local function tryUpgrade(player, plot, chosen)
 	end
 	if not s.shipped then popup(plot.hqPad, "Ship something first", CFG.BAD) return end
 	if s.staff < 1 then popup(plot.hqPad, "Hire someone first", CFG.BAD) return end
-	if Econ and Econ.Apt and (s.apt or 0) < Econ.Apt.need(plot.hq.level + 1) then
-		local t = Econ.Apt.TIERS[Econ.Apt.need(plot.hq.level + 1)]
-		popup(plot.hqPad, ("Buy your %s downtown first"):format(t.name), CFG.BAD)
-		return
-	end
 	local cost = hqCostOf(s, plot.hq.level + 1)
 	if cash.Value < cost then popup(plot.hqPad, "Need $" .. fmt(cost), CFG.BAD) return end
 	plot.busy = true
