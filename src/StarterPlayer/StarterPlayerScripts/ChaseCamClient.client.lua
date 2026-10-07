@@ -1,21 +1,3 @@
---[[ A cut has to be FOR something.
-
-	The first version rotated through the shots on a timer between beats, which
-	is reasoning-free by construction -- the angle changed because time passed,
-	so nothing it did meant anything. Now "chase" is home, the camera cuts away
-	only when the chase does something worth looking at, and it comes back when
-	that moment is over. Three reasons, and no others:
-
-	    it is about to lunge  -> low, on the deck, so you see it coil
-	    you boosted           -> hero, from the front, so the kick reads
-	    you opened a gap      -> wide, so the distance you made is legible
-
-	MIN_HOLD is measured from the last cut rather than from the shot's own
-	hold, which is what the previous guard got wrong: it compared against a
-	value that had already been overwritten, so it never actually blocked
-	anything. ]]
-local MIN_HOLD = 1.6
-
 --[[
 	ChaseCamClient -- the chase, staged. Two versions, switchable live.
 
@@ -104,36 +86,32 @@ local KEEP = { ChaseFx = true, ChaseStage = true }
 
 local bars                    -- letterbox
 local label                   -- the rival's name
+local cause                   -- QA: why the camera just cut
 
---[[ THE DIRECTOR.
+--[[ THE DIRECTOR lives in ReplicatedStorage.ChaseCam (ChaseCam.direct) --
+	pure, so tests/offline/chasecam.spec.luau can drive a scripted chase and
+	assert the cut sequence. This file only carries its state between frames
+	and performs the cut.
 
-	A filmed chase CUTS. It does not glide from one framing to another -- the
-	glide is what makes a game camera feel like a camera rather than an edit.
-	So a shot change snaps: the follower's position and velocity are thrown
-	away and rebuilt at the new set-up, which is exactly what a cut is.
+	A cut SNAPS: the follower's position, its velocity and the eased CFrame are
+	thrown away and rebuilt at the new set-up, because that is what a cut is.
+	Gliding between set-ups is what makes a game camera read as a camera being
+	moved rather than as an edit.
 
-	Shots are chosen on BEATS, not on a metronome, so the edit means something:
-	the crouch tell cuts low to watch it coil, a boost cuts to the hero angle,
-	getting away cuts wide to show the gap you just made. Between beats it
-	rotates slowly so a long chase does not go static.
+	Every cut is logged with the sentence it is making, so the edit can be
+	audited after a run instead of taken on trust:
 
-	MIN_HOLD stops the edit becoming a strobe when beats arrive together --
-	below about a second, cutting reads as a glitch rather than a cut. ]]
-local MIN_HOLD = 1.1
-local shot, lastCut, holdUntil = "chase", 0, 0
-local wasClose = false        -- it was on you, so getting away is worth a cut
-local follow = {}             -- mode C's own position and velocity
+	    _G.SVChaseCuts()                                -- the log
+	    player:SetAttribute("ChaseCamDebug", true)      -- draw the cause on screen
+]]
+local dir = {}                -- the director's own carried state
+local shot = "establish"
+local follow = {}             -- mode C's position and velocity
+local cutLog = {}
 
-local function cut(to, hold)
-	if to == shot then return end
-	if os.clock() - lastCut < MIN_HOLD then return end
-	shot = to
-	lastCut = os.clock()
-	holdUntil = lastCut + (hold or 2.0)
-	--[[ The cut itself: drop the follower and the eased CFrame so the next
-		frame builds the new angle from nothing. ]]
-	follow = {}
-	smoothed = nil
+local function note(shotName, why, t)
+	table.insert(cutLog, { t = t, shot = shotName, cause = why })
+	if #cutLog > 60 then table.remove(cutLog, 1) end
 end
 
 local function ensureStage()
@@ -168,6 +146,15 @@ local function ensureStage()
 	label.Size = UDim2.new(1, -40, 0, 36)
 	label.TextTransparency = 1
 	label.Parent = gui
+	--[[ QA only, off unless ChaseCamDebug is set: the sentence the current
+		cut is making. Reading it back during a chase is the only way to tell
+		a motivated edit from one that merely looks busy. ]]
+	cause = label:Clone()
+	cause.TextSize = 16
+	cause.Font = Enum.Font.Gotham
+	cause.Position = UDim2.new(0.5, 0, 0.88, 0)
+	cause.TextTransparency = 1
+	cause.Parent = gui
 end
 
 local function letterbox(on, seconds)
@@ -214,6 +201,25 @@ local function hush(on)
 		hidden = {}
 	end
 end
+
+-- ---------------------------------------------------------------- home
+--[[ The delivery point, read the same way IntroClient and HomeClient read it:
+	the player's `Plot` index, then that plot folder's `Pivot` attribute.
+	Cached, because the plot does not move. ]]
+local homeCF
+local function homePos()
+	if homeCF then return homeCF.Position end
+	local idx = player:GetAttribute("Plot")
+	local sv = workspace:FindFirstChild("SiliconValley")
+	local pf = idx and sv and sv:FindFirstChild("Plots") and sv.Plots:FindFirstChild("Plot" .. idx)
+	local pivot = pf and pf:GetAttribute("Pivot")
+	if typeof(pivot) == "CFrame" then
+		homeCF = pivot
+		return homeCF.Position
+	end
+	return nil
+end
+player:GetAttributeChangedSignal("Plot"):Connect(function() homeCF = nil end)
 
 -- ---------------------------------------------------------------- the hunter
 --[[ Same place ChaseFxClient looks: the TalentRow folder, models carrying
@@ -309,8 +315,10 @@ RunService.RenderStepped:Connect(function(dt)
 	if active and Cine and Cine.busy and Cine.busy() then release() return end
 	if not active then
 		if not takeCamera() then return end
-		shot, lastCut, holdUntil, wasClose = "chase", 0, 0, false
+		dir = {}
+		shot = "establish"
 		follow = {}
+		cutLog = {}
 		if mode == "B" then
 			entryUntil = os.clock() + BEATS.ENTRY
 			letterbox(true, 0.25)
@@ -329,25 +337,42 @@ RunService.RenderStepped:Connect(function(dt)
 	local speed = flat.Magnitude
 	local travel = speed > 2 and flat or hrp.CFrame.LookVector
 
-	--[[ THE BEATS, in priority order. Each one is a moment the edit should
-		notice; between them the shot rotates so a long chase does not sit on
-		one angle. ]]
-	--[[ 1.35 rather than 1.22: at 1.22 the ordinary speed wobble of a scooter
-		crossed the line constantly, so "you boosted" fired when nobody had. A
-		real boost adds 8 studs/s, which clears 1.35 easily. ]]
-	local carrySpeed = player:GetAttribute("CarrySpeed") or 16
-	local boosting = speed > carrySpeed * 1.35
-	if wind then
-		cut("low", 1.8)                  -- it is coiling: get down there and watch
-	elseif boosting then
-		cut("hero", 1.6)                 -- you kicked: show it from the front
-	elseif wasClose and dist and dist > 20 then
-		wasClose = false
-		cut("wide", 2.4)                 -- you made a gap: pull back so it reads
-	elseif t > holdUntil then
-		cut("chase", 0)                  -- nothing is happening: come home
+	--[[ How far is the door? The second of the chase's two numbers, and the
+		one nothing was reading. Client-side off the plot's own Pivot
+		attribute (same lookup IntroClient and HomeClient use), so this stays
+		a camera change with no server work behind it. ]]
+	local homeDist
+	local hd = homePos()
+	if hd then
+		homeDist = (Vector3.new(hd.X, 0, hd.Z) - Vector3.new(hrp.Position.X, 0, hrp.Position.Z)).Magnitude
 	end
-	if dist and dist < 9 then wasClose = true end
+
+	local newShot, why, didCut = ChaseCam.direct(dir, {
+		t = t,
+		dt = dt,
+		dist = dist,
+		windup = wind,
+		lunging = lunge,
+		homeDist = homeDist,
+		speed = speed,
+		carrySpeed = player:GetAttribute("CarrySpeed") or 16,
+	})
+	if didCut then
+		shot = newShot
+		--[[ The cut itself. Dropping both the follower and the eased CFrame is
+			what makes the next frame build the new angle from nothing. ]]
+		follow = {}
+		smoothed = nil
+		note(shot, why, t)
+	end
+	if player:GetAttribute("ChaseCamDebug") and cause then
+		ensureStage()
+		bars.gui.Enabled = true
+		cause.Text = shot:upper() .. "  ·  " .. tostring(why)
+		cause.TextTransparency = 0.15
+	elseif cause then
+		cause.TextTransparency = 1
+	end
 
 	local target, fov = ChaseCam.solve({
 		shot = shot,
@@ -397,4 +422,16 @@ end)
 _G.SVChaseCam = function(m)
 	player:SetAttribute("ChaseCam", m)
 	return "ChaseCam = " .. tostring(m)
+end
+
+--[[ The edit, after the fact. Every line is a cut and the sentence it made; a
+	cut with no sentence is the bug this whole design exists to prevent, so the
+	log is the test for it. ]]
+_G.SVChaseCuts = function()
+	local out = {}
+	local t0 = cutLog[1] and cutLog[1].t or 0
+	for _, c in ipairs(cutLog) do
+		table.insert(out, ("%5.2fs  %-9s  %s"):format(c.t - t0, c.shot, c.cause))
+	end
+	return #out > 0 and table.concat(out, "\n") or "no cuts yet"
 end

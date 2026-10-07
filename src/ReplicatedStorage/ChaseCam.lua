@@ -134,31 +134,66 @@ ChaseCam.T = {
 	},
 }
 
---[[ THE SHOTS.
+--[[ THE SHOTS, AS A GRAMMAR.
 
-	A filmed chase is not one camera, it is a handful of set-ups cut between.
-	Each entry here is an offset from whatever `solve` already worked out, so
-	every shot inherits the visibility constraints -- the hunter stays framed
-	and the player never leaves screen no matter which one is running.
+	The first version had five set-ups and cut between them on whatever beat
+	arrived. That is reaction, not direction, and it is why the edit read as
+	random: the SAME angle could appear for different reasons at different
+	moments, so no angle ever came to MEAN anything, so a cut could never be
+	read as a statement.
 
-	The rule they all obey: forward stays INTO the screen. A true side-on
-	tracking shot looks superb and makes the player swerve, because the
-	direction they push on the stick stops matching the direction they move.
-	So "side" here means a hard three-quarter, not a profile.
+	Two rules fix that, and they are the whole design.
 
-	flip = the camera swaps to the other shoulder. That alone reads as a cut,
-	costs nothing, and cannot disorient, because the travel direction is
-	unchanged.
+	ONE SHOT, ONE MEANING. Each set-up below answers exactly one question the
+	player is asking at that moment, and appears for no other reason. After a
+	handful of chases the angle itself is the message -- you see the deck-level
+	loom and you know it is gaining before you have read the number.
+
+	A CUT HAS TO CHANGE THE FRAME. The old set-ups differed by three studs and
+	a degree of yaw; at that size a cut is indistinguishable from a camera
+	wobble, which is the other half of "it is just flickering". Every shot here
+	moves at least two of: side of the shoulder, height class, lens.
+
+	    carry      nobody is chasing you         calm, slightly high
+	    establish  here is the situation         high and back: both of you, and the road
+	    chase      it is holding station         the neutral three-quarter
+	    closing    IT IS GAINING ON YOU          on the deck, loomed, tighter lens
+	    gaining    you are pulling away          up and back, wide: the empty road reads
+	    threat     it is about to lunge          the loudest cut: other shoulder, on the deck
+	    hero       you boosted                   front three-quarter, the kick reads
+	    homerun    the door is in reach          stop looking back; look where you are going
+
+	Each entry is an OFFSET on whatever `solve` worked out, so every shot
+	inherits the visibility constraints -- the hunter stays framed and the
+	player never leaves screen, whichever one is running.
+
+	forward always stays INTO the screen. A true side-on tracking shot looks
+	superb and makes the player swerve, because the direction they push on the
+	stick stops matching the direction they move. "side" here is a hard
+	three-quarter, never a profile.
+
+	flip  = swap to the other shoulder. The biggest change available for free,
+	        and it cannot disorient, because the travel direction is unchanged.
+	        Spent on ONE shot only -- `threat` -- so the flip itself is a word.
+	lead  = push the look point further down the road. "Look where you are
+	        going" instead of "look back at the thing behind you".
+	hold  = this shot's own HOLD_MAX. `homerun` sets it wide on purpose: giving
+	        up sight of the hunter IS the statement.
 ]]
 ChaseCam.SHOTS = {
-	chase  = { dist = 0,   height = 0,    yaw = 0,   fov = 0,  flip = false },
-	low    = { dist = -3,  height = -1.4, yaw = 4,   fov = 8,  flip = false },  -- on the deck, road screaming past
-	wide   = { dist = 5,   height = 2.2,  yaw = 10,  fov = -6, flip = false },  -- pulled back, you see the gap
-	flank  = { dist = -1,  height = -0.6, yaw = 18,  fov = 4,  flip = true },   -- other shoulder: the cut you feel most
-	hero   = { dist = -4,  height = -1.0, yaw = -26, fov = 10, flip = true },   -- front three-quarter, for a boost
+	carry     = { dist = 3,  height = 2.0,  yaw = -6,  fov = -4, flip = false },
+	establish = { dist = 9,  height = 6.0,  yaw = 14,  fov = -8, flip = false },
+	chase     = { dist = 0,  height = 0,    yaw = 0,   fov = 0,  flip = false },
+	closing   = { dist = 0,  height = -1.6, yaw = 12,  fov = 6,  flip = false },
+	gaining   = { dist = 7,  height = 4.2,  yaw = -8,  fov = -10, flip = false },
+	threat    = { dist = 0,  height = -1.8, yaw = 20,  fov = 4,  flip = true, hold = 24 },
+	hero      = { dist = -2, height = -0.8, yaw = -30, fov = 10, flip = true },
+	homerun   = { dist = -1, height = 0.6,  yaw = -22, fov = 8,  flip = false, lead = 16, hold = 95 },
 }
 
-ChaseCam.SHOT_ORDER = { "chase", "low", "flank", "wide" }
+--[[ Kept so an older caller asking for a shot by its old name still gets a
+	frame rather than silently falling back to `chase`. ]]
+ChaseCam.SHOT_ALIAS = { low = "closing", wide = "gaining", flank = "threat" }
 
 --[[ WHY THE WINDUP WIDENS INSTEAD OF TIGHTENING.
 
@@ -215,7 +250,8 @@ function ChaseCam.solve(s)
 
 	--[[ The shot is an offset on everything below, so each set-up inherits the
 		visibility constraints rather than having to re-earn them. ]]
-	local shot = ChaseCam.SHOTS[s.shot or "chase"] or ChaseCam.SHOTS.chase
+	local want = s.shot or "chase"
+	local shot = ChaseCam.SHOTS[want] or ChaseCam.SHOTS[ChaseCam.SHOT_ALIAS[want] or ""] or ChaseCam.SHOTS.chase
 	if shot.flip then side = -side end
 
 	local yawDeg = lerp(T.YAW_FAR, T.YAW_NEAR, fear) + (shot.yaw or 0)
@@ -247,7 +283,10 @@ function ChaseCam.solve(s)
 	-- and slide off the centre line, so it passes beside the lens, not through it
 	local right = Vector3.new(-travel.Z, 0, travel.X)
 	local at = s.pos + back * distBack + right * ((M and M.SIDE or T.SIDE) * side) + Vector3.new(0, height, 0)
-	local look = s.pos + travel * 6 + Vector3.new(0, 1.5, 0)
+	--[[ `lead` is how far down the road the shot looks. The default 6 keeps
+		the player low in frame with the threat behind them; a shot that adds
+		lead is saying stop looking back. ]]
+	local look = s.pos + travel * (6 + (shot.lead or 0)) + Vector3.new(0, 1.5, 0)
 
 	--[[ Hold the hunter on screen. Rotate the aim toward it by however much it
 		exceeds HOLD_MAX, and no further -- so the road ahead is given up only
@@ -266,9 +305,12 @@ function ChaseCam.solve(s)
 			local pAng = toP.Magnitude > 0.1
 				and math.deg(math.acos(math.clamp(dir:Dot(toP.Unit), -1, 1))) or 0
 			local allowed = math.max(0, T.PLAYER_MAX - pAng)
-			local want = math.max(0, ang - T.HOLD_MAX)
-			if want > 0 and allowed > 0 then
-				local turn = math.min(want, allowed) / ang
+			--[[ A shot may widen its own tolerance (homerun does), because
+				letting the hunter leave frame is sometimes the point. ]]
+			local holdMax = shot.hold or T.HOLD_MAX
+			local excess = math.max(0, ang - holdMax)
+			if excess > 0 and allowed > 0 then
+				local turn = math.min(excess, allowed) / ang
 				local aimed = dir:Lerp(toH, turn)
 				if aimed.Magnitude > 0.01 then
 					local reach = (look - at).Magnitude
@@ -354,6 +396,273 @@ function ChaseCam.follow(st, target, dt, mode)
 
 	local aim = CFrame.lookAt(st.pos, st.pos + target.LookVector * 20)
 	return aim * CFrame.Angles(0, 0, math.rad(st.roll)), st.roll
+end
+
+
+--[[ ======================================================================
+	THE DIRECTOR -- why the camera cuts, as pure logic.
+
+	This is the part the earlier versions did not have. They cut when
+	something happened, which sounds like direction and is not: a cut fired
+	on a timer when nothing had happened, the same angle served several
+	different beats, and a noisy threshold could cut twice in a second. The
+	result was an edit with no argument in it.
+
+	THE ARGUMENT. A chase is two numbers and nothing else: how close the
+	threat is, and how close home is. Everything a player wants to know is a
+	question about one of them, and in a readable chase every cut answers the
+	question that is live at that instant.
+
+	    is it about to hit me          -> threat     (and only ever this)
+	    am I losing ground             -> closing
+	    did I get away                 -> gaining
+	    is it just sitting behind me   -> chase
+	    am I nearly home               -> homerun
+	    what is going on               -> establish  (the opening, once)
+
+	THREE RULES THAT MAKE IT READ.
+
+	1. NO CUT WITHOUT A CAUSE. There is no timer branch. Every return either
+	   names the reason the shot changed or does not change the shot. The old
+	   `t > holdUntil -> come home` branch was a cut caused by the clock, and
+	   the clock is not something the player can see -- so that cut was, from
+	   the player's seat, motiveless. It is gone.
+
+	2. YOU CUT BEFORE AN ACTION, NOT DURING IT. The windup is the cue; the
+	   lunge is HELD. Cutting as the thing leaves the ground hides the one
+	   frame the whole mechanic exists to show. MIN_HOLD is set just above
+	   WINDUP + LUNGE_TIME so the shot taken on the tell survives the strike.
+
+	3. A STRIKE IS NOT A TREND. This is the one that was actually causing the
+	   flicker, and it took measuring two directors side by side to find --
+	   see scratchpad note in the spec. On the noise the client really gets
+	   (ChaseDist replicated at ~10 Hz, held between samples) NEITHER a rate
+	   director nor a trend director cuts at all: 0 cuts across a dead steady
+	   gap, a jog opening at 1 stud/s, and the largest wobble the jog's 0.94x
+	   speed can physically produce. What strobes is the LUNGE CYCLE.
+	   ChaseRules lunges every 3.2 s and a lunge closes the gap at about 4.5
+	   studs/s, so the gap genuinely slams shut and drifts back out, forever,
+	   and a director reading movement faithfully reports it -- measured at 28
+	   to 31 cuts in 45 seconds, roughly one every one and a half seconds,
+	   which is precisely what "the angles are just flickering" looks like.
+
+	   The distance a lunge covers IS the lunge. The camera has already shown
+	   it, held, from the deck. Cutting afterwards to announce that the gap
+	   shrank restates the thing the player just watched, which is the one
+	   mistake an edit can make that feels worse than no edit at all. So the
+	   trend FREEZES for the duration of windup and lunge and is re-seeded
+	   when the strike ends: the attack is an event, and events are not
+	   evidence about the trend.
+
+	4. HOLD THE INTENSE ANGLE WHILE THE INTENSITY LASTS. Freezing the trend
+	   through a strike removed the closing/gaining chatter and left a second
+	   one behind it: threat -> chase -> threat -> chase, 26 cuts in 45
+	   seconds, because the camera came home after every blow and the next
+	   blow was 0.9 s away. Coming home was caused by the last strike ENDING,
+	   and in a band where strikes repeat that is not information.
+
+	   While the hunter is inside lunge range the threat has not receded, so
+	   the shot does not change. The camera comes home when the player is
+	   actually out of reach -- which is a thing they did, and therefore worth
+	   a cut. One cut in, one cut out, however many blows land in between.
+
+	5. THE TREND IS THE INFORMATION, NOT THE DISTANCE. "14 studs" means
+	   nothing on its own; "14 and shrinking" is the entire chase.
+
+	   The first attempt at this ran on d(dist)/dt, smoothed. MEASURED, in
+	   tests/offline/chasecam.spec.luau: a hunter merely jogging produced 35
+	   cuts in 60 seconds, closing -> chase -> closing -> chase, which is the
+	   strobe the recordings showed. The filter was not too weak -- the SIGNAL
+	   was wrong. A hunter holding station has a mean rate of zero and a large
+	   oscillation around it, because it breathes: ChaseRules has it jogging at
+	   0.94x your speed, so the gap opens and shuts by about a stud a couple of
+	   times a second. Instantaneous rate cannot separate that from a chase.
+
+	   What "it is gaining" actually means is THE GAP NOW VERSUS WHERE THE GAP
+	   HAS BEEN. So distance is run through two exponential smoothers, a quick
+	   one and a lagging one, and the director reads the difference between
+	   them, in studs. A sustained approach separates them; breathing does not,
+	   because both followers ride it out together. Measured on the same
+	   signal: ~0.41 studs of noise against 2.31 studs for a real 2.2 studs/s
+	   close -- a 5.6x margin where rate had none.
+
+	   HYSTERESIS on top, because any single threshold on any noisy signal is
+	   a strobe generator. `closing` and `gaining` are opposites, so the cut
+	   between them can never be ambiguous.
+
+	PURE on purpose: no services, no Instances, `t` and `dt` passed in. That
+	is what lets tests/offline/chasecam.spec.luau drive a scripted chase and
+	assert the cut sequence, instead of me asserting it.
+]]
+ChaseCam.DIR = {
+	ESTABLISH = 1.1,     -- seconds the opening shot holds
+	--[[ Just above ChaseRules.WINDUP (0.5) + LUNGE_TIME (0.8): the shot taken
+		on the tell is not allowed to be cut away mid-strike. ]]
+	MIN_HOLD = 1.35,
+	HOME_NEAR = 52,      -- studs: close enough that the door is the story
+
+	--[[ The two followers whose disagreement IS the trend. TREND_FAST tracks
+		the gap, TREND_SLOW remembers what it has been; fast minus slow is
+		therefore signed studs of sustained movement, negative when the gap is
+		shrinking. Widening the split makes the reading stronger and slower in
+		equal measure; 0.25/1.3 puts first detection of a real close at about
+		1.1 s, which is inside human reaction time for a thing that then needs
+		0.5 s of crouch before it can hit you. ]]
+	TREND_FAST = 0.25,   -- seconds
+	TREND_SLOW = 1.3,
+
+	--[[ Hysteresis, in studs of trend. Entering a claim is easy; leaving it
+		requires the claim to be clearly false rather than merely borderline.
+		MEASURED: the fastest gap movement the jog can physically produce
+		(3 studs/s, which is generous -- it allows for the junior second
+		hunter and the player's own speed changes) peaks at 0.79 studs of
+		trend. IN at 1.3 therefore cannot be reached by anything short of a
+		real approach, and the cost is paid in latency: a genuine 2.2 studs/s
+		close now reads at about 1.4 s instead of 1.1 s. That is affordable
+		because the hunter still owes 0.5 s of crouch before it can touch
+		you. ]]
+	CLOSE_IN = -1.3,     -- studs: below this the gap IS shrinking
+	CLOSE_OUT = -0.6,    -- ... and it stops shrinking only once above this
+	AWAY_IN = 1.3,
+	AWAY_OUT = 0.6,
+
+	NEAR = 12,           -- studs: it was on you, so getting away is worth saying
+	FAR = 20,            -- ChaseRules.FAR: past this it sprints, it is not stalking
+	--[[ A STRIKE EPISODE: it has hit at you recently AND is still close enough
+		to do it again. Both halves are needed.
+
+		Gating the hold on distance alone (the first attempt) was far too
+		blunt: a hunter merely sitting at 15 studs without ever lunging put the
+		camera in a permanent hold, so the opening shot never gave way and a
+		genuine 2.2 studs/s approach went unreported. The churn this rule
+		exists to stop only happens BETWEEN BLOWS, so it is blows that have to
+		arm it.
+
+		STRIKE_BAND 17 covers the widest tier range (star, 16) with a stud
+		spare. EPISODE 3.8 s bridges the gap between blows: ChaseRules re-arms
+		LUNGE_EVERY = 3.2 s after a lunge ENDS, so anything over 3.2 keeps one
+		continuous attack reading as one episode, and anything under about 4.5
+		lets a hunter that has actually given up fall out of it. ]]
+	STRIKE_BAND = 17,
+	EPISODE = 3.8,       -- seconds a strike keeps the hold armed
+	BOOST = 1.35,        -- x carry speed. Below ~1.3 the ordinary scooter wobble trips it.
+}
+
+--[[ st is the caller's table, carried between frames. s is the world:
+	  { t, dt, dist?, windup, lunging, homeDist?, speed, carrySpeed }
+	Returns shot, cause, cut -- `cause` is the sentence the cut is making, and
+	exists so a cut can be audited rather than trusted. ]]
+function ChaseCam.direct(st, s)
+	local D = ChaseCam.DIR
+	st.started = st.started or s.t
+	st.shot = st.shot or "establish"
+	st.cause = st.cause or "opening: where it is, and where home is"
+	local cut = false
+
+	--[[ The trend, in signed studs. Negative = the gap is shrinking.
+
+		Both followers are seeded to the first reading, so there is no startup
+		transient to be mistaken for a chase -- otherwise the lagging one
+		climbs from zero and the camera opens every chase by announcing that
+		something is gaining on you. ]]
+	local dt = s.dt or 0
+	local striking = (s.windup or s.lunging) and true or false
+	if striking then st.lastStrike = s.t end
+	if not s.dist then
+		st.fast, st.slow = nil, nil
+	elseif not st.fast then
+		st.fast, st.slow = s.dist, s.dist
+	elseif striking then
+		--[[ Rule 3: freeze. The ground a lunge covers is the lunge, not a
+			trend, and must not be read as one. ]]
+		st.struck = true
+	elseif st.struck then
+		--[[ The strike is over. Re-seed both followers to the gap it left, so
+			the next reading is about what happens NEXT rather than about the
+			attack the camera already showed. ]]
+		st.fast, st.slow = s.dist, s.dist
+		st.closing, st.away, st.struck = false, false, false
+	elseif dt > 0 then
+		st.fast += (s.dist - st.fast) * (1 - math.exp(-dt / D.TREND_FAST))
+		st.slow += (s.dist - st.slow) * (1 - math.exp(-dt / D.TREND_SLOW))
+	end
+	local trend = (st.fast and st.slow) and (st.fast - st.slow) or 0
+	st.trend = trend
+
+	-- sticky bands, so neither claim can chatter around its threshold
+	st.closing = st.closing and (trend < D.CLOSE_OUT) or (not st.closing and trend < D.CLOSE_IN)
+	st.away = st.away and (trend > D.AWAY_OUT) or (not st.away and trend > D.AWAY_IN)
+	--[[ "You pulled away" is only true of something that was ON you. Without
+		this it fires on any distance increase, including the hunter merely
+		re-forming behind you, which is a cut saying nothing. ]]
+	if s.dist and s.dist < D.NEAR then st.wasNear = true end
+
+	local function to(shot, cause, urgent)
+		if shot == st.shot then
+			st.cause = cause
+			return
+		end
+		if not urgent and (s.t - (st.lastCut or -1e9)) < D.MIN_HOLD then return end
+		st.shot, st.cause, st.lastCut, cut = shot, cause, s.t, true
+	end
+
+	local carrySpeed = math.max(s.carrySpeed or 16, 1)
+	local boosting = (s.speed or 0) > carrySpeed * D.BOOST
+
+	if s.lunging then
+		--[[ Rule 2: hold. Deliberately not a cut. ]]
+		st.cause = "holding the shot through the strike"
+	elseif s.windup then
+		to("threat", "it is winding up to lunge", true)
+	elseif not s.dist then
+		to("carry", "nobody is chasing you")
+	elseif s.t - st.started < D.ESTABLISH then
+		to("establish", "opening: where it is, and where home is", true)
+	elseif s.homeDist and s.homeDist <= D.HOME_NEAR then
+		--[[ Above the strike band on purpose. In the last fifty studs the
+			player needs the door; the tell still outranks everything, so they
+			do not lose the one thing they must react to. ]]
+		to("homerun", "the door is in reach: look where you are going")
+	elseif st.lastStrike and (s.t - st.lastStrike) <= D.EPISODE and s.dist <= D.STRIKE_BAND then
+		--[[ RULE 4, and it needed to sit above the trend to work.
+
+			Mid-attack the trend is not information. The gap slams shut and
+			springs back on the hunter's own 3.2 second cycle, so "it is
+			gaining" and "you got away" are both true several times a minute
+			and neither is worth saying -- that alternation, measured at 26 to
+			27 cuts in 45 seconds, is the flicker.
+
+			The tell is what matters in here and it has already been handled
+			above. So: hold. One cut in, one cut out, however many blows land
+			in between. ]]
+		st.cause = "mid-attack and still in reach: only the tell is worth cutting for"
+	elseif st.shot == "threat" then
+		--[[ Leaving the attack. There are two different ways out and they are
+			not the same statement, so they do not get the same sentence.
+
+			The first draft said "you are out of its reach now" for both, and
+			the edit printed by tools/chase_edit caught it lying: a STAR
+			hunter lunges from 16 studs, and the line appeared at a gap of
+			16.1. Saying a true thing and saying it for the right reason are
+			different problems, and only the second one survives a player
+			learning what the angle means. ]]
+		if s.dist > D.STRIKE_BAND then
+			to("chase", "you are out of its reach now")
+		else
+			to("chase", "it has stopped pressing you")
+		end
+	elseif boosting then
+		to("hero", "you boosted")
+	elseif st.closing and s.dist <= D.FAR then
+		to("closing", "it is gaining on you")
+	elseif st.away and st.wasNear then
+		if st.shot ~= "gaining" then st.wasNear = false end
+		to("gaining", "you got away from it")
+	else
+		to("chase", "it is holding station behind you")
+	end
+
+	return st.shot, st.cause, cut
 end
 
 return ChaseCam
