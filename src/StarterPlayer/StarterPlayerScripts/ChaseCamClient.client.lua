@@ -1,3 +1,21 @@
+--[[ A cut has to be FOR something.
+
+	The first version rotated through the shots on a timer between beats, which
+	is reasoning-free by construction -- the angle changed because time passed,
+	so nothing it did meant anything. Now "chase" is home, the camera cuts away
+	only when the chase does something worth looking at, and it comes back when
+	that moment is over. Three reasons, and no others:
+
+	    it is about to lunge  -> low, on the deck, so you see it coil
+	    you boosted           -> hero, from the front, so the kick reads
+	    you opened a gap      -> wide, so the distance you made is legible
+
+	MIN_HOLD is measured from the last cut rather than from the shot's own
+	hold, which is what the previous guard got wrong: it compared against a
+	value that had already been overwritten, so it never actually blocked
+	anything. ]]
+local MIN_HOLD = 1.6
+
 --[[
 	ChaseCamClient -- the chase, staged. Two versions, switchable live.
 
@@ -71,13 +89,18 @@ local hidden = {}             -- ScreenGuis we switched off, to restore exactly
 
 -- the peacetime HUD has no business being up during this. Named rather than
 -- blanket-hidden so a gui we did not think about cannot vanish silently.
---[[ Names read off a live chase, not guessed -- the first list missed every
-	one of them. What stays up: ChaseFx (the headhunter banner, the distance,
-	BOOST), ItemQuick (the panic items), Hud (the cash line). What goes: the
-	quest card, LAUNCH and its timer, the rail, the right column, the coach.
-	A product launch competing for attention while something is chasing you is
-	the clearest thing in the recording. ]]
-local HUSH = { "Quest", "Product", "Rail", "RightColumn", "Guide", "Coach", "RanksCorner" }
+--[[ EVERYTHING GOES except the chase itself.
+
+	The recording settled this: mid-chase the screen still carried WRITE CODE,
+	the car dashboard, the item slots and the cash line, none of which you can
+	act on while something is running you down. A chase is the one moment the
+	game asks for undivided attention, so it gets the whole screen.
+
+	KEEP is the exception list, and it has one entry on purpose: ChaseFx draws
+	the distance to the hunter and the "BOOST now" prompt, and boosting is a
+	mechanic -- hiding it would remove the only thing you can DO about the
+	chase. Everything else is restored exactly as it was on the way out. ]]
+local KEEP = { ChaseFx = true, ChaseStage = true }
 
 local bars                    -- letterbox
 local label                   -- the rival's name
@@ -97,17 +120,16 @@ local label                   -- the rival's name
 	MIN_HOLD stops the edit becoming a strobe when beats arrive together --
 	below about a second, cutting reads as a glitch rather than a cut. ]]
 local MIN_HOLD = 1.1
-local IDLE_HOLD = 7.0
-
-local shot, shotUntil, shotIdx = "chase", 0, 1
+local shot, lastCut, holdUntil = "chase", 0, 0
 local wasClose = false        -- it was on you, so getting away is worth a cut
 local follow = {}             -- mode C's own position and velocity
 
 local function cut(to, hold)
 	if to == shot then return end
-	if os.clock() < shotUntil - (IDLE_HOLD - MIN_HOLD) then return end   -- too soon after the last cut
+	if os.clock() - lastCut < MIN_HOLD then return end
 	shot = to
-	shotUntil = os.clock() + (hold or IDLE_HOLD)
+	lastCut = os.clock()
+	holdUntil = lastCut + (hold or 2.0)
 	--[[ The cut itself: drop the follower and the eased CFrame so the next
 		frame builds the new angle from nothing. ]]
 	follow = {}
@@ -179,9 +201,8 @@ local function hush(on)
 	local pg = player:FindFirstChildOfClass("PlayerGui")
 	if not pg then return end
 	if on then
-		for _, name in ipairs(HUSH) do
-			local g = pg:FindFirstChild(name)
-			if g and g:IsA("ScreenGui") and g.Enabled then
+		for _, g in ipairs(pg:GetChildren()) do
+			if g:IsA("ScreenGui") and g.Enabled and not KEEP[g.Name] then
 				g.Enabled = false
 				table.insert(hidden, g)
 			end
@@ -238,6 +259,12 @@ local function takeCamera()
 	if Cine and Cine.busy and Cine.busy() then return false end
 	prevType, prevFov = camera.CameraType, camera.FieldOfView
 	camera.CameraType = Enum.CameraType.Scriptable
+	--[[ Claim the lens. ChaseFxClient punches the FOV to 62 and back to 70 on
+		every lunge with its own tweens, and this file lerps the FOV toward its
+		own value every frame -- two owners of one property, fighting for it
+		continuously. Whoever wrote last won, which is a flicker by
+		construction. The attribute is how the other one knows to stand down. ]]
+	player:SetAttribute("ChaseCamOwns", true)
 	smoothed = camera.CFrame
 	active = true
 	hush(true)
@@ -247,6 +274,7 @@ end
 local function release()
 	if not active then return end
 	active = false
+	player:SetAttribute("ChaseCamOwns", nil)
 	camera.CameraType = prevType or Enum.CameraType.Custom
 	if prevFov then
 		TweenService:Create(camera, TweenInfo.new(0.35), { FieldOfView = prevFov }):Play()
@@ -281,7 +309,7 @@ RunService.RenderStepped:Connect(function(dt)
 	if active and Cine and Cine.busy and Cine.busy() then release() return end
 	if not active then
 		if not takeCamera() then return end
-		shot, shotUntil, shotIdx, wasClose = "chase", os.clock() + IDLE_HOLD, 1, false
+		shot, lastCut, holdUntil, wasClose = "chase", 0, 0, false
 		follow = {}
 		if mode == "B" then
 			entryUntil = os.clock() + BEATS.ENTRY
@@ -304,21 +332,22 @@ RunService.RenderStepped:Connect(function(dt)
 	--[[ THE BEATS, in priority order. Each one is a moment the edit should
 		notice; between them the shot rotates so a long chase does not sit on
 		one angle. ]]
+	--[[ 1.35 rather than 1.22: at 1.22 the ordinary speed wobble of a scooter
+		crossed the line constantly, so "you boosted" fired when nobody had. A
+		real boost adds 8 studs/s, which clears 1.35 easily. ]]
 	local carrySpeed = player:GetAttribute("CarrySpeed") or 16
-	local boosting = speed > carrySpeed * 1.22
+	local boosting = speed > carrySpeed * 1.35
 	if wind then
-		cut("low", 1.6)                  -- it is coiling: get down there and watch
+		cut("low", 1.8)                  -- it is coiling: get down there and watch
 	elseif boosting then
-		cut("hero", 1.4)                 -- you kicked: show it from the front
-	elseif dist and dist < 9 then
-		wasClose = true
-	elseif wasClose and dist and dist > 18 then
+		cut("hero", 1.6)                 -- you kicked: show it from the front
+	elseif wasClose and dist and dist > 20 then
 		wasClose = false
-		cut("wide", 2.6)                 -- you made a gap: pull back so it reads
-	elseif t > shotUntil then
-		shotIdx = shotIdx % #ChaseCam.SHOT_ORDER + 1
-		cut(ChaseCam.SHOT_ORDER[shotIdx], IDLE_HOLD)
+		cut("wide", 2.4)                 -- you made a gap: pull back so it reads
+	elseif t > holdUntil then
+		cut("chase", 0)                  -- nothing is happening: come home
 	end
+	if dist and dist < 9 then wasClose = true end
 
 	local target, fov = ChaseCam.solve({
 		shot = shot,

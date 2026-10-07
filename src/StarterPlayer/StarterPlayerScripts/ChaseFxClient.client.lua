@@ -171,9 +171,15 @@ RunService.RenderStepped:Connect(function()
 				if m:GetAttribute("Lunging") == true then
 					if not lungeSeen[m] then
 						lungeSeen[m] = true
-						local cam = workspace.CurrentCamera
-						TweenService:Create(cam, TweenInfo.new(0.08), { FieldOfView = 62 }):Play()
-						task.delay(0.12, function() TweenService:Create(cam, TweenInfo.new(0.35), { FieldOfView = 70 }):Play() end)
+						--[[ Only when nothing else owns the lens. The chase camera
+							sets its own FOV every frame from speed and the shot;
+							tweening against that fights it every frame and reads
+							as the picture flickering. ]]
+						if not player:GetAttribute("ChaseCamOwns") then
+							local cam = workspace.CurrentCamera
+							TweenService:Create(cam, TweenInfo.new(0.08), { FieldOfView = 62 }):Play()
+							task.delay(0.12, function() TweenService:Create(cam, TweenInfo.new(0.35), { FieldOfView = 70 }):Play() end)
+						end
 					end
 				else
 					lungeSeen[m] = nil

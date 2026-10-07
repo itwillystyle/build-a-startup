@@ -306,16 +306,33 @@ function ChaseCam.follow(st, target, dt, mode)
 	st.vel = st.vel or Vector3.zero
 	st.roll = st.roll or 0
 
-	-- a spring with damping: accelerate at the mark, resist the overshoot
-	local toMark = target.Position - st.pos
-	if toMark.Magnitude > M.LAG_MAX then
-		-- never fall so far behind that the shot stops being about the player
-		st.pos = target.Position - toMark.Unit * M.LAG_MAX
-		toMark = target.Position - st.pos
+	--[[ A damped spring, INTEGRATED IN FIXED SUBSTEPS.
+
+		The first version advanced it once per frame with explicit Euler:
+		    vel += (toMark * ACCEL - vel * DAMP) * dt
+		At 60 fps, ACCEL * dt is 0.5 and that is stable. On a machine rendering
+		the chase at 15-20 fps it is 1.5 to 2.0, and past 1.0 an explicit spring
+		overshoots further on every step -- it does not settle, it diverges. The
+		camera vibrated, which read as the shots flickering when nothing was
+		cutting at all.
+
+		Substepping at a fixed 1/120 makes stability independent of frame rate,
+		which is the property this needs: the same chase has to look the same on
+		a slow machine and a fast one. ]]
+	local STEP = 1 / 120
+	local left = dt
+	while left > 0 do
+		local h = math.min(STEP, left)
+		left -= h
+		local toMark = target.Position - st.pos
+		if toMark.Magnitude > M.LAG_MAX then
+			-- never fall so far behind that the shot stops being about the player
+			st.pos = target.Position - toMark.Unit * M.LAG_MAX
+			toMark = target.Position - st.pos
+		end
+		st.vel += (toMark * M.ACCEL - st.vel * M.DAMP) * h
+		st.pos += st.vel * h
 	end
-	local accel = toMark * M.ACCEL - st.vel * M.DAMP
-	st.vel += accel * dt
-	st.pos += st.vel * dt
 
 	-- bank into the turn: sideways speed relative to where it is pointing
 	local look = target.LookVector
