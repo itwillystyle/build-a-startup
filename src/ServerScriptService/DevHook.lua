@@ -285,7 +285,7 @@ return function(core)
 					-- (run 1 drove back and forth for 3 minutes while saving)
 					local function aptAffordable()
 						local t = Econ and Econ.Apt and Econ.Apt.TIERS and Econ.Apt.TIERS[(s.apt or 0) + 1]
-						return t ~= nil and cash.Value >= t.price
+						return t ~= nil and cash.Value >= Econ.Apt.priceOf(s, t.id)
 					end
 					if key == "car" then
 						local cp = Econ.Cars and Econ.Cars.carPos and Econ.Cars.carPos(player)
