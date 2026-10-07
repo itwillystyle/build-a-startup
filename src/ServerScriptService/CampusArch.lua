@@ -1414,6 +1414,40 @@ function CampusArch.skinHQ(plot, level, w, d, h, parent)
 	end
 	shell.CastShadow = true
 	put(shell, shellName)
+
+	--[[ WHAT YOU STAND ON MUST BE WHAT YOU SEE.
+
+		The primitive shell is sized from CFG.HQ_LEVELS (level 1: 36 wide, h =
+		14, so the Roof box tops out at 14.5). The MESH that replaces it is
+		bigger in every direction -- HQ_1_Shell is 42 x 18.05 x 36 -- so the
+		kept Roof collision sat 3.5 studs BELOW the roof you can see. Standing
+		on the garage therefore put the character inside the visible roof: it
+		reads exactly as phasing into the floor, and because the garage sits in
+		wafer 1's courtyard right beside a storey floor at y = 14.0, you reach
+		it just by walking off the ring.
+
+		Nothing here is cosmetic. Collision that disagrees with the mesh is the
+		same defect class as a planter that cannot see a road: an authority
+		describing geometry that is not the geometry present. So the roof box
+		is moved to the mesh's own measured top and widened to its footprint,
+		and a mismatch anywhere else is reported rather than left silent. ]]
+	do
+		local meta = HQ_MESH[shellName]
+		local meshTop = meta.c.Y + meta.s.Y / 2
+		for _, p in ipairs(list) do
+			if p:IsA("BasePart") and p.Name == "Roof" then
+				local was = p.Position.Y + p.Size.Y / 2
+				p.Size = Vector3.new(meta.s.X, 1, meta.s.Z)
+				p.CFrame = g(meta.c.X, meshTop - 0.5, meta.c.Z)
+				if math.abs(was - meshTop) > 1 then
+					-- left as a warn, not a silent correction: if a future kit
+					-- changes shape this says so instead of hiding it
+					warn(("[SV] %s: roof collision was %.2f, mesh top is %.2f -- realigned")
+						:format(shellName, was, meshTop))
+				end
+			end
+		end
+	end
 	local glassName = ver .. level .. "_Glass"
 	local glass = HQ_MESH[glassName] and hqMesh(glassName)
 	if glass then
