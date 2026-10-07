@@ -71,10 +71,48 @@ local hidden = {}             -- ScreenGuis we switched off, to restore exactly
 
 -- the peacetime HUD has no business being up during this. Named rather than
 -- blanket-hidden so a gui we did not think about cannot vanish silently.
-local HUSH = { "Rail", "Guide", "ProductBar", "RightColumn", "WorkBar", "Quest" }
+--[[ Names read off a live chase, not guessed -- the first list missed every
+	one of them. What stays up: ChaseFx (the headhunter banner, the distance,
+	BOOST), ItemQuick (the panic items), Hud (the cash line). What goes: the
+	quest card, LAUNCH and its timer, the rail, the right column, the coach.
+	A product launch competing for attention while something is chasing you is
+	the clearest thing in the recording. ]]
+local HUSH = { "Quest", "Product", "Rail", "RightColumn", "Guide", "Coach", "RanksCorner" }
 
 local bars                    -- letterbox
 local label                   -- the rival's name
+
+--[[ THE DIRECTOR.
+
+	A filmed chase CUTS. It does not glide from one framing to another -- the
+	glide is what makes a game camera feel like a camera rather than an edit.
+	So a shot change snaps: the follower's position and velocity are thrown
+	away and rebuilt at the new set-up, which is exactly what a cut is.
+
+	Shots are chosen on BEATS, not on a metronome, so the edit means something:
+	the crouch tell cuts low to watch it coil, a boost cuts to the hero angle,
+	getting away cuts wide to show the gap you just made. Between beats it
+	rotates slowly so a long chase does not go static.
+
+	MIN_HOLD stops the edit becoming a strobe when beats arrive together --
+	below about a second, cutting reads as a glitch rather than a cut. ]]
+local MIN_HOLD = 1.1
+local IDLE_HOLD = 7.0
+
+local shot, shotUntil, shotIdx = "chase", 0, 1
+local wasClose = false        -- it was on you, so getting away is worth a cut
+local follow = {}             -- mode C's own position and velocity
+
+local function cut(to, hold)
+	if to == shot then return end
+	if os.clock() < shotUntil - (IDLE_HOLD - MIN_HOLD) then return end   -- too soon after the last cut
+	shot = to
+	shotUntil = os.clock() + (hold or IDLE_HOLD)
+	--[[ The cut itself: drop the follower and the eased CFrame so the next
+		frame builds the new angle from nothing. ]]
+	follow = {}
+	smoothed = nil
+end
 
 local function ensureStage()
 	if bars then return end
@@ -221,7 +259,10 @@ end
 -- ---------------------------------------------------------------- the frame
 RunService.RenderStepped:Connect(function(dt)
 	camera = workspace.CurrentCamera
-	mode = tostring(player:GetAttribute("ChaseCam") or "off")
+	--[[ C by default: a chase with the stock camera is the thing we are fixing.
+		Setting the attribute to "A", "B" or "off" still overrides, which is
+		how the comparison is run. ]]
+	mode = tostring(player:GetAttribute("ChaseCam") or "C")
 	local carrying = player:GetAttribute("Carrying") ~= nil
 
 	if mode == "off" or not carrying then
@@ -240,6 +281,8 @@ RunService.RenderStepped:Connect(function(dt)
 	if active and Cine and Cine.busy and Cine.busy() then release() return end
 	if not active then
 		if not takeCamera() then return end
+		shot, shotUntil, shotIdx, wasClose = "chase", os.clock() + IDLE_HOLD, 1, false
+		follow = {}
 		if mode == "B" then
 			entryUntil = os.clock() + BEATS.ENTRY
 			letterbox(true, 0.25)
@@ -258,7 +301,27 @@ RunService.RenderStepped:Connect(function(dt)
 	local speed = flat.Magnitude
 	local travel = speed > 2 and flat or hrp.CFrame.LookVector
 
+	--[[ THE BEATS, in priority order. Each one is a moment the edit should
+		notice; between them the shot rotates so a long chase does not sit on
+		one angle. ]]
+	local carrySpeed = player:GetAttribute("CarrySpeed") or 16
+	local boosting = speed > carrySpeed * 1.22
+	if wind then
+		cut("low", 1.6)                  -- it is coiling: get down there and watch
+	elseif boosting then
+		cut("hero", 1.4)                 -- you kicked: show it from the front
+	elseif dist and dist < 9 then
+		wasClose = true
+	elseif wasClose and dist and dist > 18 then
+		wasClose = false
+		cut("wide", 2.6)                 -- you made a gap: pull back so it reads
+	elseif t > shotUntil then
+		shotIdx = shotIdx % #ChaseCam.SHOT_ORDER + 1
+		cut(ChaseCam.SHOT_ORDER[shotIdx], IDLE_HOLD)
+	end
+
 	local target, fov = ChaseCam.solve({
+		shot = shot,
 		pos = hrp.Position,
 		travel = travel,
 		hunterPos = hunter and hunter.PrimaryPart and hunter.PrimaryPart.Position or nil,
@@ -270,9 +333,15 @@ RunService.RenderStepped:Connect(function(dt)
 	})
 
 	-- the entry beat eases from wherever the camera was; after it, it tracks
-	local k = 1 - math.exp(-dt / math.max(T.SMOOTH, 0.01))
-	if mode == "B" and t < entryUntil then k = 1 - math.exp(-dt / 0.06) end
-	smoothed = smoothed and smoothed:Lerp(target, k) or target
+	if mode == "C" then
+		-- C has mass: it lags, overshoots and banks. A cut reset `follow`, so
+		-- the first frame after one builds the angle from scratch.
+		smoothed = ChaseCam.follow(follow, target, dt, mode)
+	else
+		local k = 1 - math.exp(-dt / math.max(T.SMOOTH, 0.01))
+		if mode == "B" and t < entryUntil then k = 1 - math.exp(-dt / 0.06) end
+		smoothed = smoothed and smoothed:Lerp(target, k) or target
+	end
 	camera.FieldOfView = ChaseCam.lerp(camera.FieldOfView, fov, 1 - math.exp(-dt / 0.18))
 
 	-- the strike

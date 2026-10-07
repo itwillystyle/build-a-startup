@@ -134,6 +134,32 @@ ChaseCam.T = {
 	},
 }
 
+--[[ THE SHOTS.
+
+	A filmed chase is not one camera, it is a handful of set-ups cut between.
+	Each entry here is an offset from whatever `solve` already worked out, so
+	every shot inherits the visibility constraints -- the hunter stays framed
+	and the player never leaves screen no matter which one is running.
+
+	The rule they all obey: forward stays INTO the screen. A true side-on
+	tracking shot looks superb and makes the player swerve, because the
+	direction they push on the stick stops matching the direction they move.
+	So "side" here means a hard three-quarter, not a profile.
+
+	flip = the camera swaps to the other shoulder. That alone reads as a cut,
+	costs nothing, and cannot disorient, because the travel direction is
+	unchanged.
+]]
+ChaseCam.SHOTS = {
+	chase  = { dist = 0,   height = 0,    yaw = 0,   fov = 0,  flip = false },
+	low    = { dist = -3,  height = -1.4, yaw = 4,   fov = 8,  flip = false },  -- on the deck, road screaming past
+	wide   = { dist = 5,   height = 2.2,  yaw = 10,  fov = -6, flip = false },  -- pulled back, you see the gap
+	flank  = { dist = -1,  height = -0.6, yaw = 18,  fov = 4,  flip = true },   -- other shoulder: the cut you feel most
+	hero   = { dist = -4,  height = -1.0, yaw = -26, fov = 10, flip = true },   -- front three-quarter, for a boost
+}
+
+ChaseCam.SHOT_ORDER = { "chase", "low", "flank", "wide" }
+
 --[[ WHY THE WINDUP WIDENS INSTEAD OF TIGHTENING.
 
 	The first version punched the lens IN on the crouch, because that is the
@@ -187,7 +213,12 @@ function ChaseCam.solve(s)
 		side = (toH:Dot(right) >= 0) and 1 or -1
 	end
 
-	local yawDeg = lerp(T.YAW_FAR, T.YAW_NEAR, fear)
+	--[[ The shot is an offset on everything below, so each set-up inherits the
+		visibility constraints rather than having to re-earn them. ]]
+	local shot = ChaseCam.SHOTS[s.shot or "chase"] or ChaseCam.SHOTS.chase
+	if shot.flip then side = -side end
+
+	local yawDeg = lerp(T.YAW_FAR, T.YAW_NEAR, fear) + (shot.yaw or 0)
 	if s.mode == "B" and s.windup then yawDeg += T.YAW_WINDUP end
 
 	local back = CFrame.Angles(0, math.rad(yawDeg * side), 0) * (-travel)
@@ -195,7 +226,12 @@ function ChaseCam.solve(s)
 	local distBack = lerp(M and M.DIST_FAR or T.DIST_FAR, M and M.DIST_NEAR or T.DIST_NEAR, fear)
 	-- never let the hunter get between the camera and the player
 	if s.dist then distBack = math.clamp(s.dist + T.CLEAR, distBack, T.DIST_MAX) end
+	distBack = math.max(4, distBack + (shot.dist or 0))
 	local height = lerp(M and M.HEIGHT_FAR or T.HEIGHT_FAR, M and M.HEIGHT_NEAR or T.HEIGHT_NEAR, fear)
+	--[[ Never below 1.2: a camera that dips under the kerb clips through the
+		road and shows the underside of the world, which no amount of drama
+		is worth. ]]
+	height = math.max(1.2, height + (shot.height or 0))
 
 	-- and slide off the centre line, so it passes beside the lens, not through it
 	local right = Vector3.new(-travel.Z, 0, travel.X)
@@ -233,6 +269,7 @@ function ChaseCam.solve(s)
 
 	local fov = T.FOV_BASE + T.FOV_SPEED * math.clamp((s.speed or 0) / math.max(s.carrySpeed or 16, 1), 0, 1)
 	if s.mode == "B" and s.windup then fov += T.FOV_WINDUP end
+	fov = math.clamp(fov + (shot.fov or 0), 55, 100)
 
 	return CFrame.lookAt(at, look), fov, fear
 end
