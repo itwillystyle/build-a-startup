@@ -1641,7 +1641,6 @@ local function refreshObjective(player)
 				at = at or posOf(plot.hqPad)
 			end
 			key, text, pos, sub = jt.key, jt.title, at, jt.sub
-			if jt.key == "apartment" and st.need then cost = st.need.price end
 			-- 12 s after a level-up: the investor's text must not land on the level-up banner
 			if jt.key == "seriesa" and Econ and Econ.Phone and Econ.Phone.seriesA and os.clock() - (s.seriesAt or -1e9) > 90
 				and os.clock() - (plot.hqUpAt or -1e9) > 12 then

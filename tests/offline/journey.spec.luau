@@ -1,27 +1,15 @@
 -- journey.spec.luau: the guided core loop (v4.3), run outside Studio.
 -- Cases come from his 29 Sep Wilz recording (see Journey.lua header).
 local J = require("../../src/ServerScriptService/Journey")
-local P = require("../../src/ServerScriptService/Progression")
 local E = require("../../src/ServerScriptService/RoomEconomy")
 
 local T = {}
 local function test(name, fn) table.insert(T, { name = name, fn = fn }) end
 
--- Journey still understands a `need` payload (its apartment branch is exercised below),
--- but production no longer sends one: homes stopped gating HQ levels. These are the
--- old gates, kept test-local so the branch stays covered until it is removed.
-local GATE = { [3] = 1, [4] = 2, [5] = 3 }
-local function needFor(hq)
-	local id = GATE[hq + 1] or 0
-	if id == 0 then return nil end
-	local a = P.APARTMENTS[id]
-	return { tier = a.id, name = a.name:sub(1, 1) .. a.name:sub(2):lower(), price = a.price }
-end
 local function st(over)
 	local s = { hq = 1, shipped = true, staff = 1, cap = 4, cash = 0, rate = 100, apt = 0, listed = false,
 		hasCar = false, jr = {}, tips = {}, nextHqCost = E.HQ_COST[2], nextHqName = "NEXT" }
 	for k, v in over or {} do s[k] = v end
-	s.need = s.need == false and nil or (s.need or needFor(s.hq))
 	s.nextHqCost = E.HQ_COST[s.hq + 1]
 	return s
 end
@@ -41,27 +29,37 @@ test("the company car is followed by a task (it used to be followed by nothing)"
 	assert(t and t.key == "drive" and t.target == "residences", "expected the drive task, got " .. tostring(t and t.key))
 end)
 
-test("the Studio is the goal as soon as it's affordable", function()
-	local t = J.task(st({ hq = 2, hasCar = true, cash = 25000, jr = { drove = true, res = true } }))
-	assert(t and t.key == "apartment" and t.title == "Buy a Studio", "got " .. tostring(t and t.title))
+test("homes do not gate the guide: at HQ 2 and HQ 3, rich or poor, no task is ever the apartment", function()
+	for hq = 2, 3 do
+		for _, cash in { 0, 25000, 160000, 5e6 } do
+			for _, apt in { 0, 1, 2 } do
+				local t = J.task(st({ hq = hq, apt = apt, cash = cash, hasCar = true, geniusDone = true, vipDone = true,
+					jr = { drove = true, res = true } }))
+				assert(not (t and t.key == "apartment"), ("HQ %d, $%s, apt %d sent the player to a home"):format(hq, cash, apt))
+			end
+		end
+	end
 end)
 
-test("the Loft is the goal the moment it's affordable at HQ 3 (video: 3 idle minutes)", function()
-	local t = J.task(st({ hq = 3, apt = 1, cash = 160000, jr = { drove = true, res = true }, geniusDone = true }))
-	assert(t and t.title == "Buy a Loft", "got " .. tostring(t and t.title))
-end)
-
-test("the level's own task comes before the next apartment (the banner promised it)", function()
+test("the level's own task is still offered when rich (the banner promised it)", function()
 	local t = J.task(st({ hq = 3, apt = 1, cash = 5e6, staff = 2, cap = 4, geniusAvailable = true, vipDone = true, jr = { drove = true, res = true } }))
 	assert(t and t.key == "genius", "rich at HQ 3: the Genius first, got " .. tostring(t and t.key))
 end)
 
-test("the big goal always names the apartment the next HQ needs", function()
-	local m = J.milestone(st({ hq = 3, apt = 1 }))
-	assert(m.title:find("HQ 4", 1, true) and m.sub:find("Loft", 1, true), m.title .. " / " .. m.sub)
-	assert(m.cost == E.HQ_COST[4] + 150000, "cost should include the Loft: " .. tostring(m.cost))
-	m = J.milestone(st({ hq = 3, apt = 2 }))
-	assert(not m.sub:find("Loft", 1, true) and m.cost == E.HQ_COST[4], "an owned Loft is not asked for again")
+test("the big goal is the bare HQ price, whatever homes you own", function()
+	for hq = 2, 3 do
+		for _, apt in { 0, 1, 2, 3 } do
+			local m = J.milestone(st({ hq = hq, apt = apt }))
+			assert(m.title:find("HQ " .. (hq + 1), 1, true), m.title)
+			assert(m.cost == E.HQ_COST[hq + 1], ("HQ %d, apt %d: cost %s, want %s"):format(hq, apt, tostring(m.cost), tostring(E.HQ_COST[hq + 1])))
+			assert(not m.sub:find("Needs", 1, true), "no home requirement in the goal text: " .. m.sub)
+		end
+	end
+end)
+
+test("the wafers big goal is the bare floor cost too", function()
+	local m = J.milestone(st({ hq = 2, level = 3, msLevel = 5, msCost = 12345, apt = 0 }))
+	assert(m.cost == 12345 and not m.sub:find("Needs", 1, true), "got " .. tostring(m.cost) .. " / " .. m.sub)
 end)
 
 test("there is ALWAYS a big goal (HQ 1-5, listed or not)", function()
@@ -91,8 +89,6 @@ test("the big goal hides when the quest card already says the same step", functi
 	assert(J.sameStep("gopublic", ipo), "GO PUBLIC twice")
 	local hq = J.milestone(st({ hq = 3, apt = 2 }))
 	assert(J.sameStep("hq", hq), "HQ upgrade quest + HQ goal")
-	-- different steps keep both cards: saving for the Loft is not the HQ upgrade itself
-	assert(not J.sameStep("apartment", hq), "the apartment quest keeps the HQ goal as context")
 	assert(not J.sameStep("hire", spin) and not J.sameStep(nil, spin) and not J.sameStep("spin", nil), "no false positives")
 end)
 
@@ -183,7 +179,6 @@ test("a fresh player walked from HQ 1 to the IPO never lacks a goal", function()
 	local s = st({ hq = 1, hasCar = false })
 	for hq = 1, 5 do
 		s.hq = hq
-		s.need = needFor(hq)
 		s.nextHqCost = E.HQ_COST[hq + 1]
 		s.hasCar = hq >= 2
 		local task, mile = J.task(s), J.milestone(s)
