@@ -117,4 +117,16 @@ test("homePrice refuses a tier that does not exist", function()
 	assert(P.homePrice(nil, 4e6) == 0, "tier nil should return 0")
 end)
 
+test("the money bonus is gone", function()
+	for _, t in ipairs(P.APARTMENTS) do
+		assert(t.bonus == nil, t.name .. " still carries a bonus")
+	end
+end)
+
+test("the authored price field is gone: price comes from the spin-off", function()
+	for _, t in ipairs(P.APARTMENTS) do
+		assert(t.price == nil, t.name .. " still carries a fixed price")
+	end
+end)
+
 return T

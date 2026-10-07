@@ -1234,7 +1234,6 @@ local function recompute(player)
 	local plot = plotOf(player)
 	s.hqLevel = plot and plot.hq and plot.hq.level or 1
 	local F = mult * hqMultOf(plot) * spinMultOf(s) * milestoneMultOf(s) * ((Econ and Econ.indexMult) and Econ.indexMult(s.index) or 1)
-		* ((Econ and Econ.Apt) and Econ.Apt.mult(s) or 1)
 	local wageTotal = wages * hqMultOf(plot)
 	s.wages = wageTotal
 	s.rate = math.max(0, math.floor(base * F - wageTotal))   -- never negative: absence is never punished

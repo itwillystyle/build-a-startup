@@ -105,11 +105,11 @@ end
 
 -- ---------------------------------------------------------------- apartments
 P.APARTMENTS = {
-	{ id = 1, key = "studio", name = "STUDIO", price = 20000, minHQ = 2, bonus = 0.10,
+	{ id = 1, key = "studio", name = "STUDIO", minHQ = 2,
 	  blurb = "A place of your own. Floor-to-ceiling windows." },
-	{ id = 2, key = "loft", name = "LOFT", price = 150000, minHQ = 3, bonus = 0.10,
+	{ id = 2, key = "loft", name = "LOFT", minHQ = 3,
 	  blurb = "Room to host: a kitchen island, a real bedroom." },
-	{ id = 3, key = "penthouse", name = "PENTHOUSE", price = 2000000, minHQ = 4, bonus = 0.10,
+	{ id = 3, key = "penthouse", name = "PENTHOUSE", minHQ = 4,
 	  blurb = "The top of the tower. An indoor pool. A view of your valley." },
 }
 

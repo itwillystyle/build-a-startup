@@ -90,7 +90,7 @@ local function showMenu(st)
 		Instance.new("UICorner", band).CornerRadius = UDim.new(0, 12)
 		UIKit.art(c, "key", 46, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 14) })
 		UIKit.label(c, t.name, 22, UIKit.CARD_TEXT, { Size = UDim2.new(1, -16, 0, 26), Position = UDim2.new(0, 8, 0, 66), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.HEAD)
-		UIKit.label(c, ("+%d%% money, for good"):format(t.bonus or 10), 16, UIKit.GREEN_DEEP, {
+		UIKit.label(c, "Keeps your best people when you start over", 16, UIKit.GREEN_DEEP, {
 			Size = UDim2.new(1, -16, 0, 18), Position = UDim2.new(0, 8, 0, 94), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.BOLD)
 		UIKit.label(c, t.blurb or "", 14, UIKit.INK_SOFT, {
 			Size = UDim2.new(1, -20, 0, 32), Position = UDim2.new(0, 10, 0, 134), TextWrapped = true,
@@ -183,7 +183,7 @@ cinema.OnClientEvent:Connect(function(e)
 			Cine.play({
 				{ pos = p0 + Vector3.new(-6, 0, 0), look = p0 + fwd * 30, t = 0 },
 				{ pos = p0 + Vector3.new(2, 0.5, 0) + fwd * 6, look = p0 + fwd * 34 + Vector3.new(6, -2, 0), t = 2.4,
-					title = e.name or "HOME", sub = ("+%d%% money for good"):format(e.bonus or 10) },
+					title = e.name or "HOME", sub = "Your people have somewhere to land" },
 			}, { fov = 62, hold = 0.6 })
 		else
 			Cine.handBack()
