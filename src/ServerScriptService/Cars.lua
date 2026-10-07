@@ -219,6 +219,11 @@ function Cars.spawn(player, cf)
 	local m = build(player, BY_ID[s.car], cf)
 	spawned[player.UserId] = m
 	player:SetAttribute("CarId", s.car)
+	-- the HUD names what you are driving; publishing it here keeps the dealer
+	-- table the single source of those names
+	local entry = BY_ID[s.car]
+	player:SetAttribute("CarName", entry and entry.name or "COMPANY CAR")
+	player:SetAttribute("CarTop", entry and entry.speed or 64)
 	return m
 end
 

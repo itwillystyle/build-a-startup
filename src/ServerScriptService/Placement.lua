@@ -133,12 +133,36 @@ function Placement.isSoft(part)
 	return c.G > c.R + 0.06 and c.G > c.B + 0.06
 end
 
+--[[ A ROAD is a surface with vehicles on it, and the rule for greenery is
+	stricter there than anywhere else: a branch over a FOOTPATH is what a
+	street is supposed to look like, while a branch over a ROAD is a car
+	driving through a tree. So trunks are banned from all paving and crowns
+	are banned only from roads. ]]
+function Placement.isRoad(part)
+	if CollectionService:HasTag(part, "SVRoad") then return true end
+	if part.Material == Enum.Material.Asphalt then return true end
+	-- the invisible deck under the decorative city tiles
+	return part.Transparency > 0.9 and part.CanCollide
+		and part.Size.Y <= 2 and part.Size.X * part.Size.Z >= 600
+end
+
 function Placement.isHardSurface(part)
 	--[[ The ground is not paving. ValleyGen tags what it builds as terrain,
 		because shape alone cannot separate a car park from the field it was
 		poured on: both are broad, thin, horizontal and not green. ]]
 	if CollectionService:HasTag(part, "SVTerrain") then return false end
-	if part.Transparency > 0.9 then return false end
+	--[[ AN INVISIBLE SURFACE IS STILL A SURFACE.
+
+		Skipping transparent parts hid the one that matters most: the Kenney
+		city tiles are decoration with no collision, and the thing cars
+		actually drive on is RoadDeck -- 114 x 1 x 50, Transparency 1.00. So
+		the checker could not see the road, and 99 trees ended up with their
+		trunks standing in it while the pass reported "0 left".
+
+		Third time this project has been bitten by filtering on visibility:
+		the collision walls in the furniture check, the shell glass, and now
+		the road. If it is collidable, something stands on it, and it counts. ]]
+	if part.Transparency > 0.9 and not part.CanCollide then return false end
 	local s = part.Size
 	if s.Y > MAX_THICK then return false end
 	if s.X * s.Z < MIN_AREA then return false end
@@ -153,6 +177,7 @@ function Placement.addSurface(part)
 	local e = {
 		cf = part.CFrame, hx = s.X / 2, hz = s.Z / 2,
 		top = part.Position.Y + s.Y / 2, part = part,
+		road = Placement.isRoad(part),
 	}
 	table.insert(surfaces, e)
 	local i = #surfaces
@@ -249,6 +274,31 @@ function Placement.standingIn(x, z, y)
 	return best, bestDepth
 end
 
+--[[ Does this canopy reach out over a road? Same grid as standingIn, but the
+	test is the crown circle against the road rectangle rather than the trunk
+	centre against any paving. ]]
+function Placement.overRoad(x, z, r, y)
+	local reach = math.ceil(r / CELL)
+	local gx, gz = math.floor(x / CELL), math.floor(z / CELL)
+	for ix = gx - reach, gx + reach do
+		for iz = gz - reach, gz + reach do
+			local cell = surfGrid[ix .. "," .. iz]
+			if cell then
+				for _, i in ipairs(cell) do
+					local sf = surfaces[i]
+					if sf.road and ((not y) or (sf.top >= y - 8 and sf.top <= y + 10)) then
+						local lp = sf.cf:PointToObjectSpace(Vector3.new(x, sf.cf.Position.Y, z))
+						local dx = math.abs(lp.X) - sf.hx
+						local dz = math.abs(lp.Z) - sf.hz
+						if dx <= r and dz <= r then return sf, math.max(r - math.max(dx, dz), 0) end
+					end
+				end
+			end
+		end
+	end
+	return nil, 0
+end
+
 --[[ The one question a builder asks before planting: may I? Claims the spot
 	on success, so two callers can never both be told yes for the same
 	ground. `hard` lets a caller say "this prop belongs on paving" (a bollard,
@@ -273,8 +323,14 @@ function Placement.nudge(x, z, r, opts)
 		for k = 0, 7 do
 			local a = (k / 8) * math.pi * 2 + step * 0.4
 			local nx, nz = x + math.cos(a) * d, z + math.sin(a) * d
+			--[[ The destination has to satisfy BOTH rules, or the move is not a
+				fix. Checking only standingIn is why the final pass reported
+				"68 moved, 36 left": a tree with its canopy over the road was
+				relocated to ground that was clear of paving and still had its
+				canopy over the road. ]]
 			if Placement.clearOfProps(nx, nz, r)
-				and not Placement.standingIn(nx, nz, opts.y) then
+				and not Placement.standingIn(nx, nz, opts.y)
+				and not Placement.overRoad(nx, nz, r, opts.y) then
 				return nx, nz
 			end
 		end
@@ -444,6 +500,12 @@ function Placement.violations(roots)
 				local surf, depth = Placement.standingIn(g.pos.X, g.pos.Z, g.base)
 				if surf and not g.inst:GetAttribute("SVPitted") then
 					table.insert(bad, { g = g, pen = depth, surf = surf })
+				else
+					-- trunk is clear, but is the canopy hanging over the road?
+					local road, over = Placement.overRoad(g.pos.X, g.pos.Z, g.r, g.base)
+					if road then
+						table.insert(bad, { g = g, pen = over, surf = road, crown = true })
+					end
 				end
 			end
 		end
@@ -459,7 +521,7 @@ function Placement.resolve(roots)
 	for _, v in ipairs(Placement.violations(roots)) do
 		local g, surf = v.g, v.surf
 		if g.inst.Parent then
-			if v.pen <= PIT_MAX then
+			if v.pen <= PIT_MAX and not v.crown then
 				Placement.pit(g.inst, surf, g.r * 0.5)
 				pitted += 1
 			else
