@@ -6,8 +6,8 @@ SiliconCore builds a plain `st` table from the session every second and asks:
   Journey.task(st)       the story task that overrides the "cheapest next buy"
                          guide right now, or nil
   Journey.milestone(st)  the BIG goal, always shown under the quest card
-                         (the next HQ level with the apartment it needs, then
-                         GO PUBLIC, then the spin-off)
+                         (the next HQ level, then GO PUBLIC, then the
+                         spin-off)
   Journey.tip(st)        the next one-time HUD explanation (LAUNCH, BAG, INDEX,
                          RANKS, PHONE), or nil
   Journey.LADDER[level]  what each HQ level unlocks: ONE headline + the task
@@ -21,7 +21,6 @@ that uses it, and the next big goal is never off screen.
 
 st fields (all plain values):
   hq, shipped, staff, cap, cash, rate, apt, listed, spinCost, nextMult, nextHqCost, nextHqName,
-  need = { tier, name, price } (the apartment the NEXT HQ level needs, from Progression)
   hasCar, seated, nearRes, vipStanding, vipDone, geniusAvailable, geniusDone,
   seriesA, productReady, launched, items, indexCount, dailyReady, carrying,
   jr = { drove, res } and tips = { [id] = true } ]]
@@ -35,7 +34,7 @@ J.IPO_RAISE = 60   -- GO PUBLIC raises this many seconds of income (a moment, no
 -- unlock is a new VERB, not a bigger number). Level 1 is the garage opening.
 J.LADDER = {
 	[2] = { headline = "COMPANY CAR", task = "Drive downtown to The Residences",
-		blurb = "Your first home is downtown. It unlocks HQ 3." },
+		blurb = "Your company car is parked at the lot. Take it downtown." },
 	[3] = { headline = "GENIUS HIRES", task = "Recruit your first GENIUS",
 		blurb = "The rarest people stand at the far end of the street." },
 	[4] = { headline = "SERIES A", task = "Close your Series A on the PHONE",
@@ -98,13 +97,6 @@ function J.task(st)
 	if hq == 4 and not st.seriesA then
 		return { key = "seriesa", title = "Close your Series A", sub = "Open your PHONE: a big investor texted", target = "phone" }
 	end
-	-- then the apartment the NEXT level needs, the moment you can afford it (after this
-	-- level's own story task, which the level-up banner just promised)
-	local need = st.need               -- { tier, name, price } the next HQ needs, or nil
-	if need and (st.apt or 0) < need.tier and (st.cash or 0) >= need.price then
-		return { key = "apartment", title = ("Buy a %s"):format(need.name),
-			sub = st.nearRes and "Sales desk, in the lobby" or "The Residences, downtown", target = "residences" }
-	end
 	return nil
 end
 
@@ -114,21 +106,14 @@ function J.milestone(st)
 	local hq = st.hq or 1
 	-- v4.6 THE WAFERS: the big goal is the next milestone LEVEL (5 / 9 / 13 / 18, then the top of the blueprint)
 	if st.msLevel then
-		local need = st.need
-		local owns = not need or (st.apt or 0) >= need.tier
-		local cost = (st.msCost or 0) + (owns and 0 or need.price)
+		local cost = st.msCost or 0
 		local head = (hq < 5) and J.headline(hq + 1, st) or "GO PUBLIC"
-		local sub = owns and ("Build %d more floor%s: %s"):format(st.msLevel - (st.level or 1), (st.msLevel - (st.level or 1)) == 1 and "" or "s", money(st.msCost or 0))
-			or ("Needs a %s (%s) + the floors"):format(need.name, money(need.price))
+		local sub = ("Build %d more floor%s: %s"):format(st.msLevel - (st.level or 1), (st.msLevel - (st.level or 1)) == 1 and "" or "s", money(cost))
 		return { title = ("LEVEL %d: %s"):format(st.msLevel, head or "NEXT"), sub = sub, cost = cost, unlock = head }
 	end
 	if hq < 5 and st.nextHqCost then
-		local need = st.need
-		local owns = not need or (st.apt or 0) >= need.tier
-		local cost = st.nextHqCost + (owns and 0 or need.price)
-		local sub = owns and ("Upgrade your HQ: " .. money(st.nextHqCost))
-			or ("Needs a %s (%s) + %s"):format(need.name, money(need.price), money(st.nextHqCost))
-		return { title = ("HQ %d: %s"):format(hq + 1, st.nextHqName or "NEXT HQ"), sub = sub, cost = cost,
+		return { title = ("HQ %d: %s"):format(hq + 1, st.nextHqName or "NEXT HQ"),
+			sub = "Upgrade your HQ: " .. money(st.nextHqCost), cost = st.nextHqCost,
 			unlock = J.headline(hq + 1, st) }
 	end
 	if not st.listed then
