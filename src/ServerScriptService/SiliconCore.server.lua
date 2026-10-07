@@ -2907,14 +2907,14 @@ spinOff = function(player, plot)
 			table.insert(eligible, { id = plot.spinSerial, talent = k.talent,
 				name = (k.entry.rig and k.entry.rig:GetAttribute("PersonName")) or "someone" })
 		end
-		offer.choose = #eligible > slots      -- a real decision is pending: only the card may confirm it
+		offer.choose = slots > 0 and #eligible > slots      -- a real decision is pending: only the card may confirm it
 		plot.spinOffer = offer
 		if Econ and Econ.celebrate then
 			Econ.celebrate:FireClient(player, { kind = "spinAsk", cost = cost, from = spinMultOf(s), to = nextSpinMultOf(s),
 				keep = math.min(#eligible, slots), slots = slots, eligible = eligible, number = (s.spinoffs or 0) + 1 })
 		end
 		task.delay(30.5, function()
-			if plot.spinArmed and os.clock() - plot.spinArmed >= 30 then plot.spinArmed = nil; refreshHqPad(plot) end
+			if plot.spinArmed and os.clock() - plot.spinArmed >= 30 then plot.spinArmed = nil; plot.spinOffer = nil; refreshHqPad(plot) end
 		end)
 		return
 	end
