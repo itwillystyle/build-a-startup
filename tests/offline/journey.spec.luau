@@ -189,4 +189,57 @@ test("a fresh player walked from HQ 1 to the IPO never lacks a goal", function()
 	end
 end)
 
+-- the home-keeper suggestion: a hint when a spin-off would lose people, never a gate
+local function keeperSt(over)
+	local s = st({ hq = 5, listed = true, cash = 5e6, spinCost = 4e6, apt = 0, geniusDone = true, vipDone = true, hasCar = true,
+		jr = { drove = true, res = true }, keepers = 3, keepSlots = 0,
+		aptNext = { name = "STUDIO", price = 40000, slots = 1 } })
+	for k, v in over or {} do s[k] = v end
+	return s
+end
+
+test("home suggestion: fires when a spin-off is near, people would be lost, and the next home is affordable", function()
+	local t = J.task(keeperSt())
+	assert(t and t.key == "apartment", "expected the home task, got " .. tostring(t and t.key))
+	assert(t.target == "residences", "it must point at the sales desk downtown")
+	assert(t.title == "Buy a Studio", t.title)
+	assert(t.sub:find("1", 1, true), "it names how many people the home keeps: " .. t.sub)
+	-- "in reach" is half the spin-off cost, not just affordable
+	t = J.task(keeperSt({ cash = 2.1e6 }))
+	assert(t and t.key == "apartment", "close to the spin-off still counts")
+end)
+
+test("home suggestion: silent when the seats already cover everyone who qualifies", function()
+	for keepers = 0, 3 do
+		local t = J.task(keeperSt({ keepers = keepers, keepSlots = 3 }))
+		assert(not (t and t.key == "apartment"), "keepers " .. keepers .. " vs 3 seats still suggested a home")
+	end
+	assert(not (J.task(keeperSt({ keepers = 1, keepSlots = 1 })) or {}).key, "1 person, 1 seat: nothing to say")
+end)
+
+test("home suggestion: silent when nobody qualifies, the top home is owned, or it is not affordable", function()
+	local function isHome(t) return t and t.key == "apartment" end
+	assert(not isHome(J.task(keeperSt({ keepers = 0 }))), "nobody to keep")
+	assert(not isHome(J.task(keeperSt({ aptNext = false }))), "top home owned (no next home)")
+	assert(not isHome(J.task(keeperSt({ cash = 30000, spinCost = 40000 }))), "cannot afford the home")
+	assert(not isHome(J.task(keeperSt({ aptNext = { name = "LOFT", price = 3e6, slots = 3 }, cash = 2.5e6 }))), "loft costs more than cash")
+end)
+
+test("home suggestion: silent when the spin-off is far off or the company is not listed", function()
+	local function isHome(t) return t and t.key == "apartment" end
+	assert(not isHome(J.task(keeperSt({ cash = 1e6 }))), "under half the spin-off cost: not in reach")
+	local t = J.task(keeperSt({ listed = false }))
+	assert(not isHome(t), "unlisted: GO PUBLIC comes first, got " .. tostring(t and t.key))
+end)
+
+test("home suggestion never outranks the level's own story task, and old callers (no fields) never see it", function()
+	local t = J.task(keeperSt({ hq = 3, listed = true, geniusDone = false, geniusAvailable = true }))
+	assert(t and t.key == "genius", "the Genius first, got " .. tostring(t and t.key))
+	for hq = 1, 5 do
+		local old = J.task(st({ hq = hq, listed = true, cash = 9e9, spinCost = 4e6, apt = 0, hasCar = true,
+			geniusDone = true, vipDone = true, jr = { drove = true, res = true } }))
+		assert(not (old and old.key == "apartment"), "a snapshot without the keeper fields suggested a home at HQ " .. hq)
+	end
+end)
+
 return T

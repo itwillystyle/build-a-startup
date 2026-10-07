@@ -1564,6 +1564,11 @@ local function journeyState(player, s, plot)
 	local items = player:GetAttribute("Items")
 	local cap = capacityOf(player)
 	local gen = Econ and Econ.Drop and Econ.Drop.candidate and Econ.Drop.candidate(player, "genius", cash)
+	local aptNext
+	do   -- the next home up (the guide suggests it only when a spin-off would lose people)
+		local tier = Econ and Econ.Apt and Econ.Apt.TIERS and Econ.Apt.TIERS[(s.apt or 0) + 1]
+		if tier then aptNext = { name = tier.name, price = Econ.Apt.priceOf(s, tier.id), slots = Prog.keepSlots(tier.id) } end
+	end
 	local wlevel, wcap, msLevel, msCost, atCap
 	if Econ and Econ.WAFERS and plot.wafer then   -- v4.6
 		local WP = Econ.Wafers.Plan
@@ -1583,6 +1588,8 @@ local function journeyState(player, s, plot)
 		apt = s.apt or 0, listed = s.listed == true, spinCost = spinoffCostOf(s),
 		nextMult = (string.format("%.1f", nextSpinMultOf(s)):gsub("%.0$", "")),
 		nextHqCost = nxt and hqCostOf(s, lv + 1) or nil, nextHqName = nxt and nxt.name or nil,
+		keepers = #Prog.rankKeepers(s.rigs, (Econ and Econ.KEEP_TALENT) or 3), keepSlots = Prog.keepSlots(s.apt),
+		aptNext = aptNext,
 		hasCar = (Econ and Econ.Cars and Econ.Cars.hasCar(player)) and true or false, seated = seated, nearRes = nearRes,
 		vipStanding = (Econ and Econ.Drop and Econ.Drop.hasVip and Econ.Drop.hasVip(player)) or false,
 		vipDone = (s.vipDay or 0) ~= 0, geniusAvailable = gen ~= nil and (s.staff or 0) < cap, geniusPos = gen and gen.pos or nil,
@@ -2905,6 +2912,7 @@ spinOff = function(player, plot)
 			plot.spinSerial = (plot.spinSerial or 0) + 1
 			offer.byId[plot.spinSerial] = k.entry
 			table.insert(eligible, { id = plot.spinSerial, talent = k.talent,
+				talentName = (CFG.TALENT[k.talent] or CFG.TALENT[1]).name,
 				name = (k.entry.rig and k.entry.rig:GetAttribute("PersonName")) or "someone" })
 		end
 		offer.choose = slots > 0 and #eligible > slots      -- a real decision is pending: only the card may confirm it

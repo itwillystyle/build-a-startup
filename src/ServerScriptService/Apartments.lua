@@ -424,7 +424,7 @@ local function statusFor(player)
 		if owned >= t.id then state = "owned"
 		elseif t.id > owned + 1 then state = "locked"; why = "Buy the " .. Apartments.TIERS[t.id - 1].name .. " first"
 		elseif hq < t.minHQ then state = "locked"; why = "Unlocks at HQ level " .. t.minHQ end
-		table.insert(list, { id = t.id, name = t.name, price = Apartments.priceOf(s, t.id), blurb = t.blurb, state = state, why = why })
+		table.insert(list, { id = t.id, name = t.name, price = Apartments.priceOf(s, t.id), blurb = t.blurb, slots = Prog.keepSlots(t.id), state = state, why = why })
 	end
 	return { tiers = list, apt = owned, cash = api.cash(player) and api.cash(player).Value or 0 }
 end
