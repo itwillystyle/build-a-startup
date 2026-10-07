@@ -753,6 +753,7 @@ local function spinAsk(e)
 		local layout = Instance.new("UIGridLayout")
 		layout.CellSize = UDim2.new(0, 128, 0, 38)
 		layout.CellPadding = UDim2.new(0, 6, 0, 6)
+		layout.SortOrder = Enum.SortOrder.LayoutOrder
 		layout.Parent = strip
 		local count = UIKit.label(body, "", 14, UIKit.INK_SOFT,
 			{ Position = UDim2.new(0, 0, 0, 236), Size = UDim2.new(1, 0, 0, 18) }, UIKit.BODY)
@@ -766,9 +767,11 @@ local function spinAsk(e)
 				UIKit.setButtonColor(b, picked[id] and UIKit.GREEN or UIKit.MUTED)
 			end
 		end
-		for _, who in ipairs(eligible) do
-			local chip = UIKit.button(strip, ("%s  -  %d"):format(who.name, who.talent), UIKit.MUTED,
-				{ Name = "Keep_" .. who.id }, { textSize = 14 })
+		for i, who in ipairs(eligible) do
+			-- LayoutOrder = the server's best-first rank (a grid sorts by Name on ties, and
+			-- "Keep_10" < "Keep_2"), so the green pre-selected chips are the best, in order
+			local chip = UIKit.button(strip, ("%s - %s"):format(who.name, who.talentName or "Star"), UIKit.MUTED,
+				{ Name = "Keep_" .. who.id, LayoutOrder = i }, { textSize = 14 })
 			chips[who.id] = chip
 			chip.MouseButton1Click:Connect(function()
 				if picked[who.id] then

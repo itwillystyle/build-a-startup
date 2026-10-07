@@ -21,6 +21,7 @@ that uses it, and the next big goal is never off screen.
 
 st fields (all plain values):
   hq, shipped, staff, cap, cash, rate, apt, listed, spinCost, nextMult, nextHqCost, nextHqName,
+  keepers, keepSlots, aptNext = { name, price, slots } (the home-keeper suggestion, see the end of task()),
   hasCar, seated, nearRes, vipStanding, vipDone, geniusAvailable, geniusDone,
   seriesA, productReady, launched, items, indexCount, dailyReady, carrying,
   jr = { drove, res } and tips = { [id] = true } ]]
@@ -28,6 +29,7 @@ st fields (all plain values):
 local J = {}
 
 J.IPO_RAISE = 60   -- GO PUBLIC raises this many seconds of income (a moment, not a skip)
+J.SPIN_NEAR = 0.5  -- a spin-off is "in reach" at this share of its cost (the home is suggested then, not at the last second)
 
 -- ---------------------------------------------------------------- the ladder
 -- One headline per level, each with a task you do right away (Tizzy: every
@@ -96,6 +98,21 @@ function J.task(st)
 	-- HQ 4: the Series A pitch
 	if hq == 4 and not st.seriesA then
 		return { key = "seriesa", title = "Close your Series A", sub = "Open your PHONE: a big investor texted", target = "phone" }
+	end
+	--[[ A home is a SUGGESTION, never a gate. It appears only when a spin-off is in reach
+		and more of your rare people would be lost than your home has seats for, and
+		only when the next home is affordable right now. A home you can't afford, or
+		already have enough of, is never mentioned. Fields (all optional, nil = no
+		suggestion): keepers (Star+ staff who would qualify), keepSlots (seats your
+		home has), aptNext = { name, price, slots } (the next home up, or nil at the top). ]]
+	local nx = st.aptNext
+	if st.listed and nx and (st.cash or 0) >= (st.spinCost or math.huge) * J.SPIN_NEAR
+		and (st.keepers or 0) > (st.keepSlots or 0) and (st.cash or 0) >= (nx.price or math.huge) then
+		local name = tostring(nx.name or "home")
+		name = name:sub(1, 1):upper() .. name:sub(2):lower()
+		return { key = "apartment", title = ("Buy a %s"):format(name),
+			sub = nx.slots and ("Keeps %d of your people at a spin-off"):format(nx.slots) or "Keeps your people at a spin-off",
+			target = "residences" }
 	end
 	return nil
 end
