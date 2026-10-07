@@ -227,6 +227,17 @@ function ChaseCam.solve(s)
 	-- never let the hunter get between the camera and the player
 	if s.dist then distBack = math.clamp(s.dist + T.CLEAR, distBack, T.DIST_MAX) end
 	distBack = math.max(4, distBack + (shot.dist or 0))
+	--[[ RE-ENFORCE THE CLEARANCE, because the shot offset was allowed to eat it.
+
+		CLEAR guarantees the camera stays 7 studs behind the hunter, and then
+		shot.dist subtracted from the result -- "hero" takes 4 off, leaving 3.
+		At 3 studs a torso is the entire frame, which is exactly what the
+		recording showed: the hunter filling half the screen with the chase
+		happening somewhere behind it.
+
+		A shot may move the camera, but it may not move it closer to the hunter
+		than the clearance the framing depends on. ]]
+	if s.dist then distBack = math.max(distBack, s.dist + T.CLEAR) end
 	local height = lerp(M and M.HEIGHT_FAR or T.HEIGHT_FAR, M and M.HEIGHT_NEAR or T.HEIGHT_NEAR, fear)
 	--[[ Never below 1.2: a camera that dips under the kerb clips through the
 		road and shows the underside of the world, which no amount of drama
