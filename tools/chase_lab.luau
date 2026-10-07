@@ -74,6 +74,7 @@ lab:SetAttribute("Dist", 7)
 lab:SetAttribute("Windup", false)
 lab:SetAttribute("Speed", 20)
 lab:SetAttribute("Turning", true)
+lab:SetAttribute("Bend", 0.030)
 lab:SetAttribute("Run", true)
 
 local function block(parent, size, colour, name)
@@ -134,6 +135,7 @@ local cam = workspace.CurrentCamera
 cam.CameraType = Enum.CameraType.Scriptable
 
 local smoothed = cam.CFrame
+local follow = {}          -- mode C carries its own position and velocity
 local travelled = 0
 local shakeUntil, lastWind = 0, false
 
@@ -153,9 +155,12 @@ _G.SVChaseLab = RunService.RenderStepped:Connect(function(dt)
 
 	-- the runner drives down the road, sweeping if asked, so the yaw is visible
 	travelled += speed * dt
-	local sway = turning and math.sin(travelled * 0.012) * 0.55 or 0
+	--[[ A real corner, not a gentle weave: the swing only shows when the mark
+		changes direction faster than the camera can follow it. ]]
+	local bend = tonumber(lab:GetAttribute("Bend")) or 0.030
+	local sway = turning and math.sin(travelled * bend) * 1.15 or 0
 	local travel = Vector3.new(math.sin(sway), 0, -math.cos(sway)).Unit
-	local pos = CENTRE + Vector3.new(math.sin(travelled * 0.012) * 70, 3.4, -((travelled % 1400) - 700))
+	local pos = CENTRE + Vector3.new(math.sin(travelled * bend) * 110, 3.4, -((travelled % 1400) - 700))
 
 	poseFigure(runner, CFrame.lookAt(pos, pos + travel), false)
 	local hpos = pos - travel * dist
@@ -171,7 +176,12 @@ _G.SVChaseLab = RunService.RenderStepped:Connect(function(dt)
 			pos = pos, travel = travel, hunterPos = hpos, dist = dist,
 			speed = speed, carrySpeed = 20, mode = mode, windup = wind,
 		})
-		smoothed = smoothed:Lerp(target, 1 - math.exp(-dt / math.max(ChaseCam.T.SMOOTH, 0.01)))
+		if mode == "C" then
+			-- the camera has mass in C: it lags, overshoots and banks
+			smoothed = ChaseCam.follow(follow, target, dt, mode)
+		else
+			smoothed = smoothed:Lerp(target, 1 - math.exp(-dt / math.max(ChaseCam.T.SMOOTH, 0.01)))
+		end
 		cam.FieldOfView = ChaseCam.lerp(cam.FieldOfView, fov, 1 - math.exp(-dt / 0.18))
 	end
 
