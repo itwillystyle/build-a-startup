@@ -347,6 +347,7 @@ RunService.RenderStepped:Connect(function(dt)
 		homeDist = (Vector3.new(hd.X, 0, hd.Z) - Vector3.new(hrp.Position.X, 0, hrp.Position.Z)).Magnitude
 	end
 
+	local hunterPos = hunter and hunter.PrimaryPart and hunter.PrimaryPart.Position or nil
 	local newShot, why, didCut = ChaseCam.direct(dir, {
 		t = t,
 		dt = dt,
@@ -356,6 +357,12 @@ RunService.RenderStepped:Connect(function(dt)
 		homeDist = homeDist,
 		speed = speed,
 		carrySpeed = player:GetAttribute("CarrySpeed") or 16,
+		--[[ The director keeps the shoulder, so it is decided once and held.
+			Passing the geometry straight to solve every frame is what made the
+			camera teleport between shoulders on sub-stud noise. ]]
+		pos = hrp.Position,
+		travel = travel,
+		hunterPos = hunterPos,
 	})
 	if didCut then
 		shot = newShot
@@ -378,7 +385,8 @@ RunService.RenderStepped:Connect(function(dt)
 		shot = shot,
 		pos = hrp.Position,
 		travel = travel,
-		hunterPos = hunter and hunter.PrimaryPart and hunter.PrimaryPart.Position or nil,
+		hunterPos = hunterPos,
+		side = dir.side,
 		dist = dist,
 		speed = speed,
 		carrySpeed = player:GetAttribute("CarrySpeed") or 16,
