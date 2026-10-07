@@ -2667,8 +2667,10 @@ if Econ then
 				end
 			end
 			plot.spinPickIds = ids
+			plot.spinFromCard = true
 			spinOff(player, plot)
 			plot.spinPickIds = nil
+			plot.spinFromCard = nil
 		end
 	end)
 	remote("SpinCancel").OnServerEvent:Connect(function(player)
@@ -2905,6 +2907,7 @@ spinOff = function(player, plot)
 			table.insert(eligible, { id = plot.spinSerial, talent = k.talent,
 				name = (k.entry.rig and k.entry.rig:GetAttribute("PersonName")) or "someone" })
 		end
+		offer.choose = #eligible > slots      -- a real decision is pending: only the card may confirm it
 		plot.spinOffer = offer
 		if Econ and Econ.celebrate then
 			Econ.celebrate:FireClient(player, { kind = "spinAsk", cost = cost, from = spinMultOf(s), to = nextSpinMultOf(s),
@@ -2913,6 +2916,14 @@ spinOff = function(player, plot)
 		task.delay(30.5, function()
 			if plot.spinArmed and os.clock() - plot.spinArmed >= 30 then plot.spinArmed = nil; refreshHqPad(plot) end
 		end)
+		return
+	end
+	--[[ The pad's second tap arrives here too, with no selection. When the player
+		has more eligible people than seats, letting it through would silently keep
+		the best N instead of the people whose chips they tapped, so while a choice
+		is pending only the card's own button (plot.spinFromCard) may confirm. ]]
+	if plot.spinOffer and plot.spinOffer.choose and not plot.spinFromCard then
+		popup(plot.hqPad, "Choose who comes with you", CFG.BAD)
 		return
 	end
 	plot.spinArmed = nil

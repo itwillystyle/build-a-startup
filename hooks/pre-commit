@@ -1,5 +1,5 @@
 #!/bin/sh
-# Refuses a commit when selene finds an ERROR in a staged Lua/Luau file,
+# Refuses a commit when a staged Lua/Luau file is not valid UTF-8, when selene finds an ERROR,
 # or when the offline tests (tests/offline, run in Lune) fail.
 # Warnings pass. The error it exists for: calling a local function above the
 # line that defines it (selene: undefined_variable), which crashed the game 7+ times.
@@ -15,6 +15,17 @@ fi
 FILES=$(git diff --cached --name-only --diff-filter=ACMR -- '*.lua' '*.luau')
 FILES=$(echo "$FILES" | grep -v '^Packages/')   # third-party (Wally) code is not ours to lint
 [ -z "$FILES" ] && exit 0
+# Every staged Lua/Luau file must be valid UTF-8 (selene does not check). A Latin-1
+# byte, e.g. a pasted middle dot, renders garbled and can stop Rojo syncing the file.
+PY=$(command -v python3 || command -v python)
+if [ -n "$PY" ]; then
+	BAD=$(echo "$FILES" | "$PY" hooks/check_utf8.py)
+	if [ -n "$BAD" ]; then
+		echo "pre-commit: invalid UTF-8, commit refused:" >&2
+		echo "$BAD" >&2
+		exit 1
+	fi
+fi
 # shellcheck disable=SC2086
 OUT=$(PATH="$HOME/.rokit/bin:$PATH" "$SELENE" --allow-warnings --display-style quiet $FILES 2>&1)
 if [ $? -ne 0 ]; then

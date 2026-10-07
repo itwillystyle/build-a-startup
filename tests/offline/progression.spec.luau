@@ -185,4 +185,22 @@ test("the card's default (top `slots`) is exactly the server's fallback", functi
 	for i = 1, 3 do assert(got[i] == ranked[i].entry, "slot " .. i) end
 end)
 
+local function order(list)
+	local out = {}
+	for _, r in ipairs(list) do table.insert(out, r.name) end
+	return table.concat(out, ",")
+end
+
+test("equal talent ranks by list position: p1,p2,p3 in that order", function()
+	local rigs = staff({ 4, 4, 4, 4, 4, 4 })
+	local got = P.chooseKeepers(rigs, 3, 3, nil, nil)
+	assert(order(got) == "p1,p2,p3", order(got))
+end)
+
+test("ties straddling the cutoff: p2,p4 (the 5s) then p1 (first of the 4s)", function()
+	local rigs = staff({ 4, 5, 4, 5, 4, 3 })
+	local got = P.chooseKeepers(rigs, 3, 3, nil, nil)
+	assert(order(got) == "p2,p4,p1", order(got))
+end)
+
 return T
