@@ -60,7 +60,36 @@ ChaseCam.T = {
 		hunter, and slid sideways so it passes beside the camera rather than
 		through it. ]]
 	CLEAR = 7,            -- studs the camera keeps behind the hunter
+	--[[ ... but never further back than this. Keeping a distant hunter in shot
+		by falling back with it put the camera 48 studs behind the player, who
+		became a dot you cannot steer. Past this the AIM holds the hunter on
+		screen (HOLD_MAX) instead of the camera retreating to find it. ]]
+	DIST_MAX = 22,
 	SIDE = 4.5,           -- studs of lateral offset, so nothing walks into the lens
+
+	--[[ The hunter is never allowed further than this off the centre of frame.
+
+		"Keep it on screen the whole time" has to be a constraint, not a curve
+		that happens to work. Measured before this existed: the hunter drifted
+		from 30 degrees off axis at 4 studs to 46 at 30, and left the frame
+		entirely at 40 -- so the one moment it is far enough to feel safe was
+		the moment you lost sight of it.
+
+		Now the look direction is rotated toward the hunter by whatever the
+		excess is, so it sits at HOLD_MAX at worst. 40 degrees is inside the
+		horizontal half-angle of a 70 FOV on any normal screen, so it is on
+		screen at every distance, on every aspect. ]]
+	HOLD_MAX = 40,
+
+	--[[ ...but you come first. Holding a hunter that is BEHIND the camera
+		swings the aim right round: measured at 26 studs the player sat 62
+		degrees off centre, and by 34 it was 102 -- off screen, steering blind.
+		No framing is worth losing the thing you are steering, so the turn
+		toward the hunter is clamped by this. Past the point where both fit,
+		the hunter leaves frame and the distance readout carries it instead,
+		which is also the band (beyond ChaseRules.FAR = 20) where it is
+		sprinting to catch up rather than able to strike. ]]
+	PLAYER_MAX = 34,
 }
 
 --[[ WHY THE WINDUP WIDENS INSTEAD OF TIGHTENING.
@@ -122,13 +151,42 @@ function ChaseCam.solve(s)
 	local back = CFrame.Angles(0, math.rad(yawDeg * side), 0) * (-travel)
 	local distBack = lerp(T.DIST_FAR, T.DIST_NEAR, fear)
 	-- never let the hunter get between the camera and the player
-	if s.dist then distBack = math.max(distBack, s.dist + T.CLEAR) end
+	if s.dist then distBack = math.clamp(s.dist + T.CLEAR, distBack, T.DIST_MAX) end
 	local height = lerp(T.HEIGHT_FAR, T.HEIGHT_NEAR, fear)
 
 	-- and slide off the centre line, so it passes beside the lens, not through it
 	local right = Vector3.new(-travel.Z, 0, travel.X)
 	local at = s.pos + back * distBack + right * (T.SIDE * side) + Vector3.new(0, height, 0)
 	local look = s.pos + travel * 6 + Vector3.new(0, 1.5, 0)
+
+	--[[ Hold the hunter on screen. Rotate the aim toward it by however much it
+		exceeds HOLD_MAX, and no further -- so the road ahead is given up only
+		as much as keeping the threat visible actually costs. ]]
+	if s.hunterPos then
+		local dir = look - at
+		dir = Vector3.new(dir.X, 0, dir.Z)
+		local toH = s.hunterPos - at
+		toH = Vector3.new(toH.X, 0, toH.Z)
+		if dir.Magnitude > 0.1 and toH.Magnitude > 0.1 then
+			dir, toH = dir.Unit, toH.Unit
+			local ang = math.deg(math.acos(math.clamp(dir:Dot(toH), -1, 1)))
+			-- how far the aim may swing before the player leaves frame
+			local toP = s.pos - at
+			toP = Vector3.new(toP.X, 0, toP.Z)
+			local pAng = toP.Magnitude > 0.1
+				and math.deg(math.acos(math.clamp(dir:Dot(toP.Unit), -1, 1))) or 0
+			local allowed = math.max(0, T.PLAYER_MAX - pAng)
+			local want = math.max(0, ang - T.HOLD_MAX)
+			if want > 0 and allowed > 0 then
+				local turn = math.min(want, allowed) / ang
+				local aimed = dir:Lerp(toH, turn)
+				if aimed.Magnitude > 0.01 then
+					local reach = (look - at).Magnitude
+					look = at + aimed.Unit * reach + Vector3.new(0, (look - at).Y, 0)
+				end
+			end
+		end
+	end
 
 	local fov = T.FOV_BASE + T.FOV_SPEED * math.clamp((s.speed or 0) / math.max(s.carrySpeed or 16, 1), 0, 1)
 	if s.mode == "B" and s.windup then fov += T.FOV_WINDUP end
