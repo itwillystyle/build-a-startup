@@ -66,6 +66,38 @@ ChaseCam.T = {
 		the change a SWEEP rather than a snap, so that even a real crossing --
 		the hunter genuinely cutting across behind you -- reads as the camera
 		moving instead of the picture breaking. ]]
+	--[[ THE HEADING, and the feedback loop it closes. THIS is the flicker.
+
+		The camera aims along the player's travel, and travel was read straight
+		off AssemblyLinearVelocity each frame. In Roblox, movement is
+		CAMERA-RELATIVE: the direction W sends you is the direction the camera
+		faces. So camera yaw -> move direction -> velocity -> camera yaw, with
+		no damping anywhere in it. That is a closed positive loop, and it does
+		what closed positive loops do.
+
+		MEASURED in a live chase, sampling every 0.09 s: the travel direction
+		reversed between consecutive samples, and the reversal GREW --
+		dot(travel, previousTravel) went +0.03, -0.30, -0.45, -0.56, -0.70,
+		-0.80. Meanwhile the player advanced three studs in a second while
+		reporting a speed of 20. The camera was swinging about 25 studs across
+		every frame, faithfully pointing along a direction that was tearing
+		itself apart.
+
+		So the camera never steers off an instantaneous physics quantity again.
+		HEADING is a time constant on the direction: long enough that a frame
+		of jitter cannot move it, short enough that a real corner still reads.
+		Damping the camera's input is what opens the loop -- and it fixes the
+		player's movement at the same time, because the loop ran both ways. ]]
+	HEADING = 0.25,       -- seconds of smoothing on the travel direction
+	--[[ ...and a hard ceiling on how fast the shot may turn, in degrees per
+		second. Smoothing alone cannot absorb a 160-degree reversal: a 0.25 s
+		constant still takes a 30% step toward the new direction, which at 14
+		studs is a 10-stud swing (measured). A rate cap is also the honest
+		model -- nothing in this game turns faster than this -- and it means a
+		reversal costs one small step instead of half an arc. A real 90-degree
+		corner still completes in 0.6 s. ]]
+	TURN_MAX = 150,       -- degrees per second
+
 	SIDE_HOLD = 2.5,      -- studs across the line before the shoulder changes at all
 	SIDE_RATE = 2.2,      -- how fast it swings when it does (full swap ~0.9 s)
 
@@ -578,6 +610,42 @@ ChaseCam.DIR = {
 	BOOST = 1.35,        -- x carry speed. Below ~1.3 the ordinary scooter wobble trips it.
 }
 
+--[[ The direction the shot is built around, smoothed.
+
+	Returns a unit vector. Blending directions by lerping and renormalising is
+	fine here because the step is small; the one case it cannot handle is an
+	exact 180-degree reversal, where the blend passes through zero, so that
+	falls back to the new direction rather than producing a NaN. ]]
+function ChaseCam.headingFor(st, travel, dt)
+	local t = travel and Vector3.new(travel.X, 0, travel.Z) or Vector3.zero
+	if t.Magnitude < 0.01 then
+		return st.heading or Vector3.new(0, 0, -1)
+	end
+	t = t.Unit
+	if not st.heading then
+		st.heading = t
+		return t
+	end
+	dt = dt or 1 / 60
+	local k = 1 - math.exp(-dt / ChaseCam.T.HEADING)
+	local blended = st.heading + (t - st.heading) * k
+	local want = (blended.Magnitude > 1e-3) and blended.Unit or t
+
+	--[[ Clamp the turn rate. Rotate about Y by at most TURN_MAX * dt; the sense
+		is chosen by trying both and keeping whichever ends closer, which is
+		shorter than deriving it from a cross product and cannot get the sign
+		backwards. ]]
+	local step = math.rad(ChaseCam.T.TURN_MAX) * dt
+	local cosang = math.clamp(st.heading:Dot(want), -1, 1)
+	if math.acos(cosang) > step then
+		local a = (CFrame.Angles(0, step, 0) * st.heading).Unit
+		local b = (CFrame.Angles(0, -step, 0) * st.heading).Unit
+		want = (a:Dot(want) >= b:Dot(want)) and a or b
+	end
+	st.heading = want
+	return st.heading
+end
+
 --[[ The shoulder, held and swept rather than flipped.
 
 	Hysteresis is in STUDS, not in the sign: the hunter has to be properly over
@@ -613,10 +681,14 @@ end
 	exists so a cut can be audited rather than trusted. ]]
 function ChaseCam.direct(st, s)
 	local D = ChaseCam.DIR
-	--[[ The shoulder is director state, not per-frame geometry. Kept here so
-		there is exactly one place that decides it and one place that holds it
-		steady; the caller passes `st.side` straight into solve. ]]
-	ChaseCam.sideFor(st, s.pos, s.travel, s.hunterPos, s.dt)
+	--[[ The heading and the shoulder are director state, not per-frame
+		geometry: one place decides them, one place holds them steady, and the
+		caller passes `st.heading` and `st.side` straight into solve. The
+		shoulder is measured against the SMOOTHED heading on purpose -- against
+		the raw one its hysteresis is defeated by the same jitter it exists to
+		reject, which is exactly what happened the first time. ]]
+	local heading = ChaseCam.headingFor(st, s.travel, s.dt)
+	ChaseCam.sideFor(st, s.pos, heading, s.hunterPos, s.dt)
 	st.started = st.started or s.t
 	st.shot = st.shot or "establish"
 	st.cause = st.cause or "opening: where it is, and where home is"
