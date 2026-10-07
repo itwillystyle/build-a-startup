@@ -1028,6 +1028,62 @@ local function wireTo(input)
 	return true
 end
 _G.SVPhoneWire = wireTo       -- Studio test hook (voice cannot run in Studio)
+
+--[[ WHY THE CALL CONNECTED AND STAYED SILENT.
+
+	The old code asked for the other player's AudioDeviceInput once, waited
+	five seconds, and gave up for the rest of the call. That object is created
+	by the engine when a player's voice session comes up -- which is not
+	necessarily before the call connects, and which can happen later if they
+	turn voice on mid-session. One missed window and the line was dead for
+	good, with the timer happily counting.
+
+	So it now keeps looking for as long as the call is up, and wires the moment
+	the input appears.
+
+	The message also tells you WHICH precondition failed, because "their voice
+	isn't coming through" is true of every cause and useful for none:
+
+	  no input for EITHER of you  -> voice is not on for this experience, or
+	                                 your own account cannot use it
+	  input for you, not for them -> their account has no voice here
+
+	The engine parents exactly one AudioDeviceInput per player to the Player
+	object whenever VoiceChatService.EnableDefaultVoice is true, so its absence
+	is a real signal and not a timing quirk once the call has been up a while. ]]
+local voiceWatch = 0
+
+local function voiceNote(other)
+	local mine = player:FindFirstChildOfClass("AudioDeviceInput")
+	if not mine then
+		return "Voice is off for this experience, or for your account"
+	end
+	return (other and other.DisplayName or "They") .. " has no microphone here"
+end
+
+local function watchVoice(other)
+	voiceWatch += 1
+	local token = voiceWatch
+	task.spawn(function()
+		local waited = 0
+		while token == voiceWatch and call.state == "connected" and other and other.Parent do
+			local input = other:FindFirstChildOfClass("AudioDeviceInput")
+			if input and wireTo(input) then
+				call.note = nil
+				if gui.Enabled then render() end
+				return
+			end
+			-- say nothing for the first couple of seconds: a late input is
+			-- normal and an instant error message is just noise
+			if waited > 2 and call.note == nil then
+				call.note = voiceNote(other)
+				if gui.Enabled then render() end
+			end
+			task.wait(0.5)
+			waited += 0.5
+		end
+	end)
+end
 task.spawn(function()
 	while true do
 		task.wait(0.4)
@@ -1171,12 +1227,12 @@ ev.OnClientEvent:Connect(function(e)
 			ringOver()
 			call.since = player:GetAttribute("CallSince") or workspace:GetServerTimeNow()
 			local other = Players:GetPlayerByUserId(e.with or 0)
-			local input = other and (other:FindFirstChildOfClass("AudioDeviceInput") or other:WaitForChild("AudioDeviceInput", 5))
+			local input = other and other:FindFirstChildOfClass("AudioDeviceInput")
+			call.note = nil
 			if not wireTo(input) then
-				call.note = "Their voice isn't coming through"
-				if not gui.Enabled then
-					showBanner({ call = true }, "Connected, but their voice isn't available", 2)
-				end
+				-- not there yet, or not there at all: keep looking for the
+				-- life of the call rather than giving up after one glance
+				watchVoice(other)
 			end
 			UIKit.sfx("ding", 1.0, 0.5)
 			if gui.Enabled then view.app = "calls"; render() end
