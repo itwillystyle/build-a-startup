@@ -779,6 +779,22 @@ local function callList()
 			Position = UDim2.new(0, 12, 0, 6), Size = UDim2.new(1, -24, 1, -12), TextWrapped = true }, UIKit.HEAD)
 		y += 58
 	end
+
+	--[[ THE LIVE VOICE CHAIN, PRINTED.
+		A live server cannot be inspected by hand, and the thing that was broken
+		-- a microphone with no emitter -- is invisible: the call connects, the
+		timer runs, nobody hears anything. The server publishes the state of
+		each link as VoiceState; showing it here means one screenshot of this
+		screen says which link is down, instead of another round of guessing. ]]
+	local chain = player:GetAttribute("VoiceState")
+	if chain then
+		local bad = chain:find("MISSING") or chain:find("NOT WIRED")
+			or chain:find("NO EMITTER") or chain:find("not recording")
+		local box = UIKit.card(content, { Name = "VoiceChain", Position = UDim2.new(0, 12, 0, y), Size = UDim2.new(1, -24, 0, 44) }, { radius = 12 })
+		UIKit.label(box, chain, 13, bad and UIKit.RED or UIKit.CARD_MUTED, {
+			Position = UDim2.new(0, 12, 0, 4), Size = UDim2.new(1, -24, 1, -8), TextWrapped = true }, UIKit.HEAD)
+		y += 52
+	end
 	local list = Instance.new("ScrollingFrame")
 	list.Name = "People"
 	list.BackgroundTransparency = 1
@@ -1058,6 +1074,15 @@ local function voiceNote(other)
 	if not mine then
 		return "Voice is off for this experience, or for your account"
 	end
+	--[[ The server knows which link is down for them; say that rather than
+		"their voice isn't coming through", which is true of every cause. ]]
+	local theirs = other and other:GetAttribute("VoiceState")
+	if theirs and (theirs:find("MISSING") or theirs:find("NOT WIRED") or theirs:find("NO EMITTER")) then
+		return (other.DisplayName or "They") .. " has no working microphone here"
+	end
+	if theirs and theirs:find("not recording") then
+		return (other.DisplayName or "They") .. " has voice off or their mic is not on"
+	end
 	return (other and other.DisplayName or "They") .. " has no microphone here"
 end
 
@@ -1301,6 +1326,12 @@ end)
 -- the people list stays current while it is open
 Players.PlayerAdded:Connect(function() if gui.Enabled and view.app == "calls" and not call.state then render() end end)
 Players.PlayerRemoving:Connect(function() if gui.Enabled and view.app == "calls" and not call.state then render() end end)
+
+-- the voice chain is repaired a couple of seconds after joining, so a screen
+-- opened before that would otherwise sit there reporting a fault already fixed
+player:GetAttributeChangedSignal("VoiceState"):Connect(function()
+	if gui.Enabled and view.app == "calls" and not call.state then render() end
+end)
 
 -- tell the server whether this account can use voice at all
 task.spawn(function()

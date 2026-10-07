@@ -555,6 +555,22 @@ end
 
 function Phone.init(a)
 	api = a
+
+	--[[ Voice is what calls are FOR, and when it fails there is nothing to read
+		from outside a live server: the call connects, the timer runs, nobody
+		hears anything. VoiceCheck publishes a VoiceState attribute naming the
+		state of each link in the chain, which the Calls screen prints, so one
+		screenshot in a real server says which link is down. It only reads.
+		pcall'd, because a diagnostic must never be why the phone stops. ]]
+	local okVoice, voice = pcall(function()
+		return require(ServerScriptService:WaitForChild("VoiceCheck", 5))
+	end)
+	if okVoice and voice then
+		if not pcall(voice.init) then warn("[VOICE] VoiceCheck.init failed") end
+	else
+		warn("[VOICE] VoiceCheck missing -- voice runs unreported")
+	end
+
 	local folder = ReplicatedStorage:WaitForChild("SVRemotes")
 	event = folder:FindFirstChild("PhoneEvent") or Instance.new("RemoteEvent")
 	event.Name = "PhoneEvent"
