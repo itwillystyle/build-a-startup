@@ -17,14 +17,30 @@ FILES=$(echo "$FILES" | grep -v '^Packages/')   # third-party (Wally) code is no
 [ -z "$FILES" ] && exit 0
 # Every staged Lua/Luau file must be valid UTF-8 (selene does not check). A Latin-1
 # byte, e.g. a pasted middle dot, renders garbled and can stop Rojo syncing the file.
-PY=$(command -v python3 || command -v python)
-if [ -n "$PY" ]; then
-	BAD=$(echo "$FILES" | "$PY" hooks/check_utf8.py)
-	if [ -n "$BAD" ]; then
-		echo "pre-commit: invalid UTF-8, commit refused:" >&2
-		echo "$BAD" >&2
-		exit 1
-	fi
+# It checks the STAGED blob, not the working copy. This guard FAILS LOUDLY: if no
+# working python is found, or the checker itself breaks, the commit is refused.
+# (SV_PYTHON overrides the interpreter; each candidate is run once, because on
+# Windows "python3" can be a Store stub that exists but does nothing.)
+PY=""
+for cand in "$SV_PYTHON" python3 python py; do
+	[ -n "$cand" ] || continue
+	if "$cand" -c "import sys" >/dev/null 2>&1; then PY="$cand"; break; fi
+done
+if [ -z "$PY" ]; then
+	echo "pre-commit: no working python found, so the UTF-8 check cannot run; commit refused." >&2
+	echo "  Install python, or skip the hooks once with: git commit --no-verify" >&2
+	exit 1
+fi
+BAD=$(echo "$FILES" | "$PY" hooks/check_utf8.py)
+RC=$?
+if [ $RC -eq 1 ]; then
+	echo "pre-commit: invalid UTF-8, commit refused:" >&2
+	echo "$BAD" >&2
+	exit 1
+elif [ $RC -ne 0 ]; then
+	echo "pre-commit: the UTF-8 checker failed (exit $RC), commit refused." >&2
+	echo "  Fix hooks/check_utf8.py, or skip the hooks once with: git commit --no-verify" >&2
+	exit 1
 fi
 # shellcheck disable=SC2086
 OUT=$(PATH="$HOME/.rokit/bin:$PATH" "$SELENE" --allow-warnings --display-style quiet $FILES 2>&1)
