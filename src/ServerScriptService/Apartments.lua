@@ -6,12 +6,14 @@
 	like the apartment to be a progress point between HQ's so you HAVE to buy it
 	in order to progress, something like a couple million."
 
-	THE LADDER (each one is required before the HQ level after it):
-	  STUDIO     $20K   buyable from HQ 2, needed for HQ 3
-	  LOFT       $150K  buyable from HQ 3, needed for HQ 4
-	  PENTHOUSE  $2M    buyable from HQ 4, needed for HQ 5
-	Each adds +10% money for good, and they survive spin-offs (it is YOUR
-	home, not the company's). One saved integer: `apt` (0-3).
+	THE LADDER (v4.3.x: no longer gates anything; it is a choice, not a toll):
+	  STUDIO     buyable from HQ 2
+	  LOFT       buyable from HQ 3
+	  PENTHOUSE  buyable from HQ 4
+	Each costs a SHARE of the spin-off you are saving for (Progression.HOME_SHARE,
+	priced by Apartments.priceOf), so the price scales with your run. There is
+	no money bonus. They survive spin-offs (it is YOUR home, not the company's).
+	One saved integer: `apt` (0-3).
 
 	THE HOME is a real floor of THE RESIDENCES (Downtown.lua), so the windows
 	look out over the actual valley and city. Studios are floors 1-6, lofts
