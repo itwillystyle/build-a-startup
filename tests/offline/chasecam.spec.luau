@@ -22,6 +22,7 @@ local T = {}
 local function test(name, fn) table.insert(T, { name = name, fn = fn }) end
 
 local DT = 1 / 60
+local function ChaseCam_headingFor(st, travel, dt) return C.headingFor(st, travel, dt) end
 
 --[[ Run a scripted chase. `world(t, frame)` returns the director's input for
 	that instant; everything else is bookkeeping. Returns the cut list. ]]
@@ -405,6 +406,72 @@ end)
 
 	These two tests are the ones that would have caught it before any of this
 	reached a recording. ]]
+
+test("THE REAL FLICKER: a reversing travel direction must not swing the camera", function()
+	--[[ Taken from a live chase, sampled every 0.09 s. The camera aims along
+		travel; movement is camera-relative; so camera yaw -> move direction ->
+		velocity -> camera yaw, with nothing damping it. Recorded travel
+		directions, in order, with dot() against the previous sample:
+
+		    +0.36,+0.93  (+0.03)   -0.91,+0.42  (+0.07)
+		    +0.67,+0.74  (-0.30)   -0.91,+0.42  (-0.29)
+		    +0.78,+0.62  (-0.44)   -0.91,+0.42  (-0.45)
+		    +0.86,+0.51  (-0.60)   -0.96,+0.27  (-0.68)
+		    +0.87,+0.49  (-0.70)   -0.99,+0.12  (-0.80)
+
+		The player advanced three studs in a second while reporting speed 20,
+		and the camera swung ~25 studs across on every frame. This replays that
+		exact sequence and requires the camera to stay put. ]]
+	local REAL = {
+		{ 0.36, 0.93 }, { -0.91, 0.42 }, { 0.67, 0.74 }, { -0.91, 0.42 },
+		{ 0.78, 0.62 }, { -0.91, 0.42 }, { 0.83, 0.55 }, { -0.93, 0.38 },
+		{ 0.86, 0.51 }, { -0.96, 0.27 }, { 0.87, 0.49 }, { -0.99, 0.12 },
+	}
+	local pos = Vector3.new(0, 3, 0)
+	local st, prev, worst, worstTurn, lastH = {}, nil, 0, 0, nil
+	for pass = 1, 6 do
+		for _, tv in ipairs(REAL) do
+			local travel = Vector3.new(tv[1], 0, tv[2]).Unit
+			local h = ChaseCam_headingFor(st, travel, 0.09)
+			if lastH and pass > 1 then
+				worstTurn = math.max(worstTurn,
+					math.deg(math.acos(math.clamp(h:Dot(lastH), -1, 1))))
+			end
+			lastH = h
+			local hunter = pos - h * 14
+			C.sideFor(st, pos, h, hunter, 0.09)
+			local cf = C.solve({ shot = "chase", pos = pos, travel = h, hunterPos = hunter,
+				side = st.side, dist = 14, speed = 20, carrySpeed = 20, mode = "C" })
+			if prev and pass > 1 then worst = math.max(worst, (cf.Position - prev).Magnitude) end
+			prev = cf.Position
+		end
+	end
+	--[[ The invariant the fix actually provides is ANGULAR: the shot may not
+		turn faster than TURN_MAX, whatever the input does. Studs-per-frame
+		then follows from how far the lens happens to sit from the player, so
+		it is the consequence, not the guarantee -- asserted too, because it is
+		the number that was 25 to 46 before and is what a player sees. ]]
+	local cap = C.T.TURN_MAX * 0.09
+	assert(worstTurn <= cap + 0.5,
+		("the shot turned %.1f deg in one frame against a %.1f deg cap"):format(worstTurn, cap))
+	assert(worst < 7,
+		("a reversing travel still swung the camera %.1f studs in one frame (was 25-46)"):format(worst))
+end)
+
+test("...but the smoothed heading still follows a real turn", function()
+	--[[ The fix must not freeze the camera's sense of direction. A genuine
+		90-degree corner has to arrive, and within about half a second, or the
+		camera is looking at where you used to be going. ]]
+	local st = {}
+	for _ = 1, 30 do ChaseCam_headingFor(st, Vector3.new(0, 0, -1), 1 / 60) end
+	local turned
+	for i = 1, 120 do
+		local h = ChaseCam_headingFor(st, Vector3.new(1, 0, 0), 1 / 60)
+		if not turned and h:Dot(Vector3.new(1, 0, 0)) > 0.95 then turned = i / 60 end
+	end
+	assert(turned, "the heading never completed a 90-degree turn")
+	assert(turned < 0.75, ("the turn took %.2f s, which is a camera looking backwards"):format(turned))
+end)
 
 test("THE FLICKER: sub-stud wobble behind the player must not move the camera", function()
 	local pos, travel = Vector3.new(0, 3, 0), Vector3.new(0, 0, -1)

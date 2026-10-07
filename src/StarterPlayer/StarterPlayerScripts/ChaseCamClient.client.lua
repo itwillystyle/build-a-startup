@@ -364,6 +364,12 @@ RunService.RenderStepped:Connect(function(dt)
 		travel = travel,
 		hunterPos = hunterPos,
 	})
+	--[[ The SMOOTHED heading, never the raw velocity. Movement in Roblox is
+		camera-relative, so aiming the camera along instantaneous velocity
+		closes a positive feedback loop through the player's own controls --
+		measured diverging in a live chase, with the travel direction reversing
+		every frame. `dir.heading` is what breaks it. ]]
+	travel = dir.heading or travel
 	if didCut then
 		shot = newShot
 		--[[ The cut itself. Dropping both the follower and the eased CFrame is
