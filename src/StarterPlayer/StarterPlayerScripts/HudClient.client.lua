@@ -729,6 +729,61 @@ local function spinAsk(e)
 		"Keep your bag",
 	}, UIKit.GREEN_DEEP, true)
 	col(0.5, "STARTS OVER", { "Cash", "Buildings", "HQ level" }, UIKit.ORANGE_DEEP)
+	--[[ The home bought the slots; this is where you spend them. Shown only
+		when there are more eligible people than seats -- with nothing to
+		decide, a chooser is just a step between you and the button. The ids are
+		the server's opaque ones (bound to the person, not their list position);
+		the server re-checks every one at confirm, so this only expresses intent. ]]
+	local picked = {}
+	local eligible = e.eligible or {}
+	local slots = e.slots or 0
+	if #eligible > slots and slots > 0 then
+		panel.Size = UDim2.new(0, w, 0, 280 + 96)
+		for i = 1, slots do picked[eligible[i].id] = true end   -- default = the best, same as the server's fallback
+		local strip = Instance.new("ScrollingFrame")
+		strip.Name = "Keepers"
+		strip.BackgroundTransparency = 1
+		strip.BorderSizePixel = 0
+		strip.Position = UDim2.new(0, 0, 0, 148)
+		strip.Size = UDim2.new(1, 0, 0, 86)
+		strip.ScrollBarThickness = 4
+		strip.AutomaticCanvasSize = Enum.AutomaticSize.Y
+		strip.CanvasSize = UDim2.new(0, 0, 0, 0)
+		strip.Parent = body
+		local layout = Instance.new("UIGridLayout")
+		layout.CellSize = UDim2.new(0, 128, 0, 38)
+		layout.CellPadding = UDim2.new(0, 6, 0, 6)
+		layout.Parent = strip
+		local count = UIKit.label(body, "", 14, UIKit.INK_SOFT,
+			{ Position = UDim2.new(0, 0, 0, 236), Size = UDim2.new(1, 0, 0, 18) }, UIKit.BODY)
+		local chips = {}
+		local function redraw()
+			local n = 0
+			for _ in pairs(picked) do n += 1 end
+			count.Text = n == 0 and ("Nobody picked: your best %d come along"):format(slots)
+				or ("%d of %d seats filled"):format(n, slots)
+			for id, b in pairs(chips) do
+				UIKit.setButtonColor(b, picked[id] and UIKit.GREEN or UIKit.MUTED)
+			end
+		end
+		for _, who in ipairs(eligible) do
+			local chip = UIKit.button(strip, ("%s  ·  %d"):format(who.name, who.talent), UIKit.MUTED,
+				{ Name = "Keep_" .. who.id }, { textSize = 14 })
+			chips[who.id] = chip
+			chip.MouseButton1Click:Connect(function()
+				if picked[who.id] then
+					picked[who.id] = nil
+				else
+					local n = 0
+					for _ in pairs(picked) do n += 1 end
+					if n >= slots then return end          -- the home bought this many, no more
+					picked[who.id] = true
+				end
+				redraw()
+			end)
+		end
+		redraw()
+	end
 	local no = UIKit.button(body, "NOT YET", UIKit.MUTED, {
 		Name = "NotYet", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, 0), Size = UDim2.new(0.5, -6, 0, 50),
 	}, { textSize = 20 })
@@ -765,7 +820,10 @@ local function spinAsk(e)
 		tw.Completed:Connect(function(state)
 			if holding ~= mine or state ~= Enum.PlaybackState.Completed then return end
 			holding = nil
-			remotes:WaitForChild("SpinConfirm"):FireServer()
+			local pick = {}
+			for id in pairs(picked) do table.insert(pick, id) end
+			table.sort(pick)
+			remotes:WaitForChild("SpinConfirm"):FireServer({ pick = pick })
 			panel:Destroy(); spinCard = nil
 		end)
 		tw:Play()

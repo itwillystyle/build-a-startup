@@ -130,6 +130,68 @@ function P.keepSlots(apt)
 	return P.KEEP_SLOTS[math.clamp(n, 0, #P.KEEP_SLOTS)] or 0
 end
 
+--[[ WHO FILLS THOSE SLOTS.
+
+	`rigs` is the session's staff list (entries carry `.talent`). Two rules the
+	selection depends on, both learned from how this could go wrong:
+
+	1. Ranking is a TOTAL order (talent, then list position). table.sort is not
+	   stable, so a comparator that only looks at talent can order equal-talent
+	   staff differently on the card than at confirm time.
+	2. A pick is an ENTRY, not a position. The confirm card stays armed for 30 s
+	   and s.rigs can change under it (a poach sale, a hire), so "slot 4" can be a
+	   different person by then. The card hands out opaque ids bound to the entry
+	   tables themselves; at confirm each id is re-resolved against the CURRENT
+	   rigs and dropped if that entry is gone or no longer eligible. ]]
+function P.rankKeepers(rigs, minTalent)
+	local ranked = {}
+	for i, r in ipairs(rigs or {}) do
+		if (r.talent or 1) >= minTalent then
+			table.insert(ranked, { entry = r, index = i, talent = r.talent or 1 })
+		end
+	end
+	table.sort(ranked, function(a, b)
+		if a.talent ~= b.talent then return a.talent > b.talent end
+		return a.index < b.index
+	end)
+	return ranked
+end
+
+-- offer = { byId = { [id] = entry } }; ids = what the client sent (untrusted).
+-- Returns the entries that survive, and whether the player's own selection was
+-- honoured. With no valid selection it is the best `slots`; never a re-sort of
+-- an explicit choice.
+function P.chooseKeepers(rigs, minTalent, slots, offer, ids)
+	local ranked = P.rankKeepers(rigs, minTalent)
+	if slots <= 0 then return {}, false end
+	if type(ids) == "table" and offer and type(offer.byId) == "table" then
+		local pos = {}
+		for _, k in ipairs(ranked) do pos[k.entry] = k end
+		local chosen, seen = {}, {}
+		for _, id in ipairs(ids) do
+			local entry = type(id) == "number" and offer.byId[id] or nil
+			local k = entry and pos[entry]           -- still in the rigs AND still eligible
+			if k and not seen[entry] then
+				seen[entry] = true
+				table.insert(chosen, k)
+				if #chosen >= slots then break end
+			end
+		end
+		if #chosen > 0 then
+			table.sort(chosen, function(a, b)       -- seat order only; membership is already decided
+				if a.talent ~= b.talent then return a.talent > b.talent end
+				return a.index < b.index
+			end)
+			local out = {}
+			for _, k in ipairs(chosen) do table.insert(out, k.entry) end
+			return out, true
+		end
+	end
+	local out = {}
+	for i = 1, math.min(slots, #ranked) do out[i] = ranked[i].entry end
+	return out, false
+end
+
 --[[ A HOME COSTS A SHARE OF THE SPIN-OFF IT COMPETES WITH.
 
 	Not a fixed sum, and this is forced by measurement rather than taste. A real

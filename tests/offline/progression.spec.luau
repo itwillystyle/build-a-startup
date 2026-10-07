@@ -83,4 +83,106 @@ test("the full prestige climb (20 spin-offs) takes 10-40 h of play, not months",
 	assert(total(oldCost) > 24 * 365, "the old curve should be years: " .. total(oldCost))
 end)
 
+-- ---------------------------------------------------------------- who comes along
+local function staff(talents)
+	local rigs = {}
+	for i, tl in ipairs(talents) do rigs[i] = { talent = tl, name = "p" .. i } end
+	return rigs
+end
+-- what the card does: rank, then bind an opaque id to each ENTRY
+local function offerOf(rigs)
+	local offer, ids, serial = { byId = {} }, {}, 0
+	for _, k in ipairs(P.rankKeepers(rigs, 3)) do
+		serial += 1
+		offer.byId[serial] = k.entry
+		ids[k.entry] = serial
+	end
+	return offer, ids
+end
+local function names(list)
+	local out = {}
+	for _, r in ipairs(list) do table.insert(out, r.name) end
+	table.sort(out)
+	return table.concat(out, ",")
+end
+
+test("6 eligible, 3 seats, explicit pick: exactly the three chosen, not the top three", function()
+	local rigs = staff({ 5, 5, 4, 4, 3, 3, 1 })           -- p7 is not eligible
+	local offer, id = offerOf(rigs)
+	local got, explicit = P.chooseKeepers(rigs, 3, 3, offer, { id[rigs[6]], id[rigs[5]], id[rigs[3]] })
+	assert(explicit, "pick should be honoured")
+	assert(names(got) == "p3,p5,p6", names(got))
+end)
+
+test("equal talent: the pick wins over the order, whichever way the sort fell", function()
+	local rigs = staff({ 4, 4, 4, 4, 4, 4 })
+	local offer, id = offerOf(rigs)
+	local got = P.chooseKeepers(rigs, 3, 3, offer, { id[rigs[6]], id[rigs[4]], id[rigs[2]] })
+	assert(names(got) == "p2,p4,p6", names(got))
+end)
+
+test("a picked person who left during the 30 s window is dropped, not replaced by someone else", function()
+	local rigs = staff({ 5, 5, 4, 4, 3, 3 })
+	local offer, id = offerOf(rigs)
+	local pick = { id[rigs[1]], id[rigs[4]], id[rigs[6]] }
+	table.remove(rigs, 4)                                  -- p4 sold to a poach offer: every later index shifts
+	table.insert(rigs, { talent = 5, name = "new" })       -- and someone is hired
+	local got, explicit = P.chooseKeepers(rigs, 3, 3, offer, pick)
+	assert(explicit and names(got) == "p1,p6", names(got))   -- 2 of 3, and p5 (now at 4) was NOT given the seat
+end)
+
+test("a picked person who dropped below Star is dropped too", function()
+	local rigs = staff({ 5, 4, 3 })
+	local offer, id = offerOf(rigs)
+	rigs[3].talent = 2
+	local got = P.chooseKeepers(rigs, 3, 3, offer, { id[rigs[1]], id[rigs[3]] })
+	assert(names(got) == "p1", names(got))
+end)
+
+test("malformed or foreign picks fall back to the best N, never error", function()
+	local rigs = staff({ 3, 5, 4, 5, 3 })
+	local offer = offerOf(rigs)
+	local best = "p2,p3,p4"                               -- 5,5,4
+	for _, bad in ipairs({ { 999, "x" }, {}, { -1, 0, 1 / 0 }, "nope", false }) do
+		local got, explicit = P.chooseKeepers(rigs, 3, 3, offer, bad)
+		assert(not explicit and names(got) == best, tostring(bad) .. " " .. names(got))
+	end
+	local got, explicit = P.chooseKeepers(rigs, 3, 3, offer, nil)
+	assert(not explicit and names(got) == best, "nil pick: " .. names(got))
+	got = P.chooseKeepers(rigs, 3, 3, nil, { 1, 2, 3 })    -- no card was ever shown
+	assert(names(got) == best, names(got))
+end)
+
+test("ids from an older card do not match a newer one", function()
+	local rigs = staff({ 5, 4, 3, 5 })
+	local oldOffer, oldId = offerOf(rigs)
+	local pick = { oldId[rigs[3]] }
+	local newOffer = { byId = {} }                         -- the next card hands out fresh ids
+	for _, k in ipairs(P.rankKeepers(rigs, 3)) do newOffer.byId[100 + k.index] = k.entry end
+	local _, explicit = P.chooseKeepers(rigs, 3, 1, newOffer, pick)
+	assert(not explicit, "stale id must not resolve")
+end)
+
+test("the same person picked twice, or more picks than seats, cannot over-fill", function()
+	local rigs = staff({ 5, 5, 5, 5 })
+	local offer, id = offerOf(rigs)
+	local got = P.chooseKeepers(rigs, 3, 2, offer, { id[rigs[1]], id[rigs[1]], id[rigs[2]], id[rigs[3]], id[rigs[4]] })
+	assert(#got == 2 and names(got) == "p1,p2", names(got))
+end)
+
+test("fewer eligible than seats: everyone eligible comes, nobody else", function()
+	local rigs = staff({ 5, 2, 4, 1 })
+	local offer = offerOf(rigs)
+	local got, explicit = P.chooseKeepers(rigs, 3, 3, offer, {})
+	assert(not explicit and names(got) == "p1,p3", names(got))
+	assert(#P.chooseKeepers(rigs, 3, 0, offer, nil) == 0, "no home, no keepers")
+end)
+
+test("the card's default (top `slots`) is exactly the server's fallback", function()
+	local rigs = staff({ 4, 5, 4, 5, 4, 3 })
+	local ranked = P.rankKeepers(rigs, 3)
+	local got = P.chooseKeepers(rigs, 3, 3, nil, nil)
+	for i = 1, 3 do assert(got[i] == ranked[i].entry, "slot " .. i) end
+end)
+
 return T
