@@ -40,6 +40,8 @@ local carToast = remotes:WaitForChild("CarToast")
 -- ============ DRIVING ============
 local RIDE = 0.8
 local driving = nil         -- { model, chassis, seat, align, axles, v, spin, steer, lat, fx }
+local bestMph = 0           -- top speed this drive, reset on entry
+local ARROW, DOT = utf8.char(0x2192), utf8.char(0x00B7)
 --[[ Engine sound is per CAR TIER, not one hum for all six. The licensed
 	library has no six separate car recordings, so the ladder is built from one
 	base loop shifted in pitch and weight, a high whine layer the fast cars get
@@ -63,6 +65,7 @@ rayParams.FilterType = Enum.RaycastFilterType.Exclude
 local function startDrive(m, seat)
 	local chassis = m:FindFirstChild("Chassis")
 	if not chassis then return end
+	bestMph = 0
 	local axles = {}
 	for _, j in ipairs(chassis:GetChildren()) do
 		if j:IsA("Motor6D") and j.Name == "Axle" then table.insert(axles, j) end
@@ -370,16 +373,58 @@ do
 end
 
 -- the speedometer while driving
+--[[ THE DASHBOARD.
+
+	The old one was a 210x64 pill reading "0 MPH" and two key hints, which told
+	a driver nothing they could act on: not what they were driving, not how
+	close the nitro was, and above all not where they were going.
+
+	Four things now, in the order a driver cares about them:
+	  what I am driving  -- the car ladder is a money sink, so the HUD names it
+	  how fast, of max   -- a bar, because a bare number has no scale
+	  nitro              -- it existed already as a thin unlabelled strip
+	  WHERE I AM GOING   -- the retention piece. The car exists to reach the
+	                        next goal sooner, so the current objective and its
+	                        distance ride on the dashboard and count down while
+	                        you drive. It reuses the Objective attributes the
+	                        guide already publishes, so no new server state. ]]
 local speedo = UIKit.card and UIKit.card(gui, {
-	Name = "Speedo", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -24), Size = UDim2.new(0, 210, 0, 64), Visible = false,
+	Name = "Speedo", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -24), Size = UDim2.new(0, 320, 0, 126), Visible = false,
 }) or Instance.new("Frame")
 -- v5: two rows, so nothing overlaps: the key hints on top, the speed under them
+local carNameLbl = UIKit.label(speedo, "COMPANY CAR", 15, UIKit.INK, {
+	Size = UDim2.new(0, 190, 0, 18), Position = UDim2.new(0, 12, 0, 6), TextXAlignment = Enum.TextXAlignment.Left,
+}, UIKit.BOLD)
+local bestLbl = UIKit.label(speedo, "", 13, UIKit.MUTED_TEXT, {
+	Size = UDim2.new(0, 108, 0, 18), Position = UDim2.new(1, -120, 0, 6), TextXAlignment = Enum.TextXAlignment.Right,
+}, UIKit.BOLD)
 local speedText = UIKit.label(speedo, "0", 30, UIKit.INK, {
-	Size = UDim2.new(0, 96, 0, 34), Position = UDim2.new(0, 10, 0, 24), TextXAlignment = Enum.TextXAlignment.Right,
+	Size = UDim2.new(0, 96, 0, 34), Position = UDim2.new(0, 10, 0, 26), TextXAlignment = Enum.TextXAlignment.Right,
 }, UIKit.HEAD)
-UIKit.label(speedo, "MPH", 14, UIKit.MUTED_TEXT, { Size = UDim2.new(0, 40, 0, 24), Position = UDim2.new(0, 110, 0, 32) }, UIKit.BOLD)
-local exitHint = UIKit.label(speedo, UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled and "JUMP = OUT" or "SPACE = OUT", 14, UIKit.MUTED_TEXT, {
-	Size = UDim2.new(1, -16, 0, 16), Position = UDim2.new(0, 8, 0, 5), TextXAlignment = Enum.TextXAlignment.Right,
+UIKit.label(speedo, "MPH", 14, UIKit.MUTED_TEXT, { Size = UDim2.new(0, 40, 0, 24), Position = UDim2.new(0, 110, 0, 34) }, UIKit.BOLD)
+
+-- how fast, as a fraction of THIS car's top speed: a number alone has no scale
+local speedBar = Instance.new("Frame")
+speedBar.Name = "SpeedBar"
+speedBar.BackgroundColor3 = UIKit.SURFACE_2
+speedBar.BorderSizePixel = 0
+speedBar.Position = UDim2.new(0, 156, 0, 36)
+speedBar.Size = UDim2.new(0, 152, 0, 10)
+speedBar.Parent = speedo
+Instance.new("UICorner", speedBar).CornerRadius = UDim.new(1, 0)
+local speedFill = Instance.new("Frame")
+speedFill.BackgroundColor3 = UIKit.GREEN or UIKit.BLUE
+speedFill.BorderSizePixel = 0
+speedFill.Size = UDim2.new(0, 0, 1, 0)
+speedFill.Parent = speedBar
+Instance.new("UICorner", speedFill).CornerRadius = UDim.new(1, 0)
+
+-- where this drive is actually going
+local goLbl = UIKit.label(speedo, "", 14, UIKit.INK, {
+	Size = UDim2.new(1, -24, 0, 18), Position = UDim2.new(0, 12, 0, 100), TextXAlignment = Enum.TextXAlignment.Left,
+}, UIKit.BOLD)
+local exitHint = UIKit.label(speedo, UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled and "JUMP = OUT" or "SPACE = OUT", 13, UIKit.MUTED_TEXT, {
+	Size = UDim2.new(0, 150, 0, 16), Position = UDim2.new(1, -162, 0, 60), TextXAlignment = Enum.TextXAlignment.Right,
 }, UIKit.BOLD)
 local _ = exitHint
 -- v4.3 NITRO: a bar on the speedometer, and a button for phones
@@ -387,8 +432,8 @@ local nitroBar = Instance.new("Frame")
 nitroBar.Name = "Nitro"
 nitroBar.BackgroundColor3 = UIKit.SURFACE_2
 nitroBar.BorderSizePixel = 0
-nitroBar.Position = UDim2.new(0, 10, 0, -10)
-nitroBar.Size = UDim2.new(1, -20, 0, 8)
+nitroBar.Position = UDim2.new(0, 12, 0, 78)
+nitroBar.Size = UDim2.new(1, -24, 0, 10)
 nitroBar.Parent = speedo
 Instance.new("UICorner", nitroBar).CornerRadius = UDim.new(1, 0)
 local nitroFill = Instance.new("Frame")
@@ -397,8 +442,8 @@ nitroFill.BorderSizePixel = 0
 nitroFill.Size = UDim2.new(1, 0, 1, 0)
 nitroFill.Parent = nitroBar
 Instance.new("UICorner", nitroFill).CornerRadius = UDim.new(1, 0)
-local nitroLbl = UIKit.label(speedo, UserInputService.KeyboardEnabled and "SHIFT = NITRO" or "NITRO", 14, UIKit.MUTED_TEXT, {
-	Size = UDim2.new(1, -16, 0, 16), Position = UDim2.new(0, 8, 0, 5), TextXAlignment = Enum.TextXAlignment.Left,
+local nitroLbl = UIKit.label(speedo, UserInputService.KeyboardEnabled and "SHIFT = NITRO" or "NITRO", 13, UIKit.MUTED_TEXT, {
+	Size = UDim2.new(0, 150, 0, 16), Position = UDim2.new(0, 12, 0, 60), TextXAlignment = Enum.TextXAlignment.Left,
 }, UIKit.BOLD)
 local nitroBtn = UIKit.button(gui, "NITRO", UIKit.BLUE, {
 	Name = "NitroButton", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -190, 1, -20), Size = UDim2.new(0, 110, 0, 70),
@@ -416,7 +461,26 @@ RunService.RenderStepped:Connect(function()
 		nitroFill.BackgroundColor3 = (os.clock() < nitroUntil and UIKit.ORANGE) or (ready >= 1 and UIKit.BLUE or UIKit.CARD_MUTED)
 		nitroLbl.TextColor3 = ready >= 1 and UIKit.BLUE_DEEP or UIKit.MUTED_TEXT
 		-- 1 stud = 0.28 m; mph for the feel of it
-		speedText.Text = tostring(math.floor(math.abs(driving.v) * 0.28 * 2.237 * 1.6 + 0.5))
+		local mph = math.floor(math.abs(driving.v) * 0.28 * 2.237 * 1.6 + 0.5)
+		speedText.Text = tostring(mph)
+		carNameLbl.Text = tostring(player:GetAttribute("CarName") or "COMPANY CAR")
+		local top = driving.top or player:GetAttribute("CarTop") or 64
+		speedFill.Size = UDim2.new(math.clamp(math.abs(driving.v) / math.max(top, 1), 0, 1), 0, 1, 0)
+		--[[ A personal best per drive: it costs nothing, it is the only number
+			in the car that only goes up, and it gives a newly bought tier
+			something to prove in the first ten seconds. ]]
+		if mph > bestMph then bestMph = mph end
+		bestLbl.Text = bestMph > 0 and ("BEST " .. bestMph) or ""
+		-- the destination, counting down
+		local goal = player:GetAttribute("ObjectivePos")
+		local text = player:GetAttribute("ObjectiveText")
+		if typeof(goal) == "Vector3" and text and text ~= "" and driving.chassis then
+			local d = (goal - driving.chassis.Position).Magnitude
+			goLbl.Text = ARROW .. "  " .. tostring(text) .. "  " .. DOT .. "  " .. math.floor(d * 0.28 + 0.5) .. "m"
+			goLbl.TextColor3 = (d < 60 and UIKit.GREEN) or UIKit.INK
+		else
+			goLbl.Text = ""
+		end
 	end
 end)
 

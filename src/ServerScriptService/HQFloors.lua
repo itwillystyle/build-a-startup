@@ -110,7 +110,26 @@ local function initRemotes()
 		lastGo[player] = os.clock()
 		task.delay(0.28, function()
 			if player.Character == char and char.Parent then
-				char:PivotTo(dest.stand + Vector3.new(0, 3, 0))
+				--[[ GET OUT OF THE CAR FIRST.
+
+					PivotTo on a SEATED character drags the vehicle with it,
+					because the seat weld is still attached. Drive to the lift,
+					ride it without standing up, and the car arrives on the
+					storey with you -- you then stand on its roof, half inside
+					the floor, which is exactly what "I am phased into the
+					floor on the second wafer" looks like.
+
+					Standing the player up rather than refusing the lift: taking
+					a lift obviously means getting out, and a refusal with no
+					explanation is worse than the bug. ]]
+				local hum = char:FindFirstChildOfClass("Humanoid")
+				if hum and hum.Sit then
+					hum.Sit = false
+					task.wait(0.15)          -- let the weld break before moving
+				end
+				if player.Character == char and char.Parent then
+					char:PivotTo(dest.stand + Vector3.new(0, 3, 0))
+				end
 			end
 		end)
 	end)
