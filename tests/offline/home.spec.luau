@@ -75,4 +75,42 @@ test("the apartment gates: Studio for HQ 3, Loft for HQ 4, Penthouse for HQ 5", 
 	assert(P.aptNeeded(2) == 0 and P.aptNeeded(3) == 1 and P.aptNeeded(4) == 2 and P.aptNeeded(5) == 3, "expected: P.aptNeeded(2) == 0 and P.aptNeeded(3) == 1 and P.aptNeeded(4) == 2 and P.aptNeeded(5) == 3")
 end)
 
+
+test("keeper slots are decided by the home you own", function()
+	assert(P.keepSlots(0) == 0, "no home keeps nobody")
+	assert(P.keepSlots(1) == 1, "studio")
+	assert(P.keepSlots(2) == 3, "loft")
+	assert(P.keepSlots(3) == 5, "penthouse")
+end)
+
+test("a crafted save cannot mint keeper slots", function()
+	assert(P.keepSlots(99) == 5, "clamped to the top home")
+	assert(P.keepSlots(-4) == 0, "clamped to none")
+	assert(P.keepSlots(nil) == 0, "missing is none")
+	assert(P.keepSlots(2.9) == 3, "a fractional save floors to a real tier")
+end)
+
+test("a home costs a share of the spin-off it competes with", function()
+	local spin = P.spinCost(0, 4e6)
+	assert(spin == 4000000, "spin 1 is $4M, got " .. tostring(spin))
+	assert(P.homePrice(1, spin) == 40000, "studio 1%, got " .. tostring(P.homePrice(1, spin)))
+	assert(P.homePrice(2, spin) == 600000, "loft 15%, got " .. tostring(P.homePrice(2, spin)))
+	assert(P.homePrice(3, spin) == 2400000, "penthouse 60%, got " .. tostring(P.homePrice(3, spin)))
+end)
+
+test("the penthouse stays a real fraction of a spin-off in later companies", function()
+	for n = 0, 6 do
+		local spin = P.spinCost(n, 4e6)
+		local share = P.homePrice(3, spin) / spin
+		assert(share > 0.55 and share <= 0.60,
+			("company %d: penthouse is %.3f of a spin-off"):format(n + 1, share))
+	end
+end)
+
+test("homePrice refuses a tier that does not exist", function()
+	assert(P.homePrice(0, 4e6) == 0, "tier 0 should return 0")
+	assert(P.homePrice(4, 4e6) == 0, "tier 4 (out of range) should return 0")
+	assert(P.homePrice(nil, 4e6) == 0, "tier nil should return 0")
+end)
+
 return T

@@ -114,6 +114,43 @@ P.APARTMENTS = {
 	  blurb = "The top of the tower. An indoor pool. A view of your valley." },
 }
 
+
+--[[ HOW MANY OF YOUR PEOPLE SURVIVE A SPIN-OFF.
+
+	This is what a home is for. Before this it paid +10% money, which against a
+	rate already multiplied by HQ level, room levels, talent, set bonuses,
+	milestones, prestige and market share was invisible -- the player's own
+	verdict was "whatever that number even means".
+
+	Now the home is capacity at the one moment the loss is felt. Eligibility is
+	still KEEP_TALENT (Star and above); the home decides how many of them fit. ]]
+P.KEEP_SLOTS = { [0] = 0, 1, 3, 5 }
+
+function P.keepSlots(apt)
+	local n = math.floor(tonumber(apt) or 0)
+	return P.KEEP_SLOTS[math.clamp(n, 0, #P.KEEP_SLOTS)] or 0
+end
+
+--[[ A HOME COSTS A SHARE OF THE SPIN-OFF IT COMPETES WITH.
+
+	Not a fixed sum, and this is forced by measurement rather than taste. A real
+	player reached ~$3M in about 20 minutes, matching the recorded bot run
+	(GO PUBLIC ~23.9 min, spin-off $4M at ~26 min). Against that curve the
+	authored prices -- $20K / $150K / $2M -- are 0.5% / 3.8% / 50% of a
+	spin-off, so every home was affordable before a player could spin off at
+	all, and slots keyed to the home would have differentiated nobody.
+
+	As a share the decision survives the curve: the penthouse costs 60% of a
+	spin-off, so five slots visibly delay the restart you are saving for, while
+	the loft keeps today's three for a sixth of that. The studio is trivial on
+	purpose -- it is insurance, not a decision. ]]
+P.HOME_SHARE = { 0.01, 0.15, 0.60 }
+
+function P.homePrice(tierId, spinCost)
+	local share = P.HOME_SHARE[math.floor(tonumber(tierId) or 0)]
+	if not share then return 0 end
+	return P.niceDown(math.max(1, (tonumber(spinCost) or 0) * share))
+end
 -- the apartment you must own before building HQ `level` (0 = none)
 function P.aptNeeded(level)
 	for _, t in ipairs(P.APARTMENTS) do
