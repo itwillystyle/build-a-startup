@@ -2652,13 +2652,28 @@ end
 -- spin-off confirm card's button. Stored on Econ: this file is at the 200-local limit.
 if Econ then
 	Econ.celebrate = remote("Celebrate")
-	remote("SpinConfirm").OnServerEvent:Connect(function(player)
+	remote("SpinConfirm").OnServerEvent:Connect(function(player, msg)
 		local plot = plotOf(player)
-		if plot and plot.spinArmed and os.clock() - plot.spinArmed <= 30 and spinOff then spinOff(player, plot) end
+		if plot and plot.spinArmed and os.clock() - plot.spinArmed <= 30 and spinOff then
+			--[[ Never trust the client with WHO survives. The pick is only a list of
+				numbers; spinOff matches each against the offer THIS server built for
+				the card (and the staff list as it is right now). Whatever does not
+				match is dropped; nothing valid means the best `slots`. ]]
+			local ids
+			if type(msg) == "table" and type(msg.pick) == "table" then
+				ids = {}
+				for i = 1, math.min(#msg.pick, 32) do
+					if type(msg.pick[i]) == "number" then ids[#ids + 1] = msg.pick[i] end
+				end
+			end
+			plot.spinPickIds = ids
+			spinOff(player, plot)
+			plot.spinPickIds = nil
+		end
 	end)
 	remote("SpinCancel").OnServerEvent:Connect(function(player)
 		local plot = plotOf(player)
-		if plot and plot.spinArmed then plot.spinArmed = nil; refreshHqPad(plot) end
+		if plot and plot.spinArmed then plot.spinArmed = nil; plot.spinOffer = nil; refreshHqPad(plot) end
 	end)
 	Econ.Daily = tryRequire(ServerScriptService, "DailyReward")
 	if Econ.Daily and Econ.Daily.init then
@@ -2875,18 +2890,22 @@ spinOff = function(player, plot)
 		plot.spinArmed = os.clock()
 		refreshHqPad(plot)
 		--[[ The home decides how many come with you; the player will decide which
-			(the pick UI is the next task). Eligibility is still KEEP_TALENT (Star
-			and above). Sorted best-first so the default selection, the top `slots`,
-			is already the one a player would pick. ]]
+			(the card lets them choose which). Eligibility is still KEEP_TALENT (Star
+			and above). Best-first in a total order, so the card's default selection,
+			the top `slots`, is exactly what the server falls back to. Each person is
+			given an opaque id bound to their staff ENTRY (not their position in
+			s.rigs, which can shift while the card is open); ids are never reused, so
+			a pick left over from an older card cannot match this one. ]]
 		local slots = Prog.keepSlots(s.apt)
+		local offer = { byId = {} }
 		local eligible = {}
-		for i, r in ipairs(s.rigs or {}) do
-			if (r.talent or 1) >= ((Econ and Econ.KEEP_TALENT) or 3) then
-				table.insert(eligible, { idx = i, talent = r.talent or 1,
-					name = (r.rig and r.rig:GetAttribute("PersonName")) or "someone" })
-			end
+		for _, k in ipairs(Prog.rankKeepers(s.rigs, (Econ and Econ.KEEP_TALENT) or 3)) do
+			plot.spinSerial = (plot.spinSerial or 0) + 1
+			offer.byId[plot.spinSerial] = k.entry
+			table.insert(eligible, { id = plot.spinSerial, talent = k.talent,
+				name = (k.entry.rig and k.entry.rig:GetAttribute("PersonName")) or "someone" })
 		end
-		table.sort(eligible, function(a, b) return a.talent > b.talent end)
+		plot.spinOffer = offer
 		if Econ and Econ.celebrate then
 			Econ.celebrate:FireClient(player, { kind = "spinAsk", cost = cost, from = spinMultOf(s), to = nextSpinMultOf(s),
 				keep = math.min(#eligible, slots), slots = slots, eligible = eligible, number = (s.spinoffs or 0) + 1 })
@@ -2901,14 +2920,13 @@ spinOff = function(player, plot)
 	-- v2.7.0: Star and above follow you to the next startup (the chase across runs)
 	local keep = {}
 	if Econ and Econ.V3 then
-		for _, r in ipairs(s.rigs or {}) do
-			if (r.talent or 1) >= Econ.KEEP_TALENT then table.insert(keep, { talent = r.talent, who = r.who }) end
+		-- recruiting makes Star+ common (the sim kept ~12), so the home you own decides how many come along,
+		-- and the player decides which: their pick is matched against the CURRENT staff (see Prog.chooseKeepers)
+		for _, r in ipairs(Prog.chooseKeepers(s.rigs, Econ.KEEP_TALENT, Prog.keepSlots(s.apt), plot.spinOffer, plot.spinPickIds)) do
+			table.insert(keep, { talent = r.talent, who = r.who })
 		end
-		-- recruiting makes Star+ common (the sim kept ~12), so the home you own decides how many come along
-		table.sort(keep, function(a, b) return a.talent > b.talent end)
-		local slots = Prog.keepSlots(s.apt)
-		while #keep > slots do table.remove(keep) end
 	end
+	plot.spinOffer = nil
 	cash.Value = 0
 	releasePlot(plot)                -- wipes rooms, furniture, staff; shell back to the garage
 	plot.owner = player.UserId
