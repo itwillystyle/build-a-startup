@@ -392,6 +392,71 @@ test("the old shot names still resolve, so an older caller gets a frame", functi
 end)
 
 -- ===================================================================
+-- 5b. THE SHOULDER. This was the actual flicker.
+-- ===================================================================
+--[[ Found by running the chase in Studio and recording the camera every frame:
+	per-frame jumps of 46.5, 28.8, 22.7 and 23.4 studs while the SHOT NEVER
+	CHANGED. No cut, no director -- the lens teleporting around the player.
+
+	Cause: solve chose its shoulder with sign(toHunter . right), and the hunter
+	is directly behind you (this file measured dot(forward) = -1.00), so that
+	quantity is ~0 and its SIGN is noise. Same class of mistake as reading a
+	trend off an instantaneous rate, in a different function.
+
+	These two tests are the ones that would have caught it before any of this
+	reached a recording. ]]
+
+test("THE FLICKER: sub-stud wobble behind the player must not move the camera", function()
+	local pos, travel = Vector3.new(0, 3, 0), Vector3.new(0, 0, -1)
+	for _, shot in ipairs({ "chase", "threat", "closing", "gaining" }) do
+		local st, prev, worst = {}, nil, 0
+		-- a hunter dead behind, jittering across the line by a hundredth of a stud
+		for i = 1, 200 do
+			local lat = ((i % 2 == 0) and 0.01 or -0.01) + 0.004 * math.sin(i * 1.7)
+			local h = pos + Vector3.new(lat, 0, 14)
+			C.sideFor(st, pos, travel, h, DT)
+			local cf = C.solve({ shot = shot, pos = pos, travel = travel,
+				hunterPos = h, side = st.side, dist = 14, speed = 20,
+				carrySpeed = 20, mode = "C" })
+			if prev then worst = math.max(worst, (cf.Position - prev).Magnitude) end
+			prev = cf.Position
+		end
+		assert(worst < 0.5,
+			("shot `%s`: a 0.01-stud wobble moved the camera %.1f studs in one frame"):format(shot, worst))
+	end
+end)
+
+test("a REAL crossing still changes the shoulder, as a sweep and not a teleport", function()
+	--[[ The fix must not simply freeze the shoulder. When the hunter genuinely
+		cuts across behind you the camera is supposed to change sides -- it
+		just has to travel there. ]]
+	local pos, travel = Vector3.new(0, 3, 0), Vector3.new(0, 0, -1)
+	local st, prev, worst, frames = {}, nil, 0, 0
+	local startSide, endSide
+	for i = 1, 240 do
+		-- hunter slides from 6 studs left of the line to 6 studs right
+		local lat = -6 + 12 * math.min(1, i / 60)
+		local h = pos + Vector3.new(lat, 0, 14)
+		C.sideFor(st, pos, travel, h, DT)
+		startSide = startSide or st.side
+		endSide = st.side
+        local cf = C.solve({ shot = "chase", pos = pos, travel = travel,
+			hunterPos = h, side = st.side, dist = 14, speed = 20, carrySpeed = 20, mode = "C" })
+		if prev then
+			local d = (cf.Position - prev).Magnitude
+			worst = math.max(worst, d)
+			if d > 0.05 then frames += 1 end
+		end
+		prev = cf.Position
+	end
+	assert(startSide < -0.9 and endSide > 0.9,
+		("the shoulder never actually changed: %.2f -> %.2f"):format(startSide, endSide))
+	assert(worst < 6, ("the swap was still a teleport: %.1f studs in one frame"):format(worst))
+	assert(frames * DT > 0.3,
+		("the swap took only %.2f s, which reads as a glitch"):format(frames * DT))
+end)
+
+-- ===================================================================
 -- 6. REGRESSION: the framing fixes must survive the new shots.
 -- ===================================================================
 test("no shot may eat the clearance that keeps the hunter out of the lens", function()

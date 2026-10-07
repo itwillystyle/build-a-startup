@@ -46,6 +46,29 @@ ChaseCam.T = {
 	FEAR_FAR = 26,
 	FEAR_NEAR = 6,
 
+	--[[ THE SHOULDER. This was the flicker, and it was never the director.
+
+		`solve` used to choose which side to sit on with sign(toHunter . right)
+		-- a SIGN TEST on a quantity that is zero when the hunter is directly
+		behind you. This file's own notes record that the hunter sits at
+		dot(forward) = -1.00, i.e. directly behind you, always. So the test ran
+		on noise and its answer changed every frame.
+
+		MEASURED, offline: moving the hunter 0.01 studs across the travel line
+		moves the camera 37.8 studs on the `chase` shot and 50.0 on `threat`,
+		because the two shoulders are a full 2 x SIDE apart plus the yaw. And
+		measured in a live chase: per-frame camera jumps of 46.5, 28.8, 22.7
+		and 23.4 studs while the SHOT NEVER CHANGED -- so no cut, no director,
+		just the lens teleporting back and forth around the player.
+
+		Two changes fix it and both are needed. SIDE_HOLD makes the choice
+		hysteretic in STUDS, so sub-stud noise cannot reach it. SIDE_RATE makes
+		the change a SWEEP rather than a snap, so that even a real crossing --
+		the hunter genuinely cutting across behind you -- reads as the camera
+		moving instead of the picture breaking. ]]
+	SIDE_HOLD = 2.5,      -- studs across the line before the shoulder changes at all
+	SIDE_RATE = 2.2,      -- how fast it swings when it does (full swap ~0.9 s)
+
 	SMOOTH = 0.12,        -- camera easing; lower is snappier
 	SHAKE = 0.55,         -- studs at a full lunge
 
@@ -240,12 +263,19 @@ function ChaseCam.solve(s)
 	travel = Vector3.new(travel.X, 0, travel.Z)
 	travel = travel.Magnitude > 0.01 and travel.Unit or Vector3.new(0, 0, -1)
 
-	-- which side is the hunter on? yaw that way, so it comes into frame
-	local side = 1
-	if s.hunterPos then
-		local toH = s.hunterPos - s.pos
-		local right = Vector3.new(-travel.Z, 0, travel.X)
-		side = (toH:Dot(right) >= 0) and 1 or -1
+	--[[ Which shoulder. `s.side` is the director's sticky, swept value in
+		[-1, 1] (see ChaseCam.sideFor); a caller that does not keep state --
+		the Edit lab, a one-off measurement -- falls back to the old sign test,
+		which is fine for a single frame and is the thing that must never run
+		frame after frame. ]]
+	local side = s.side
+	if side == nil then
+		side = 1
+		if s.hunterPos then
+			local toH = s.hunterPos - s.pos
+			local right = Vector3.new(-travel.Z, 0, travel.X)
+			side = (toH:Dot(right) >= 0) and 1 or -1
+		end
 	end
 
 	--[[ The shot is an offset on everything below, so each set-up inherits the
@@ -548,12 +578,45 @@ ChaseCam.DIR = {
 	BOOST = 1.35,        -- x carry speed. Below ~1.3 the ordinary scooter wobble trips it.
 }
 
+--[[ The shoulder, held and swept rather than flipped.
+
+	Hysteresis is in STUDS, not in the sign: the hunter has to be properly over
+	on the other side (SIDE_HOLD) before the shot even wants to change. When it
+	does, the value crosses gradually, so the camera arcs round behind the
+	player instead of jumping across them.
+
+	Returns a continuous value in [-1, 1]. Everything downstream multiplies by
+	it, so a half-way value is a half-way camera, which is what makes the sweep
+	work without any extra code in solve. ]]
+function ChaseCam.sideFor(st, pos, travel, hunterPos, dt)
+	local T = ChaseCam.T
+	local want = st.sideWant or 1
+	if hunterPos and pos and travel then
+		local right = Vector3.new(-travel.Z, 0, travel.X)
+		local lat = (hunterPos - pos):Dot(right)
+		if lat > T.SIDE_HOLD then
+			want = 1
+		elseif lat < -T.SIDE_HOLD then
+			want = -1
+		end
+	end
+	st.sideWant = want
+	local cur = st.side or want
+	st.side = cur + (want - cur) * math.clamp((dt or 1 / 60) * T.SIDE_RATE, 0, 1)
+	return st.side
+end
+
 --[[ st is the caller's table, carried between frames. s is the world:
-	  { t, dt, dist?, windup, lunging, homeDist?, speed, carrySpeed }
+	  { t, dt, dist?, windup, lunging, homeDist?, speed, carrySpeed,
+	    pos?, travel?, hunterPos? }   -- the last three only to keep the shoulder
 	Returns shot, cause, cut -- `cause` is the sentence the cut is making, and
 	exists so a cut can be audited rather than trusted. ]]
 function ChaseCam.direct(st, s)
 	local D = ChaseCam.DIR
+	--[[ The shoulder is director state, not per-frame geometry. Kept here so
+		there is exactly one place that decides it and one place that holds it
+		steady; the caller passes `st.side` straight into solve. ]]
+	ChaseCam.sideFor(st, s.pos, s.travel, s.hunterPos, s.dt)
 	st.started = st.started or s.t
 	st.shot = st.shot or "establish"
 	st.cause = st.cause or "opening: where it is, and where home is"
