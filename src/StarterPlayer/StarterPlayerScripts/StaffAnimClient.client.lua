@@ -44,7 +44,13 @@ cheerAnim.AnimationId = CHEER_ANIM
 -- v4.4 the headhunter's windup and lunge, keyed (tools/anim/hunter.luau), played
 -- when the server flips the rig's Windup / Lunging attribute. Full body: while
 -- one plays, this script writes nothing to that rig. Empty id = procedural only.
-local HUNTER_ANIM = { windup = "rbxassetid://76836764246835", lunge = "rbxassetid://131389875339938" }
+--[[ run = "" until it is uploaded. The chase spends most of its time running,
+	so this is the animation you actually see; windup and lunge are the two
+	half-second punctuation marks on top of it. While the id is empty the rig
+	falls back to the Lua sine-pose below, exactly as before -- nothing breaks
+	before the upload, it just does not look like running. ]]
+local HUNTER_ANIM = { windup = "rbxassetid://76836764246835", lunge = "rbxassetid://131389875339938",
+	run = "" }
 local hunterAnims = {}
 for which, id in pairs(HUNTER_ANIM) do
 	if id ~= "" then
@@ -81,6 +87,52 @@ local function playKeyed(model, st, which)
 	end
 	tr:Play(0.05)
 	st.keyedTrack = tr
+end
+
+--[[ THE RUN, underneath everything else.
+
+	Movement priority and looping, so the Action-priority windup and lunge play
+	OVER it without it being stopped and restarted -- the legs keep driving
+	while the arms throw back for a lunge, which is what a sprint into a dive
+	actually looks like.
+
+	Returns the track, or nil when there is no id yet or the rig cannot take
+	one, in which case the Lua pose stays in charge. ]]
+local function runTrackFor(model, st)
+	if st.runTrack ~= nil then return st.runTrack or nil end
+	if HUNTER_ANIM.run == "" then st.runTrack = false return nil end
+	local hum = model:FindFirstChildOfClass("Humanoid")
+	local animator = hum and (hum:FindFirstChildOfClass("Animator") or Instance.new("Animator", hum))
+	if not animator then st.runTrack = false return nil end
+	local anim = Instance.new("Animation")
+	anim.AnimationId = HUNTER_ANIM.run
+	local ok, track = pcall(animator.LoadAnimation, animator, anim)
+	if not ok then st.runTrack = false return nil end
+	track.Priority = Enum.AnimationPriority.Movement
+	track.Looped = true
+	st.runTrack = track
+	return track
+end
+
+--[[ Start and stop the run with the chase, and match the stride to the ground
+	speed so the feet do not skate. Its own pass, before the pose loop, so the
+	if/elseif chain below keeps its shape. Returns true while the Animator owns
+	this rig, which is the pose loop's cue to keep its hands off. ]]
+local function driveRun(model, st)
+	local chasing = model:GetAttribute("Chaser") == true
+	local rt = chasing and runTrackFor(model, st) or (st.runTrack or nil)
+	if not rt then return false end
+	if chasing and not rt.IsPlaying then
+		rt:Play(0.15)
+	elseif not chasing and rt.IsPlaying then
+		rt:Stop(0.2)
+	end
+	if rt.IsPlaying then
+		local v = st.hrp.AssemblyLinearVelocity
+		rt:AdjustSpeed(math.clamp(Vector3.new(v.X, 0, v.Z).Magnitude / 18, 0.6, 1.8))
+		return true
+	end
+	return false
 end
 
 local rigs = {}                -- model -> state
@@ -313,6 +365,7 @@ RunService.PreSimulation:Connect(function()
 		if not model.Parent then
 			rigs[model] = nil
 		elseif (st.hrp.Position - camPos).Magnitude <= RANGE
+			and not driveRun(model, st)                                                            -- v4.7 the run owns a chaser
 			and not (st.keyedTrack and st.keyedTrack.IsPlaying and st.keyedTrack.Length > 0) then   -- v4.4 a keyed move owns the body
 			local t = now + st.seed
 			--[[ v3.0.3 POSES, with elbows and knees. Sign convention (measured on
