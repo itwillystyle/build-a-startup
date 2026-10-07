@@ -767,7 +767,7 @@ local function spinAsk(e)
 			end
 		end
 		for _, who in ipairs(eligible) do
-			local chip = UIKit.button(strip, ("%s  ·  %d"):format(who.name, who.talent), UIKit.MUTED,
+			local chip = UIKit.button(strip, ("%s  -  %d"):format(who.name, who.talent), UIKit.MUTED,
 				{ Name = "Keep_" .. who.id }, { textSize = 14 })
 			chips[who.id] = chip
 			chip.MouseButton1Click:Connect(function()
