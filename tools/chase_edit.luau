@@ -43,7 +43,7 @@ local PROF = {
 }
 local prof = PROF[skill] or PROF.good
 
-local seed = 7919
+local seed = tonumber(argv[3]) or 7919
 local function rnd()
 	seed = (seed * 1103515245 + 12345) % 2147483648
 	return seed / 2147483648
