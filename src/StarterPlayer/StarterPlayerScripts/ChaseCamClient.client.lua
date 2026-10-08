@@ -285,7 +285,7 @@ local TOUCH_ZONE = 0.4       -- touches starting right of this fraction of the s
 
 local controlYaw = 0
 local steerRate = 0          -- rad/s, smoothed; drives the bank
-local mouseLocked = false    -- we locked the mouse for a right-drag, so we unlock it
+local mouseLocked = false    -- we locked the mouse for the chase, so we unlock it
 local touchSteer, touchLast, touchAccum = nil, nil, 0
 
 UIS.InputBegan:Connect(function(input, processed)
@@ -309,16 +309,19 @@ end)
 
 local function readSteer(dt)
 	local dyaw = 0
-	-- mouse: hold the right button and drag, exactly like the default camera
-	local rmb = UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
-	if rmb and UIS.MouseBehavior == Enum.MouseBehavior.Default then
-		UIS.MouseBehavior = Enum.MouseBehavior.LockCurrentPosition
+	--[[ MOUSE: LOCKED FOR THE WHOLE CHASE (8 Oct, his call: "lock the mouse during
+		the chase. No right-click, you just have to move"). Holding the right button
+		meant steering in strokes -- drag, let go, re-grab -- which is no way to dodge
+		a lunge. The cursor is hidden and centred like shift-lock, and every pixel of
+		mouse movement steers. Set every frame: anything else that touches
+		MouseBehavior (a menu, the default camera) is overruled while we own it;
+		release() hands it back. Touch and gamepad are unaffected. ]]
+	if UIS.MouseEnabled then
+		if UIS.MouseBehavior ~= Enum.MouseBehavior.LockCenter then
+			UIS.MouseBehavior = Enum.MouseBehavior.LockCenter
+		end
+		UIS.MouseIconEnabled = false
 		mouseLocked = true
-	elseif not rmb and mouseLocked then
-		UIS.MouseBehavior = Enum.MouseBehavior.Default
-		mouseLocked = false
-	end
-	if rmb or UIS.MouseBehavior == Enum.MouseBehavior.LockCenter then
 		-- moving the mouse right turns right, which is a DECREASING yaw
 		dyaw -= UIS:GetMouseDelta().X * MOUSE_RAD_PER_PX * GameSettings.MouseSensitivity
 	end
@@ -377,6 +380,7 @@ local function release()
 	shakeUntil = 0
 	if mouseLocked then
 		UIS.MouseBehavior = Enum.MouseBehavior.Default
+		UIS.MouseIconEnabled = true
 		mouseLocked = false
 	end
 	touchSteer, touchAccum = nil, 0

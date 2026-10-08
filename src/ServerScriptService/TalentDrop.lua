@@ -423,7 +423,20 @@ local function spawnHunter(player, c, fromPos, second)
 		c.hunterRival = rival
 	end
 	c.hunterY = c.hunterY or y
-	c.chaseCfg = c.chaseCfg or Chase.config(c.tier.id, c.vip, c.speed)
+	if not c.chaseCfg then
+		c.chaseCfg = Chase.config(c.tier.id, c.vip, c.speed)
+		-- v4.4 the home stretch: studs from (x, z) to the edge of this player's lot
+		local plot = api.plotOf(player)
+		if plot and plot.pivot then
+			local pv = plot.pivot
+			c.chaseCfg.homeDist = function(x, z)
+				local p = pv:PointToObjectSpace(Vector3.new(x, pv.Position.Y, z))
+				local ox = math.max(0, math.abs(p.X) - LOT_X)
+				local oz = math.max(0, LOT_Z1 - p.Z, p.Z - LOT_Z2)
+				return math.sqrt(ox * ox + oz * oz)
+			end
+		end
+	end
 	c.chaseT0 = c.chaseT0 or os.clock()
 end
 
@@ -573,6 +586,8 @@ local function stepCarry(player, c, dt)
 					if (rig:GetAttribute("Lunging") == true) ~= lung then rig:SetAttribute("Lunging", lung) end
 					local np = Vector3.new(H.h.x, c.hunterY, H.h.z)
 					local look = Vector3.new(thrp.Position.X - np.X, 0, thrp.Position.Z - np.Z)
+					-- v4.4: a committed lunge faces down its own line, so a miss reads as one
+					if (ph == "lunge" or ph == "recover") and H.h.lx then look = Vector3.new(H.h.lx, 0, H.h.lz) end
 					rig:PivotTo(look.Magnitude > 0.01 and CFrame.lookAt(np, np + look) or CFrame.new(np))
 				end
 			end
