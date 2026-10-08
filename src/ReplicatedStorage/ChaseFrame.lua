@@ -30,7 +30,14 @@ ChaseFrame.CONTRACT = {
 	PLAYER_Y_MIN = 0.45,   -- sy band: low enough to see the road ahead,
 	PLAYER_Y_MAX = 0.70,   -- high enough that the player is not at the bottom edge
 	PLAYER_MIN_H = 0.09,   -- player at least 9% of frame height: readable, not a dot
-	HUNTER_RANGE = 20,     -- studs: inside this the hunter must be in shot
+	HUNTER_RANGE = 20,     -- studs: inside this the hunter must be in shot...
+	--[[ ...but only when it is BEHIND the player, within this many degrees of
+		directly behind. Found in a live chase: the camera faces where the
+		player is going (it has to -- W is camera-relative), so after a hard
+		turn a hunter at the player's shoulder cannot be in shot without
+		swinging the camera off the player's heading. Beside you, the hunter is
+		the HUD's job (the distance arrow), not the frame's. ]]
+	HUNTER_ARC = 70,
 	HUNTER_MAX_H = 0.30,   -- hunter at most 30% of frame height: visible, not in the lens
 	TILT_MAX = 8,          -- degrees of horizon lean, either way
 	YAW_MAX = 25,          -- degrees the camera may turn off the travel heading
@@ -172,7 +179,17 @@ function ChaseFrame.check(camCF, fovDeg, aspect, s)
 		metrics.hunterOnScreen = hunterOn
 		metrics.hunterH = hunterH
 
-		if dist <= K.HUNTER_RANGE and not hunterOn then
+		local behind = true
+		if s.heading then
+			local hd = Vector3.new(s.heading.X, 0, s.heading.Z)
+			local to = Vector3.new(hunterPos.X - playerPos.X, 0, hunterPos.Z - playerPos.Z)
+			if hd.Magnitude > 1e-3 and to.Magnitude > 1e-3 then
+				local cosA = math.clamp((-hd.Unit):Dot(to.Unit), -1, 1)
+				behind = math.deg(math.acos(cosA)) <= K.HUNTER_ARC
+			end
+		end
+		metrics.hunterBehind = behind
+		if dist <= K.HUNTER_RANGE and behind and not hunterOn then
 			fail(string.format("hunter out of frame: %.1f studs from the player (within %g)",
 				dist, K.HUNTER_RANGE))
 		end

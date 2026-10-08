@@ -170,10 +170,22 @@ ChaseCam.T = {
 			banks because it is being thrown around, so it has to be allowed to
 			be thrown around: looser spring, and roll that actually responds to
 			the sideways speed it builds. ]]
-		ACCEL = 30,         -- how hard the camera chases its mark
-		DAMP = 4.4,         -- how much it resists overshoot (lower = looser)
-		LAG_MAX = 11,       -- studs it is allowed to fall behind
-		ROLL = 11,          -- degrees it banks into a turn
+		--[[ v3 (7 Oct, phase B): stiffer and near-critically damped.
+
+			The loose spring (ACCEL 30 / DAMP 4.4, damping ratio 0.40) was chosen
+			to make the camera feel like a second vehicle. At chase speed it was
+			most of what the player reported as swaying: an underdamped spring
+			overshoots on every input and rings back. The "second vehicle" feel
+			now comes from the cuts and the lag, not from the lens wandering.
+			Damping ratio DAMP / (2 * sqrt(ACCEL)) = 12 / 13.4 = 0.89. ]]
+		ACCEL = 45,         -- how hard the camera chases its mark
+		DAMP = 12,          -- near-critical: settles without ringing
+		LAG_MAX = 4,        -- studs it is allowed to fall behind (was 11)
+		ROLL = 8,           -- degrees it banks into a turn (was 11)
+		--[[ Bank comes from the player's STEERING rate, not from the spring's own
+			sideways drift -- the drift was an artefact, so the horizon tilted for
+			reasons the player never caused. Degrees per (rad/s) of yaw. ]]
+		ROLL_PER_TURN = 2.6,
 		ROLL_RATE = 4.5,
 		ROLL_PER_SPEED = 1.1,   -- degrees of bank per stud/s of sideways drift
 		--[[ A filmed chase is not shot from directly behind -- that is a
@@ -236,14 +248,18 @@ ChaseCam.T = {
 	        up sight of the hunter IS the statement.
 ]]
 ChaseCam.SHOTS = {
-	carry     = { dist = 3,  height = 2.0,  yaw = -6,  fov = -4, flip = false },
-	establish = { dist = 9,  height = 6.0,  yaw = 14,  fov = -8, flip = false },
-	chase     = { dist = 0,  height = 0,    yaw = 0,   fov = 0,  flip = false },
-	closing   = { dist = 0,  height = -1.6, yaw = 12,  fov = 6,  flip = false },
-	gaining   = { dist = 7,  height = 4.2,  yaw = -8,  fov = -10, flip = false },
-	threat    = { dist = 0,  height = -1.8, yaw = 20,  fov = 4,  flip = true, hold = 24 },
-	hero      = { dist = -2, height = -0.8, yaw = -30, fov = 10, flip = true },
-	homerun   = { dist = -1, height = 0.6,  yaw = -22, fov = 8,  flip = false, lead = 16, hold = 95 },
+	-- yaw / lead / hold are read only by the legacy `solve` (modes A/B, the lab).
+	-- The locked camera (`solveLocked`, mode C) ignores yaw entirely and reads
+	-- screenY instead: where the player sits vertically, i.e. how much road
+	-- ahead the shot shows.
+	carry     = { dist = 3,  height = 2.0,  yaw = -6,  fov = -4, flip = false, screenY = 0.58 },
+	establish = { dist = 9,  height = 6.0,  yaw = 14,  fov = -8, flip = false, screenY = 0.56 },
+	chase     = { dist = 0,  height = 0,    yaw = 0,   fov = 0,  flip = false, screenY = 0.58 },
+	closing   = { dist = 0,  height = -1.6, yaw = 12,  fov = 6,  flip = false, screenY = 0.62 },
+	gaining   = { dist = 7,  height = 4.2,  yaw = -8,  fov = -10, flip = false, screenY = 0.54 },
+	threat    = { dist = 0,  height = -1.8, yaw = 20,  fov = 4,  flip = true, hold = 24, screenY = 0.62 },
+	hero      = { dist = -2, height = -0.8, yaw = -30, fov = 10, flip = true, screenY = 0.64 },
+	homerun   = { dist = -1, height = 0.6,  yaw = -22, fov = 8,  flip = false, lead = 16, hold = 95, screenY = 0.68 },
 }
 
 --[[ Kept so an older caller asking for a shot by its old name still gets a
@@ -389,6 +405,194 @@ function ChaseCam.solve(s)
 	return CFrame.lookAt(at, look), fov, fear
 end
 
+
+--[[ ======================================================================
+	THE LOCKED CAMERA -- phase A + B of the 7 Oct control spec.
+
+	THE RULE. The camera's YAW is the player's yaw, exactly, always. A shot may
+	change how far back the camera sits, how high, which side, the lens and the
+	roll. It may never change which way the camera faces.
+
+	WHY IT HAS TO BE THIS STRICT. Roblox movement is camera-relative: W goes
+	where the camera faces. Every control bug in this feature was a way for the
+	camera's facing to come from somewhere other than the player:
+	  * from velocity      -> a feedback loop that diverged (measured: travel
+	                          reversing every frame, dot falling to -0.80)
+	  * from a shot's yaw  -> W changing direction on every cut, and a profile
+	                          shot where the stick stops matching the motion
+	  * from the hero shot -> a camera in FRONT of the player inverts W outright
+	The 7 Oct recording ("I don't even know if W is moving me forwards or
+	backwards") was all three at once. With the yaw locked, none can happen.
+	This is how racing-game chase cameras work: heading-locked, position lagged.
+
+	THE HUNTER, IN SCREEN TERMS. The old clearance said "stay 7 studs behind
+	the hunter". ChaseFrame measured what that means on screen: a 5.5-stud
+	hunter 7 studs from the lens is about HALF the frame. So the clearance is
+	now derived from the lens: the camera keeps the hunter at least
+	HUNTER_HEIGHT / (HUNTER_MAX_H * 2 * tan(fov/2)) away, which is the distance
+	at which it is HUNTER_MAX_H of the frame tall, and rises as it pulls back
+	so the hunter sits low in the frame instead of across the player.
+]]
+ChaseCam.LOCKED = {
+	DIST = 12,              -- studs behind the player at rest
+	HEIGHT = 3.6,           -- studs above the root at rest
+	LATERAL = 2.6,          -- studs off the centre line, toward the director's side
+	HUNTER_HEIGHT = 5.5,    -- a hunter rig, roughly
+	HUNTER_RANGE = 20,      -- inside this the hunter must be framed (ChaseFrame rule 5)
+	--[[ FRAMING, with hysteresis, and the change is a CUT.
+
+		The camera has two jobs that need two different places: framing a near
+		hunter means sitting BEHIND it; with the hunter out of range the camera
+		sits close behind the player. Switching on a single threshold at 20
+		studs was a disaster on two counts, both found in a live chase:
+		  * 20 studs is where the hunter LIVES -- ChaseRules sprints it beyond
+		    20 and jogs it inside -- so it crossed the line constantly and the
+		    camera target jumped ~16-20 studs each time (reproduced: 12 jumps
+		    of more than 3 studs in a single frame);
+		  * any continuous move between "behind the hunter" and "in front of
+		    the hunter" passes THROUGH the hunter. Live: 168% of the frame.
+		So it is hysteretic (frame from 20 in, release past 25) and the switch
+		snaps -- a cut, which never has an in-between frame. ]]
+	FRAME_IN = 20,
+	FRAME_OUT = 25,
+	HUNTER_MAX_H = 0.25,    -- target; ChaseFrame's contract is 0.30, the gap is perspective margin
+	PLAYER_H = 5,           -- the player, for the size floor below
+	--[[ Target; the contract is 0.09. The size formula uses the flat distance,
+		but the camera is raised and pitched, so the true slant distance is
+		longer and the player measured ~5% smaller than predicted (0.090 against
+		a 0.095 target). 0.10 absorbs that. ]]
+	PLAYER_MIN_H = 0.10,
+	DIST_MAX = 48,          -- room to stay behind a hunter out to FRAME_OUT with a narrowed lens
+	--[[ Speed used to widen the lens by up to 14 degrees. A wide lens shrinks
+		the player and swells nothing useful, and the speed lines and the wind
+		now carry "fast" without touching the frame. ]]
+	FOV_SPEED = 5,
+	SHOT_FOV = 0.6,         -- scale on each shot's own lens change
+	RISE = 0.24,            -- studs of extra height per stud pulled back past DIST
+	PITCH_MIN = -4,         -- degrees; negative = looking slightly up
+	PITCH_MAX = 30,
+}
+
+--[[ The yaw a camera has, as a heading. Exposed so the client seeds its
+	control yaw from wherever the default camera was looking when the chase
+	took over, and the transition is seamless. ]]
+function ChaseCam.yawOf(cf)
+	local l = cf.LookVector
+	return math.atan2(-l.X, -l.Z)
+end
+
+function ChaseCam.headingOfYaw(yaw)
+	return Vector3.new(-math.sin(yaw), 0, -math.cos(yaw))
+end
+
+--[[ s = {
+	  pos        Vector3   the player's root
+	  heading    Vector3   the player-owned direction (flat); the camera faces it
+	  shot       string?
+	  side       number?   the director's swept shoulder, -1..1
+	  dist       number?   studs to the hunter
+	  speed, carrySpeed
+	}
+	returns cf, fov ]]
+function ChaseCam.solveLocked(s)
+	local T, L = ChaseCam.T, ChaseCam.LOCKED
+	local shot = ChaseCam.SHOTS[s.shot or "chase"] or ChaseCam.SHOTS.chase
+
+	local h = s.heading or Vector3.new(0, 0, -1)
+	h = Vector3.new(h.X, 0, h.Z)
+	h = h.Magnitude > 1e-3 and h.Unit or Vector3.new(0, 0, -1)
+	local right = Vector3.new(-h.Z, 0, h.X)
+	local up = Vector3.new(0, 1, 0)
+
+	-- the lens first: the clearance below is a function of it
+	local fov = T.FOV_BASE + L.FOV_SPEED * math.clamp((s.speed or 0) / math.max(s.carrySpeed or 16, 1), 0, 1)
+	fov = math.clamp(fov + (shot.fov or 0) * L.SHOT_FOV, 55, 90)
+	local tanV = math.tan(math.rad(fov) / 2)
+
+	local dist = L.DIST + (shot.dist or 0)
+	-- the director decides framing (with hysteresis); a caller without one gets the plain range test
+	local framing = s.framing
+	if framing == nil then framing = s.dist ~= nil and s.dist <= L.HUNTER_RANGE end
+	if framing and s.dist then
+		--[[ THE CONFLICT, solved rather than tuned. With the hunter d studs
+			behind the player and the lens L studs behind the hunter:
+			    hunter small enough  ->  L      >= HH / (2 tanV hMax)
+			    player big enough    ->  d + L  <= PH / (2 tanV pMin)
+			Both hold only if  tanV <= (PH/(2 pMin) - HH/(2 hMax)) / d.
+			Measured before this: 99 of 648 framings had the player under 9% of
+			the frame and 27 had the hunter over 30%, all at the far end of the
+			range with a wide lens. So when a far hunter and a wide lens cannot
+			both be framed, the LENS gives way -- never the player. ]]
+		local k = L.PLAYER_H / (2 * L.PLAYER_MIN_H) - L.HUNTER_HEIGHT / (2 * L.HUNTER_MAX_H)
+		local tanMax = k / math.max(s.dist, 1)
+		if tanV > tanMax then
+			tanV = tanMax
+			fov = math.deg(2 * math.atan(tanV))
+		end
+		local lens = L.HUNTER_HEIGHT / (L.HUNTER_MAX_H * 2 * tanV)
+		dist = math.max(dist, s.dist + lens)
+	end
+	--[[ ...and never so far back that the player stops being the subject.
+
+		The cap is on the SLANT distance, not the flat one: the camera rises as
+		it pulls back, so the lens is further from the player than `dist` says.
+		Capping the flat distance left the player at 0.089 of the frame on the
+		raised shots (measured) -- under the contract while the maths said 0.10.
+		With height H = a + RISE*D past DIST, solve D^2 + H^2 = c^2 for D. ]]
+	local base = L.HEIGHT + (shot.height or 0)
+	local c = L.PLAYER_H / (2 * tanV * L.PLAYER_MIN_H)
+	local a = base - L.DIST * L.RISE
+	local q = 1 + L.RISE * L.RISE
+	local disc = (a * L.RISE) ^ 2 - q * (a * a - c * c)
+	local playerCap = disc > 0 and (-a * L.RISE + math.sqrt(disc)) / q or c
+	-- below DIST the height does not rise, so the flat-height form applies there
+	if playerCap < L.DIST then
+		playerCap = math.sqrt(math.max(c * c - base * base, 1))
+	end
+	dist = math.clamp(dist, 6, math.min(L.DIST_MAX, playerCap))
+
+	local height = base + math.max(0, dist - L.DIST) * L.RISE
+	height = math.max(1.2, height)
+
+	local side = s.side or 1
+	if shot.flip then side = -side end
+	local at = s.pos - h * dist + right * (L.LATERAL * side) + up * height
+
+	--[[ CLEAR THE LENS OF THE HUNTER'S ACTUAL POSITION.
+
+		Everything above assumes the hunter is behind the player, on the line
+		to the camera. Found in a live chase: on a hard turn the camera swings
+		round behind the new heading and passes right by a hunter that is now
+		beside the player -- it measured 168% of the frame for two frames, its
+		body flashing across the lens. So check where it really is: if it is in
+		front of the lens and too big, pull straight back until it is not,
+		never past the point where the player would get too small. ]]
+	if s.hunterPos then
+		local flatPitch = math.atan(height / dist)
+		local fwd = h * math.cos(flatPitch) - up * math.sin(flatPitch)
+		local depth = (s.hunterPos - at):Dot(fwd)
+		local need = L.HUNTER_HEIGHT / (L.HUNTER_MAX_H * 2 * tanV)
+		if depth > 0.25 and depth < need then
+			local push = math.min(need - depth, math.max(0, playerCap - dist))
+			if push > 0 then
+				dist += push
+				height = math.max(1.2, base + math.max(0, dist - L.DIST) * L.RISE)
+				at = s.pos - h * dist + right * (L.LATERAL * side) + up * height
+			end
+		end
+	end
+
+	--[[ Pitch so the player's root lands at the shot's screenY. The root sits
+		atan(height / dist) below the horizontal; we want it atan(...) below the
+		centre of frame, so the pitch is the difference. ]]
+	local want = math.atan(((shot.screenY or 0.58) - 0.5) * 2 * tanV)
+	local pitch = math.atan(height / dist) - want
+	pitch = math.clamp(pitch, math.rad(L.PITCH_MIN), math.rad(L.PITCH_MAX))
+	local dir = h * math.cos(pitch) - up * math.sin(pitch)
+
+	return CFrame.lookAt(at, at + dir), fov
+end
+
 --[[ THE CAMERA AS A SECOND VEHICLE.
 
 	`solve` says where the camera WANTS to be. In modes A and B the caller eases
@@ -405,7 +609,7 @@ end
 	    { pos = Vector3, vel = Vector3, roll = number }
 	Returns the CFrame to use, and the roll in degrees.
 ]]
-function ChaseCam.follow(st, target, dt, mode)
+function ChaseCam.follow(st, target, dt, mode, steerRate)
 	local T = ChaseCam.T
 	if mode ~= "C" then
 		-- A and B keep the old behaviour: ease straight to the mark
@@ -449,11 +653,19 @@ function ChaseCam.follow(st, target, dt, mode)
 		st.pos += st.vel * h
 	end
 
-	-- bank into the turn: sideways speed relative to where it is pointing
-	local look = target.LookVector
-	local right = Vector3.new(-look.Z, 0, look.X)
-	local lateral = st.vel:Dot(right)
-	local wantRoll = math.clamp(-lateral * M.ROLL_PER_SPEED, -M.ROLL, M.ROLL)
+	--[[ Bank. When the caller passes the player's steering rate, the bank
+		comes from THAT: you turn hard, the horizon leans. The legacy path
+		(no steerRate) reads the spring's own sideways drift, which is how the
+		horizon used to tilt for reasons the player never caused. ]]
+	local wantRoll
+	if steerRate then
+		wantRoll = math.clamp(steerRate * M.ROLL_PER_TURN, -M.ROLL, M.ROLL)
+	else
+		local look = target.LookVector
+		local right = Vector3.new(-look.Z, 0, look.X)
+		local lateral = st.vel:Dot(right)
+		wantRoll = math.clamp(-lateral * M.ROLL_PER_SPEED, -M.ROLL, M.ROLL)
+	end
 	st.roll = st.roll + (wantRoll - st.roll) * math.clamp(dt * M.ROLL_RATE, 0, 1)
 
 	local aim = CFrame.lookAt(st.pos, st.pos + target.LookVector * 20)
@@ -687,8 +899,36 @@ function ChaseCam.direct(st, s)
 		shoulder is measured against the SMOOTHED heading on purpose -- against
 		the raw one its hysteresis is defeated by the same jitter it exists to
 		reject, which is exactly what happened the first time. ]]
-	local heading = ChaseCam.headingFor(st, s.travel, s.dt)
+	--[[ A player-owned heading (the locked camera) is used as given: it is
+		the player's own aim and must not lag. Only the legacy path, which
+		derives a heading from velocity, gets smoothed. ]]
+	local heading
+	if s.heading then
+		local hh = Vector3.new(s.heading.X, 0, s.heading.Z)
+		heading = hh.Magnitude > 1e-3 and hh.Unit or Vector3.new(0, 0, -1)
+		st.heading = heading
+	else
+		heading = ChaseCam.headingFor(st, s.travel, s.dt)
+	end
 	ChaseCam.sideFor(st, s.pos, heading, s.hunterPos, s.dt)
+
+	--[[ Framing state, hysteretic. A flip sets st.snap: the caller resets its
+		follower so the camera CUTS to the new position instead of travelling
+		through the hunter to get there. ]]
+	do
+		local L = ChaseCam.LOCKED
+		local was = st.framing
+		local now
+		if not s.dist then
+			now = false
+		elseif was then
+			now = s.dist <= L.FRAME_OUT
+		else
+			now = s.dist <= L.FRAME_IN
+		end
+		if was ~= nil and was ~= now then st.snap = true end
+		st.framing = now
+	end
 	st.started = st.started or s.t
 	st.shot = st.shot or "establish"
 	st.cause = st.cause or "opening: where it is, and where home is"

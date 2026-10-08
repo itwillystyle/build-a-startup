@@ -82,7 +82,7 @@ local hidden = {}             -- ScreenGuis we switched off, to restore exactly
 	the distance to the hunter and the "BOOST now" prompt, and boosting is a
 	mechanic -- hiding it would remove the only thing you can DO about the
 	chase. Everything else is restored exactly as it was on the way out. ]]
-local KEEP = { ChaseFx = true, ChaseStage = true }
+local KEEP = { ChaseFx = true, ChaseStage = true, ChaseSpeed = true }  -- ChaseSpeed: the speed lines
 
 local bars                    -- letterbox
 local label                   -- the rival's name
@@ -256,6 +256,90 @@ local function nearestHunter(from)
 	return best, bestD, wind, lunge
 end
 
+-- ---------------------------------------------------------------- steering
+--[[ THE PLAYER OWNS THE YAW.
+
+	The chase camera is Scriptable, which switches off Roblox's mouse look, and
+	Roblox movement is camera-relative. So until now the direction W pushed was
+	whatever the cinematic camera happened to face -- and the camera faced the
+	player's velocity, which W was driving. The player could not steer at all,
+	and the 7 Oct recording ended in a catch eight seconds in.
+
+	`controlYaw` is the player's, and only the player's. It is seeded from the
+	camera they had when the chase started, so nothing jumps, and from then on
+	only their input moves it. ChaseCam.solveLocked faces the camera along it
+	exactly, so W is forward along the player's own aim on every shot.
+
+	Input is read here because there is no PlayerModule in this place to borrow
+	it from (checked 7 Oct: PlayerScripts has none). The rates match Roblox's
+	defaults as closely as known and are UNVERIFIED by feel until played:
+	mouse 0.5 deg per pixel x the player's own sensitivity, right stick 240 deg/s
+	at full tilt, touch drag on the right of the screen 0.6 deg per pixel. ]]
+local UIS = game:GetService("UserInputService")
+local GameSettings = UserSettings():GetService("UserGameSettings")
+local MOUSE_RAD_PER_PX = math.rad(0.5)
+local PAD_RAD_PER_SEC = math.rad(240)
+local PAD_DEADZONE = 0.2
+local TOUCH_RAD_PER_PX = math.rad(0.6)
+local TOUCH_ZONE = 0.4       -- touches starting right of this fraction of the screen steer
+
+local controlYaw = 0
+local steerRate = 0          -- rad/s, smoothed; drives the bank
+local mouseLocked = false    -- we locked the mouse for a right-drag, so we unlock it
+local touchSteer, touchLast, touchAccum = nil, nil, 0
+
+UIS.InputBegan:Connect(function(input, processed)
+	if processed or touchSteer then return end
+	if input.UserInputType == Enum.UserInputType.Touch then
+		local vp = workspace.CurrentCamera.ViewportSize
+		if input.Position.X > vp.X * TOUCH_ZONE then
+			touchSteer, touchLast = input, input.Position
+		end
+	end
+end)
+UIS.InputChanged:Connect(function(input)
+	if input == touchSteer then
+		touchAccum += input.Position.X - touchLast.X
+		touchLast = input.Position
+	end
+end)
+UIS.InputEnded:Connect(function(input)
+	if input == touchSteer then touchSteer = nil end
+end)
+
+local function readSteer(dt)
+	local dyaw = 0
+	-- mouse: hold the right button and drag, exactly like the default camera
+	local rmb = UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
+	if rmb and UIS.MouseBehavior == Enum.MouseBehavior.Default then
+		UIS.MouseBehavior = Enum.MouseBehavior.LockCurrentPosition
+		mouseLocked = true
+	elseif not rmb and mouseLocked then
+		UIS.MouseBehavior = Enum.MouseBehavior.Default
+		mouseLocked = false
+	end
+	if rmb or UIS.MouseBehavior == Enum.MouseBehavior.LockCenter then
+		-- moving the mouse right turns right, which is a DECREASING yaw
+		dyaw -= UIS:GetMouseDelta().X * MOUSE_RAD_PER_PX * GameSettings.MouseSensitivity
+	end
+	-- right stick
+	if UIS:GetGamepadConnected(Enum.UserInputType.Gamepad1) then
+		for _, st in ipairs(UIS:GetGamepadState(Enum.UserInputType.Gamepad1)) do
+			if st.KeyCode == Enum.KeyCode.Thumbstick2 and math.abs(st.Position.X) > PAD_DEADZONE then
+				dyaw -= st.Position.X * PAD_RAD_PER_SEC * dt
+			end
+		end
+	end
+	-- touch drag
+	dyaw -= touchAccum * TOUCH_RAD_PER_PX
+	touchAccum = 0
+	--[[ Test seam: a client-local rad/s steer, so a scripted run can turn
+		without a mouse. Unset in normal play. ]]
+	local test = player:GetAttribute("ChaseSteer")
+	if typeof(test) == "number" then dyaw += test * dt end
+	return dyaw
+end
+
 -- ---------------------------------------------------------------- lifecycle
 local function takeCamera()
 	if active then return true end
@@ -272,6 +356,9 @@ local function takeCamera()
 		construction. The attribute is how the other one knows to stand down. ]]
 	player:SetAttribute("ChaseCamOwns", true)
 	smoothed = camera.CFrame
+	-- start facing exactly where the default camera was facing: no jump
+	controlYaw = ChaseCam.yawOf(camera.CFrame)
+	steerRate, touchAccum, touchSteer = 0, 0, nil
 	active = true
 	hush(true)
 	return true
@@ -288,6 +375,11 @@ local function release()
 	letterbox(false, 0.35)
 	hush(false)
 	shakeUntil = 0
+	if mouseLocked then
+		UIS.MouseBehavior = Enum.MouseBehavior.Default
+		mouseLocked = false
+	end
+	touchSteer, touchAccum = nil, 0
 end
 
 -- ---------------------------------------------------------------- the frame
@@ -337,6 +429,13 @@ RunService.RenderStepped:Connect(function(dt)
 	local speed = flat.Magnitude
 	local travel = speed > 2 and flat or hrp.CFrame.LookVector
 
+	-- the player's steering, before anything that depends on the heading
+	local dyaw = readSteer(dt)
+	controlYaw += dyaw
+	steerRate += ((dyaw / math.max(dt, 1e-3)) - steerRate) * (1 - math.exp(-dt / 0.12))
+	local heading = ChaseCam.headingOfYaw(controlYaw)
+	local locked = mode == "C"
+
 	--[[ How far is the door? The second of the chase's two numbers, and the
 		one nothing was reading. Client-side off the plot's own Pivot
 		attribute (same lookup IntroClient and HomeClient use), so this stays
@@ -362,14 +461,21 @@ RunService.RenderStepped:Connect(function(dt)
 			camera teleport between shoulders on sub-stud noise. ]]
 		pos = hrp.Position,
 		travel = travel,
+		-- the locked camera steers by the player's yaw; the legacy modes by velocity
+		heading = locked and heading or nil,
 		hunterPos = hunterPos,
 	})
-	--[[ The SMOOTHED heading, never the raw velocity. Movement in Roblox is
-		camera-relative, so aiming the camera along instantaneous velocity
-		closes a positive feedback loop through the player's own controls --
-		measured diverging in a live chase, with the travel direction reversing
-		every frame. `dir.heading` is what breaks it. ]]
+	--[[ Legacy modes only: the smoothed velocity heading. The locked camera
+		never looks at velocity at all -- that was the feedback loop. ]]
 	travel = dir.heading or travel
+	--[[ A framing switch (the hunter coming into or leaving range) SNAPS like a
+		cut, without changing the shot: travelling between "behind the hunter"
+		and "close behind the player" passes through the hunter's body. ]]
+	if dir.snap then
+		dir.snap = false
+		follow = {}
+		smoothed = nil
+	end
 	if didCut then
 		shot = newShot
 		--[[ The cut itself. Dropping both the follower and the eased CFrame is
@@ -387,24 +493,40 @@ RunService.RenderStepped:Connect(function(dt)
 		cause.TextTransparency = 1
 	end
 
-	local target, fov = ChaseCam.solve({
-		shot = shot,
-		pos = hrp.Position,
-		travel = travel,
-		hunterPos = hunterPos,
-		side = dir.side,
-		dist = dist,
-		speed = speed,
-		carrySpeed = player:GetAttribute("CarrySpeed") or 16,
-		mode = mode,
-		windup = wind,
-	})
+	local target, fov
+	if locked then
+		target, fov = ChaseCam.solveLocked({
+			shot = shot,
+			pos = hrp.Position,
+			heading = heading,
+			side = dir.side,
+			dist = dist,
+			hunterPos = hunterPos,
+			framing = dir.framing,
+			speed = speed,
+			carrySpeed = player:GetAttribute("CarrySpeed") or 16,
+		})
+	else
+		target, fov = ChaseCam.solve({
+			shot = shot,
+			pos = hrp.Position,
+			travel = travel,
+			hunterPos = hunterPos,
+			side = dir.side,
+			dist = dist,
+			speed = speed,
+			carrySpeed = player:GetAttribute("CarrySpeed") or 16,
+			mode = mode,
+			windup = wind,
+		})
+	end
 
 	-- the entry beat eases from wherever the camera was; after it, it tracks
 	if mode == "C" then
 		-- C has mass: it lags, overshoots and banks. A cut reset `follow`, so
 		-- the first frame after one builds the angle from scratch.
-		smoothed = ChaseCam.follow(follow, target, dt, mode)
+		-- the bank now comes from the player's steering, not the spring's drift
+		smoothed = ChaseCam.follow(follow, target, dt, mode, steerRate)
 	else
 		local k = 1 - math.exp(-dt / math.max(T.SMOOTH, 0.01))
 		if mode == "B" and t < entryUntil then k = 1 - math.exp(-dt / 0.06) end
