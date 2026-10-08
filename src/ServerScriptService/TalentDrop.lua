@@ -584,6 +584,22 @@ local function stepCarry(player, c, dt)
 					local wind, lung = ph == "windup", ph == "lunge"
 					if (rig:GetAttribute("Windup") == true) ~= wind then rig:SetAttribute("Windup", wind) end
 					if (rig:GetAttribute("Lunging") == true) ~= lung then rig:SetAttribute("Lunging", lung) end
+					--[[ v4.4 THE LANE: the line it picked when it crouched, for
+						ChaseFxClient to paint on the road. The hunter paces you
+						through the crouch, so the lunge starts WINDUP seconds of
+						pacing further on. Cleared once it is back to chasing. ]]
+					if (wind or lung) and H.h.lx then
+						if not rig:GetAttribute("LungeTo") then
+							local fx = H.h.x + (H.h.px or 0) * (wind and Chase.WINDUP or 0)
+							local fz = H.h.z + (H.h.pz or 0) * (wind and Chase.WINDUP or 0)
+							local len = H.h.left or 0
+							rig:SetAttribute("LungeFrom", Vector3.new(fx, c.hunterY, fz))
+							rig:SetAttribute("LungeTo", Vector3.new(fx + H.h.lx * len, c.hunterY, fz + H.h.lz * len))
+						end
+					elseif rig:GetAttribute("LungeTo") then
+						rig:SetAttribute("LungeFrom", nil)
+						rig:SetAttribute("LungeTo", nil)
+					end
 					local np = Vector3.new(H.h.x, c.hunterY, H.h.z)
 					local look = Vector3.new(thrp.Position.X - np.X, 0, thrp.Position.Z - np.Z)
 					-- v4.4: a committed lunge faces down its own line, so a miss reads as one
