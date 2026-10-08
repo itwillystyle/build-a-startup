@@ -186,6 +186,7 @@ ChaseCam.T = {
 			sideways drift -- the drift was an artefact, so the horizon tilted for
 			reasons the player never caused. Degrees per (rad/s) of yaw. ]]
 		ROLL_PER_TURN = 2.6,
+		STEP_Y = 0.12,      -- seconds; how fast the camera takes up a change in the root's height
 		ROLL_RATE = 4.5,
 		ROLL_PER_SPEED = 1.1,   -- degrees of bank per stud/s of sideways drift
 		--[[ A filmed chase is not shot from directly behind -- that is a
@@ -455,6 +456,15 @@ ChaseCam.LOCKED = {
 		snaps -- a cut, which never has an in-between frame. ]]
 	FRAME_IN = 20,
 	FRAME_OUT = 25,
+	--[[ A framing switch is a cut to the eye, so it waits out the director's
+		MIN_HOLD after a cut like any other cut -- except framing IN with the
+		hunter already this close, where an unframed hunter is the bigger harm.
+		Live: a cut at 5.08 s, then a snap at 5.29 s, read as a stutter. ]]
+	URGENT = 15,
+	-- the push fades in across the frame edge (see solveLocked)
+	EDGE_ASPECT = 2.2,      -- when the caller does not say: a landscape phone
+	HUNTER_HALF_W = 1.5,    -- studs, shoulder to centre
+	EDGE_BAND = 40,         -- degrees outside the frame edge where the push starts
 	HUNTER_MAX_H = 0.25,    -- target; ChaseFrame's contract is 0.30, the gap is perspective margin
 	PLAYER_H = 5,           -- the player, for the size floor below
 	--[[ Target; the contract is 0.09. The size formula uses the flat distance,
@@ -472,6 +482,23 @@ ChaseCam.LOCKED = {
 	PITCH_MIN = -4,         -- degrees; negative = looking slightly up
 	PITCH_MAX = 30,
 }
+
+--[[ How much of the hunter is in the shot, 0..1, so that anything driven by
+	it is continuous in the hunter's position. Measured as an ANGLE outside
+	the frame's side edge: 0 at EDGE_BAND degrees out, 1 at the edge. An angle
+	because the camera turns: at 120 deg/s a band measured in screen widths was
+	crossed in a frame or two and the push it drove jumped 5 studs (offline).
+	atan2 keeps it continuous behind the lens too. look/right are the
+	camera's (flat right); returns weight and depth. ]]
+local function inShot(at, look, right, hunterPos, tanV, aspect)
+	local L = ChaseCam.LOCKED
+	local rel = hunterPos - at
+	local depth = rel:Dot(look)
+	local tanH = tanV * (aspect or L.EDGE_ASPECT)
+	local off = math.max(0, math.abs(rel:Dot(right)) - L.HUNTER_HALF_W)
+	local outside = math.deg(math.atan2(off, depth) - math.atan(tanH))
+	return math.clamp(1 - outside / L.EDGE_BAND, 0, 1), depth
+end
 
 --[[ The yaw a camera has, as a heading. Exposed so the client seeds its
 	control yaw from wherever the default camera was looking when the chase
@@ -492,6 +519,7 @@ end
 	  side       number?   the director's swept shoulder, -1..1
 	  dist       number?   studs to the hunter
 	  speed, carrySpeed
+	  aspect     number?   the screen's width / height
 	}
 	returns cf, fov ]]
 function ChaseCam.solveLocked(s)
@@ -570,10 +598,19 @@ function ChaseCam.solveLocked(s)
 	if s.hunterPos then
 		local flatPitch = math.atan(height / dist)
 		local fwd = h * math.cos(flatPitch) - up * math.sin(flatPitch)
-		local depth = (s.hunterPos - at):Dot(fwd)
 		local need = L.HUNTER_HEIGHT / (L.HUNTER_MAX_H * 2 * tanV)
-		if depth > 0.25 and depth < need then
-			local push = math.min(need - depth, math.max(0, playerCap - dist))
+		--[[ ...but only as much as the hunter is actually IN the shot. The
+			first version pushed whenever the hunter was anywhere in front of the
+			lens, so a hunter swinging round beside the camera on a turn -- out
+			of frame -- switched the push on all at once: a 14-stud move of the
+			mark in one frame (live, 7 Oct, 5.12 s). Now the push fades in over
+			the frame edge, so it is continuous in the hunter's position. The
+			edge is the caller's real screen (s.aspect): a fixed guess either
+			misses the hunter on Studio's 6:1 play window (measured 0.77 of the
+			frame) or pushes for a hunter nobody on a 16:9 screen can see. ]]
+		local w, depth = inShot(at, fwd, right, s.hunterPos, tanV, s.aspect)
+		if w > 0 and depth < need then
+			local push = w * math.min(need - depth, math.max(0, playerCap - dist))
 			if push > 0 then
 				dist += push
 				height = math.max(1.2, base + math.max(0, dist - L.DIST) * L.RISE)
@@ -593,6 +630,45 @@ function ChaseCam.solveLocked(s)
 	return CFrame.lookAt(at, at + dir), fov
 end
 
+--[[ THE LENS, CLEARED AFTER THE SPRING.
+
+	solveLocked already pulls the MARK back from a hunter in the shot, but the
+	spring takes ~0.3 s to get there, and a hunter swinging round beside the
+	lens on a hard turn gets there first: measured 0.61 of the frame while the
+	camera was still catching up. So the same rule is applied once more to the
+	camera the player actually sees: step away from the hunter, exactly as far
+	as it needs, never so far that the player drops under PLAYER_MIN_H. Away,
+	not back: the hunter that gets here is BESIDE the lens, and backing up the
+	lens axis pulled it into the edge of a wide frame (0.53 against 0.37 at
+	3.6:1, measured).
+	The amount is continuous in the hunter's position (inShot), so this can
+	never jump; it backs off at once, and the spring brings it home smoothly
+	because the mark was pulled back too.
+
+	s = { pos = player root, hunterPos?, aspect? }   returns cf ]]
+function ChaseCam.clearLens(cf, fov, s)
+	local L = ChaseCam.LOCKED
+	if not s.hunterPos then return cf end
+	local tanV = math.tan(math.rad(fov) / 2)
+	local look = cf.LookVector
+	local r = cf.RightVector
+	local right = Vector3.new(r.X, 0, r.Z)
+	right = right.Magnitude > 1e-3 and right.Unit or Vector3.new(1, 0, 0)
+	local w, depth = inShot(cf.Position, look, right, s.hunterPos, tanV, s.aspect)
+	local need = L.HUNTER_HEIGHT / (L.HUNTER_MAX_H * 2 * tanV)
+	if w <= 0 or depth >= need then return cf end
+	local cap = L.PLAYER_H / (2 * tanV * L.PLAYER_MIN_H)
+	local room = math.max(0, cap - (cf.Position - s.pos).Magnitude)
+	local push = w * math.min(need - depth, room)
+	if push <= 0 then return cf end
+	-- away from the hunter, level: backing straight up the lens axis drags a
+	-- hunter that is BESIDE the camera into the edge of a wide frame
+	local away = cf.Position - s.hunterPos
+	away = Vector3.new(away.X, 0, away.Z)
+	away = away.Magnitude > 1e-3 and away.Unit or -look
+	return cf + away * push
+end
+
 --[[ THE CAMERA AS A SECOND VEHICLE.
 
 	`solve` says where the camera WANTS to be. In modes A and B the caller eases
@@ -608,8 +684,12 @@ end
 	st is the caller's own table, carried between frames:
 	    { pos = Vector3, vel = Vector3, roll = number }
 	Returns the CFrame to use, and the roll in degrees.
+
+	`frame` = { anchor = player root, heading = the player's yaw }, optional.
+	With it, the spring runs in the PLAYER'S HEADING FRAME instead of the
+	world: see the note in the body. The locked camera always passes it.
 ]]
-function ChaseCam.follow(st, target, dt, mode, steerRate)
+function ChaseCam.follow(st, target, dt, mode, steerRate, frame)
 	local T = ChaseCam.T
 	if mode ~= "C" then
 		-- A and B keep the old behaviour: ease straight to the mark
@@ -639,18 +719,63 @@ function ChaseCam.follow(st, target, dt, mode, steerRate)
 		which is the property this needs: the same chase has to look the same on
 		a slow machine and a fast one. ]]
 	local STEP = 1 / 120
-	local left = dt
-	while left > 0 do
-		local h = math.min(STEP, left)
-		left -= h
-		local toMark = target.Position - st.pos
-		if toMark.Magnitude > M.LAG_MAX then
-			-- never fall so far behind that the shot stops being about the player
-			st.pos = target.Position - toMark.Unit * M.LAG_MAX
-			toMark = target.Position - st.pos
+	local function spring(pos, vel, mark, lagMax)
+		local left = dt
+		while left > 0 do
+			local h = math.min(STEP, left)
+			left -= h
+			local toMark = mark - pos
+			if lagMax and toMark.Magnitude > lagMax then
+				-- never fall so far behind that the shot stops being about the player
+				pos = mark - toMark.Unit * lagMax
+				toMark = mark - pos
+			end
+			vel += (toMark * M.ACCEL - vel * M.DAMP) * h
+			pos += vel * h
 		end
-		st.vel += (toMark * M.ACCEL - st.vel * M.DAMP) * h
-		st.pos += st.vel * h
+		return pos, vel
+	end
+
+	if frame and frame.anchor and frame.heading then
+		--[[ THE SPRING RUNS IN THE PLAYER'S FRAME (7 Oct, the 23:36 recording:
+			"stuttering ... like it's locking to something").
+
+			In world space the spring could not do its job. Running at 19
+			studs/s its steady lag is v * DAMP / ACCEL = 5 studs, past LAG_MAX,
+			so the clamp held it rigid for the whole chase and anything that
+			moved the mark went straight to the screen. Measured live: the
+			hunter, moved by the server with PivotTo, reaches the client in
+			~20 Hz steps; the lens distance follows the hunter; the camera
+			jolted 0.45-3 studs 46 times in 11 s, every third frame.
+
+			So the mark is expressed as an offset in (right, up, back) of the
+			player's own heading. Running does not move it at all, and neither
+			does turning: the camera orbits WITH the player's yaw, rigidly,
+			the way the default Roblox camera does, and the player stays put on
+			screen. The spring is left to do the one job it is for, smoothing
+			changes in the SHOT -- the dolly to a hunter, the shoulder, a lens
+			push. The root's height is eased separately (STEP_Y), so a curb or
+			a jump lifts the camera instead of jerking it.
+
+			And NO LAG_MAX here. The clamp existed so world-space lag could not
+			run away; in this frame nothing makes lag except the shot itself
+			changing, and clamping that turns a dolly into a teleport. Measured:
+			a hunter swinging in beside the lens on a turn moved the mark 14
+			studs, and the clamp made it a 10-stud jump in one frame (live at
+			5.12 s, and offline). Real cuts reset the follower anyway. ]]
+		local hd = Vector3.new(frame.heading.X, 0, frame.heading.Z)
+		hd = hd.Magnitude > 1e-3 and hd.Unit or Vector3.new(0, 0, -1)
+		local right = Vector3.new(-hd.Z, 0, hd.X)
+		local a = frame.anchor
+		st.ay = st.ay and st.ay + (a.Y - st.ay) * (1 - math.exp(-dt / M.STEP_Y)) or a.Y
+		local o = target.Position - a
+		local mark = Vector3.new(o:Dot(right), o.Y, o:Dot(hd))
+		st.loc = st.loc or mark
+		st.lvel = st.lvel or Vector3.zero
+		st.loc, st.lvel = spring(st.loc, st.lvel, mark, nil)
+		st.pos = Vector3.new(a.X, st.ay, a.Z) + right * st.loc.X + Vector3.new(0, st.loc.Y, 0) + hd * st.loc.Z
+	else
+		st.pos, st.vel = spring(st.pos, st.vel, target.Position, M.LAG_MAX)
 	end
 
 	--[[ Bank. When the caller passes the player's steering rate, the bank
@@ -926,7 +1051,17 @@ function ChaseCam.direct(st, s)
 		else
 			now = s.dist <= L.FRAME_IN
 		end
-		if was ~= nil and was ~= now then st.snap = true end
+		if was ~= nil and was ~= now then
+			-- a snap is a cut to the eye: it waits out the hold, and starts one
+			local held = (s.t - (st.lastCut or -1e9)) < D.MIN_HOLD
+			local urgent = now and s.dist ~= nil and s.dist < L.URGENT
+			if held and not urgent then
+				now = was
+			else
+				st.snap = true
+				st.lastCut = s.t
+			end
+		end
 		st.framing = now
 	end
 	st.started = st.started or s.t
