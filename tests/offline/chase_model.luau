@@ -21,9 +21,25 @@ M.PROFILES = {
 	hesitant = { weave = 0.95, stopRate = 0, stopTime = 0, boostChance = 0, react = { 1, 1 }, standAt = "rand", standFor = 1.5 },
 	-- stands still for 3 s, 6 s in
 	idle = { weave = 0.96, stopRate = 0, stopTime = 0, boostChance = 0.75, react = { 0.15, 0.35 }, standAt = 6, standFor = 3 },
+	--[[ 8 Oct, the three he described ("go in a straight line ... spam the shift"). The
+		profiles above all weave at 95% speed, which is why the simulator never saw a
+		perfect W-holder outrun the genius. ]]
+	-- holds W perfectly: full speed, no weave, never boosts
+	straight = { weave = 1, perfect = true, stopRate = 0, stopTime = 0, boostChance = 0, react = { 1, 1 } },
+	-- holds W perfectly and presses BOOST every time it is ready, tell or not
+	spammer = { weave = 1, perfect = true, stopRate = 0, stopTime = 0, boostChance = 0, react = { 1, 1 }, spam = true },
+	-- steers hard on most tells (75%, 0.15-0.35 s after the crouch), never boosts
+	dodger = { weave = 0.96, stopRate = 0, stopTime = 0, boostChance = 0, react = { 0.15, 0.35 }, dodgeChance = 0.75 },
+	-- reads a tell (75% / 95%): BOOST if it is ready, otherwise a hard turn (v4.4's skill)
+	reader = { weave = 0.96, stopRate = 0, stopTime = 0, boostChance = 0, react = { 0.15, 0.35 }, readChance = 0.75 },
+	ace = { weave = 0.97, stopRate = 0, stopTime = 0, boostChance = 0, react = { 0.12, 0.28 }, readChance = 0.95 },
 }
+M.DODGE_ANGLE = math.rad(55)   -- a hard turn off the line
+M.DODGE_TIME = 0.6
 
 function M.newRules(R, cfg)
+	-- home is where the route ends (see M.run): the lot, 40 studs off the road
+	cfg.homeDist = function(x, z) return math.sqrt(x * x + (z + 40) ^ 2) end
 	return {
 		hunters = cfg.hunters or 1,
 		start = R.START_BEHIND, secondDelay = R.SECOND_DELAY, secondSide = R.SECOND_SIDE,
@@ -69,6 +85,7 @@ function M.run(R, rules, opts, seed)
 	local standAt = prof.standAt == "rand" and (4 + rnd() * 6) or prof.standAt
 	local stopUntil = -1
 	local lastBoost, pendingBoostAt = nil, nil
+	local pendingDodgeAt, dodgeUntil, dodgeSign = nil, -1, 1
 	local hunters = { { h = rules.spawn(D + rules.start + (rnd() - 0.5) * 8, 0, 0, 0), active = true, last = "chase" } }
 	local jitter, jitterAt = 1, 0
 	local danger = 0
@@ -84,6 +101,10 @@ function M.run(R, rules, opts, seed)
 			stopUntil = t + prof.stopTime
 			moving = false
 		end
+		if prof.spam and R.boostReady(lastBoost, t) and t >= startDelay then lastBoost = t end
+		if pendingDodgeAt and t >= pendingDodgeAt then
+			dodgeUntil, dodgeSign, pendingDodgeAt = t + M.DODGE_TIME, (rnd() < 0.5) and -1 or 1, nil
+		end
 		if pendingBoostAt and t >= pendingBoostAt then
 			if R.boostReady(lastBoost, t) then lastBoost = t end
 			pendingBoostAt = nil
@@ -93,7 +114,14 @@ function M.run(R, rules, opts, seed)
 			local dx, dz = tx - px, tz - pz
 			local dl = math.sqrt(dx * dx + dz * dz)
 			if t >= jitterAt then jitter, jitterAt = 0.97 + rnd() * 0.06, t + 1 end   -- steering is never perfect
+			if prof.perfect then jitter = 1 end
 			local sp = opts.speed * prof.weave * jitter + R.boostAdd(lastBoost, t)
+			if t < dodgeUntil and dl > sp * dt then
+				-- the dodge: a hard turn off the line, then the route pulls you back
+				local a = M.DODGE_ANGLE * dodgeSign
+				local c, s2 = math.cos(a), math.sin(a)
+				dx, dz = dx * c - dz * s2, dx * s2 + dz * c
+			end
 			if dl <= sp * dt then
 				px, pz = tx, tz
 				if seg == #route then return true, t, closeCalls, danger / math.max(t, 1e-6) end
@@ -115,6 +143,14 @@ function M.run(R, rules, opts, seed)
 				minDist = math.min(minDist, dist)
 				if ph == "windup" and H.last ~= "windup" and dist < 20 and not pendingBoostAt and rnd() < prof.boostChance then
 					pendingBoostAt = t + prof.react[1] + rnd() * (prof.react[2] - prof.react[1])
+				end
+				if ph == "windup" and H.last ~= "windup" and dist < 20 and not pendingDodgeAt and rnd() < (prof.dodgeChance or 0) then
+					pendingDodgeAt = t + prof.react[1] + rnd() * (prof.react[2] - prof.react[1])
+				end
+				if ph == "windup" and H.last ~= "windup" and dist < 20 and not pendingDodgeAt and not pendingBoostAt
+					and rnd() < (prof.readChance or 0) then
+					local at = t + prof.react[1] + rnd() * (prof.react[2] - prof.react[1])
+					if R.boostReady(lastBoost, at) then pendingBoostAt = at else pendingDodgeAt = at end
 				end
 				H.last = ph
 			end
