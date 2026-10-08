@@ -8,6 +8,16 @@ hunter (ChaseRules) hangs right behind you and lunges; this makes you FEEL it:
   * the BOOST button (Shift, or the button above CAR on a phone), which pulses
     "NOW!" while a hunter crouches: boost in the crouch and the lunge misses
   * CLOSE CALL! when it got within 8 studs and you still got away
+
+v4.4 (8 Oct, his three 01:35-01:37 recordings, night, both chases lost). The new
+hunter commits to a line when it crouches, and that only works if you can SEE
+the crouch. In the recordings you could not: a black suit on a black avatar on a
+dark road, the two silhouettes overlapping, red edges that glowed the WHOLE chase
+so the tell changed nothing on screen, and the camera barely turned. So:
+  * THE LANE: the line it picked is painted on the road the moment it crouches
+    (LungeFrom / LungeTo, set by TalentDrop) -- get off the red, or BOOST
+  * the hunter wears a red outline for the whole chase, day or night
+  * the red edges are quiet until it crouches, then they flash, with a sting
 The server owns the chase (TalentDrop + ChaseRules); this only reads the
 attributes it writes and sends one remote (CarryBoost). ]]
 local Players = game:GetService("Players")
@@ -27,6 +37,8 @@ local HEART = "rbxassetid://1839090417"      -- APM "Heart Beat OL" (licensed)
 local WHOOSH = "rbxassetid://9126229255"     -- PSE "Whoosh By Fast"
 local BOOST_SND = "rbxassetid://9126228631"  -- PSE "Whoosh Back Zoom"
 local COOLDOWN = 5                           -- mirrors ChaseRules.BOOST.cooldown (server enforces it)
+local LANE_WIDTH = 9                         -- studs: two catch radii, the space you have to clear
+local LANE = Color3.fromRGB(235, 40, 50)
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "ChaseFx"
@@ -139,9 +151,58 @@ if chaseFx then
 	end)
 end
 
+-- ============ THE LANE, AND THE OUTLINE ============
+local lanes, outlines = {}, {}
+local function laneFor(m)
+	local p = lanes[m]
+	if p and p.Parent then return p end
+	p = Instance.new("Part")
+	p.Name = "LungeLane"
+	p.Anchored, p.CanCollide, p.CanQuery, p.CanTouch, p.CastShadow = true, false, false, false, false
+	p.Material = Enum.Material.Neon
+	p.Color = LANE
+	p.Size = Vector3.new(LANE_WIDTH, 0.15, 1)
+	p.Parent = workspace
+	-- an arrowhead where it lands: the spot not to be
+	local tip = Instance.new("Part")
+	tip.Name = "Tip"
+	tip.Anchored, tip.CanCollide, tip.CanQuery, tip.CanTouch, tip.CastShadow = true, false, false, false, false
+	tip.Material = Enum.Material.Neon
+	tip.Color = LANE
+	tip.Shape = Enum.PartType.Cylinder
+	tip.Size = Vector3.new(0.16, LANE_WIDTH + 3, LANE_WIDTH + 3)
+	tip.Parent = p
+	lanes[m] = p
+	return p
+end
+local function dropLane(m)
+	if lanes[m] then lanes[m]:Destroy(); lanes[m] = nil end
+end
+local function outline(m, on)
+	local h = outlines[m]
+	if on and not (h and h.Parent) then
+		h = Instance.new("Highlight")
+		h.Name = "HunterOutline"
+		h.FillColor, h.FillTransparency = LANE, 0.75
+		h.OutlineColor, h.OutlineTransparency = LANE, 0
+		h.DepthMode = Enum.HighlightDepthMode.Occluded
+		h.Parent = m
+		outlines[m] = h
+	elseif not on and h then
+		h:Destroy(); outlines[m] = nil
+	end
+end
+local ground = RaycastParams.new()
+ground.FilterType = Enum.RaycastFilterType.Exclude
+-- canopies and props are non-collide; the road is not. (Cast from 4 studs up, the
+-- first live lane landed in a tree's crown and was invisible.)
+ground.RespectCanCollide = true
+
 -- ============ PER FRAME ============
 local row = workspace:WaitForChild("SiliconValley", 30)
 local lungeSeen = {}
+local crouchSeen = {}
+local live = {}
 RunService.RenderStepped:Connect(function()
 	local carrying = player:GetAttribute("Carrying") ~= nil
 	local dist = player:GetAttribute("ChaseDist")
@@ -149,8 +210,18 @@ RunService.RenderStepped:Connect(function()
 	btn.Visible = chasing
 	-- 0 (far) .. 1 (on top of you)
 	local fear = chasing and math.clamp(1 - (dist - 4.5) / 24, 0, 1) or 0
+	-- quiet until it crouches (see v4.4 above): a faint wash for distance, a flash for the tell
+	local tell = false
+	local trow = row and row:FindFirstChild("TalentRow")
+	if chasing and trow then
+		for _, m in ipairs(trow:GetChildren()) do
+			if m:IsA("Model") and m:GetAttribute("Chaser") and m:GetAttribute("ChasingUserId") == player.UserId
+				and (m:GetAttribute("Windup") or m:GetAttribute("Lunging")) then tell = true end
+		end
+	end
 	for _, e in ipairs(edges) do
-		e.BackgroundTransparency = 1 - fear * (0.45 + 0.1 * math.sin(os.clock() * (4 + 8 * fear)))
+		local a = tell and (0.55 + 0.25 * math.sin(os.clock() * 22)) or (fear * 0.18)
+		e.BackgroundTransparency = 1 - a
 	end
 	if chasing then
 		if not heart.IsPlaying then heart:Play() end
@@ -164,10 +235,38 @@ RunService.RenderStepped:Connect(function()
 	cdFill.Size = UDim2.new(1, 0, left / COOLDOWN, 0)
 	local crouch = false
 	local tr = row and row:FindFirstChild("TalentRow")
+	table.clear(live)
 	if chasing and tr then
 		for _, m in ipairs(tr:GetChildren()) do
 			if m:IsA("Model") and m:GetAttribute("Chaser") and m:GetAttribute("ChasingUserId") == player.UserId then
+				live[m] = true
+				outline(m, true)
 				crouch = crouch or m:GetAttribute("Windup") == true
+				-- the sting, once per crouch
+				if m:GetAttribute("Windup") == true then
+					if not crouchSeen[m] then crouchSeen[m] = true; play(WHOOSH, 0.8, 0.55) end
+				else
+					crouchSeen[m] = nil
+				end
+				-- the lane: pulses through the crouch, solid while it lunges
+				local from, to = m:GetAttribute("LungeFrom"), m:GetAttribute("LungeTo")
+				if typeof(from) == "Vector3" and typeof(to) == "Vector3" and (to - from).Magnitude > 0.5 then
+					local lane = laneFor(m)
+					ground.FilterDescendantsInstances = { m, lane, player.Character }
+					local mid = (from + to) / 2
+					local hit = workspace:Raycast(mid + Vector3.new(0, 0.5, 0), Vector3.new(0, -8, 0), ground)
+					local y = hit and hit.Position.Y + 0.12 or (from.Y - 2.5)
+					local a, b = Vector3.new(from.X, y, from.Z), Vector3.new(to.X, y, to.Z)
+					lane.Size = Vector3.new(LANE_WIDTH, 0.15, (b - a).Magnitude)
+					lane.CFrame = CFrame.lookAt((a + b) / 2, b)
+					local tip = lane:FindFirstChild("Tip")
+					if tip then tip.CFrame = CFrame.new(b) * CFrame.Angles(0, 0, math.rad(90)) end
+					local tr2 = m:GetAttribute("Lunging") and 0.15 or (0.25 + 0.3 * (0.5 + 0.5 * math.sin(os.clock() * 24)))
+					lane.Transparency = tr2
+					if tip then tip.Transparency = tr2 end
+				else
+					dropLane(m)
+				end
 				if m:GetAttribute("Lunging") == true then
 					if not lungeSeen[m] then
 						lungeSeen[m] = true
@@ -187,6 +286,9 @@ RunService.RenderStepped:Connect(function()
 			end
 		end
 	end
+	-- a hunter that left (caught you, gave up, or the carry ended): no lane, no outline
+	for m in pairs(lanes) do if not live[m] then dropLane(m) end end
+	for m in pairs(outlines) do if not live[m] then outline(m, false) end end
 	btnText.Text = (crouch and left <= 0) and "NOW!" or "BOOST"
 	btnScale.Scale = (crouch and left <= 0) and (1.08 + 0.06 * math.sin(os.clock() * 18)) or 1
 end)

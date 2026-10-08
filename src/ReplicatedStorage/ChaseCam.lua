@@ -454,6 +454,15 @@ ChaseCam.LOCKED = {
 		    the hunter" passes THROUGH the hunter. Live: 168% of the frame.
 		So it is hysteretic (frame from 20 in, release past 25) and the switch
 		snaps -- a cut, which never has an in-between frame. ]]
+	--[[ A switch, ON. Framing the hunter means sitting BEHIND it, 30-39 studs
+		from the player: in his 8 Oct night recordings both figures were black
+		specks, overlapping, and a tree hid the player mid-crouch. Turning it off
+		was tried the same night and is NOT a fix on its own: the hunter stalks
+		7-13 studs behind you, so a camera 12 studs back sits inside it (17
+		unexplained 13-stud jumps in the threshold test). Off needs a new angle
+		first -- e.g. a higher chase cam that looks down at the road, where the
+		lunge lane is painted. His call. ]]
+	FRAME_HUNTER = true,
 	FRAME_IN = 20,
 	FRAME_OUT = 25,
 	--[[ A framing switch is a cut to the eye, so it waits out the director's
@@ -1044,7 +1053,7 @@ function ChaseCam.direct(st, s)
 		local L = ChaseCam.LOCKED
 		local was = st.framing
 		local now
-		if not s.dist then
+		if not L.FRAME_HUNTER or not s.dist then
 			now = false
 		elseif was then
 			now = s.dist <= L.FRAME_OUT
