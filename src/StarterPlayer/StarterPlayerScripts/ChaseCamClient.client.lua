@@ -505,6 +505,7 @@ RunService.RenderStepped:Connect(function(dt)
 			framing = dir.framing,
 			speed = speed,
 			carrySpeed = player:GetAttribute("CarrySpeed") or 16,
+			aspect = camera.ViewportSize.X / math.max(camera.ViewportSize.Y, 1),
 		})
 	else
 		target, fov = ChaseCam.solve({
@@ -526,13 +527,24 @@ RunService.RenderStepped:Connect(function(dt)
 		-- C has mass: it lags, overshoots and banks. A cut reset `follow`, so
 		-- the first frame after one builds the angle from scratch.
 		-- the bank now comes from the player's steering, not the spring's drift
-		smoothed = ChaseCam.follow(follow, target, dt, mode, steerRate)
+		-- the locked camera springs in the player's own frame, so running and
+		-- turning cannot saturate it (see ChaseCam.follow)
+		smoothed = ChaseCam.follow(follow, target, dt, mode, steerRate,
+			locked and { anchor = hrp.Position, heading = heading } or nil)
 	else
 		local k = 1 - math.exp(-dt / math.max(T.SMOOTH, 0.01))
 		if mode == "B" and t < entryUntil then k = 1 - math.exp(-dt / 0.06) end
 		smoothed = smoothed and smoothed:Lerp(target, k) or target
 	end
 	camera.FieldOfView = ChaseCam.lerp(camera.FieldOfView, fov, 1 - math.exp(-dt / 0.18))
+	if locked then
+		-- the spring lags; the hunter's size in the lens must not (ChaseCam.clearLens)
+		smoothed = ChaseCam.clearLens(smoothed, camera.FieldOfView, {
+			pos = hrp.Position,
+			hunterPos = hunterPos,
+			aspect = camera.ViewportSize.X / math.max(camera.ViewportSize.Y, 1),
+		})
+	end
 
 	-- the strike
 	if mode == "B" and lunge then shakeUntil, shakeAmt = t + 0.25, T.SHAKE end
