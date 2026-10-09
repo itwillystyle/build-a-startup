@@ -58,8 +58,8 @@ local MAX_SIZE = 90              -- a part bigger than this is scenery, not a pr
 	out -- they are what the shadows fall ON. ]]
 local cand = {}                  -- { part, position }
 local ready = false
+local lit = {}                   -- part -> true, everything we switched on
 
-local SKIP_PARENT = { LowPolyWorld = false }   -- hill trees are wanted; the terrain is not
 local function wantPart(p)
 	if not p:IsA("BasePart") then return false end
 	if p.Transparency > 0.6 then return false end
@@ -86,7 +86,9 @@ local function collect()
 
 	for _, root in ipairs(roots) do
 		for _, d in ipairs(root:GetDescendants()) do
-			if wantPart(d) and not d.CastShadow then
+			-- a part this script lit is still a candidate: without lit[d] each rescan
+			-- would drop whatever is near you and it would never cast again
+			if wantPart(d) and (not d.CastShadow or lit[d]) then
 				table.insert(cand, { d, d.Position })
 			end
 		end
@@ -97,7 +99,8 @@ end
 
 --[[ The world is built at runtime and the build yields, so the cache cannot
 	be made on load. Rescan until the count stops growing -- the first run
-	after join reliably catches only part of it. ]]
+	after join reliably catches only part of it. The pass below flips a part
+	and its lit[] entry together, so it never moves this count. ]]
 task.spawn(function()
 	local t0, last = os.clock(), -1
 	while os.clock() - t0 < 150 do
@@ -114,7 +117,6 @@ task.spawn(function()
 end)
 
 -- ---------------------------------------------------------------- the pass
-local lit = {}                   -- part -> true, everything we switched on
 local reach = MAX_R
 local acc = 0
 

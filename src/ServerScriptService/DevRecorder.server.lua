@@ -15,7 +15,7 @@
 	"chase:<tier>" scenario, and sample every 0.1 s until the carry ends.
 
 	Per sample: t, phase (chase/windup/lunge), hunter (studs), toDoor, speed.
-	Summary: result (home/caught/timeout), tier, profile, pathLen (the candidate's
+	Summary: result (home/caught/timeout, or error + err when it never ran), tier, profile, pathLen (the candidate's
 	walk home), time, lunges, closest, minToDoor, staff before/after. ]]
 local RunService = game:GetService("RunService")
 if not RunService:IsStudio() then return end
@@ -43,17 +43,25 @@ local function run(tier, profile)
 		return
 	end
 	local geo = dev:Invoke("scenario", p, "geo")
-	local door = geo.door
+	local door = geo and geo.door
 	p:SetAttribute("TestGoal", door)
 	p:SetAttribute("RobotProfile", profile)
 	dev:Invoke("scenario", p, "restock")
 	task.wait(9) -- each spawn tries up to 12 pathfinding routes
 	geo = dev:Invoke("scenario", p, "geo")
-	local cand = geo.candidates and geo.candidates[tier]
+	local cand = geo and geo.candidates and geo.candidates[tier]
 	if cand then p:SetAttribute("TestFrom", cand.pos + Vector3.new(0, 1, 3)) end
 	task.wait(3) -- DevRobot computes its route now, before pickup
 	local staff0 = dev:Invoke("state", p).staff
 	local r = dev:Invoke("scenario", p, "chase:" .. tier)
+	-- a refused scenario or no door is not a chase: grading it would call it "caught",
+	-- and flat(nil) would kill this thread with ChaseRun stuck at ""
+	if not (door and type(r) == "table" and r.ok) then
+		p:SetAttribute("RobotProfile", nil)
+		box.Value = HttpService:JSONEncode({ result = "error", tier = tier, profile = profile,
+			err = not door and "geo returned no door" or ("chase scenario refused: " .. tostring(type(r) == "table" and r.err or r)) })
+		return
+	end
 	local s0 = os.clock()
 	local samples, lunges, closest, minDoor, lastPhase = {}, 0, math.huge, math.huge, "chase"
 	local row = workspace.SiliconValley:FindFirstChild("TalentRow")

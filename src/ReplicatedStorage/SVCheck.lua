@@ -819,9 +819,8 @@ end
 	one screenshot at a time, after the fact.
 
 	So: a fixed set of framings, the same ones every build, aimed at the places
-	bugs actually live -- inside the garage where the furniture is, the lobby,
-	the street, and a shot deliberately composed with something between the
-	camera and an outlined object, because that is where the outline leaks.
+	bugs actually live -- inside the garage where the furniture is, the plot
+	from the street, street props up close, and the hub wide (SHOTS below).
 
 	Usage, one shot at a time so the capture is reliable:
 	    local C = require(game.ReplicatedStorage.SVCheck)
@@ -869,12 +868,13 @@ function SVCheck.shot(i)
 	local name, from, to, fov, hideHud = spec[1], spec[2], spec[3], spec[4], spec[5]
 	local P = function(v) return pivot:PointToWorldSpace(Vector3.new(v[1], v[2], v[3])) end
 	local a, b = P(from), P(to)
-	--[[ Outlines anchor on the CHARACTER, not the camera, so the character has to
-		stand where the shot is taken or half the frame has no line. But standing
-		them AT the camera fills the foreground with their own avatar -- the first
-		sweep came back with a black mass across the bottom of every garage shot,
-		and it was his own character at point-blank range. Stand them there and
-		make them invisible locally. ]]
+	--[[ The character is moved to the shot so the frame shows what a player
+		standing there would see. (This first existed for the cartoon outline,
+		which anchored on the character; that outline is gone.) Standing them AT
+		the camera fills the foreground with their own avatar -- the first sweep
+		came back with a black mass across the bottom of every garage shot, and
+		it was his own character at point-blank range. So they are made
+		invisible locally. ]]
 	local char = player.Character
 	local root = char and char:FindFirstChild("HumanoidRootPart")
 	if root then root.CFrame = CFrame.new(a - Vector3.new(0, 2, 0)) end
