@@ -678,6 +678,50 @@ function ChaseCam.clearLens(cf, fov, s)
 	return cf + away * push
 end
 
+--[[ WALLS. The locked camera is Scriptable, so Roblox's Poppercam is off, and
+	since v4.6 the chase runs out through the campus and the town: the lens
+	ends up inside a wall or a tree and the player (and the hunter, whose
+	Highlight is DepthMode.Occluded) vanish behind it.
+
+	The client spherecasts from the player's root toward the lens; this is the
+	pure half. `want` is the root-to-lens distance the solver asked for, `hit`
+	the distance to the first thing in the way (nil when clear). Returns the
+	distance to use.
+
+	It does not smooth the DISTANCE, it smooths the PULL (want - distance).
+	That has two properties a smoothed distance would not:
+	  * in is instant. A wall that appears is in front of the lens NOW, so any
+	    easing in is frames of a black screen.
+	  * out is eased, and never past the wall: the pull only shrinks toward
+	    the pull the wall still demands, so the result is always <= the cap.
+	With no wall the pull is 0 and the result is `want` exactly: the cast adds
+	no lag to an open-air chase.
+
+	st is the caller's, carried between frames: { pull = number }. A cut may
+	reset it to {}; the next frame takes whatever the wall needs at once. ]]
+ChaseCam.OCCLUDE = {
+	RADIUS = 1,          -- the spherecast, studs
+	MARGIN = 0.5,        -- stop this far short of the hit (on top of RADIUS)
+	MIN = 2,             -- never closer to the root than this
+	EASE_OUT = 0.35,     -- seconds, time constant for the lens to come back out
+}
+
+function ChaseCam.occlude(st, want, hit, dt)
+	local O = ChaseCam.OCCLUDE
+	local cap = want
+	if hit then cap = math.min(want, math.max(O.MIN, hit - O.MARGIN)) end
+	local need = want - cap
+	local pull = st.pull or 0
+	if need >= pull then
+		pull = need
+	else
+		dt = math.clamp(dt or 1 / 60, 0, 1 / 15)
+		pull = need + (pull - need) * math.exp(-dt / O.EASE_OUT)
+	end
+	st.pull = pull
+	return math.max(math.min(O.MIN, want), want - pull)
+end
+
 --[[ THE CAMERA AS A SECOND VEHICLE.
 
 	`solve` says where the camera WANTS to be. In modes A and B the caller eases

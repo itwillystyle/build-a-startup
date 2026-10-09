@@ -548,4 +548,53 @@ test("no shot may eat the clearance that keeps the hunter out of the lens", func
 	end
 end)
 
+-- ===================================================================
+-- 7. WALLS: the lens comes in front of a wall at once and goes back out eased.
+-- ===================================================================
+test("with nothing in the way the wall check changes nothing, every frame", function()
+	local st = {}
+	for _ = 1, 120 do
+		local d = C.occlude(st, 30, nil, DT)
+		assert(d == 30, ("open air moved the lens to %.3f"):format(d))
+	end
+end)
+
+test("a wall pulls the lens in front of it on the very first frame", function()
+	local O = C.OCCLUDE
+	local d = C.occlude({}, 30, 12, DT)
+	assert(math.abs(d - (12 - O.MARGIN)) < 1e-9, ("wanted %.2f, got %.3f"):format(12 - O.MARGIN, d))
+end)
+
+test("the lens never goes past a wall that is still there, even while easing out", function()
+	local O = C.OCCLUDE
+	local st = {}
+	C.occlude(st, 30, 6, DT)                 -- a close wall: pulled in hard
+	for _ = 1, 240 do                        -- the wall backs off to 20 and stays
+		local d = C.occlude(st, 30, 20, DT)
+		assert(d <= 20 - O.MARGIN + 1e-9, ("lens at %.3f is past the wall at 20"):format(d))
+	end
+end)
+
+test("when the wall goes, the lens eases back out instead of snapping", function()
+	local st = {}
+	C.occlude(st, 30, 8, DT)
+	local first = C.occlude(st, 30, nil, DT)
+	assert(first < 12, ("one frame after the wall left the lens jumped to %.2f"):format(first))
+	local d = first
+	for _ = 1, 180 do                        -- 3 s, about 8.5 time constants
+		local nd = C.occlude(st, 30, nil, DT)
+		assert(nd >= d - 1e-9, "easing out must never move the lens back in")
+		d = nd
+	end
+	assert(d > 29.9, ("3 s after the wall left the lens is still at %.2f"):format(d))
+end)
+
+test("a wall right at the player still leaves the lens MIN studs out", function()
+	local O = C.OCCLUDE
+	local d = C.occlude({}, 30, 0.2, DT)
+	assert(math.abs(d - O.MIN) < 1e-9, ("got %.3f, wanted MIN %.1f"):format(d, O.MIN))
+	-- and a shot that already sits closer than MIN is left alone
+	assert(C.occlude({}, 1.5, 0.2, DT) == 1.5, "a shot already inside MIN was moved")
+end)
+
 return T

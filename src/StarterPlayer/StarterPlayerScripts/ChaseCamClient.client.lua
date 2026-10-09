@@ -348,6 +348,46 @@ local function readSteer(dt)
 	return dyaw
 end
 
+-- ---------------------------------------------------------------- walls
+--[[ Poppercam is off while the camera is Scriptable, so this does its job:
+	spherecast from your root toward the lens and pull the lens in front of
+	the first solid thing (ChaseCam.occlude: in at once, out eased). Not
+	counted: you and the scooter on you, the TalentRow folder (hunters,
+	candidates, the hire you carry) and anything you can walk through. An
+	invisible collider (the valley has 1,232 collision wedges) is skipped and
+	remembered, so the lens never dives in for a wall nobody can see. ]]
+local occ = {}
+local occParams = RaycastParams.new()
+occParams.FilterType = Enum.RaycastFilterType.Exclude
+occParams.RespectCanCollide = true
+local occChar, occRow
+local function unblock(cf, root, dt)
+	if player:GetAttribute("ChaseCamWalls") == false then return cf end   -- QA: compare with it off
+	local char = player.Character
+	if char ~= occChar or not occRow then
+		local sv = workspace:FindFirstChild("SiliconValley")
+		occChar, occRow = char, sv and sv:FindFirstChild("TalentRow")
+		occParams.FilterDescendantsInstances = { char, occRow }
+	end
+	local origin = root.Position
+	local off = cf.Position - origin
+	local want = off.Magnitude
+	if want < 0.1 then return cf end
+	local hit
+	for _ = 1, 4 do
+		local r = workspace:Spherecast(origin, ChaseCam.OCCLUDE.RADIUS, off, occParams)
+		if r and r.Instance:IsA("BasePart") and r.Instance.Transparency > 0.9 then
+			occParams:AddToFilter(r.Instance)
+		else
+			hit = r
+			break
+		end
+	end
+	local d = ChaseCam.occlude(occ, want, hit and hit.Distance, dt)
+	if d >= want then return cf end
+	return cf - off.Unit * (want - d)
+end
+
 -- ---------------------------------------------------------------- lifecycle
 local function takeCamera()
 	if active then return true end
@@ -389,6 +429,7 @@ local function release()
 		mouseLocked = false
 	end
 	touchSteer, touchAccum = nil, 0
+	occ = {}
 end
 
 -- ---------------------------------------------------------------- the frame
@@ -491,6 +532,7 @@ RunService.RenderStepped:Connect(function(dt)
 			what makes the next frame build the new angle from nothing. ]]
 		follow = {}
 		smoothed = nil
+		occ = {}           -- a new angle takes whatever its own walls need, at once
 		note(shot, why, t)
 	end
 	if player:GetAttribute("ChaseCamDebug") and cause then
@@ -557,7 +599,9 @@ RunService.RenderStepped:Connect(function(dt)
 
 	-- the strike
 	if mode == "B" and lunge then shakeUntil, shakeAmt = t + 0.25, T.SHAKE end
-	local cf = smoothed
+	-- after the springs, on the frame only: pulling `smoothed` itself would
+	-- feed the wall back into the follower as lag
+	local cf = unblock(smoothed, hrp, dt)
 	if t < shakeUntil then
 		local a = shakeAmt * ((shakeUntil - t) / 0.25)
 		cf = cf * CFrame.new((math.random() - 0.5) * a, (math.random() - 0.5) * a, 0)
