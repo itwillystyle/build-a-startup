@@ -81,6 +81,38 @@ function Scen.restore(userId)
 	return { ok = true, snapAt = snap.at }
 end
 
+-- Proof the restore worked: every field of the live save equals the snapshot, except the
+-- clock. Compares canonically (sorted keys): JSONEncode's key order is not stable, and
+-- comparing two encodings reported a mismatch on an exact restore (9 Oct).
+local function canon(v)
+	if type(v) ~= "table" then return tostring(v) end
+	local keys = {}
+	for k in pairs(v) do table.insert(keys, k) end
+	table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
+	local parts = {}
+	for _, k in ipairs(keys) do table.insert(parts, tostring(k) .. "=" .. canon(v[k])) end
+	return "{" .. table.concat(parts, ",") .. "}"
+end
+
+function Scen.compareSnapshot(userId)
+	if not allowed(userId) then return { ok = false, err = "not a test account" } end
+	local key = tostring(userId)
+	local okA, now = pcall(function() return DataStoreService:GetDataStore(SAVE_STORE):GetAsync(key) end)
+	local okB, snap = pcall(function() return DataStoreService:GetDataStore(SNAP_STORE):GetAsync(key) end)
+	if not (okA and okB and type(now) == "table" and type(snap) == "table" and type(snap.rec) == "table") then
+		return { ok = false, err = "could not read the save or the snapshot" }
+	end
+	local differs, n = {}, 0
+	for k, v in pairs(snap.rec) do
+		n += 1
+		if k ~= "lastSeen" and canon(v) ~= canon(now[k]) then table.insert(differs, k) end
+	end
+	for k in pairs(now) do
+		if snap.rec[k] == nil then table.insert(differs, "+" .. tostring(k)) end
+	end
+	return { ok = #differs == 0, fields = n, differs = differs }
+end
+
 -- ctx comes from DevHook: { handle = <the SVDev handler>, Econ = Econ, cashOf = cashOf, plotOf = plotOf }
 function Scen.run(ctx, player, name)
 	if not allowed(player.UserId) then
@@ -176,9 +208,11 @@ function Scen.run(ctx, player, name)
 			if d.Name == "Headhunter" and d:IsA("Model") then hunters += 1 end
 		end
 		local carrying = player:GetAttribute("Carrying")
-		return done(carrying ~= nil and carrying ~= false and hunters > 0,
-			(carrying and hunters > 0) and nil or "recruit did not start a chase",
-			{ carrying = carrying, hunters = hunters, fee = cand.fee })
+		-- (not `x and nil or y`: in Lua that is always y, and it reported an error on a good run)
+		local started = carrying ~= nil and carrying ~= false and hunters > 0
+		local why
+		if not started then why = "recruit did not start a chase" end
+		return done(started, why, { carrying = carrying, hunters = hunters, fee = cand.fee })
 	elseif kind == "vip-chase" then
 		local ok, err = ready(1)
 		if not ok then return done(false, err) end
@@ -230,7 +264,9 @@ function Scen.run(ctx, player, name)
 		goTo(pos)
 		table.insert(did, ("tp -> %.0f, %.0f, %.0f"):format(pos.X, pos.Y, pos.Z))
 		local r = root()
-		return done(r ~= nil, r and nil or "no character")
+		local err
+		if not r then err = "no character" end
+		return done(r ~= nil, err)
 	end
 	return done(false, "unknown scenario '" .. name .. "' (try 'list')")
 end
