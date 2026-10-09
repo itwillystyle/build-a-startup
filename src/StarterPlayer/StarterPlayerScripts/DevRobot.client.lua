@@ -12,7 +12,7 @@
 
 	Play styles (the simulator's names, tests/offline/chase_model.luau):
 	  straight  follow the route, never react               (the W-holder)
-	  dodger    on every crouch (a hunter's Windup), turn hard 55 deg for 0.6 s
+	  dodger    on every crouch (a hunter's Windup), 0.15-0.35 s later turn hard 55 deg for 0.6 s
 	  spammer   follow the route, press BOOST whenever it is ready
 	  idle      stand still for the first 3 s, then go     (freezing) ]]
 local RunService = game:GetService("RunService")
@@ -79,7 +79,7 @@ local function runOnce()
 	local len = 0
 	for k = 2, #pts do len += (pts[k] - pts[k - 1]).Magnitude end
 	print(("[robot] %s: route %d points, %.0f studs, reacted in %.2f s"):format(profile, #pts, len, os.clock() - t0))
-	local i, lastWind, dodgeUntil, sign = 1, nil, 0, 1
+	local i, lastWind, dodgeAt, dodgeUntil, sign = 1, nil, math.huge, 0, 1
 	while p:GetAttribute("Carrying") and i <= #pts do
 		local d = flat(pts[i]) - flat(root.Position)
 		if d.Magnitude < 4 then
@@ -89,11 +89,15 @@ local function runOnce()
 			if profile == "dodger" then
 				local w = windupNow()
 				if w and w ~= lastWind then
-					lastWind, dodgeUntil, sign = w, os.clock() + 0.6, (math.random() < 0.5) and -1 or 1
+					-- like the simulator's dodger: react 0.15-0.35 s after the crouch, turn for 0.6 s
+					-- (turning the instant it crouched ended the dodge before the lunge arrived)
+					lastWind, sign = w, (math.random() < 0.5) and -1 or 1
+					dodgeAt = os.clock() + 0.15 + math.random() * 0.2
+					dodgeUntil = dodgeAt + 0.6
 				elseif not w then
 					lastWind = nil
 				end
-				if os.clock() < dodgeUntil then
+				if os.clock() >= dodgeAt and os.clock() < dodgeUntil then
 					local c, s = math.cos(DODGE * sign), math.sin(DODGE * sign)
 					dir = Vector3.new(dir.X * c - dir.Z * s, 0, dir.X * s + dir.Z * c)
 				end

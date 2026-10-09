@@ -68,18 +68,20 @@ Then, with the Roblox Studio MCP tools:
 
 ## Robot runs (a scripted player, recorded)
 1. Check the frame rate FIRST (Client): `return game:GetService("Stats").FrameTime`. Above 0.05 s
-   (under 20 FPS), stop: the run measures Studio, not the game. UNSOLVED as of 9 Oct 06:05: Studio
-   sat at 2-3 Hz (391 ms/frame = 25 Windows timer ticks) in Edit and Play, with the RTX 5080 at 0% and
-   Studio's threads asleep. NOT the cause: a Studio restart, Studio's focus throttle, PresentMon, a
-   stale MCP bridge, the leftover LeagueClientUxRender. Closing League gave ONE fast window (Edit 16 ms,
-   Play 7 ms, 139 Hz in a chase) for ~2 minutes, then slow again with League closed (Riot Client and the
-   vgk driver still running). Next suspects: Riot Client/Vanguard (full quit or reboot), Xbox Game Bar,
-   SteelSeries GG overlays.
+   (under 20 FPS), stop: the run measures Studio, not the game. UNSOLVED (9 Oct): Studio on this PC
+   flips between FAST (Edit 16 ms, Play 120-230 Hz, physics 60) and SLOW (391 ms/frame = 25 Windows
+   timer ticks, 2 Hz, GPU idle, threads asleep), in Edit and Play. Seen fast: right after a reboot
+   (100 s at 130 Hz), ~2 min after League closed, right after the Rojo server was killed mid-Play.
+   Ruled out: Studio restart, focus throttle flag, PresentMon, stale MCP bridges, the League render
+   process, computer-use clicks, Rojo panels open, the Daily popup, monitor sleep.
+   Measure with a Heartbeat:Connect counter over 2 s (a bridge-side task.wait is not reliable).
+   A run is only valid if its sample gaps in ChaseRun are 0.10 s.
 2. Record the game viewport only (primary monitor, below the toolbar):
    `ffmpeg -f gdigrab -framerate 30 -t 50 -offset_x 0 -offset_y 240 -video_size 1920x512 -i desktop -vf scale=1280:-2 -c:v libx264 -preset veryfast -crf 24 -pix_fmt yuv420p .evidence/<folder>/runN.mp4`
    (`-i desktop` alone grabs both monitors in one wide frame.)
 3. Close the Daily Reward popup (it opens on every Play).
-4. Start the run (Server): `game.ServerScriptService.DevRecorder.Run:Fire("genius", "dodger")`.
+4. Start the run (Server): `game.ServerScriptService.DevRecorder:SetAttribute("Request", "genius/dodger/" .. os.clock())`
+   (not Run:Fire from the bridge: the handler would run in the slow bridge thread).
    It restocks, routes DevRobot BEFORE pickup, runs `chase:<tier>`, samples every 0.1 s.
 5. Read `game.ServerStorage.ChaseRun.Value` (JSON) when it is not "". Save it next to the video.
    The `[robot]` lines in the Output give the route and the reaction time.
