@@ -37,9 +37,12 @@ M.PROFILES = {
 M.DODGE_ANGLE = math.rad(55)   -- a hard turn off the line
 M.DODGE_TIME = 0.6
 
-function M.newRules(R, cfg)
+-- turn: the last leg into home (default 40, the corner the tests were tuned on); 0 = a
+-- straight run home, the shape most live routes measured on 9 Oct actually have
+function M.newRules(R, cfg, turn)
+	turn = turn or 40
 	-- home is where the route ends (see M.run): the lot, 40 studs off the road
-	cfg.homeDist = function(x, z) return math.sqrt(x * x + (z + 40) ^ 2) end
+	cfg.homeDist = function(x, z) return math.sqrt(x * x + (z + turn) ^ 2) end
 	return {
 		hunters = cfg.hunters or 1,
 		start = R.START_BEHIND, secondDelay = R.SECOND_DELAY, secondSide = R.SECOND_SIDE,
@@ -77,7 +80,8 @@ function M.run(R, rules, opts, seed)
 	end
 	local prof = M.PROFILES[opts.skill or "good"]
 	local D = opts.D
-	local route = { { D, 0 }, { 0, 0 }, { 0, -40 } }
+	local turn = opts.turn or 40
+	local route = turn > 0 and { { D, 0 }, { 0, 0 }, { 0, -turn } } or { { D, 0 }, { 0, 0 } }
 	local px, pz = D, 0
 	local seg = 2
 	local dt = 0.05
