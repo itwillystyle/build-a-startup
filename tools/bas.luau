@@ -9,6 +9,7 @@
 	    lune run tools/bas evidence new <slug> | add <file> [--kind k] | note <text> | show | done
 	    lune run tools/bas scenario list    the Studio one-liners for a live check
 	    lune run tools/bas map check        feature-map coverage + staleness
+	    lune run tools/bas ship | world | health   the morning run (Phase 2)
 	Add --json to any command for one machine-readable object on stdout.
 	Add --save to check / sim / baseline diff to file the result in the current evidence folder.
 	Exit codes: 0 ok, 1 a check failed, 2 usage error.
@@ -30,7 +31,7 @@ local A = {}
 for _, a in process.args do
 	if a ~= "--" then table.insert(A, a) end
 end
-local VALUE_FLAGS = { ["--n"] = true, ["--tol"] = true, ["--kind"] = true }
+local VALUE_FLAGS = { ["--n"] = true, ["--tol"] = true, ["--kind"] = true, ["--log"] = true }
 local JSON = table.find(A, "--json") ~= nil
 local SAVE = table.find(A, "--save") ~= nil
 local function flag(name)
@@ -558,6 +559,205 @@ local function cmdMap()
 end
 
 -- ============ output ============
+-- ============ the morning run (Phase 2): ship, world, health ============
+local Health = require("./health_lib")
+local WORLD_GOOD = ".bas/world.json"     -- the last Play run with no failure
+local HEALTH_LAST = ".bas/health.json"   -- the last morning run, for "changed since"
+local HEALTH_MD = "../HEALTH.md"         -- silicon-startup/HEALTH.md: outside the repo, so it never makes a commit
+
+-- Studio's own log files, newest first (the file name carries the start time)
+local function studioLogs()
+	local dir = (process.env.LOCALAPPDATA or "") .. "/Roblox/logs"
+	if not fs.isDir(dir) then return {} end
+	local out = {}
+	for _, f in fs.readDir(dir) do
+		local stamp = f:match("_(%d+T%d+Z)_Studio_")
+		if stamp then table.insert(out, { path = dir .. "/" .. f, stamp = stamp }) end
+	end
+	table.sort(out, function(a, b) return a.stamp > b.stamp end)
+	return out
+end
+
+-- patch ids of a diff or a `git log -p` (one per commit), as a set
+local function patchIds(text)
+	local ok, r = pcall(process.exec, "git", { "patch-id", "--stable" }, { stdio = { stdin = text } })   -- Lune 0.10: stdin lives under stdio
+	local ids = {}
+	if ok and r.ok then
+		for _, l in lines(r.stdout) do
+			local id = l:match("^(%x+)")
+			if id then ids[id] = true end
+		end
+	end
+	return ids
+end
+
+--[[ Is every change on `branch` already in main? GitHub's rebase and squash merges
+	give the commits new ids, and main may have edited the same lines again since,
+	so neither the ids nor a test merge can say. The patches can:
+	  1. merging it changes nothing (a branch main simply contains)
+	  2. rebase merge: every one of its patches is on main (git cherry)
+	  3. squash merge: its whole diff is one commit on main ]]
+local function onMain(branch, mainTree)
+	local merged = git({ "merge-tree", "--write-tree", "origin/main", branch })
+	if merged ~= nil and lines(merged)[1] == mainTree then return true end
+	local cherry = git({ "cherry", "origin/main", branch })
+	if cherry ~= nil and not ("\n" .. cherry):find("\n%+") then return true end
+	local base = git({ "merge-base", "origin/main", branch })
+	if not base then return false end
+	-- raw output: git() trims, and a trimmed diff loses its last context line (a new patch id)
+	local mine = patchIds(run("git", { "diff", base, branch }).stdout or "")
+	local theirs = patchIds(run("git", { "log", "-p", base .. "..origin/main" }).stdout or "")
+	for id in mine do
+		if theirs[id] then return true end
+	end
+	return false
+end
+
+local function cmdShip()
+	run("git", { "fetch", "-q", "origin" })   -- read-only; offline, origin/main is as of the last fetch
+	local now = os.time()
+	local lastSave, lastPublish
+	for _, l in studioLogs() do
+		local s, p = Health.saveAndPublish(fs.readFile(l.path))
+		lastSave = lastSave or (s and Health.isoToUnix(s))
+		lastPublish = lastPublish or (p and Health.isoToUnix(p))
+		if lastSave and lastPublish then break end
+	end
+	local mainSince = {}
+	for _, l in lines(git({ "log", "origin/main", "-200", "--format=%h %ct %s" }) or "") do
+		local sha, ct, subject = l:match("^(%x+) (%d+) (.*)$")
+		if sha and lastPublish and tonumber(ct) > lastPublish then
+			table.insert(mainSince, { sha = sha, unix = tonumber(ct), subject = subject })
+		end
+	end
+	local mainTree = git({ "rev-parse", "origin/main^{tree}" })
+	local branches = {}
+	for _, l in lines(git({ "for-each-ref", "refs/heads", "--format=%(refname:short) %(committerdate:unix)" }) or "") do
+		local name, ct = l:match("^(%S+) (%d+)$")
+		if name and name ~= "main" and not onMain(name, mainTree) then
+			local ahead = tonumber(git({ "rev-list", "--count", "origin/main.." .. name }) or "0") or 0
+			table.insert(branches, { name = name, ahead = ahead, lastUnix = tonumber(ct) })
+		end
+	end
+	local checks = Health.ship({ now = now, lastSave = lastSave, lastPublish = lastPublish, mainSince = mainSince, branches = branches })
+	for _, c in checks do c.ms = 0 end
+	return result("ship", checks, { mainSince = mainSince, branches = branches })
+end
+
+-- the newest Play run in the Studio logs (or in --log <file>)
+local function newestRun()
+	local only = flag("--log")
+	if only then return Health.lastRun(fs.readFile(only)), only end
+	for _, l in studioLogs() do
+		local r = Health.lastRun(fs.readFile(l.path))
+		if r then return r, l.path end
+	end
+	return nil, nil
+end
+
+local function cmdWorld()
+	local sub = pos[1] == "world" and pos[2] or "check"
+	ensureDir(".bas")
+	local r, from = newestRun()
+	if not r then
+		return result("world", { { name = "log", ok = false, level = "warn", ms = 0, detail = "no Play run in any Studio log" } })
+	end
+	if sub == "save" then
+		writeJson(WORLD_GOOD, r)
+		return result("world save", { { name = "saved", ok = true, ms = 0, detail = ("the run of %s is now the good one"):format(tostring(r.startIso)) } })
+	end
+	local age = (os.time() - (r.startUnix or 0)) / 3600
+	local checks = { { name = "log", ok = age <= 24, level = "warn", ms = 0,
+		detail = ("last Play run %s UTC, %.0f h ago%s"):format(tostring(r.startIso), age,
+			age > 24 and " (not fresh: Play once to check the world)" or "") } }
+	local good = readJson(WORLD_GOOD)
+	local flags = Health.compareWorld(good, r)
+	local fails = 0
+	for _, f in flags do
+		table.insert(checks, { name = "world", ok = false, level = f.level == "warn" and "warn" or nil, ms = 0, detail = f.text })
+		if f.level == "fail" then fails += 1 end
+	end
+	if #flags == 0 then
+		local m = r.metrics
+		table.insert(checks, { name = "world", ok = true, ms = 0, detail = ("%s/%s meshes, %s hill trees, %s avatars, 0 script errors%s"):format(
+			tostring(m.furnitureMeshes), tostring(m.furnitureTotal), tostring(m.hillTrees), tostring(m.avatars),
+			good and "; nothing dropped since the last good run" or "; no good run saved yet") })
+	end
+	return result("world", checks, { run = r, from = from, failures = fails })
+end
+
+local function cmdHealth()
+	ensureDir(".bas")
+	local started = os.time()   -- wall clock: os.clock counts this process only, not git or the tests
+	local sections = {
+		{ title = "lint", res = result("lint", { checkSelene() }) },
+		{ title = "tests, sims, drift", res = cmdBaseline() },
+		{ title = "feature map", res = cmdMap() },
+		{ title = "ship", res = cmdShip() },
+		{ title = "world", res = cmdWorld() },
+	}
+	-- a clean world run becomes the good one, so tomorrow compares with today
+	local w = sections[5].res
+	if w.run and (w.failures or 0) == 0 then writeJson(WORLD_GOOD, w.run) end
+
+	local all, ok = {}, true
+	for _, s in sections do
+		if not s.res.ok then ok = false end
+		for _, c in s.res.checks do
+			table.insert(all, { section = s.title, name = c.name, ok = c.ok, level = c.level, detail = c.detail })
+		end
+	end
+	local prev = readJson(HEALTH_LAST)
+	local seen = {}
+	for _, c in (prev and prev.checks) or {} do seen[c.section .. "/" .. c.name .. "/" .. tostring(c.detail)] = true end
+	local function mark(c) return c.ok and "PASS" or (c.level == "warn" and "WARN" or "FAIL") end
+
+	local md = {}
+	table.insert(md, ("# Game health: %s"):format(ok and "GREEN" or "RED"))
+	table.insert(md, "")
+	table.insert(md, ("%s · branch `%s` · %d s · `lune run tools/bas health`"):format(os.date("%a %d %b %Y, %H:%M"),
+		tostring(git({ "rev-parse", "--abbrev-ref", "HEAD" })), os.time() - started))
+	table.insert(md, "")
+	for _, s in sections do
+		table.insert(md, ("## %s %s"):format(s.res.ok and "PASS" or "FAIL", s.title))
+		for _, c in s.res.checks do table.insert(md, ("- %s %s: %s"):format(mark(c), c.name, tostring(c.detail))) end
+		for _, d in s.res.drift or {} do table.insert(md, "  - moved: " .. d.detail) end
+		for _, u in s.res.uncovered or {} do table.insert(md, "  - not on any page: " .. u.module) end
+		for _, st in s.res.stale or {} do table.insert(md, "  - stale: " .. st.page .. " (" .. st.why .. ")") end
+		table.insert(md, "")
+	end
+	table.insert(md, "## Changed since the last run")
+	if not prev then
+		table.insert(md, "- first run")
+	else
+		local any = false
+		for _, c in all do
+			if not seen[c.section .. "/" .. c.name .. "/" .. tostring(c.detail)] then
+				table.insert(md, ("- %s %s / %s: %s"):format(mark(c), c.section, c.name, tostring(c.detail)))
+				any = true
+			end
+		end
+		if not any then table.insert(md, "- nothing") end
+	end
+	table.insert(md, "")
+	table.insert(md, "## Open findings")
+	local open = 0
+	for _, c in all do
+		if not c.ok then
+			table.insert(md, ("- %s %s / %s: %s"):format(mark(c), c.section, c.name, tostring(c.detail)))
+			open += 1
+		end
+	end
+	if open == 0 then table.insert(md, "- none") end
+	table.insert(md, "")
+	table.insert(md, "Report only: this run never commits, pushes or publishes. Not checked here: how the game")
+	table.insert(md, "feels, anything that needs Studio open, and WHICH commit is live (only when it was published).")
+	fs.writeFile(HEALTH_MD, table.concat(md, "\n") .. "\n")
+	writeJson(HEALTH_LAST, { at = os.time(), checks = all })
+	return result("health", { { name = "HEALTH.md", ok = ok, ms = 0,
+		detail = ("%s, %d open finding(s), written to %s"):format(ok and "GREEN" or "RED", open, HEALTH_MD) } })
+end
+
 local HELP = [[
 bas -- one command for every check this game has. Run from the game folder.
 
@@ -572,6 +772,9 @@ bas -- one command for every check this game has. Run from the game folder.
   lune run tools/bas evidence show|done    done = the proof contract is met
   lune run tools/bas scenario list         Studio one-liners (SVDev scenarios)
   lune run tools/bas map check             feature map coverage + staleness
+  lune run tools/bas ship                  is the live game behind main? unmerged branches?
+  lune run tools/bas world [save] [--log f]  world health from Studio's log vs the last good run
+  lune run tools/bas health                all of it, written to ../HEALTH.md (the morning run)
 
   --json   one JSON object on stdout     --save   also file it in the evidence folder
   exit 0 ok, 1 a check failed, 2 usage error]]
@@ -633,6 +836,12 @@ elseif cmd == "scenario" then
 	res = cmdScenario()
 elseif cmd == "map" then
 	res = cmdMap()
+elseif cmd == "ship" then
+	res = cmdShip()
+elseif cmd == "world" then
+	res = cmdWorld()
+elseif cmd == "health" then
+	res = cmdHealth()
 end
 
 if not res then
