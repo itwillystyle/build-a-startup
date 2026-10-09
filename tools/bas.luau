@@ -522,6 +522,13 @@ local function cmdMap()
 	for f, body in pages do
 		if f ~= "README.md" then
 			local commit = body:match("Last verified:[^\n]-(%x%x%x%x%x%x%x+)")
+			-- GitHub's rebase and squash merges rewrite commit ids, so a stamp made on a
+			-- branch is not in main's history. Then the page counts as checked when it
+			-- last changed: the commit that landed it along with the code it describes.
+			if commit and git({ "merge-base", "--is-ancestor", commit, "HEAD" }) == nil then
+				local landed = git({ "log", "-1", "--format=%h", "--", mapDir .. "/" .. f })
+				if landed and landed ~= "" then commit = landed end
+			end
 			if not commit then
 				table.insert(stale, { page = f, why = "no 'Last verified: <date> <commit>' line" })
 			else
