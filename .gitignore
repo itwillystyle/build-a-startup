@@ -10,3 +10,7 @@ blender/out/
 art/out/
 __pycache__/
 *.pyc
+
+# tools/bas: the proof folders and the numbers memory stay local (screenshots, logs)
+.evidence/
+.bas/
