@@ -41,10 +41,7 @@ local CELL = 4
 
 -- ============ NOISE ============
 
-local Pal = (function()
-	local ok, m = pcall(require, game:GetService("ReplicatedStorage"):WaitForChild("Palette", 5))
-	return ok and m or nil
-end)()
+local Pal = require(game:GetService("ReplicatedStorage"):WaitForChild("PaletteLoad"))
 
 local function fbm(x, z, freq, octaves, seed)
 	local v, amp, f, norm = 0, 1, freq, 0
@@ -385,9 +382,7 @@ local function scenery(props, parent)
 	p.BottomSurface = Enum.SurfaceType.Smooth
 	for k, v in pairs(props) do p[k] = v end
 	-- author in the palette: an unnamed Color used to inherit Roblox default grey
-	if Pal then
-		p.Color = props.Color and Pal.map(props.Color) or Pal.map(Color3.fromRGB(163, 162, 165))
-	end
+	if Pal then Pal.author(p, props) end
 	p.Parent = parent
 	return p
 end

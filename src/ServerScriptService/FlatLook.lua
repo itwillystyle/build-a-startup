@@ -38,10 +38,7 @@ local KEEP = {
 
 local FLAT = Enum.Material.SmoothPlastic
 
-local Pal = (function()
-	local ok, m = pcall(require, game:GetService("ReplicatedStorage"):WaitForChild("Palette", 5))
-	return ok and m or nil
-end)()
+local Pal = require(game:GetService("ReplicatedStorage"):WaitForChild("PaletteLoad"))
 
 --[[ THE GROUND KEEPS ITS GRAIN (the A4 item in ART.md).
 

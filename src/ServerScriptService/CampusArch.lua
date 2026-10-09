@@ -69,10 +69,7 @@ local FLOOR_LOOK = {
 	cafe = { Color3.fromRGB(184, 138, 96), Enum.Material.WoodPlanks },
 }
 
-local Pal = (function()
-	local ok, m = pcall(require, game:GetService("ReplicatedStorage"):WaitForChild("Palette", 5))
-	return ok and m or nil
-end)()
+local Pal = require(game:GetService("ReplicatedStorage"):WaitForChild("PaletteLoad"))
 
 local function mk(parent, props)
 	local p = Instance.new("Part")
@@ -81,9 +78,7 @@ local function mk(parent, props)
 	p.BottomSurface = Enum.SurfaceType.Smooth
 	p.Material = Enum.Material.SmoothPlastic
 	for k, v in pairs(props) do p[k] = v end
-	if Pal then
-		p.Color = props.Color and Pal.map(props.Color) or Pal.map(Color3.fromRGB(163, 162, 165))
-	end
+	if Pal then Pal.author(p, props) end
 	p.Parent = parent
 	return p
 end

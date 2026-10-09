@@ -267,6 +267,15 @@ function Palette.needsWash(d)
 	return math.min(c.R, c.G, c.B) > Palette.TINT_NEUTRAL
 end
 
+--[[ The authoring rule every part builder shares. Call it after the props are
+	applied: a named Color maps into the palette, and a part with none gets the
+	palette's version of Roblox's default grey (left alone, 719 parts once ended
+	up identical and off-palette). ]]
+local DEFAULT_GREY = Color3.fromRGB(163, 162, 165)
+function Palette.author(p, props)
+	p.Color = Palette.map(props.Color or DEFAULT_GREY)
+end
+
 --[[ Re-tint on entry, applied to the built world. Cloned packs never pass
 	through a builder helper, and they are the biggest single source of
 	disagreement -- 201 ring cars, 115 district cars, 418 pack meshes. This is
