@@ -10,7 +10,7 @@
 - Signs only, in the retail district: a shop awning reads "FOUNDER COFFEE" (`src/ServerScriptService/CampusDistricts.lua:449`) and the grocery name band reads "VALLEY MARKET" (:467). A food truck menu has a "COFFEE" line (:576). The file says districts are scenery with no prompts (`CampusDistricts.lua:16`).
 - The `coffee` item is shown as "Cold Brew" in the bag: 3x code for 60 s (`src/ReplicatedStorage/Items.lua:32`). It comes from the daily ladder, launches and investors. See daily-bag.md.
 - Coffee decor: the "Coffee Maker" furniture piece (`src/ReplicatedStorage/FurnitureKit.lua:222`), the Sky Cafe coffee bar (`src/ServerScriptService/HQFloors.lua:16, 452-458`), and a machine in each apartment (`Apartments.lua:180`).
-- `CFG.MARKETS` are the six product categories you pick when you launch an app: SOCIAL, GAMES, AI, FINTECH, HEALTH, DELIVERY (`src/ServerScriptService/CoreConfig.lua:100-114`). They drive the `PickMarket` remote (`SiliconCore.server.lua:3239`), not any shop. "Market share" is about rivals.
+- `CFG.MARKETS` are the six product categories you pick when you launch an app: SOCIAL, GAMES, AI, FINTECH, HEALTH, DELIVERY (`src/ServerScriptService/CoreConfig.lua:100-114`). They drive the `PickMarket` remote (`SiliconCore.server.lua:3266`), not any shop. "Market share" is about rivals.
 - The market bell is a shared 90 s growth race every 330 s in `src/ServerScriptService/Valley.lua` (:25-31, :39-42). Drive it with SVDev `bell` or `bell end` (`DevHook.lua:102-109`).
 - "Valley Exchange" is the name of the public company board and the GO PUBLIC step (`Journey.lua:45`, `Ranks.lua:6`). Not a market you walk into.
 **Drive it:** none. Nothing to jump to.

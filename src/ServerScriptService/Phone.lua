@@ -408,10 +408,13 @@ local function reply(player, th, text, chip)
 			if low:find("%f[%w]" .. kw .. "%f[%W]") then hit = true break end
 		end
 		verdict, gain = hit and "mid" or "miss", hit and 2 or 0
+		-- busy BEFORE the filter yields: a second reply sent during the yield would
+		-- otherwise pass the "wait" check too and count twice
+		th.status = "busy"
 		local ok, res = pcall(function()
 			return TextService:FilterStringAsync(text, player.UserId):GetNonChatStringForUserAsync(player.UserId)
 		end)
-		if not ok or type(res) ~= "string" then return end          -- never show unfiltered text
+		if not ok or type(res) ~= "string" then th.status = "wait" return end   -- never show unfiltered text
 		shown = res
 	end
 	for _, prev in ipairs(th.said) do

@@ -5,7 +5,7 @@
 2. Walk to The Residences lobby. Use the sales desk prompt "Buy an apartment" (`Apartments.lua:561`). The `AptMenu` remote opens the card.
 3. Tap BUY. The client fires `AptBuy`. The server charges, sets `s.apt`, builds the unit and plays the move-in shot (`Apartments.lua:442-481`).
 4. Later, use the lobby lift prompt "Go home" (`Apartments.lua:569`). The unit's own lift prompt "Go down" brings you back (`Apartments.lua:385`).
-5. Spin-off: the card lets you pick who stays, up to your slot count (`src/ServerScriptService/SiliconCore.server.lua:2902-2913`).
+5. Spin-off: the card lets you pick who stays, up to your slot count (`src/ServerScriptService/SiliconCore.server.lua:2921-2932`).
 6. The daily VIP: a loop checks every 20 s and calls `Apartments.trySpawnVip` (`Apartments.lua:528-530`).
 **Files:**
 - `src/ServerScriptService/Apartments.lua`: tiers, buy, go home, units, VIP. `priceOf` :49, `floorOf` :114, `buildUnit` :354, `goHome` :427, `buy` :442, `trySpawnVip` :497, `init` :524, `onLoad` :603.
@@ -13,7 +13,7 @@
 - `src/StarterPlayer/StarterPlayerScripts/HomeClient.client.lua`: sales card :72, fades :136, move-in and car shots :164, indoor zoom cap :209, HQ level-up orbit :244.
 - `src/StarterPlayer/StarterPlayerScripts/LiftClient.client.lua`: floor picker for HQ lifts, NOT the Residences lift. Covered in hq-paths.md.
 - `src/ServerScriptService/Progression.lua`: `APARTMENTS` :107, `KEEP_SLOTS` :126, `keepSlots` :128, `rankKeepers` :146, `chooseKeepers` :164, `HOME_SHARE` :208, `homePrice` :210.
-- Keeper slots in the spin-off: `SiliconCore.server.lua:2656` (SpinConfirm), `:2902-2940` (offer and keep). Card UI: `HudClient.client.lua:700` (spinAsk).
+- Keeper slots in the spin-off: `SiliconCore.server.lua:2672` (SpinConfirm), `:2921-2959` (offer and keep). Card UI: `HudClient.client.lua:700` (spinAsk).
 **State:**
 - Session: `s.apt` (0-3), `s.vipDay` (UTC day number), `s.lastBuy`. Price reads `s.spinoffs` (`Apartments.lua:49-52`).
 - Player attribute: `Apt` (`Apartments.lua:458`). I found no reader in `src`. Unclear if it is used.
@@ -39,6 +39,6 @@
 - Floor = `(tier-1)*6 + (plot-1)`, so six players never share a floor (`Apartments.lua:114-118`).
 - Arrival stands are placed well clear of the lift wall or the camera ends up inside it (`Apartments.lua:401-402`).
 - If the Residences mesh is missing, no sales desk or lift exists. `init` waits 30 s, then gives up silently (`Apartments.lua:555-559`, `Downtown.lua:265`).
-- While a keeper choice is pending, the pad's second tap cannot confirm. Only the card can (`SiliconCore.server.lua:2927-2930`). Picks are opaque ids matched to staff entries, never positions (`Progression.lua:140-145`).
+- While a keeper choice is pending, the pad's second tap cannot confirm. Only the card can (`SiliconCore.server.lua:2946-2949`). Picks are opaque ids matched to staff entries, never positions (`Progression.lua:140-145`).
 - `SPINOFF_BASE` is asserted at load. A missing base would sell homes for $1 (`Apartments.lua:43-44`).
-**Last verified:** 2026-10-09 c9daf01
+**Last verified:** 2026-10-09 d6a64f6

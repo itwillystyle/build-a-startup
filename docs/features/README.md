@@ -40,8 +40,8 @@ This is shared memory for agents and for you. Code wins when a page and the code
 | ~~Live chase lengths are not the sim's~~ FIXED in a96f2d8: home is the doorstep, candidates spawn at 140-370 walking studs, the sim reads the same bands (map contract test) | **Live** + code |
 | Studio runs at 2-3 Hz on this PC (Edit and Play, GPU idle, threads asleep). Not the game. Cause unsolved: closing League gave one ~2-minute fast window only | **Live** |
 | A stray "Label" placeholder floats mid-screen during a chase; Daily Reward reopens after a catch | **Live** (video) |
-| The saved mute never restores: the server sends it in `MenuStats` (SiliconCore.server.lua:3820), and no client listens to `MenuStats` | **Code** |
-| `s.hqPath` is never cleared, so the path picker never returns after a spin-off, though the comment says it should (SiliconCore.server.lua:2066-2068, 2819) | **Code** |
+| The saved mute never restores: the server sends it in `MenuStats` (SiliconCore.server.lua:3847), and no client listens to `MenuStats` | **Code** |
+| `s.hqPath` is never cleared, so the path picker never returns after a spin-off, though the comment says it should (SiliconCore.server.lua:2077-2079, 2838) | **Code** |
 | Wafers mode builds no lots, so build mode may never place `needs` furniture | Agent |
 | `Apartments.vipSpot` still uses the old plaza coordinates | Agent |
 | `Phone.snapshot` and the `SVOpenDaily` event have no caller or listener | Agent |

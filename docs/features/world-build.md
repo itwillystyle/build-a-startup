@@ -2,7 +2,7 @@
 **What:** The server builds the whole map in code when it starts: hills, trees, the east road, downtown, the central park, the ring roads and four districts. Passes then clear trees off paving, round the lawns, fix colours and flatten materials. Six client scripts add the sky, shadows, tree culling, short effects, moving parts and ambient life on each player's own machine. None of this exists in Edit mode.
 **How a player reaches it:**
 1. Join a server. The world is already there. No menu, no button.
-2. Server order in `src/ServerScriptService/SiliconCore.server.lua`: `SiliconValley` folder :564, `ValleyGen.build` :613, street :661, Kenney city :664, `Downtown.build` :668, `CampusHub.build` :678, `CampusDistricts.build` :685.
+2. Server order in `src/ServerScriptService/SiliconCore.server.lua`: `SiliconValley` folder :575, `ValleyGen.build` :624, street :672, Kenney city :675, `Downtown.build` :679, `CampusHub.build` :689, `CampusDistricts.build` :696.
 3. Then `Ground.sweep` :704, `Ground.publish` :713, `Placement.scanSurfaces` and `resolve` :731-735, `HubSpawn` :752. Plots are built after that.
 4. Final passes once plots exist: `Placement.pass` :3013, `Palette.enforce` :3029, `Shapes.apply` :3038. Last of all `FlatLook.sweep` and `FlatLook.watch` :4099-4100.
 5. A client then starts the six scripts below. A new player also gets a forced 13:30 sky for the intro (`IntroClient.client.lua:166`).
@@ -26,7 +26,7 @@
 - `src/StarterPlayer/StarterPlayerScripts/LifeClient.client.lua`: walkers :179, birds :283, jet :319, Caltrain :394, sound :527. Builds folder `Life` in workspace (:33-35).
 **State:**
 - Nothing is saved. No session fields.
-- Workspace and folder attributes: `GroundZones` (JSON, `Ground.lua:162`), `SVNight` (`SkyClient.client.lua:230`), `SVClockOverride` (read :445, set by IntroClient :166), `TowerSpec` (`SiliconCore.server.lua:2790`).
+- Workspace and folder attributes: `GroundZones` (JSON, `Ground.lua:162`), `SVNight` (`SkyClient.client.lua:230`), `SVClockOverride` (read :445, set by IntroClient :166), `TowerSpec` (`SiliconCore.server.lua:2806`).
 - Tags: `SVCloud` (`ValleyGen.lua:666`), `SVLamp`, `SVSpin`, `SVPulse` (set in `Wafers.lua:423, 569, 840`), `SVIdle`, `SVCar`, `SVStaff`. Part attribute `SVPitted` (`Placement.lua:372`).
 **Drive it:**
 - `dev:Invoke("scenario", p, "tp:hq")` stands you at your HQ pad (`DevScenarios.lua`, `tp` branch). No SVDev action rebuilds the world.
@@ -39,12 +39,12 @@
 **Gotchas:**
 - Build order is the bug source. The valley plants trees first and later paving covers them (`Ground.lua:9-14`). Only `CampusDistricts` (:125, :488) and `Downtown.lua:191` call `Ground.reservePart`. The `Placement` shape scan catches the rest.
 - Placement looks at shape: broad, thin, flat, not green (`Placement.lua:36-44`). Greenery is still found by name words (`Ground.lua:85`), so a tree with an odd name is missed.
-- Plots build after the world, so `Placement.pass` runs again per plot (`SiliconCore.server.lua:1030-1036`) and once at the end (:3006).
+- Plots build after the world, so `Placement.pass` runs again per plot (`SiliconCore.server.lua:1041-1047`) and once at the end (:3025).
 - Meshes live in Studio, not in Rojo (`default.project.json`). Without `SVMeshes.LowPoly`, `ValleyGen` falls back to terrain plus `MountainData` (`ValleyGen.lua:410-426, 1308-1320`). `TreeCullClient` exits if `SVMeshes` is missing (:23-24).
 - `LowPolyData` is generated. Do not hand edit. `luau-lsp` skips it (`check.ps1:11`).
-- The rail line is hard coded twice: `SiliconCore.server.lua:611` and `LifeClient.client.lua:404`. Change both.
+- The rail line is hard coded twice: `SiliconCore.server.lua:622` and `LifeClient.client.lua:404`. Change both.
 - `FlatLook.watch` runs forever on all of workspace (`FlatLook.lua:110-137`). Lawns stay flat, floors keep Concrete or Asphalt, parts with a `MaterialVariant` are skipped (:62-95).
 - Stale comments: `SkyClient.client.lua:17,230` say LifeClient reads `SVNight`, but LifeClient has no night code. `FlatLook.lua` header says contact discs replace shadows, but `SkyClient.client.lua:84` turns `GlobalShadows` back on.
 - `WorldFxClient`: a red refusal popup only draws on your own plot (:48, :59-67). A rise is skipped if you stand inside the building (:127).
 - `ShadowClient` constant `SKIP_PARENT` (:62) is never used.
-**Last verified:** 2026-10-09 c9daf01
+**Last verified:** 2026-10-09 d6a64f6

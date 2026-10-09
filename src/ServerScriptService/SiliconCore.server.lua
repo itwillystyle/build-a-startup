@@ -419,8 +419,18 @@ end
 -- Looked up at call time (SVRemotes is created further down the file), and
 -- inlined: this file sits at Luau's 200 top-level local limit.
 
-local function popup(anchor, text, color)
+local popup
+do
+-- a refusal ("Need $..", "Outside your floor") goes to every client, and a spammed
+-- remote can trigger one per call: one per anchor every 0.3 s is plenty to read
+local lastRefusal = setmetatable({}, { __mode = "k" })
+function popup(anchor, text, color)
 	if not anchor then return end
+	if color and color ~= CFG.GOOD then
+		local now = os.clock()
+		if now < (lastRefusal[anchor] or 0) then return end
+		lastRefusal[anchor] = now + 0.3
+	end
 	local fx = ReplicatedStorage:FindFirstChild("SVRemotes")
 	fx = fx and fx:FindFirstChild("Popup")
 	if fx then fx:FireAllClients(anchor, text, color or CFG.GOOD) return end
@@ -443,6 +453,7 @@ local function popup(anchor, text, color)
 	TweenService:Create(t, TweenInfo.new(1.1),
 		{ TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
 	task.delay(1.2, function() bb:Destroy() end)
+end
 end
 
 
@@ -2443,6 +2454,11 @@ local function placeAt(player, plot, key, px, pz, yawDeg, free, forcedPrice)
 	if not free and not s.shipped then return false end
 	if not FurnitureKit or not FurnitureKit.BY_KEY then return false end
 	if type(key) ~= "string" or type(px) ~= "number" or type(pz) ~= "number" or type(yawDeg) ~= "number" then return false end
+	-- NaN fails every comparison and inf survives the rounding: either would be charged,
+	-- pivoted to nowhere and written into the save
+	for _, v in ipairs({ px, pz, yawDeg }) do
+		if v ~= v or math.abs(v) == math.huge then return false end
+	end
 	local item = FurnitureKit.BY_KEY[key]
 	if not item or not FurnitureKit.has(key) then return false end
 	if item.needs and not roomBuilt(plot, item.needs) then
@@ -2810,6 +2826,9 @@ if Econ then
 		local s = sessions[player.UserId]
 		if not (plot and s and Econ.WAFERS and Econ.Wafers) then return end
 		if type(path) ~= "string" or not Econ.Wafers.PATHS[path] then return end
+		-- flipping styles costs a recompute and a broadcast each time: one a second
+		if os.clock() < (s.pathNext or 0) then return end
+		s.pathNext = os.clock() + 1
 		-- only while the HQ is still just the garage
 		if (plot.wafer and plot.wafer.level or 1) > 1 then
 			popup(plot.hqPad, "Too late to restyle -- next company", CFG.BAD)
@@ -3147,7 +3166,15 @@ setName.OnServerEvent:Connect(function(player, raw)
 	if not s or not plot then return end
 	-- v3.1: LATER sends "" -- stop waiting for a name (the door used to wait 25 s)
 	if raw == "" or raw == nil then s.nameSkipped = true return end
+	--[[ A company is named once: the modal only opens while s.name is nil. One
+		attempt in flight and one a second, because each one costs a text-filter
+		call and a DataStore write, and the write budget is the whole server's:
+		the 9 Oct fuzz drained it with renames (280 throttled writes), which is
+		the budget every other player's save comes out of. ]]
+	if s.name or s.naming or os.clock() < (s.nameNext or 0) then return end
+	s.naming, s.nameNext = true, os.clock() + 1
 	local name = cleanName(player, raw)                 -- yields
+	s.naming = nil
 	if plotOf(player) ~= plot or sessions[player.UserId] ~= s then return end
 	if not name then askName:FireClient(player, "That name will not work. Try another.") return end
 	s.name = name
