@@ -68,14 +68,15 @@ Then, with the Roblox Studio MCP tools:
 
 ## Robot runs (a scripted player, recorded)
 1. Check the frame rate FIRST (Client): `return game:GetService("Stats").FrameTime`. Above 0.05 s
-   (under 20 FPS), stop: the run measures Studio, not the game. UNSOLVED (9 Oct): Studio on this PC
-   flips between FAST (Edit 16 ms, Play 120-230 Hz, physics 60) and SLOW (391 ms/frame = 25 Windows
-   timer ticks, 2 Hz, GPU idle, threads asleep), in Edit and Play. Seen fast: right after a reboot
-   (100 s at 130 Hz), ~2 min after League closed, right after the Rojo server was killed mid-Play.
-   Ruled out: Studio restart, focus throttle flag, PresentMon, stale MCP bridges, the League render
-   process, computer-use clicks, Rojo panels open, the Daily popup, monitor sleep.
-   Measure with a Heartbeat:Connect counter over 2 s (a bridge-side task.wait is not reliable).
-   A run is only valid if its sample gaps in ChaseRun are 0.10 s.
+   (under 20 FPS), stop: the run measures Studio, not the game.
+   FOUND 9 Oct (Luke's observation, measured): on this PC Studio runs at 2-3 FPS WHILE IT IS THE
+   FOCUSED WINDOW and 60 FPS when it is not (focused 3 / unfocused 60, same Play, back to back).
+   Not audio output, not voice chat, no injected overlay DLLs, no Roblox input events. Suspect, not
+   confirmed: the "AMD Controller Emulation" virtual controller (ROOT\AMDXE, AMD Radeon software);
+   Roblox polls controllers only while focused. Disabling it is Luke's call (a Windows change).
+   WORKAROUND for robot runs: keep Studio visible but unfocused. Start a small window on monitor 2
+   (a WinForms "focus-holder", see the 9 Oct session) and AppActivate it; never click into Studio
+   during a run (clicking focuses it). The robot and recorder need no focus.
 2. Record the game viewport only (primary monitor, below the toolbar):
    `ffmpeg -f gdigrab -framerate 30 -t 50 -offset_x 0 -offset_y 240 -video_size 1920x512 -i desktop -vf scale=1280:-2 -c:v libx264 -preset veryfast -crf 24 -pix_fmt yuv420p .evidence/<folder>/runN.mp4`
    (`-i desktop` alone grabs both monitors in one wide frame.)
