@@ -287,10 +287,11 @@ local function diffBaseline(base, now, tol)
 		add({ what = "tests", detail = ("passed went %d -> %d"):format(base.tests.passed or 0, now.tests.passed or 0) })
 	end
 	local function key(r) return r.tier .. "@" .. r.speed end
-	local old = {}
+	local old, seen = {}, {}
 	for _, r in (base.chase and base.chase.rows) or {} do old[key(r)] = r end
 	for _, r in (now.chase and now.chase.rows) or {} do
 		local o = old[key(r)]
+		seen[key(r)] = r
 		if not o then
 			add({ what = "chase", detail = "new row " .. key(r) })
 		else
@@ -303,14 +304,40 @@ local function diffBaseline(base, now, tol)
 			end
 		end
 	end
-	local lo = {}
+	-- the other direction: a row or play style the new run no longer reports is drift too
+	for k, o in old do
+		local r = seen[k]
+		if not r then
+			add({ what = "chase", row = k, detail = "row " .. k .. " missing from the new run" })
+		else
+			for skill, was in o.escape do
+				if r.escape[skill] == nil then
+					add({ what = "chase", row = k, skill = skill, from = was,
+						detail = ("%s %s escape %s%% -> missing"):format(k, skill, tostring(was)) })
+				end
+			end
+		end
+	end
+	local lo, ls = {}, {}
 	for _, r in (base.late and base.late.rows) or {} do lo[r.spin] = r end
 	for _, r in (now.late and now.late.rows) or {} do
 		local o = lo[r.spin]
+		ls[r.spin] = true
 		if not o or o.price ~= r.price or o.waitSec ~= r.waitSec or table.concat(o.nightCover, ",") ~= table.concat(r.nightCover, ",") then
 			add({ what = "economy", spin = r.spin, detail = ("spin %d: price %s -> %s, wait %ss -> %ss"):format(r.spin,
 				tostring(o and o.price), tostring(r.price), tostring(o and o.waitSec), tostring(r.waitSec)) })
 		end
+	end
+	for spin in lo do
+		if not ls[spin] then
+			add({ what = "economy", spin = spin, detail = ("spin %d missing from the new run"):format(spin) })
+		end
+	end
+	local wasMax = base.late and base.late.maxPrestigeSec
+	local nowMax = now.late and now.late.maxPrestigeSec
+	if (wasMax ~= nil or nowMax ~= nil) and wasMax ~= nowMax then
+		add({ what = "economy", from = wasMax, to = nowMax,
+			detail = ("max prestige time %ss -> %ss"):format(tostring(wasMax), tostring(nowMax)) })
 	end
 	return flags
 end
@@ -405,13 +432,29 @@ local function cmdEvidence()
 	elseif sub == "done" then
 		-- the "done" contract from the verify-game skill: proof, not a claim
 		local kinds = {}
-		for _, f in m.files or {} do kinds[f.kind] = true end
+		local lastCheck
+		for _, f in m.files or {} do
+			kinds[f.kind] = true
+			if f.kind == "check" then lastCheck = f.file end
+		end
 		local hasNotVerified = false
 		for _, n in m.notes or {} do
 			if n:lower():match("^not verified") then hasNotVerified = true end
 		end
+		-- a filed check only counts if it passed: read the newest one and look at its ok
+		local checkOk, checkDetail = false, "bas check --json --save"
+		if lastCheck then
+			local filed = readJson(dir .. "/" .. lastCheck)
+			if not filed then
+				checkDetail = lastCheck .. " is missing or not JSON"
+			elseif filed.ok ~= true then
+				checkDetail = lastCheck .. " is filed but failed: fix and re-run bas check --save"
+			else
+				checkOk, checkDetail = true, lastCheck .. " passed"
+			end
+		end
 		local checks = {
-			{ name = "check result", ok = kinds.check == true, ms = 0, detail = "bas check --json --save" },
+			{ name = "check result", ok = checkOk, ms = 0, detail = checkDetail },
 			{ name = "screenshot", ok = kinds.screenshot == true, ms = 0, detail = "evidence add <png> --kind screenshot" },
 			{ name = "console log", ok = kinds.console == true, ms = 0, detail = "evidence add <txt> --kind console (server + client errors)" },
 			{ name = "not-verified list", ok = hasNotVerified, ms = 0, detail = "evidence note \"not verified: ...\"" },

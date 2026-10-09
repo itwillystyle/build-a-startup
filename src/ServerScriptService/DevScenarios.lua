@@ -21,7 +21,9 @@
 
 	SAFETY. Studio only, and only for test accounts: Wilz (the alt Studio plays as)
 	and negative ids (Studio's local test players). The main account's save is never
-	touched. Destructive scenarios refuse to run until a snapshot exists. ]]
+	touched. Only `spinoff` refuses to run until a snapshot was taken in this server.
+	The rest (rich, ready, chase, hq, home, vip-chase, ...) change the test save with
+	no such gate, so run the 'snapshot' scenario first yourself. ]]
 
 local RunService = game:GetService("RunService")
 local DataStoreService = game:GetService("DataStoreService")

@@ -27,7 +27,7 @@
 	    C.T.YAW_NEAR = 44
 	    C.T.HEIGHT_NEAR = 3
 
-	STOP IT and give the camera back:
+	STOP IT, give the camera back and remove the stage:
 
 	    workspace.ChaseLab:SetAttribute("Run", false)
 ]]
@@ -68,6 +68,8 @@ if old then old:Destroy() end
 
 local lab = Instance.new("Folder")
 lab.Name = "ChaseLab"
+-- built in the EDIT datamodel, so keep it out of any save or publish made while it is up
+lab.Archivable = false
 lab.Parent = workspace
 lab:SetAttribute("Mode", "A")
 lab:SetAttribute("Dist", 7)
@@ -144,6 +146,8 @@ _G.SVChaseLab = RunService.RenderStepped:Connect(function(dt)
 	if not lab.Parent or lab:GetAttribute("Run") == false then
 		if _G.SVChaseLab then _G.SVChaseLab:Disconnect() _G.SVChaseLab = nil end
 		workspace.CurrentCamera.CameraType = Enum.CameraType.Fixed
+		-- stopping takes the stage down too, so nothing is left in Edit to be saved
+		lab:Destroy()
 		return
 	end
 

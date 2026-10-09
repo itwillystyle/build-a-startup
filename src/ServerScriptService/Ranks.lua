@@ -17,6 +17,8 @@
 	             player can make the top 10 in their first week
 	The five AI rivals stay so no board is ever empty, and carry an AI tag.
 
+	Studio never writes the boards (pushPlayer returns first); it still reads them.
+
 	Budget: one write per board per player per minute, only when the number
 	changed (Roblox allows 60 + 10 x players a minute); one read per board per
 	server per minute, cached; GetRanks never touches a DataStore.
@@ -28,6 +30,7 @@
 local Players = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
 local RS = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Ranks = {}
 Ranks.TOP = 25            -- rows per board
@@ -220,6 +223,9 @@ function Ranks.init(api)
 		if not s then return end
 		local wk = Ranks.weekId(os.time())
 		s.weekId, s.weekBase = Ranks.rollWeek(s.weekId, s.weekBase, s.valuation or 0, wk)
+		-- Studio reads the live boards but never writes them: a test save (Wilz, a
+		-- scenario's cash) would otherwise land on the public leaderboard
+		if RunService:IsStudio() then return end
 		board:push(tostring(player.UserId), s.valuation or 0, s.weekBase, wk)
 	end
 

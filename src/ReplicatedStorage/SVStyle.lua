@@ -32,11 +32,10 @@ local SVStyle = {}
 --[[ The anchors are ART.md's palette table, unchanged. They are HUE FAMILIES,
 	not swatches: nine flat colours cannot build a world, which is why the
 	palette was quietly abandoned. Lightness is free, hue and saturation are
-	not. So Oak is not one brown, it is every brown on that hue. ]]
---[[ ONE anchor list, shared with Palette. Two copies of a palette is two
-	palettes: the check would pass colours the fixer rewrites, or flag the ones
-	it just wrote. Palette owns it; this reads it. ]]
-SVStyle.ANCHORS = require(game:GetService("ReplicatedStorage"):WaitForChild("Palette")).ANCHORS
+	not. So Oak is not one brown, it is every brown on that hue.
+	ONE anchor list and ONE pair of tolerances, both in Palette. Two copies of
+	a palette is two palettes: the check would pass colours the fixer rewrites,
+	or flag the ones it just wrote. Palette owns them; this reads them. ]]
 
 --[[ Meshes our own Blender pipeline produced. svkit.py guarantees these
 	prefixes, so this reads a contract rather than guessing at a name. They
@@ -52,35 +51,13 @@ function SVStyle.isOurs(name)
 	return false
 end
 
--- starting tolerances. STYLE-SPEC calls these a guess; SVStyle.sweep() exists
--- so they get tuned against real numbers before S2 rewrites any colour.
-SVStyle.HUE_TOL = 0.02          -- about 7 degrees, wrap-aware
-SVStyle.SAT_TOL = 0.08
+-- hue/saturation tolerances live in Palette (HUE_TOL, SAT_TOL); sweep() varies those
 SVStyle.NEUTRAL_MIN = 0.02      -- below this a colour is an untinted grey
 SVStyle.SHARP_MIN = 2           -- ART.md: no sharp 90 degree edge over 2 studs
 SVStyle.RESERVED_SAT = 0.75     -- full saturation belongs to accent/brand/UI only
 SVStyle.TINT_NEUTRAL = 0.80     -- above this a MeshPart's Color is a tint, not a colour
 
 local CS = game:GetService("CollectionService")
-
-local anchorHSV
-local function anchors()
-	if not anchorHSV then
-		anchorHSV = {}
-		for _, a in ipairs(SVStyle.ANCHORS) do
-			local c = Color3.fromRGB(a.rgb[1], a.rgb[2], a.rgb[3])
-			local h, s, v = c:ToHSV()
-			table.insert(anchorHSV, { name = a.name, h = h, s = s, v = v })
-		end
-	end
-	return anchorHSV
-end
-
--- hue lives on a circle, so 0.99 and 0.01 are neighbours, not opposites
-local function hueGap(a, b)
-	local d = math.abs(a - b)
-	return d > 0.5 and (1 - d) or d
-end
 
 --[[ Returns anchorName, ok. A colour passes if some anchor shares its hue and
 	saturation; its lightness may be anything. Saturation below NEUTRAL_MIN is
@@ -253,17 +230,24 @@ end
 	rewritten, because a tolerance set too tight turns a palette into busywork
 	and one set too loose passes the whole problem. ]]
 function SVStyle.sweep(root)
-	local h0, s0 = SVStyle.HUE_TOL, SVStyle.SAT_TOL
+	-- classify() goes through Palette.compliant, so the knobs to turn are Palette's
+	local Pal = require(game:GetService("ReplicatedStorage"):WaitForChild("Palette"))
+	local h0, s0 = Pal.HUE_TOL, Pal.SAT_TOL
 	local rows = {}
 	for _, pair in ipairs({ { 0.01, 0.05 }, { 0.02, 0.08 }, { 0.03, 0.12 }, { 0.05, 0.20 }, { 0.08, 0.30 } }) do
-		SVStyle.HUE_TOL, SVStyle.SAT_TOL = pair[1], pair[2]
-		local c = SVStyle.scan(root)
+		Pal.HUE_TOL, Pal.SAT_TOL = pair[1], pair[2]
+		-- a scan error must not leave the live tolerances at the last sweep value
+		local okScan, c = pcall(SVStyle.scan, root)
+		if not okScan then
+			Pal.HUE_TOL, Pal.SAT_TOL = h0, s0
+			error(c, 0)
+		end
 		if c then
 			table.insert(rows, string.format("   hue %.2f  sat %.2f  ->  off-palette %5d  (%.0f%% of %d pass)",
 				pair[1], pair[2], c.offPalette, (c.parts - c.offPalette - c.flatNeutral) / c.parts * 100, c.parts))
 		end
 	end
-	SVStyle.HUE_TOL, SVStyle.SAT_TOL = h0, s0
+	Pal.HUE_TOL, Pal.SAT_TOL = h0, s0
 	return table.concat(rows, "\n")
 end
 

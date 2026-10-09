@@ -311,11 +311,15 @@ end
 	and chasing them one site at a time is how a rule rots.
 
 	So the rule becomes structural instead. Anything that enters the world is
-	mapped as it arrives, and a colour set later is mapped on the next frame.
-	A builder cannot forget, and a new builder inherits it for free.
+	mapped as it arrives. A builder cannot forget, and a new builder inherits
+	it for free.
 
 	Deferred by one step so a part that is created and then coloured in the
-	same tick is read after the colour is set, not before. ]]
+	same tick is read after the colour is set, not before. That is the only
+	re-read: there is no Color listener, so a colour set on a part that is
+	already in the world (a later frame, a tween, a recolour) is NOT mapped
+	here, and stays off-palette unless something runs Palette.enforce over it
+	again (today only the build passes in SiliconCore and Wafers do). ]]
 function Palette.watch(root)
 	if not root or Palette._watching then return end
 	Palette._watching = true

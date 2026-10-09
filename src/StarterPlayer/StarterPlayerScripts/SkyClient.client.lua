@@ -328,17 +328,18 @@ crickets.Volume = 0
 crickets.Parent = SoundService
 crickets:Play()
 
---[[ v4.7 THE CARTOON PASS. He asked for a cartoonish feel. Measured in the
-	A/B: hard cast shadows plus a specular highlight on every surface are what
-	made this read photographed, and they are both free to turn off.
+--[[ v4.7 THE CARTOON PASS, kept as history: S6 below reverses its ambient.
+	He asked for a cartoonish feel. Measured in the A/B: hard cast shadows plus
+	a specular highlight on every surface are what made this read photographed,
+	so v4.7 turned both off (they are back on now, see the top of this file).
 
-	v3.5 pushed the other way on purpose -- "warm key, cool shadow", a dark
-	fill so daylight did not read flat. Flat is now the point. DAY ambient goes
-	up and the key comes down, so a sunlit face and a shaded face are close in
-	value; NIGHT is left alone, because the lit-window effect needs the dark.
+	v4.7 also raised DAY ambient so a sunlit face and a shaded face were close
+	in value. That is no longer what the values do: S6 set DAY_AMB to a cool,
+	LOW (84, 92, 116), so shade reads darker than sun again. NIGHT is left
+	alone, because the lit-window effect needs the dark.
 
-	Not the blunt version from the test: that ran ambient at 176 and washed the
-	colour out of the hills. ]]
+	(The blunt version from the v4.7 test ran ambient at 176 and washed the
+	colour out of the hills.) ]]
 --[[ S6: GOLDEN HOUR, COMMITTED.
 
 	The style is named after a lighting condition and the game was lit bright
