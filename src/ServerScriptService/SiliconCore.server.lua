@@ -371,12 +371,7 @@ local SLOT_LOCAL = (CampusArch and CampusArch.LOTS) or {
 	axis-aligned box test in world space, and it stays exact under 180.
 ]]
 
-local Pal = (function()
-	local ok, m = pcall(require, game:GetService("ReplicatedStorage"):WaitForChild("Palette", 5))
-	if ok then return m end
-	warn("[SV] Palette missing; colours will not be mapped")
-	return nil
-end)()
+local Pal = require(game:GetService("ReplicatedStorage"):WaitForChild("PaletteLoad"))
 
 -- ============ HELPERS (above every caller, always) ============
 
@@ -392,9 +387,7 @@ local function part(props, parent)
 	p.BottomSurface = Enum.SurfaceType.Smooth
 	p.CastShadow = false
 	for k, v in pairs(props) do p[k] = v end
-	if Pal then
-		p.Color = props.Color and Pal.map(props.Color) or Pal.map(Color3.fromRGB(163, 162, 165))
-	end
+	if Pal then Pal.author(p, props) end
 	p.Parent = parent
 	return p
 end

@@ -49,10 +49,7 @@ and move-in camera all go through them), so this is the whole move.
 Front is local +Z, the same convention the plots use, so a building at ring
 angle `a` needs yaw = atan2(-cos a, -sin a) to face the park. ]]
 local RING_D = 452                                                          -- the district band
-local Pal = (function()
-	local ok, m = pcall(require, game:GetService("ReplicatedStorage"):WaitForChild("Palette", 5))
-	return ok and m or nil
-end)()
+local Pal = require(game:GetService("ReplicatedStorage"):WaitForChild("PaletteLoad"))
 
 local function onRing(deg)
 	local a = math.rad(deg)
@@ -89,9 +86,7 @@ local function part(parent, props)
 	p.CastShadow = false
 	for k, v in pairs(props) do p[k] = v end
 	-- author in the palette: an unnamed Color used to inherit Roblox default grey
-	if Pal then
-		p.Color = props.Color and Pal.map(props.Color) or Pal.map(Color3.fromRGB(163, 162, 165))
-	end
+	if Pal then Pal.author(p, props) end
 	p.Parent = parent
 	return p
 end

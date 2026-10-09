@@ -48,10 +48,7 @@ local chaseFx                    -- v4.3 RemoteEvent: CLOSE CALL moments to the 
 local ROLES = { "engineer", "engineer", "designer", "sales", "research", "recruiter" }
 local LOT_X, LOT_Z1, LOT_Z2 = 110, -105, 65         -- CampusSlab: 220 x 170 centred at local z -20
 
-local Pal = (function()
-	local ok, m = pcall(require, game:GetService("ReplicatedStorage"):WaitForChild("Palette", 5))
-	return ok and m or nil
-end)()
+local Pal = require(game:GetService("ReplicatedStorage"):WaitForChild("PaletteLoad"))
 
 local function now() return workspace:GetServerTimeNow() end
 
@@ -187,9 +184,7 @@ local function part(props, parent)
 	p.BottomSurface = Enum.SurfaceType.Smooth
 	for k, v in pairs(props) do p[k] = v end
 	-- author in the palette: an unnamed Color used to inherit Roblox default grey
-	if Pal then
-		p.Color = props.Color and Pal.map(props.Color) or Pal.map(Color3.fromRGB(163, 162, 165))
-	end
+	if Pal then Pal.author(p, props) end
 	p.Parent = parent
 	return p
 end

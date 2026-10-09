@@ -65,10 +65,7 @@ local LAMP_GLASS = Color3.fromRGB(255, 240, 205)
 local JOINT = Color3.fromRGB(182, 174, 158)
 local LINE = Color3.fromRGB(238, 234, 222)
 
-local Pal = (function()
-	local ok, m = pcall(require, game:GetService("ReplicatedStorage"):WaitForChild("Palette", 5))
-	return ok and m or nil
-end)()
+local Pal = require(game:GetService("ReplicatedStorage"):WaitForChild("PaletteLoad"))
 
 local function part(parent, props)
 	local p = Instance.new("Part")
@@ -84,9 +81,7 @@ local function part(parent, props)
 		p[k] = v
 	end
 	-- author in the palette: an unnamed Color used to inherit Roblox default grey
-	if Pal then
-		p.Color = props.Color and Pal.map(props.Color) or Pal.map(Color3.fromRGB(163, 162, 165))
-	end
+	if Pal then Pal.author(p, props) end
 	p.Parent = parent
 	return p
 end
