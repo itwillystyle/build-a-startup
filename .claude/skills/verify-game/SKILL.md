@@ -91,6 +91,12 @@ Feel (camera, fun, readability) is never "verified" by these tools. Say so.
 - A publish does not reach running servers. Never publish from this skill. Publishing is
   Luke's.
 - After a Bulk Import, move meshes out of Workspace before any save.
+- In EDIT, `require()` caches the FIRST version of a module for the whole Studio session, so after
+  a Rojo sync you get stale code (compareSnapshot was nil, 9 Oct). Require a clone:
+  `local m = game.ServerScriptService.DevScenarios:Clone() m.Parent = game.ServerStorage local S = require(m) ... m:Destroy()`
+- A scripted player must be ARMED before the scenario: a genius lunges at 2.0 s (FIRST_GRACE) and a
+  walk command sent in a second call arrives too late (caught at 2.6 s, 9 Oct). Arm a client loop
+  that calls Humanoid:MoveTo the instant `Carrying` is set, then run the scenario.
 - `x and nil or y` in Lua is ALWAYS y. Use an explicit `if` (bit DevScenarios on its first live run, 9 Oct).
 - Don't compare two `JSONEncode` strings: key order is not stable. Use `compareSnapshot` (canonical, sorted keys).
 - A screenshot taken after `scenario` returns can miss the moment (a genius chase on an idle player
