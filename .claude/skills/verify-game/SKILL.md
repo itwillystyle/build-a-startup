@@ -87,6 +87,22 @@ Then, with the Roblox Studio MCP tools:
 5. Read `game.ServerStorage.ChaseRun.Value` (JSON) when it is not "". Save it next to the video.
    The `[robot]` lines in the Output give the route and the reaction time.
 
+## Exploit check (before every publish, about 3 min)
+Fires junk at every client->server remote and watches what moves. Wilz only, in Play.
+1. Steps 2-4 of Loop 3 (Play, wait for loaded, `snapshot`).
+2. Server datamodel: paste `tools/fuzz_watch_server.luau` (records server errors + worst frame).
+3. Client datamodel: paste `tools/fuzz_remotes.luau` with `FROM, TO` = 1, 17, then 18, 99
+   (all 49 at once times out the bridge). It returns per-remote flags.
+4. Server: `return { game.ServerStorage.FuzzLog.Value, game.ServerStorage.FuzzWorstFrame.Value }`.
+   PASS = empty log, worst frame well under 100 ms, and every flag explained.
+5. Expected flags (legit one-time actions, not exploits): ClaimDaily once (if ready), WaferBuild
+   one level with your own cash, UseItem one owned item, WriteCode one tap, BuyCar switching
+   between owned cars, IndexSeen/ItemsSeen badges, a launch payday or coffee landing mid-run.
+6. Stop Play, restore (step 10), AND check `SVNames_v1` for Wilz: the snapshot does not cover
+   it, and a rename would stick (it did on 9 Oct before the SetName fix).
+Not covered: teleport exploits (the server trusts client positions for delivery, poach and
+the lift), and anything that needs two players.
+
 ## The report Luke gets
 - the evidence folder path
 - what passed (numbers, not adjectives)
