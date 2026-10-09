@@ -82,7 +82,9 @@ local hidden = {}             -- ScreenGuis we switched off, to restore exactly
 	the distance to the hunter and the "BOOST now" prompt, and boosting is a
 	mechanic -- hiding it would remove the only thing you can DO about the
 	chase. Everything else is restored exactly as it was on the way out. ]]
-local KEEP = { ChaseFx = true, ChaseStage = true, ChaseSpeed = true }  -- ChaseSpeed: the speed lines
+-- TouchGui is Roblox's own thumbstick and jump button: hiding it leaves a phone
+-- player unable to steer or jump for the whole carry
+local KEEP = { ChaseFx = true, ChaseStage = true, ChaseSpeed = true, TouchGui = true }  -- ChaseSpeed: the speed lines
 
 local bars                    -- letterbox
 local label                   -- the rival's name
@@ -203,11 +205,14 @@ local function hush(on)
 end
 
 -- ---------------------------------------------------------------- home
---[[ The delivery point, read the same way IntroClient and HomeClient read it:
-	the player's `Plot` index, then that plot folder's `Pivot` attribute.
-	Cached, because the plot does not move. ]]
+--[[ The delivery point. v4.6: home is the doorstep, which the server publishes
+	as the `CarryHome` attribute for the carry. Without it (an older server),
+	fall back to the lot centre the way IntroClient and HomeClient read it:
+	the player's `Plot` index, then that plot folder's `Pivot` attribute. ]]
 local homeCF
 local function homePos()
+	local door = player:GetAttribute("CarryHome")
+	if typeof(door) == "Vector3" then return door end
 	if homeCF then return homeCF.Position end
 	local idx = player:GetAttribute("Plot")
 	local sv = workspace:FindFirstChild("SiliconValley")

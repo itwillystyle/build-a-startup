@@ -289,6 +289,8 @@ RunService.RenderStepped:Connect(function()
 	-- a hunter that left (caught you, gave up, or the carry ended): no lane, no outline
 	for m in pairs(lanes) do if not live[m] then dropLane(m) end end
 	for m in pairs(outlines) do if not live[m] then outline(m, false) end end
+	for m in pairs(crouchSeen) do if not live[m] then crouchSeen[m] = nil end end
+	for m in pairs(lungeSeen) do if not live[m] then lungeSeen[m] = nil end end
 	btnText.Text = (crouch and left <= 0) and "NOW!" or "BOOST"
 	btnScale.Scale = (crouch and left <= 0) and (1.08 + 0.06 * math.sin(os.clock() * 18)) or 1
 end)

@@ -25,7 +25,6 @@ local CollectionService = game:GetService("CollectionService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 
-local camera = workspace.CurrentCamera
 local player = Players.LocalPlayer
 
 --[[ Nothing animates past this. A full server is six towers of up to a hundred
@@ -135,7 +134,6 @@ RunService.RenderStepped:Connect(function(dt)
 end)
 
 if player then
-	-- a rejoin or a respawn rebuilds the world around the camera; re-read it
+	-- a rejoin or a respawn rebuilds the world around you; scan again
 	player.CharacterAdded:Connect(function() nextScan = 0 end)
 end
-camera = workspace.CurrentCamera

@@ -256,7 +256,11 @@ local function spawnCandidate(plot, i)
 	local y
 	local pathLen
 	if tier.chase then
+		local tiers0, owner0 = st.tiers, plot.owner
 		local ex, ez, ey, len = exploreSpot(plot, tier)
+		-- exploreSpot yields on pathfinding: if the plot was cleared or changed hands
+		-- meanwhile, this candidate belongs to nobody
+		if st.tiers ~= tiers0 or plot.owner ~= owner0 then return end
 		if ex then
 			x, z, y, pathLen = ex, ez, ey, len
 			local d = doorPos(plot)
@@ -433,6 +437,7 @@ local function endCarry(player, reason, lost)
 	player:SetAttribute("Carrying", nil)
 	player:SetAttribute("CarryName", nil)
 	player:SetAttribute("CarryDeadline", nil)
+	player:SetAttribute("CarryHome", nil)
 	-- the origin tier restocks only now (a slot stays empty while its candidate
 	-- is in transit; re-arming it at recruit time spawned duplicates -- caught live)
 	if c.entry then
@@ -530,6 +535,7 @@ local function startCarry(player, plot, c)
 	player:SetAttribute("Carrying", c.tier.id)
 	player:SetAttribute("CarryName", c.name)
 	player:SetAttribute("CarryDeadline", c.deadline)
+	player:SetAttribute("CarryHome", doorPos(plot))   -- the chase camera's "home" beat
 	-- poachable by other founders while in transit
 	local pp = Instance.new("ProximityPrompt")
 	pp.Name = "PoachPrompt"
@@ -603,13 +609,21 @@ function TalentDrop.poach(thief, victim)
 	carries[victim] = nil
 	scooterOff(victim, c)
 	victim:SetAttribute("Carrying", nil); victim:SetAttribute("CarryName", nil); victim:SetAttribute("CarryDeadline", nil)
+	victim:SetAttribute("CarryHome", nil)
 	if not attach(thief, c) then c.model:Destroy() return end
 	c.fee = feeFor(thief, c.tier) or c.fee
-	local home = tplot.pivot.Position
-	c.deadline = now() + Econ.OFFER_BASE + (Vector3.new(home.X, 0, home.Z) - Vector3.new(b.Position.X, 0, b.Position.Z)).Magnitude * Econ.OFFER_PER_STUD
+	-- v4.6: the thief's home is their DOOR, for the timer and the hunter's no-lunge stretch
+	local door = doorPos(tplot)
+	c.deadline = now() + Econ.OFFER_BASE + flatDist(door, b.Position) * Econ.OFFER_PER_STUD
+	if c.chaseCfg then
+		c.chaseCfg.homeDist = function(x, z)
+			return math.sqrt((x - door.X) ^ 2 + (z - door.Z) ^ 2)
+		end
+	end
 	carries[thief] = c
 	scooterOn(thief, c)
 	thief:SetAttribute("Carrying", c.tier.id); thief:SetAttribute("CarryName", c.name); thief:SetAttribute("CarryDeadline", c.deadline)
+	thief:SetAttribute("CarryHome", door)
 	for _, H in ipairs(c.hunters or {}) do if H.rig then H.rig:SetAttribute("ChasingUserId", thief.UserId) end end
 	toast(victim, ("%s poached %s from you!"):format(thief.DisplayName, c.name))
 	toast(thief, ("You poached %s! Get them home."):format(c.name))
@@ -626,7 +640,7 @@ local function stepCarry(player, c, dt)
 		return
 	end
 	local plot = api.plotOf(player)
-	-- v4.6: home is the door (Chase.DELIVER_R of the HQ pad), not the lot edge
+	-- v4.6: home is the doorstep (within Chase.DELIVER_R of it), not the HQ pad or the lot edge
 	if plot and flatDist(hrp.Position, doorPos(plot)) <= Chase.DELIVER_R then
 		-- `kind` is what the trip was worth: it is set only here, on a carry that
 		-- actually reached the lot, so no hire made from inside the garage pays
@@ -775,9 +789,17 @@ function TalentDrop.init(a)
 								e.model:Destroy(); e.model = nil
 								e.readyAt = 0
 							end
-						elseif not e or (not e.model and now() >= (e.readyAt or 0)) then
-							local ok, err = pcall(spawnCandidate, plot, i)
-							if not ok then warn("[SV] TalentDrop spawn: " .. tostring(err)) end
+						elseif not e or (not e.model and not e.spawning and now() >= (e.readyAt or 0)) then
+							-- a chase spawn yields on up to 12 pathfinding calls: run it off this
+							-- loop so one plot's restock cannot stall every other plot
+							local pending = e or { readyAt = 0 }
+							pending.spawning = true
+							st.tiers[i] = pending
+							task.spawn(function()
+								local ok, err = pcall(spawnCandidate, plot, i)
+								pending.spawning = nil
+								if not ok then warn("[SV] TalentDrop spawn: " .. tostring(err)) end
+							end)
 						elseif e.model then
 							refreshTag(plot, e, tier)
 						end
