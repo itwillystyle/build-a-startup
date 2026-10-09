@@ -70,7 +70,48 @@ C.OVERSHOOT = 2
 	door is the relief (the camera's homerun shot already says so). Needs
 	cfg.homeDist(x, z) -> studs to the edge of your lot; without it there is no
 	home stretch. ]]
-C.HOME_SAFE = 45
+C.HOME_SAFE = 20
+--[[ v4.6 (9 Oct) WHERE THE CHASE HAPPENS, measured, not assumed. The first live run of
+	the verify loop found the map and this file disagreeing: a hire counted as home
+	the moment you stepped onto your LOT, and the lot covers the first 175 studs of
+	the drive, so the SKILLED candidate stood inside it (a 0-stud chase) and the STAR
+	candidate 18 studs out, inside the old 45-stud home stretch (a star hunter held
+	at 7.1 studs for 12 s and never lunged). The simulator was tuned on 140/280/300.
+	Now: home is your HQ DOOR (within DELIVER_R), the home stretch is 20 studs, and
+	candidates stand out in the world at a WALKING distance (the pathfinding route
+	from your door) inside their tier's band. TalentDrop picks the spot; the tests
+	and tools/chase_threat read these same bands, so the two cannot drift again. ]]
+C.DELIVER_R = 14
+C.BANDS = {
+	skilled = { 140, 190 },
+	star = { 210, 270 },
+	genius = { 290, 370 },
+}
+--[[ v4.6 A LUNGE STARTS FROM BEHIND YOU. Measured when the home stretch shrank from 45 to
+	20: a hunter that cuts a corner ends up BESIDE you, and a lunge from the side hits a
+	runner who did everything right (skilled straight runners caught 113/400, all on the
+	last 30 studs after the corner; VIP aces 250/400, 158 of them at the corner). The spec
+	calls a catch from beside unfair. So a crouch only starts when the hunter is within
+	BEHIND_DEG of straight behind your direction of travel. Standing still (under 2
+	studs/s) has no "behind": it can always lunge at you. ]]
+C.BEHIND_DEG = 70
+--[[ v4.6 FREEZING IS PUNISHED. Spacing lunges out (genius every 5.0 -> 6.5, swept so an ace
+	gets away again with the smaller home stretch) gave a player who froze for 3 s a free
+	pass: 43% escaped. A player standing still (under 2 studs/s) can be lunged at again
+	STILL_EVERY seconds after the last lunge, whatever the tier's spacing. ]]
+C.STILL_EVERY = 2.0
+local BEHIND_COS = math.cos(math.rad(C.BEHIND_DEG))
+-- dx, dz: hunter -> player. vx, vz: the player's velocity.
+function C.fromBehind(dx, dz, vx, vz)
+	local sp = math.sqrt(vx * vx + vz * vz)
+	local d = math.sqrt(dx * dx + dz * dz)
+	if sp < 2 or d < 1e-6 then return true end
+	return (dx * vx + dz * vz) / (d * sp) >= BEHIND_COS
+end
+function C.bandMid(tierId)
+	local b = C.BANDS[tierId]
+	return b and (b[1] + b[2]) / 2 or nil
+end
 C.RECOVER = 0.4
 C.START_BEHIND = 22      -- hunter 1 starts this far behind the pickup
 C.SECOND_DELAY = 3       -- hunter 2 (GENIUS / VIP) joins after this ...
@@ -85,9 +126,9 @@ C.TIERS = {
 	-- stalk: its speed inside the band, as a multiple of YOUR scooter (see v4.4)
 	-- v4.4 roles (tools/chase_threat): SKILLED teaches the tell and rarely catches;
 	-- STAR punishes a straight line; GENIUS wants nearly every tell read
-	skilled = { ref = 16, sprint = 1.15, stalk = 1.05, jog = 0.94, lunge = 1.10, range = 8, every = 7.0, hunters = 1 },
+	skilled = { ref = 16, sprint = 1.15, stalk = 1.05, jog = 0.94, lunge = 0.95, range = 8, every = 7.0, hunters = 1 },   -- v4.6 lunge 1.10 -> 0.95 (swept: straight runners got away again)
 	star = { ref = 17, sprint = 1.20, stalk = 1.02, jog = 0.97, lunge = 1.50, range = 10, every = 5.5, hunters = 1 },
-	genius = { ref = 18, sprint = 1.25, stalk = 1.10, jog = 0.97, lunge = 1.90, range = 13, every = 5.0, hunters = 1 },
+	genius = { ref = 18, sprint = 1.25, stalk = 1.10, jog = 0.97, lunge = 1.90, range = 13, every = 6.5, hunters = 1 },   -- v4.6 every 5.0 -> 6.5 (swept)
 }
 C.VIP_HUNTERS = 2
 C.SECOND = { jog = 0.86, lunge = 1.35 }   -- the second VIP hunter is a junior: it herds, the first one hunts
@@ -153,10 +194,13 @@ function C.step(cfg, h, px, pz, vx, vz, pspeed, dt, t)
 	elseif h.phase == "lunge" and (t >= h.phaseEnd or (h.left and h.left <= 0)) then
 		h.phase, h.phaseEnd = "recover", t + C.RECOVER
 		h.nextLunge = t + (cfg.every or C.LUNGE_EVERY)
+		h.nextStill = t + C.STILL_EVERY
 	elseif h.phase == "recover" and t >= h.phaseEnd then
 		h.phase = "chase"
-	elseif h.phase == "chase" and dist <= (cfg.range or C.LUNGE_RANGE) and t >= h.nextLunge
-		and not (cfg.homeDist and cfg.homeDist(px, pz) < C.HOME_SAFE) then
+	elseif h.phase == "chase" and dist <= (cfg.range or C.LUNGE_RANGE)
+		and (t >= h.nextLunge or (vx * vx + vz * vz < 4 and t >= (h.nextStill or h.nextLunge)))
+		and not (cfg.homeDist and cfg.homeDist(px, pz) < C.HOME_SAFE)
+		and C.fromBehind(dx, dz, vx, vz) then
 		h.phase, h.phaseEnd = "windup", t + C.WINDUP
 		--[[ THE LINE IS PICKED HERE, at the start of the crouch: the spot you will be
 			at if you hold your course, when the lunge would arrive. From now on it does
@@ -181,7 +225,14 @@ function C.step(cfg, h, px, pz, vx, vz, pspeed, dt, t)
 		return h.phase, dist
 	end
 	if h.phase == "windup" and h.px then
-		h.x, h.z = h.x + h.px * dt, h.z + h.pz * dt
+		--[[ v4.6: paced, but never closer than HOLD. Pacing at the speed you had when it
+			crouched walked the hunter INTO a player who was stuck on a kerb (reporting
+			19 studs/s, moving 3): caught during the crouch, before any lunge (live, 9 Oct). ]]
+		local sp = math.sqrt(h.px * h.px + h.pz * h.pz)
+		if sp > 1e-6 then
+			local mv = math.min(sp * dt, math.max(0, dist - C.HOLD))
+			h.x, h.z = h.x + h.px / sp * mv, h.z + h.pz / sp * mv
+		end
 		return h.phase, dist
 	end
 	local speed

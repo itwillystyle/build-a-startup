@@ -18,10 +18,11 @@ local nAt = table.find(args, "--n")
 local N = nAt and tonumber(args[nAt + 1]) or 2000
 
 local SKILLS = { "straight", "spammer", "novice", "dodger", "good", "reader", "ace", "hesitant", "idle" }
+-- v4.6: route lengths from the live bands (ChaseRules.BANDS), never typed by hand
 local RUNS = {
-	{ id = "skilled", D = 140, speeds = { 16, 20 } },
-	{ id = "star", D = 280, speeds = { 17, 20 } },
-	{ id = "genius", D = 300, speeds = { 18, 19, 20 } },
+	{ id = "skilled", D = R.bandMid("skilled") - 40, speeds = { 16, 20 } },
+	{ id = "star", D = R.bandMid("star") - 40, speeds = { 17, 20 } },
+	{ id = "genius", D = R.bandMid("genius") - 40, speeds = { 18, 19, 20 } },
 }
 local rows = {}
 for _, r in RUNS do
