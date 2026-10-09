@@ -20,7 +20,11 @@ local function money(n)
 	end
 	return "$" .. n
 end
-print("spin | mult | old price  old wait | new price  new wait | one night pays: none studio loft penthouse")
+-- `-- --json` prints the same rows as JSON for tools/bas (baseline + drift)
+local JSON = table.find(require("@lune/process").args, "--json") ~= nil
+local rows = {}
+local say = JSON and function(_) end or print
+say("spin | mult | old price  old wait | new price  new wait | one night pays: none studio loft penthouse")
 local tOld, tNew = 0, 0
 for k = 0, P.SPIN_CAP do
 	local rate = R5 * P.spinMult(k)
@@ -34,7 +38,11 @@ for k = 0, P.SPIN_CAP do
 		local climb = (7.5 + 12 / P.spinMult(k)) * 60
 		tOld += climb + wOld; tNew += climb + wNew
 	end
-	print(("%4d | x%4.1f | %9s  %8s | %9s  %8s | %s"):format(k, P.spinMult(k), money(old(k)), dur(wOld),
+	table.insert(rows, { spin = k, mult = P.spinMult(k), price = P.spinCost(k, BASE), waitSec = math.floor(wNew), nightCover = cover })
+	say(("%4d | x%4.1f | %9s  %8s | %9s  %8s | %s"):format(k, P.spinMult(k), money(old(k)), dur(wOld),
 		money(P.spinCost(k, BASE)), dur(wNew), table.concat(cover, "  ")))
 end
-print(("play time to max prestige (20 spin-offs): old %s, new %s"):format(dur(tOld), dur(tNew)))
+say(("play time to max prestige (20 spin-offs): old %s, new %s"):format(dur(tOld), dur(tNew)))
+if JSON then
+	print(require("@lune/serde").encode("json", { tool = "late_game", rows = rows, maxPrestigeSec = math.floor(tNew) }))
+end

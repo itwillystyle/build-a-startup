@@ -44,7 +44,9 @@ return function(core)
 	local dev = Instance.new("BindableFunction")
 	dev.Name = "SVDev"
 	dev.Parent = coreScript
-	dev.OnInvoke = function(action, player, arg)
+	-- v5.1: a named local, so DevScenarios can compose these same actions
+	local Scenarios = require(script.Parent:WaitForChild("DevScenarios"))
+	local function handle(action, player, arg)
 		local s = sessions[player.UserId]
 		local plot = plotOf(player)
 		if not s then return "no session" end
@@ -506,6 +508,9 @@ return function(core)
 		elseif action == "botstop" then
 			if s.bot then s.bot.running = false end
 			return "stopping"
+		elseif action == "scenario" then
+			-- v5.1: one call to a known state for a live check (DevScenarios.lua)
+			return Scenarios.run({ handle = handle, Econ = Econ, cashOf = cashOf, plotOf = plotOf }, player, arg)
 		elseif action == "state" then
 			return { plot = plot and plot.index or 0, hqLevel = plot and plot.hq.level or 0,
 				shipped = s.shipped, placedDesks = s.placedDesks, placedMorale = s.placedMorale,
@@ -517,4 +522,5 @@ return function(core)
 		end
 		return "unknown"
 	end
+	dev.OnInvoke = handle
 end
