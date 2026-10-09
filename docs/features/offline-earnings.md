@@ -23,7 +23,7 @@
 **Prove it:**
 - `tests/offline/home.spec.luau:36-75`: no home pays the old 10 min, Penthouse covers a spin-off, 2 h pays less than 8, Studio window is 2 h, never two steps, 3,000 random returns.
 - `tests/offline/progression.spec.luau:59-73`: a Penthouse night pays any spin-off; at the cap a Studio night pays under 30% and a Loft under 60%.
-- `tools/late_game.luau` and `tools/bas baseline diff` track `nightCover` (`tools/bas.luau:307-341`).
+- `tools/late_game.luau` and `tools/bas baseline diff` track `nightCover` (`tools/bas.luau:308-342`).
 - No automated check for the `applySave` wiring or the HUD card.
 **Gotchas:**
 - The old formula at `SaveLoad.lua:185-188` is overwritten by the home rule at :207 whenever `Econ.Apt` has both `offline` and `ladder`. The 600 s cap is only a fallback.

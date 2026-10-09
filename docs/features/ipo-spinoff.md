@@ -24,7 +24,7 @@
 - No scenario builds "more Star staff than seats" to test the pick card yet.
 **Prove it:**
 - `tests/offline/progression.spec.luau`: cost, multiplier, wait cap (:26-75) and `chooseKeepers` (:109-200). `clock.spec.luau:44` GO PUBLIC raise cap 10%. `home.spec.luau:83` keeper slots. `journey.spec.luau:80,95` GO PUBLIC before spin-off.
-- `lune run tools/late_game` (also `tools/bas sim late_game`) prints price and wait per spin. `bas baseline diff` flags changes (`tools/bas.luau:282-343`).
+- `lune run tools/late_game` (also `tools/bas sim late_game`) prints price and wait per spin. `bas baseline diff` flags changes (`tools/bas.luau:283-344`).
 - `tests/smoke_core.luau:58-62` runs `gopublic` then `spinoff` in Play and snapshots the result.
 - No automated check for `goPublic`, `spinOff` or `IpoClient`.
 **Gotchas:**

@@ -18,6 +18,7 @@
 **Drive it:** `dev:Invoke("save", p)` forces a save (`DevHook.lua:100`). `"peek"` returns the stored record (:128). `"wipe"` deletes it (:131). `dev:Invoke("scenario", p, "snapshot")` copies it to `SVSnap_v1` (`DevScenarios.lua:58`). After Play stops, in EDIT: `require(game.ServerScriptService.DevScenarios).restore(1688749216)` (:72). Check a restore with `require(game.ServerScriptService.DevScenarios).compareSnapshot(1688749216)`, which returns `{ ok, fields, differs }` (`DevScenarios.lua:99`). No action forces a load.
 **Prove it:**
 - `tests/ranks_spec.luau`: Ranks rules and board against fake stores, in the Edit datamodel (header :1).
+- The save contract (`tests/offline/savecontract.spec.luau`): every field `serialize` writes is read back, every field the loader reads is written, and every field of a real v1 save is still read. It reads `SaveLoad.lua` as text (plus `Cars.onLoad`), so it runs offline in the hook and CI. It does not check values, and it is not a full load-save-load round trip.
 - Pure sanitizers have specs: `journey.spec.luau:170` (flags and tips), `momentum.spec.luau:56` (a crafted save cannot mint a discount), `home.spec.luau:90` (keeper slots).
 - `tests/smoke_core.luau:63-77` saves, peeks and prints the record keys. Diff before and after a refactor.
 - Telemetry prints `[FUNNEL]` and `[LEFT]` lines in Studio (`Telemetry.lua:96,130`). No automated check for the `serialize` to `applySave` round trip.
@@ -32,4 +33,4 @@
 - The onboarding funnel keeps only a user's first time at each step. Studio sends nothing to the dashboard (`Telemetry.lua:16-22`). Step 1 waits for `ClientInfo` or 10 s (:56-63).
 - A tablet with a keyboard counts as desktop (`ClientInfoClient.client.lua:1-8`).
 - Studio cannot test voice. The mic is always "not recording" there (`VoiceCheck.lua:27-33`). `VoiceCheck` only reads and changes nothing.
-**Last verified:** 2026-10-09 c9daf01
+**Last verified:** 2026-10-09 2deec9d
