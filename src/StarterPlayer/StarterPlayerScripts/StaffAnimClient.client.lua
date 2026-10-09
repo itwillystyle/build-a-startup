@@ -124,12 +124,22 @@ local function driveRun(model, st)
 	if not rt then return false end
 	if chasing and not rt.IsPlaying then
 		rt:Play(0.15)
+		st.runPos, st.runSpeed = nil, nil   -- a fresh chase measures from here, not from the last one
 	elseif not chasing and rt.IsPlaying then
 		rt:Stop(0.2)
 	end
 	if rt.IsPlaying then
-		local v = st.hrp.AssemblyLinearVelocity
-		rt:AdjustSpeed(math.clamp(Vector3.new(v.X, 0, v.Z).Magnitude / 18, 0.6, 1.8))
+		-- hunters are anchored and moved by PivotTo, so their velocity reads 0: measure the ground covered
+		local now, pos = os.clock(), st.hrp.Position
+		local speed = st.runSpeed or 0
+		if st.runPos and now > st.runAt then
+			local d = pos - st.runPos
+			local inst = Vector3.new(d.X, 0, d.Z).Magnitude / (now - st.runAt)
+			-- smoothed, because replication moves the rig in steps rather than every frame
+			speed += (inst - speed) * math.min(1, (now - st.runAt) * 6)
+		end
+		st.runPos, st.runAt, st.runSpeed = pos, now, speed
+		rt:AdjustSpeed(math.clamp(speed / 18, 0.6, 1.8))
 		return true
 	end
 	return false

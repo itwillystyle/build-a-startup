@@ -61,6 +61,18 @@ test("a crafted save cannot mint discount", function()
 	assert(M.sanitize(0 / 0) == 0, "nan should sanitize to 0")
 end)
 
+test("a rebuild keeps the stock and pays the plain price", function()
+	local price, spent = M.quote(2500, M.MAX, true)
+	assert(price == 2500, "a rebuild should not be discounted, got " .. tostring(price))
+	assert(spent == 0, "a rebuild should spend nothing, got " .. tostring(spent))
+end)
+
+test("a new level spends what the sign discounted", function()
+	local price, spent = M.quote(100000, 7, false)
+	assert(price == M.priceAfter(100000, 7), "quote should match priceAfter")
+	assert(spent == M.spend(7), "quote should spend what priceAfter assumed")
+end)
+
 --[[ The decision the whole mechanic exists to create: build now, or run one
 	more recruit and build cheaper. If a second genius does not beat building
 	immediately, there is no decision and the loop is decorative. ]]

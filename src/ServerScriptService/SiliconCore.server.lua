@@ -135,8 +135,9 @@ local function wafersNext(s, plot)
 	if not (Econ and Econ.WAFERS and plot and plot.wafer and s) then return nil end
 	local L, last, price = Econ.Wafers.nextBuild(plot, s.record or 1, scaleOf(s), Econ.Wafers.Plan.blueprint(s.spinoffs or 0))
 	if not L then return nil end
-	local stock = s.momentum or 0
-	return L, last, Mom.priceAfter(price, stock), Mom.spend(stock)
+	-- a rebuild (at or below the record, same rule as WaferPlan.price) keeps the stock
+	local p, spent = Mom.quote(price, s.momentum or 0, L <= (s.record or 1))
+	return L, last, p, spent
 end
 local function nextGoalOf(s, plot)
 	if Econ and Econ.WAFERS and plot and plot.wafer then
@@ -1969,8 +1970,8 @@ function refreshHqPad(plot)      -- forward-declared above hire()
 	if Econ and Econ.WAFERS and plot.wafer then
 		-- v4.6 THE WAFERS: the pad (and the BUILD card) say what the next tap builds
 		local WP = Econ.Wafers.Plan
-		local L, last, price
-		if s then L, last, price = wafersNext(s, plot) end
+		local L, last, price, momSpend
+		if s then L, last, price, momSpend = wafersNext(s, plot) end
 		local rec, allowed = "", ""
 		if L then
 			local list = WP.allowed(L)
@@ -1996,7 +1997,7 @@ function refreshHqPad(plot)      -- forward-declared above hire()
 				earned since the last one. Paying less than the sign says is a
 				pleasant bug and still a bug -- worse, it hides the discount at
 				the exact moment the player is deciding whether to go out again. ]]
-			local off = Mom.discount(s and s.momentum or 0)
+			local off = (momSpend or 0) * Mom.PER_POINT   -- what this tap spends, so a rebuild shows none
 			local tail = off > 0 and ("  ·  %d%% OFF"):format(math.floor(off * 100 + 0.5)) or ""
 			if last > L then
 				plot.hqLabel.Text = ("REBUILD LEVELS %d-%d  ·  $%s%s"):format(L, last, fmt(price), tail)
@@ -3196,7 +3197,10 @@ local function launchProduct(player, plot, market, mod, auto)
 	if not auto then
 		local before = s.momentum or 0
 		s.momentum = Mom.add(before, "launch")
-		if s.momentum > before then player:SetAttribute("Momentum", s.momentum) end
+		if s.momentum > before then
+			player:SetAttribute("Momentum", s.momentum)
+			refreshHqPad(plot)      -- the price just changed; the pad and WaferPrice have to say so
+		end
 	end
 	Telemetry.step(player, "first_product")
 	s.markets[market.id] = true          -- now a rival can come for this market
@@ -3558,6 +3562,8 @@ end
 local function pushTicker(player)
 	-- v4.2: Ranks owns the boards (every company from $1K, plus the weekly board)
 	if Econ and Econ.Ranks and Econ.Ranks.pushPlayer then Econ.Ranks.pushPlayer(player) return end
+	-- Studio test saves (scenario cash) must never reach the live board
+	if game:GetService("RunService"):IsStudio() then return end
 	local s = sessions[player.UserId]
 	if not s or not s.ipo then return end
 	pcall(function()
@@ -3701,6 +3707,8 @@ do
 		local ok, err = pcall(Valley.init, {
 			plots = plotsFolder,
 			session = function(p) return sessions[p.UserId] end,
+			-- the save read is over (ok or failed), so the session's valuation is real, not the join-time 0
+			loadDone = function(p) return not loading[p.UserId] end,
 			plotOf = plotOf,
 			cash = cashOf,
 			fmt = fmt,

@@ -76,6 +76,15 @@ function Momentum.priceAfter(price, points)
 	return math.floor((price or 0) * (1 - Momentum.discount(points)) + 0.5)
 end
 
+--[[ What one build tap actually charges and consumes. A rebuild (a level the
+	company already reached before a spin-off) is priced at a sliver of the
+	real thing, so spending the stock on it would burn the whole bank for a
+	few dollars. Rebuilds keep the stock for the next new level. ]]
+function Momentum.quote(price, points, rebuild)
+	if rebuild then return math.floor(price or 0), 0 end
+	return Momentum.priceAfter(price, points), Momentum.spend(points)
+end
+
 -- a short line for the HUD: "MOMENTUM 7  ·  next build 21% off"
 function Momentum.label(points)
 	local d = Momentum.discount(points)

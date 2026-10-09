@@ -359,6 +359,7 @@ return function(core)
 		-- derived through the module's own sanitizer, so a crafted save cannot
 		-- mint a permanent discount (same doctrine as tiers and streaks)
 		s.momentum = Mom.sanitize(data.mo)
+		player:SetAttribute("Momentum", s.momentum)   -- the HUD reads the attribute, not the session
 		s.vipDay = clampInt(data.vipDay, 0, 1e7, 0)
 		s.jr = Journey.cleanFlags(data.jr)        -- v4.3 only known flags survive a load
 		s.tips = Journey.cleanTips(data.tips)

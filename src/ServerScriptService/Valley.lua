@@ -58,6 +58,11 @@ end
 
 local function valuationOf(s) return math.floor((s and s.valuation) or 0) end
 
+-- false while the player's save is still being read: their valuation is a placeholder 0
+local function settled(player)
+	return not api.loadDone or api.loadDone(player)
+end
+
 --[[ Everyone in the server, richest first. Used for the live rank on each
 	tower -- this is the standing the hub board does NOT show, because that
 	board is the all-time global one. ]]
@@ -109,7 +114,8 @@ local function openBell()
 	bell.on, bell.startedAt, bell.base = true, os.clock(), {}
 	for _, pl in ipairs(Players:GetPlayers()) do
 		local s = sessionOf(pl)
-		if s then bell.base[pl.UserId] = valuationOf(s) end
+		-- a save still loading would "grow" by its whole valuation and win, so it sits this round out
+		if s and settled(pl) then bell.base[pl.UserId] = valuationOf(s) end
 	end
 	api.plots:SetAttribute("BellOn", true)
 	api.plots:SetAttribute("BellSeconds", BELL_WINDOW)
@@ -122,8 +128,9 @@ local function closeBell()
 	local best, bestGain = nil, 0
 	for _, pl in ipairs(Players:GetPlayers()) do
 		local s = sessionOf(pl)
-		if s then
-			local gain = valuationOf(s) - (bell.base[pl.UserId] or valuationOf(s))
+		local base = bell.base[pl.UserId]
+		if s and base then   -- no start value: joined or was still loading when the bell opened
+			local gain = valuationOf(s) - base
 			if gain > bestGain then best, bestGain = pl, gain end
 		end
 	end

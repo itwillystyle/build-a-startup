@@ -62,18 +62,33 @@ end
 
 --[[ An emitter alone is not enough: it has to be fed by this player's input.
 	A wire is what makes the pair a chain. ]]
+local found = setmetatable({}, { __mode = "k" })   -- [emitter] = the Wire last seen feeding it
+local sweptAt = setmetatable({}, { __mode = "k" }) -- [emitter] = os.clock() of the last whole-game sweep
+local SWEEP_EVERY = 30                              -- the whole-game sweep is slow; not every 2 s
+
+local function isChain(d, input, emitter)
+	return d:IsA("Wire") and d.SourceInstance == input and d.TargetInstance == emitter
+end
+
 local function wiredFrom(input, emitter)
 	if not (input and emitter) then return false end
+	local w = found[emitter]
+	if w and w.Parent and isChain(w, input, emitter) then return true end
+	found[emitter] = nil
 	for _, d in ipairs(emitter:GetChildren()) do
-		if d:IsA("Wire") and d.SourceInstance == input and d.TargetInstance == emitter then
-			return true
+		if isChain(d, input, emitter) then found[emitter] = d return true end
+	end
+	-- the engine is free to parent its wire elsewhere: first the player and the character
+	for _, root in ipairs({ input.Parent, emitter:FindFirstAncestorOfClass("Model") }) do
+		for _, d in ipairs(root and root:GetDescendants() or {}) do
+			if isChain(d, input, emitter) then found[emitter] = d return true end
 		end
 	end
-	-- the engine is free to parent its wire elsewhere, so fall back to a sweep
+	-- then the whole game, but only now and then
+	if os.clock() - (sweptAt[emitter] or -math.huge) < SWEEP_EVERY then return false end
+	sweptAt[emitter] = os.clock()
 	for _, d in ipairs(game:GetDescendants()) do
-		if d:IsA("Wire") and d.SourceInstance == input and d.TargetInstance == emitter then
-			return true
-		end
+		if isChain(d, input, emitter) then found[emitter] = d return true end
 	end
 	return false
 end
