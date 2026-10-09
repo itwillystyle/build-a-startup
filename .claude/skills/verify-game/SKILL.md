@@ -68,10 +68,13 @@ Then, with the Roblox Studio MCP tools:
 
 ## Robot runs (a scripted player, recorded)
 1. Check the frame rate FIRST (Client): `return game:GetService("Stats").FrameTime`. Above 0.05 s
-   (under 20 FPS), stop: the run measures Studio, not the game. CAUSE FOUND 9 Oct: the League of
-   Legends client (with Vanguard) held Studio at 2.5 FPS (391 ms/frame, 25 Windows timer ticks) in
-   Edit AND Play; a Studio restart did not help. Closing League: Edit 16 ms, Play client 7 ms,
-   server 139 Hz during a genius chase, physics 60. Ask Luke to close League, then measure again.
+   (under 20 FPS), stop: the run measures Studio, not the game. UNSOLVED as of 9 Oct 06:05: Studio
+   sat at 2-3 Hz (391 ms/frame = 25 Windows timer ticks) in Edit and Play, with the RTX 5080 at 0% and
+   Studio's threads asleep. NOT the cause: a Studio restart, Studio's focus throttle, PresentMon, a
+   stale MCP bridge, the leftover LeagueClientUxRender. Closing League gave ONE fast window (Edit 16 ms,
+   Play 7 ms, 139 Hz in a chase) for ~2 minutes, then slow again with League closed (Riot Client and the
+   vgk driver still running). Next suspects: Riot Client/Vanguard (full quit or reboot), Xbox Game Bar,
+   SteelSeries GG overlays.
 2. Record the game viewport only (primary monitor, below the toolbar):
    `ffmpeg -f gdigrab -framerate 30 -t 50 -offset_x 0 -offset_y 240 -video_size 1920x512 -i desktop -vf scale=1280:-2 -c:v libx264 -preset veryfast -crf 24 -pix_fmt yuv420p .evidence/<folder>/runN.mp4`
    (`-i desktop` alone grabs both monitors in one wide frame.)
