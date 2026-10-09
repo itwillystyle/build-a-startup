@@ -122,7 +122,15 @@ function M.run(R, rules, opts, seed)
 				local c, s2 = math.cos(a), math.sin(a)
 				dx, dz = dx * c - dz * s2, dx * s2 + dz * c
 			end
+			-- v4.6: home is reached within DELIVER_R of the door, as in TalentDrop
+			local hx, hz = route[#route][1], route[#route][2]
+			if (R.DELIVER_R or 0) > 0 and (px - hx) ^ 2 + (pz - hz) ^ 2 <= R.DELIVER_R ^ 2 then
+				return true, t, closeCalls, danger / math.max(t, 1e-6)
+			end
 			if dl <= sp * dt then
+				-- still moving through the corner: a zero velocity here read as "standing
+				-- still" for one frame and let the v4.6 freeze rule fire at every corner
+				if dl > 1e-6 then vx, vz = dx / dl * sp, dz / dl * sp end
 				px, pz = tx, tz
 				if seg == #route then return true, t, closeCalls, danger / math.max(t, 1e-6) end
 				seg += 1
@@ -139,7 +147,10 @@ function M.run(R, rules, opts, seed)
 			end
 			if H.active then
 				local ph, dist = rules.step(H.h, px, pz, vx, vz, opts.speed, dt, t)
-				if dist <= R.CATCH then return false, t, closeCalls, danger / math.max(t, 1e-6) end
+				if dist <= R.CATCH then
+					M.lastCatch = { x = px, z = pz, phase = ph, t = t }
+					return false, t, closeCalls, danger / math.max(t, 1e-6)
+				end
 				minDist = math.min(minDist, dist)
 				if ph == "windup" and H.last ~= "windup" and dist < 20 and not pendingBoostAt and rnd() < prof.boostChance then
 					pendingBoostAt = t + prof.react[1] + rnd() * (prof.react[2] - prof.react[1])

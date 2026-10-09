@@ -37,7 +37,7 @@ local snapped = {} -- userId -> true once a snapshot was taken in THIS server
 Scen.LIST = {
 	"snapshot", "rich", "ready", "chase:skilled", "chase:star", "chase:genius",
 	"vip-chase", "hq:<n>", "home:<0-3>", "spinoff", "tp:hq", "tp:apt", "tp:car",
-	"tp:candidate:<tier>", "tp:vip", "list",
+	"tp:candidate:<tier>", "tp:vip", "tp:door", "geo", "restock", "list",
 }
 
 local function allowed(userId)
@@ -179,6 +179,21 @@ function Scen.run(ctx, player, name)
 		local r = Scen.snapshot(player.UserId)
 		table.insert(did, "snapshot -> " .. short(r))
 		return done(r.ok, r.err)
+	elseif kind == "geo" then
+		-- where things are, for a live run: your door (home), your candidates and their walk home
+		local door = Econ.Drop and Econ.Drop.devDoor and Econ.Drop.devDoor(player)
+		local cash = ctx.cashOf(player)
+		local cands = {}
+		for id in pairs(TIER_INDEX) do
+			local c = Econ.Drop and Econ.Drop.candidate and Econ.Drop.candidate(player, id, cash and cash.Value or 0)
+			if c then cands[id] = { pos = c.pos, pathLen = c.pathLen } end
+		end
+		return { ok = door ~= nil, door = door, candidates = cands }
+	elseif kind == "restock" then
+		if not (Econ.Drop and Econ.Drop.devRestock) then return done(false, "TalentDrop is not running") end
+		Econ.Drop.devRestock(player)
+		table.insert(did, "restock -> every tier respawns at a new spot within 1 s")
+		return done(true)
 	elseif kind == "rich" then
 		step("cash", 1e9)
 		return done(true)
@@ -198,6 +213,7 @@ function Scen.run(ctx, player, name)
 		if not cand then
 			return done(false, ("no %s candidate standing (restock is %ss) or the fee is unaffordable"):format(tierId, tostring(tier.restock)))
 		end
+		local pathLen = cand.pathLen
 		-- recruit() has no distance check: without this the hunter spawns at the candidate, far away
 		goTo(cand.pos)
 		task.wait(0.3)
@@ -212,7 +228,7 @@ function Scen.run(ctx, player, name)
 		local started = carrying ~= nil and carrying ~= false and hunters > 0
 		local why
 		if not started then why = "recruit did not start a chase" end
-		return done(started, why, { carrying = carrying, hunters = hunters, fee = cand.fee })
+		return done(started, why, { carrying = carrying, hunters = hunters, fee = cand.fee, pathLen = pathLen })
 	elseif kind == "vip-chase" then
 		local ok, err = ready(1)
 		if not ok then return done(false, err) end
@@ -246,7 +262,9 @@ function Scen.run(ctx, player, name)
 		local plot = ctx.plotOf(player)
 		local where, tierId = rest:match("^(%w+):?(.*)$")
 		local pos
-		if where == "hq" then
+		if where == "door" then
+			pos = Econ.Drop and Econ.Drop.devDoor and Econ.Drop.devDoor(player)
+		elseif where == "hq" then
 			pos = plot and plot.hqPad and plot.hqPad.Position
 		elseif where == "apt" then
 			pos = Econ.Apt and Econ.Apt.deskPosition and Econ.Apt.deskPosition()

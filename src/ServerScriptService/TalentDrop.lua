@@ -98,6 +98,74 @@ local DRIVE_WALK = 72.6        -- CampusHub: ARM_X 88, kerb face 77.6, pavement 
 local DOOR_Z, DRIVE_MAX = 70, 300     -- the walk is measured from the door, and
                                       -- 300 out lands 8 studs short of the outer ring road
 
+--[[ v4.6 (9 Oct) HOME IS YOUR DOOR, AND THE RARE ONES ARE OUT THERE.
+
+	Measured on the first live run of the verify loop: home used to be your LOT,
+	and the lot covers the first 175 studs of this drive, so a SKILLED candidate
+	stood inside it and a STAR 18 studs out (inside the home stretch, where a
+	hunter never lunges). Two changes:
+
+	1. Home is your doorstep: within Chase.DELIVER_R of the drive pavement at
+	   your HQ's door line (doorPos).
+	2. A chase tier's candidate stands somewhere new each time it restocks, out
+	   in the campus and the town, at a WALKING distance from your door inside
+	   the tier's band (Chase.BANDS: skilled 140-190, star 210-270, genius
+	   290-370). The walk is the pathfinding route, so it is a real run home,
+	   not a straight line through a building. Look for the light pillar.
+	   If no spot passes (12 tries), the old drive spot is used. ]]
+local PathfindingService = game:GetService("PathfindingService")
+
+-- the DOORSTEP: the drive pavement at your HQ's door line. Not the HQ pad: that sits
+-- inside the Garage, where a straight run hits the glass and pathfinding finds no
+-- route (measured 9 Oct: 0 of 60 points within 28 studs of the pad were reachable)
+local function doorPos(plot)
+	local cf = plot.pivot * CFrame.new(-DRIVE_WALK, 0, DOOR_Z)
+	return Vector3.new(cf.Position.X, groundY(cf.Position.X, cf.Position.Z), cf.Position.Z)
+end
+
+local function flatDist(a, b)
+	return (Vector3.new(a.X, 0, a.Z) - Vector3.new(b.X, 0, b.Z)).Magnitude
+end
+
+local function inAnyLot(pos)
+	for _, p in ipairs(api.plots or {}) do
+		if p.pivot and inLot(p, pos) then return true end
+	end
+	return false
+end
+
+-- one candidate spot for a chase tier: (x, z, groundY, pathLength) or nil
+local function exploreSpot(plot, tier)
+	local band = Chase.BANDS[tier.id]
+	if not band then return nil end
+	local door = doorPos(plot)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	local skip = { folder }
+	for _, p in ipairs(Players:GetPlayers()) do if p.Character then table.insert(skip, p.Character) end end
+	params.FilterDescendantsInstances = skip
+	for _ = 1, 12 do
+		local ang = math.random() * math.pi * 2
+		local r = band[1] * 0.6 + math.random() * (band[2] - band[1] * 0.6)
+		local x, z = door.X + math.cos(ang) * r, door.Z + math.sin(ang) * r
+		local hit = workspace:Raycast(Vector3.new(x, door.Y + 200, z), Vector3.new(0, -400, 0), params)
+		local pos = hit and hit.Position
+		-- flat open ground at street level: no roofs, no hillsides, no water, nobody's lot
+		if pos and hit.Normal.Y > 0.9 and math.abs(pos.Y - door.Y) < 10
+			and hit.Material ~= Enum.Material.Water and not inAnyLot(pos) then
+			local path = PathfindingService:CreatePath({ AgentRadius = 2.5, AgentHeight = 5, AgentCanJump = true, WaypointSpacing = 6 })
+			local ok = pcall(function() path:ComputeAsync(door, pos) end)
+			if ok and path.Status == Enum.PathStatus.Success then
+				local wps = path:GetWaypoints()
+				local len = 0
+				for k = 2, #wps do len += (wps[k].Position - wps[k - 1].Position).Magnitude end
+				if len >= band[1] and len <= band[2] then return x, z, pos.Y, len end
+			end
+		end
+	end
+	return nil
+end
+
 local function spotFor(plot, tier)
 	-- the old straight road ran 440 studs out. This drive gives 300 from the
 	-- door before the outer ring road, so the four tiers are mapped onto it in
@@ -185,7 +253,17 @@ local function spawnCandidate(plot, i)
 	local tier = Econ.TIERS[i]
 	local st = state[plot.index]
 	local x, z, face = spotFor(plot, tier)
-	local y = groundY(x, z)
+	local y
+	local pathLen
+	if tier.chase then
+		local ex, ez, ey, len = exploreSpot(plot, tier)
+		if ex then
+			x, z, y, pathLen = ex, ez, ey, len
+			local d = doorPos(plot)
+			face = math.atan2(-(d.X - x), -(d.Z - z))   -- looking back toward your HQ
+		end
+	end
+	y = y or groundY(x, z)
 	local role = ROLES[math.random(1, #ROLES)]
 	local seed = plot.index * 1000 + i * 97 + math.random(1, 9999)
 	local rig, hum = StaffRig.build(role, seed)
@@ -221,7 +299,8 @@ local function spawnCandidate(plot, i)
 	pp.RequiresLineOfSight = false
 	pp.Parent = rig:FindFirstChild("UpperTorso") or rig.PrimaryPart
 	rig.Parent = st.folder
-	local entry = { model = rig, prompt = pp, readyAt = 0 }
+	rig:SetAttribute("PathLen", pathLen and math.floor(pathLen) or nil)
+	local entry = { model = rig, prompt = pp, readyAt = 0, pathLen = pathLen }
 	st.tiers[i] = entry
 	pp.Triggered:Connect(function(player) recruit(player, plot, i) end)
 	refreshTag(plot, entry, tier)
@@ -428,12 +507,10 @@ local function spawnHunter(player, c, fromPos, second)
 		-- v4.4 the home stretch: studs from (x, z) to the edge of this player's lot
 		local plot = api.plotOf(player)
 		if plot and plot.pivot then
-			local pv = plot.pivot
+			-- v4.6: studs to your DOOR (home is the door now, not the lot edge)
+			local door = doorPos(plot)
 			c.chaseCfg.homeDist = function(x, z)
-				local p = pv:PointToObjectSpace(Vector3.new(x, pv.Position.Y, z))
-				local ox = math.max(0, math.abs(p.X) - LOT_X)
-				local oz = math.max(0, LOT_Z1 - p.Z, p.Z - LOT_Z2)
-				return math.sqrt(ox * ox + oz * oz)
+				return math.sqrt((x - door.X) ^ 2 + (z - door.Z) ^ 2)
 			end
 		end
 	end
@@ -447,8 +524,8 @@ local function startCarry(player, plot, c)
 	carries[player] = c
 	scooterOn(player, c)
 	-- the offer timer: enough to walk home steadily with room to spare
-	local home = plot.pivot.Position
-	local dist = (Vector3.new(home.X, 0, home.Z) - Vector3.new(c.from.X, 0, c.from.Z)).Magnitude
+	-- v4.6: the walk is the route home (pathLen), not a straight line
+	local dist = c.pathLen or flatDist(doorPos(plot), c.from)
 	c.deadline = now() + Econ.OFFER_BASE + dist * Econ.OFFER_PER_STUD
 	player:SetAttribute("Carrying", c.tier.id)
 	player:SetAttribute("CarryName", c.name)
@@ -467,7 +544,15 @@ local function startCarry(player, plot, c)
 	-- the top-centre chip says how close the headhunter is; the toast that also
 	-- said both is gone (the rival's name still lands in the LOST moment)
 	if c.tier.chase then
-		spawnHunter(player, c, Vector3.new(c.from.X + Chase.START_BEHIND, c.from.Y, c.from.Z))
+		--[[ v4.6: behind you means AWAY from home. The old +X offset was "further out"
+			on the old drive; with candidates all over the map it put the hunter between
+			you and your door, and the first live robot run rode straight into it
+			(caught at 1.5 s with no lunge, 9 Oct). ]]
+		local door = doorPos(plot)
+		local away = Vector3.new(c.from.X - door.X, 0, c.from.Z - door.Z)
+		away = away.Magnitude > 1 and away.Unit or Vector3.new(1, 0, 0)
+		local at = c.from + away * Chase.START_BEHIND
+		spawnHunter(player, c, Vector3.new(at.X, c.from.Y, at.Z))
 	end
 	if api.onRecruit then api.onRecruit(player) end
 end
@@ -496,7 +581,8 @@ recruit = function(player, plot, i)
 		return
 	end
 	local c = { model = entry.model, tier = tier, tierIndex = i, originPlot = plot, fee = fee, entry = entry,
-		name = entry.model:GetAttribute("PersonName") or "them", from = entry.model:GetPivot().Position }
+		name = entry.model:GetAttribute("PersonName") or "them", from = entry.model:GetPivot().Position,
+		pathLen = entry.pathLen }
 	entry.model = nil
 	entry.readyAt = math.huge         -- empty until this carry ends (endCarry sets the restock)
 	if entry.prompt then entry.prompt:Destroy(); entry.prompt = nil end
@@ -540,7 +626,8 @@ local function stepCarry(player, c, dt)
 		return
 	end
 	local plot = api.plotOf(player)
-	if plot and inLot(plot, hrp.Position) then
+	-- v4.6: home is the door (Chase.DELIVER_R of the HQ pad), not the lot edge
+	if plot and flatDist(hrp.Position, doorPos(plot)) <= Chase.DELIVER_R then
 		-- `kind` is what the trip was worth: it is set only here, on a carry that
 		-- actually reached the lot, so no hire made from inside the garage pays
 		local ok = api.hire(player, plot, { floor = c.tier.floor, fee = c.fee, luck = c.luck,
@@ -870,7 +957,7 @@ function TalentDrop.candidate(player, tierId, cashValue)
 			local e = st.tiers[i]
 			local fee = feeFor(player, tier)
 			if e and e.model and e.model.PrimaryPart and fee and fee <= (cashValue or 0) then
-				return { tier = tier, fee = fee, pos = e.model.PrimaryPart.Position }
+				return { tier = tier, fee = fee, pos = e.model.PrimaryPart.Position, pathLen = e.pathLen }
 			end
 		end
 	end
@@ -899,6 +986,26 @@ end
 function TalentDrop.devPickVip(player)
 	if not game:GetService("RunService"):IsStudio() then return end
 	recruitVip(player)
+end
+
+-- Studio test harness only (DevScenarios "restock"): every tier back now, at a new spot
+function TalentDrop.devRestock(player)
+	if not game:GetService("RunService"):IsStudio() then return end
+	local plot = api.plotOf(player)
+	local st = plot and state[plot.index]
+	if not st then return end
+	for _, e in pairs(st.tiers) do
+		if e.model then e.model:Destroy(); e.model = nil end
+		if e.prompt then e.prompt = nil end
+		e.readyAt = 0
+	end
+	for _, tierId in { "walkin", "skilled", "star", "genius" } do player:SetAttribute("Restock_" .. tierId, nil) end
+end
+
+-- Studio test harness only: where home is (DevScenarios "geo")
+function TalentDrop.devDoor(player)
+	local plot = api.plotOf(player)
+	return plot and doorPos(plot) or nil
 end
 
 -- Studio test harness only (SiliconCore's dev bot): the same recruit() the prompt calls

@@ -13,10 +13,14 @@ local T = {}
 local function test(name, fn) table.insert(T, { name = name, fn = fn }) end
 local N = 400
 
+-- v4.6: D comes from the SAME bands TalentDrop spawns candidates in (the route home is
+-- D along the road plus a 40-stud turn, so D = band middle - 40). Never type these by hand
+-- again: on 8 Oct they said 140/280/300 while the live map ran 0/18/125 (see ChaseRules).
+local function Dof(id) return R.bandMid(id) - 40 end
 local RUNS = {
-	skilled = { id = "skilled", D = 140, speed = 16 },
-	star = { id = "star", D = 280, speed = 17 },
-	genius = { id = "genius", D = 300, speed = 18 },
+	skilled = { id = "skilled", D = Dof("skilled"), speed = 16 },
+	star = { id = "star", D = Dof("star"), speed = 17 },
+	genius = { id = "genius", D = Dof("genius"), speed = 18 },
 	vipStar = { id = "star", D = 600, speed = 17, vip = true },
 	vipGenius = { id = "genius", D = 600, speed = 19, vip = true },
 }
@@ -124,6 +128,17 @@ test("the daily VIP stays the hardest run, and an ace can still win it", functio
 		local a = rate(RUNS[k], "ace")
 		assert(a >= 0.70, ("%s ace %.0f%%"):format(k, a * 100))
 	end
+end)
+
+test("THE MAP CONTRACT: the sim runs the chase lengths the game spawns (v4.6)", function()
+	for _, k in { "skilled", "star", "genius" } do
+		local b = R.BANDS[k]
+		assert(b and b[1] < b[2], k .. " has no band")
+		local route = RUNS[k].D + 40
+		assert(route >= b[1] and route <= b[2], ("%s sim route %d is outside the live band %d-%d"):format(k, route, b[1], b[2]))
+	end
+	assert(R.HOME_SAFE < R.BANDS.skilled[1] / 4, "the home stretch must be a small part of the shortest run")
+	assert(R.DELIVER_R > 0 and R.DELIVER_R < R.HOME_SAFE, "you are home before the safe zone ends")
 end)
 
 test("the lunge is aimed: it meets a player who holds their line", function()
