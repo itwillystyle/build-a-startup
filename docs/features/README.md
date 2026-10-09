@@ -37,7 +37,9 @@ This is shared memory for agents and for you. Code wins when a page and the code
 
 | Finding | Status |
 |---|---|
-| Live chase lengths are not the sim's. Delivery = stepping onto the lot: the skilled candidate stands inside it, and the star candidate is ~18 studs out, inside the 45-stud no-lunge zone. A star hunter can't lunge there | **Live** (held at 7.1 studs for 12 s) + code |
+| ~~Live chase lengths are not the sim's~~ FIXED in a96f2d8: home is the doorstep, candidates spawn at 140-370 walking studs, the sim reads the same bands (map contract test) | **Live** + code |
+| Studio itself ran at 2.6-6 FPS (169 ms/frame in Edit) after many Play cycles; live robot runs need a restart first | **Live** |
+| A stray "Label" placeholder floats mid-screen during a chase; Daily Reward reopens after a catch | **Live** (video) |
 | The saved mute never restores: the server sends it in `MenuStats` (SiliconCore.server.lua:3819), and no client listens to `MenuStats` | **Code** |
 | `s.hqPath` is never cleared, so the path picker never returns after a spin-off, though the comment says it should (SiliconCore.server.lua:2072-2074, 2825) | **Code** |
 | Wafers mode builds no lots, so build mode may never place `needs` furniture | Agent |

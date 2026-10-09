@@ -21,10 +21,10 @@
 - Saved: `apt`, `vipDay` (`src/ServerScriptService/SaveLoad.lua:133-134`). Load clamps `apt` to 0-3 (`SaveLoad.lua:358`).
 - Plot, temporary: `plot.spinArmed`, `spinOffer`, `spinPickIds`. The card is armed for 30 s.
 **Drive it:**
-- `dev:Invoke("scenario", p, "home:<0-3>")` runs raw `apt <n>` (`src/ServerScriptService/DevScenarios.lua:232`, `DevHook.lua:488`).
-- `"tp:apt"` goes to the sales desk (`DevScenarios.lua:251`). `"vip-chase"` sets apt 1, spawns the VIP, walks to it, picks it up (`DevScenarios.lua:216`).
+- `dev:Invoke("scenario", p, "home:<0-3>")` runs raw `apt <n>` (`src/ServerScriptService/DevScenarios.lua:248-252`, `DevHook.lua:488`).
+- `"tp:apt"` goes to the sales desk (`DevScenarios.lua:269-270`). `"vip-chase"` sets apt 1, spawns the VIP, walks to it, picks it up (`DevScenarios.lua:232-242`).
 - Raw `apt <0-3>`, `vip` (`DevHook.lua:493`), `vippick` (`:497`).
-- Keeper pick on the spin-off card: `spinoff` scenario needs `snapshot` first (`DevScenarios.lua:237`). No scenario sets up "more Star staff than slots" yet.
+- Keeper pick on the spin-off card: `spinoff` scenario needs `snapshot` first (`DevScenarios.lua:254`). No scenario sets up "more Star staff than slots" yet.
 **Prove it:**
 - `tests/offline/home.spec.luau`: ladder is HQ steps only, offline pay windows, keeper slot table (1/3/5), a bad save cannot mint slots, home price shares, no money bonus left.
 - `tests/offline/progression.spec.luau`: `chooseKeepers` cases (pick beats order, left or demoted staff dropped, stale ids ignored, no over-fill).
@@ -33,6 +33,7 @@
 **Gotchas:**
 - SVDev `apt` only sets `s.apt` and recomputes (`DevHook.lua:488-492`). It skips the price, the HQ gate, the `Apt` attribute and the objective refresh. The unit is built on the first "Go home" (`Apartments.lua:434`).
 - `vipSpot` is `Vector3.new(640 + 9*plot, 0, 36)` (`Apartments.lua:498-501`). The Residences moved to the campus ring at 240 degrees (`Downtown.lua:43-64`). The comment says "outside the Residences" and the phone text says "outside your building". Unclear if the old plaza spot is still intended.
+- The VIP run ends at your HQ doorstep (within 14 studs, `Chase.DELIVER_R`), not at the Residences (`src/ServerScriptService/TalentDrop.lua:630`). The VIP has no `pathLen`, so its offer timer uses the straight line from the VIP to your door (`TalentDrop.lua:528`). The VIP hunter spawns 22 studs from the VIP, away from your door (`TalentDrop.lua:551-555`).
 - `vipDay` is set at pickup, not at spawn, so an unclaimed VIP waits (`Apartments.lua:485-488`).
 - `trySpawnVip` needs `s.shipped`, apt 1+, not Carrying, and no VIP already out (`Apartments.lua:504-508`).
 - Floor = `(tier-1)*6 + (plot-1)`, so six players never share a floor (`Apartments.lua:119-123`).
@@ -40,4 +41,4 @@
 - If the Residences mesh is missing, no sales desk or lift exists. `init` waits 30 s, then gives up silently (`Apartments.lua:560-564`, `Downtown.lua:270`).
 - While a keeper choice is pending, the pad's second tap cannot confirm. Only the card can (`SiliconCore.server.lua:2933-2936`). Picks are opaque ids matched to staff entries, never positions (`Progression.lua:140-145`).
 - `SPINOFF_BASE` is asserted at load. A missing base would sell homes for $1 (`Apartments.lua:43-44`).
-**Last verified:** 2026-10-09 cf0adc8
+**Last verified:** 2026-10-09 a96f2d8

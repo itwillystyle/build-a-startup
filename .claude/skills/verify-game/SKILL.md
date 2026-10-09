@@ -66,6 +66,20 @@ Then, with the Roblox Studio MCP tools:
 12. `lune run tools/bas evidence note "not verified: <everything you did not check>"`
 13. `lune run tools/bas evidence done` must pass.
 
+## Robot runs (a scripted player, recorded)
+1. Check the frame rate FIRST (Client): `return game:GetService("Stats").FrameTime`. Above 0.05 s
+   (under 20 FPS), stop: the run measures Studio, not the game. On 9 Oct Studio itself ran at
+   169 ms/frame in Edit and 388 ms in Play (RTX 5080 at 0%, one CPU thread pinned) after ~15 Play
+   cycles; restart Studio (ask Luke first).
+2. Record the game viewport only (primary monitor, below the toolbar):
+   `ffmpeg -f gdigrab -framerate 30 -t 50 -offset_x 0 -offset_y 240 -video_size 1920x512 -i desktop -vf scale=1280:-2 -c:v libx264 -preset veryfast -crf 24 -pix_fmt yuv420p .evidence/<folder>/runN.mp4`
+   (`-i desktop` alone grabs both monitors in one wide frame.)
+3. Close the Daily Reward popup (it opens on every Play).
+4. Start the run (Server): `game.ServerScriptService.DevRecorder.Run:Fire("genius", "dodger")`.
+   It restocks, routes DevRobot BEFORE pickup, runs `chase:<tier>`, samples every 0.1 s.
+5. Read `game.ServerStorage.ChaseRun.Value` (JSON) when it is not "". Save it next to the video.
+   The `[robot]` lines in the Output give the route and the reaction time.
+
 ## The report Luke gets
 - the evidence folder path
 - what passed (numbers, not adjectives)
@@ -97,15 +111,18 @@ Feel (camera, fun, readability) is never "verified" by these tools. Say so.
 - A scripted player must be ARMED before the scenario: a genius lunges at 2.0 s (FIRST_GRACE) and a
   walk command sent in a second call arrives too late (caught at 2.6 s, 9 Oct). Arm a client loop
   that calls Humanoid:MoveTo the instant `Carrying` is set, then run the scenario.
+- Never drive a scripted player from code pasted through the MCP bridge: it is resumed only
+  about every 0.39 s. DevRobot (client) and DevRecorder (server) are real Studio-only scripts.
 - `x and nil or y` in Lua is ALWAYS y. Use an explicit `if` (bit DevScenarios on its first live run, 9 Oct).
 - Don't compare two `JSONEncode` strings: key order is not stable. Use `compareSnapshot` (canonical, sorted keys).
 - A screenshot taken after `scenario` returns can miss the moment (a genius chase on an idle player
   was over in ~5 s). For timing proof, record a timeline in the same server call (sample every 0.5 s
   into a StringValue in ServerStorage), then screen_capture while it runs.
-- `chase:skilled` and `chase:star` start near home: delivery = stepping onto the lot
-  (TalentDrop.lua:543), the skilled candidate stands inside the lot, and the star candidate is about
-  18 studs out, inside the 45-stud no-lunge zone. A star hunter cannot lunge there (measured 9 Oct:
-  it held at 7.1 studs for 12 s). Live chase lengths are not the simulator's 140/280/300.
+- Chase geometry (v4.6, a96f2d8): home is the DOORSTEP (TalentDrop doorPos, within DELIVER_R 14),
+  not the HQ pad (inside the Garage, unreachable by pathfinding). Chase candidates spawn at a new
+  spot each restock, inside ChaseRules.BANDS by walking distance. Before v4.6 the skilled candidate
+  stood inside the lot and the star hunter could never lunge (held at 7.1 studs for 12 s).
+- One PathfindingService route costs ~0.8 s on this map. Never compute routes per frame.
 
 ## Where things are
 - feature map: `docs/features/README.md` (what each system is, how to drive and prove it)
