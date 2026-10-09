@@ -278,6 +278,9 @@ local function callCar(player)
 	if not s or not root or not s.car then return end
 	local hum = player.Character:FindFirstChildOfClass("Humanoid")
 	if hum and hum.SeatPart then return end
+	-- every call rebuilds the car for every client: one every 2 s
+	if os.clock() < (s.carNext or 0) then return end
+	s.carNext = os.clock() + 2
 	local look = root.CFrame.LookVector * Vector3.new(1, 0, 1)
 	if look.Magnitude < 0.1 then look = Vector3.new(0, 0, -1) end
 	look = look.Unit
@@ -303,7 +306,9 @@ local function buyCar(player, id)
 	local entry = BY_ID[id]
 	if not s or not entry then return end
 	if owns(s, id) then
-		-- already yours: make it the one you drive
+		-- already yours: make it the one you drive (a respawn, so the same 2 s gate as callCar)
+		if os.clock() < (s.carNext or 0) then return end
+		s.carNext = os.clock() + 2
 		s.car = id
 		Cars.spawn(player, Cars.forecourt or Cars.bayOf(api.plotOf(player)))
 		remotes.toast:FireClient(player, entry.name .. " is on the forecourt")
