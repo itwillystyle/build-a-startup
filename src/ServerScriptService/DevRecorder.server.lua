@@ -4,7 +4,10 @@
 	resumed only about every 0.39 s, which made a 0.25 s sampler a 0.39 s one.
 
 	START A RUN (Server datamodel):
-	    game.ServerScriptService.DevRecorder.Run:Fire("genius", "dodger")
+	    game.ServerScriptService.DevRecorder:SetAttribute("Request", "genius/dodger/" .. os.clock())
+	(An attribute, not BindableEvent:Fire from the bridge: a Fire runs the handler in the
+	CALLER's thread, and bridge threads are resumed only every 0.39 s, so the 0.1 s sampler
+	sampled at 0.39 s. An attribute change runs the handler in this script's own thread.)
 	READ IT when ServerStorage.ChaseRun.Value is not "" (JSON).
 
 	A run: restock your candidates (new spots), give DevRobot its profile, its goal
@@ -27,7 +30,7 @@ ev.Parent = script
 
 local function flat(v) return Vector3.new(v.X, 0, v.Z) end
 
-ev.Event:Connect(function(tier, profile)
+local function run(tier, profile)
 	local p = Players:GetPlayers()[1]
 	local core = script.Parent:FindFirstChild("SiliconCore")
 	local dev = core and core:FindFirstChild("SVDev")
@@ -84,4 +87,10 @@ ev.Event:Connect(function(tier, profile)
 		minToDoor = minDoor < math.huge and math.floor(minDoor) or nil, staff = { staff0, staff1 },
 		samples = samples,
 	})
+end
+
+ev.Event:Connect(run)
+script:GetAttributeChangedSignal("Request"):Connect(function()
+	local tier, profile = tostring(script:GetAttribute("Request") or ""):match("^(%w+)/(%w+)")
+	if tier then task.spawn(run, tier, profile) end
 end)
