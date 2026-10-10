@@ -40,7 +40,10 @@ jobs:
         run: rokit install --no-trust-check
 
       - name: Build the place
-        run: rojo build default.project.json -o build.rbxl
+        # the real project + a ModuleScript copy of the server script, so the task can start it
+        run: |
+          lune run tools/smoke_project
+          rojo build smoke.project.json -o build.rbxl
 
       - name: Boot it on Roblox
         run: lune run tools/cloud_smoke build.rbxl

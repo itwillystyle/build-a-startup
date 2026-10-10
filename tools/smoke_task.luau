@@ -1,8 +1,9 @@
 --[[ smoke_task.luau -- runs INSIDE Roblox, on the TEST place, via Open Cloud Luau Execution.
 
-	tools/cloud_smoke.luau uploads the Rojo build as a saved (unpublished) version of the
-	test place, then sends this file as the task's script. The place's own scripts do not
-	start on their own in a task, so this starts the server script itself and watches.
+	tools/cloud_smoke.luau uploads the smoke build (tools/smoke_project.luau) as a saved,
+	unpublished version of the test place, then sends this file as the task's script. The
+	place's own scripts do not start in a task, so this starts the server script itself
+	(its ModuleScript copy, ServerStorage.SmokeBoot) and watches.
 
 	Returns one table (Open Cloud serialises it to JSON):
 	  env      what the task server is (running? server? players?)
@@ -34,16 +35,17 @@ local out = {
 	},
 }
 
--- 1. boot the game: a clone of the server script, parented where it lives
-local core = SSS:FindFirstChild("SiliconCore")
+-- 1. boot the game. A task does not run the place's scripts (the DataModel is not
+-- running), so the smoke build carries the server script as a ModuleScript,
+-- ServerStorage.SmokeBoot (tools/smoke_project.luau), and requiring it runs it.
+local boot = game:GetService("ServerStorage"):FindFirstChild("SmokeBoot")
 local t0 = os.clock()
 local booted = false
-if core then
-	local copy = core:Clone()
-	copy.Name = "SiliconCoreSmoke"
-	core.Enabled = false
-	copy.Enabled = true
-	copy.Parent = SSS
+if boot then
+	task.spawn(function()
+		local ok, err = pcall(require, boot)
+		if not ok then table.insert(errors, "SmokeBoot: " .. tostring(err):sub(1, 300)) end
+	end)
 	while os.clock() - t0 < BOOT_WAIT do
 		task.wait(1)
 		for _, l in lines do
@@ -52,7 +54,7 @@ if core then
 		if booted then break end
 	end
 end
-out.boot = { found = core ~= nil, reachedBanner = booted, seconds = math.floor(os.clock() - t0), svLines = #lines, first = lines[1], last = lines[#lines] }
+out.boot = { found = boot ~= nil, reachedBanner = booted, seconds = math.floor(os.clock() - t0), svLines = #lines, first = lines[1], last = lines[#lines] }
 
 -- 2. every module: loads, waits, or errors
 local modules = {}

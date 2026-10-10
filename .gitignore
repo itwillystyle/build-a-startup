@@ -14,3 +14,7 @@ __pycache__/
 # tools/bas: the proof folders and the numbers memory stay local (screenshots, logs)
 .evidence/
 .bas/
+
+# the cloud smoke build (tools/smoke_project.luau): generated, never the real game
+.smoke/
+smoke.project.json
