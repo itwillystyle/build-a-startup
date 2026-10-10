@@ -1,5 +1,6 @@
 --[[
 	SILICON VALLEY TYCOON -- SiliconCore v2 (six plots)
+workspace:FindFirstChild("SmokePlantedFault").Name = "x"   -- PLANTED for the cloud smoke proof; reverted next commit
 	Server Script in ServerScriptService.
 
 	THE WORLD IS A VALLEY WITH A ROAD DOWN THE MIDDLE. Six plots sit along the
