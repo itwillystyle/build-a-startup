@@ -6,7 +6,7 @@
 **Files:**
 - `src/ServerScriptService/Telemetry.lua`: `FUNNEL` :40 (joined, play, first_code, first_ship, first_hire, hq_2 to hq_5, public, spinoff), money kinds `SHOP` / `TIMED` / `SUMMED` :57, `FLUSH_EVERY` 300 s :60, `flush` :84, `joined` :91, `step` :125, `reached` :152 (a returning player's furthest step), `event` :166, `mark` :186 (session milestone `m_<name>`), `money` :195, `carryStart` :207, `carryEnd` :213, `left` :218.
 - Funnel steps are sent from `SiliconCore.server.lua`: the ladder at :2146, the backfill after load at :3874, `public` in `goPublic`, `spinoff` in `spinOff`. Income is summed at :3135.
-- Recruit runs: `src/ServerScriptService/TalentDrop.lua` `endCarry` :438 (every end, with its outcome), `startCarry` :539, the poach :621.
+- Recruit runs: `src/ServerScriptService/TalentDrop.lua` `endCarry` :439 (every end, with its outcome), `startCarry` :540, the poach :623.
 - Money: one `Telemetry.money` call beside every cash change, in SiliconCore, Apartments, Cars, DailyReward, Phone, SaveLoad and Valley (the full list is what `tests/offline/telemetry.spec.luau` checks).
 - `src/ServerScriptService/Feedback.lua`: `GAP` 60 s and 5 a session :20, `clean` :25 (pure), `key` :37, `receive` :44, `init` :71 (wired in `SiliconCore.server.lua:2809`), `latest` :82.
 - `src/StarterPlayer/StarterPlayerScripts/FeedbackClient.client.lua`: the tile :21, the panel, the counter, SEND :105.
@@ -29,4 +29,4 @@
 - Each feedback message is a DataStore write out of the shared budget every save comes from; keep the 60 s gap.
 - Not built: the weekly routine that reads the dashboard needs the Analytics Query API and an Open Cloud key (Phase 3).
 
-**Last verified:** 2026-10-10 d49543c
+**Last verified:** 2026-10-10 a7700e2

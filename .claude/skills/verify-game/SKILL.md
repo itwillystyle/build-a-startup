@@ -111,8 +111,11 @@ Fires junk at every client->server remote and watches what moves. Wilz only, in 
    between owned cars, IndexSeen/ItemsSeen badges, a launch payday or coffee landing mid-run.
 6. Stop Play, restore (step 10), AND check `SVNames_v1` for Wilz: the snapshot does not cover
    it, and a rename would stick (it did on 9 Oct before the SetName fix).
-Not covered: teleport exploits (the server trusts client positions for delivery, poach and
-the lift), and anything that needs two players.
+7. Teleport (since 10 Oct, `Movement`): start a carry (`DevRecorder` Request "skilled/idle/..."), and from
+   the CLIENT set the root's CFrame onto `CarryHome`. PASS = pulled back within 0.1 s, still Carrying,
+   a `teleport_flag ... in=carry` line, no `carry_end ... out=signed`. Then an honest run (straight and
+   spammer) must deliver with no teleport_flag.
+Not covered: anything that needs two players (the poach gate is in, but untested live).
 
 ## The report Luke gets
 - the evidence folder path

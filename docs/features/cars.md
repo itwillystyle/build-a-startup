@@ -31,7 +31,7 @@
 - The free hatchback is hidden in the dealer list until owned (`CarClient.client.lua:553`).
 - `Cars.forecourt` is set only after the Downtown dealer pads exist. It waits 30 s, else cars appear in the plot bay (`Cars.lua:404-409`, `buyCar` :314).
 - Old saves past HQ 2 with no cars get the hatchback on load (`Cars.lua:611-615`).
-- Lifts: `LiftGo` stands you up first, because moving a seated player drags the car (`HQFloors.lua:113-127`).
+- Lifts: `LiftGo` stands you up first, because moving a seated player drags the car (`HQFloors.lua:115-129`).
 - The CAR button pulses only while the Journey objective is "car" (`CarClient.client.lua:359-366`).
 - The header comment says "HQ 2". In Wafers mode that means wafer level 5 (`Wafers.lua:166-171`).
 - Security (9 Oct exploit check): `CallCar`, and `BuyCar` on a car you already own, respawn the car for every client, so both share a 2 s gate (`Cars.lua:284, 312`).

@@ -33,6 +33,7 @@ local TalentDrop = {}
 
 local Players = game:GetService("Players")
 local Telemetry = require(script.Parent:WaitForChild("Telemetry"))   -- carry_start / carry_end by tier and outcome
+local Movement = require(script.Parent:WaitForChild("Movement"))     -- teleport checks (the delivery, the poach)
 local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -617,6 +618,7 @@ function TalentDrop.poach(thief, victim)
 	local a = thief.Character and thief.Character:FindFirstChild("HumanoidRootPart")
 	local b = victim.Character and victim.Character:FindFirstChild("HumanoidRootPart")
 	if not (a and b) or (a.Position - b.Position).Magnitude > 12 then return end
+	if not Movement.check(thief) then return end   -- 12 studs from the victim, honestly
 	carries[victim] = nil
 	Telemetry.carryEnd(victim, c.vip and "vip" or c.tier.id, "poached", os.clock() - (c.t0 or os.clock()))
 	scooterOff(victim, c)
@@ -657,7 +659,8 @@ local function stepCarry(player, c, dt)
 	end
 	local plot = api.plotOf(player)
 	-- v4.6: home is the doorstep (within Chase.DELIVER_R of it), not the HQ pad or the lot edge
-	if plot and flatDist(hrp.Position, doorPos(plot)) <= Chase.DELIVER_R then
+	-- trusted: a teleport onto the drop-off does not deliver (Movement)
+	if plot and flatDist(hrp.Position, doorPos(plot)) <= Chase.DELIVER_R and Movement.check(player) then
 		-- `kind` is what the trip was worth: it is set only here, on a carry that
 		-- actually reached the lot, so no hire made from inside the garage pays
 		local ok = api.hire(player, plot, { floor = c.tier.floor, fee = c.fee, luck = c.luck,
@@ -738,6 +741,16 @@ local function stepCarry(player, c, dt)
 end
 
 function TalentDrop.init(a)
+	--[[ a teleport during a carry puts you back where you were. Nothing else: a false
+		alarm (a car bump, a lag spike) costs a few studs, never the hire. ]]
+	Movement.init()
+	Movement.onFlag(function(player, info)
+		local c = carries[player]
+		Telemetry.event(player, "teleport_flag", math.floor(info.distance), { { "in", c and "carry" or "free" } })
+		if c and player.Character then
+			player.Character:PivotTo(info.back)
+		end
+	end)
 	do
 		local folder = ReplicatedStorage:FindFirstChild("SVRemotes")
 		if folder and not folder:FindFirstChild("CarryLost") then
