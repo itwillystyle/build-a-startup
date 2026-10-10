@@ -50,9 +50,17 @@ end
 -- 1. upload the build as a saved version
 local bytes = fs.readFile(BUILD)
 print(("uploading %s (%d KB) to place %s as a saved version"):format(BUILD, #bytes // 1024, PLACE))
-local code, up, raw = call("POST",
-	("https://apis.roblox.com/universes/v1/%s/places/%s/versions?versionType=Saved"):format(UNIVERSE, PLACE),
-	bytes, "application/octet-stream")
+-- 409 "Server is busy": usually the place is open in Studio (an edit session holds it);
+-- it clears on its own, so wait and retry before failing the check
+local code, up, raw
+for attempt = 1, 4 do
+	code, up, raw = call("POST",
+		("https://apis.roblox.com/universes/v1/%s/places/%s/versions?versionType=Saved"):format(UNIVERSE, PLACE),
+		bytes, "application/octet-stream")
+	if code ~= 409 then break end
+	print(("  upload busy (409), attempt %d of 4; is the TEST place open in Studio? retrying in 60 s"):format(attempt))
+	if attempt < 4 then task.wait(60) end
+end
 if code ~= 200 or not (up and up.versionNumber) then die(1, ("upload: HTTP %d %s"):format(code, tostring(raw):sub(1, 400))) end
 local version = up.versionNumber
 print("saved as version " .. version)
