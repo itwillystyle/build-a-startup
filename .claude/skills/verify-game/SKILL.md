@@ -93,6 +93,10 @@ is 0 and every plot in `chase.plots` has `door = "ok ..."` and every tier `found
 the same pair on every PR. A sink is either a bug (make it solid) or on purpose (add it to
 `WorldHealth.ALLOW` with the reason). Both came from his 10 Oct recording: the park lawn you sank 3.6 into,
 and a drop-off nobody could find or route to.
+The cloud cannot see everything: nobody owns a plot there, so every HQ is the starter garage.
+A drop-off trapped inside a real HQ (the 10 Oct Wafers lobby) only shows in Studio, on Wilz's
+plot: planted on 10 Oct, `health` said "door NO ROUTE" and 0/2 for every tier on that plot alone.
+Run `health` in Studio after any change to the HQ buildings or the drop-off.
 
 ## Exploit check (before every publish, about 3 min)
 Fires junk at every client->server remote and watches what moves. Wilz only, in Play.
