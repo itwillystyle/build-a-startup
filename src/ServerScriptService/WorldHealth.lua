@@ -33,6 +33,9 @@ WorldHealth.ALLOW = {
 	StopRoof = "bus stop roof", GateHutRoof = "gate hut roof",
 	ParkPool = "water: PoolBed under it keeps it ankle-deep",
 	FountainWater = "water", FountainBasin = "fountain basin (inside the solid lip)",
+	-- the stand-ins built when a mesh pack is missing (the cloud smoke's build has no meshes)
+	DistParasol = "a parasol (stand-in)", Leaf = "tree canopy (stand-in)",
+	DistCarGlass = "a parked car's glass (stand-in)", DistTable = "a cafe table (stand-in)",
 }
 
 local function allowed(part)
