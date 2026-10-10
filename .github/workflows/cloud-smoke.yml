@@ -1,0 +1,46 @@
+name: Cloud smoke
+
+# Phase 3 of the verify loop: boot the real game on Roblox's servers. CI's `check` job
+# only runs what Lune can run offline; this uploads the Rojo build to a separate TEST
+# experience as a saved (never published) version and starts it with Open Cloud Luau
+# Execution (tools/cloud_smoke.luau, tools/smoke_task.luau). The live game is a different
+# experience and the key cannot reach it: it is scoped to the TEST experience only.
+#
+# Not a required check yet: it depends on Roblox's API being up. Make it required once it
+# has been reliable for a while.
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+# Open Cloud allows 5 task creations a minute per key owner: one smoke at a time
+concurrency:
+  group: cloud-smoke
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    # forks get no secrets; skip rather than fail
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      ROBLOX_API_KEY: ${{ secrets.ROBLOX_API_KEY }}
+      SMOKE_UNIVERSE: "10770080927"     # Build a Startup! Test (owned by the Wilz alt)
+      SMOKE_PLACE: "104511165501086"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rokit
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/rojo-rbx/rokit/main/scripts/install.sh | bash
+          echo "$HOME/.rokit/bin" >> "$GITHUB_PATH"
+
+      - name: Install pinned tools
+        run: rokit install --no-trust-check
+
+      - name: Build the place
+        run: rojo build default.project.json -o build.rbxl
+
+      - name: Boot it on Roblox
+        run: lune run tools/cloud_smoke build.rbxl
