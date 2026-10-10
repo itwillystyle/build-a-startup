@@ -37,7 +37,7 @@
 - `StyleBaseline.lua:6` says SVStyle "fails on any rise". `SVStyle.run` only returns a text VERDICT line (`SVStyle.lua:341-348`). It is not part of `SVCheck.run` or `bas`.
 - `SVCheck` budget numbers are fake when the Studio window is not rendering. It says so when all four views match (`SVCheck.lua:103-111`).
 - `smoke_core` mutates the save (apt, HQ, spin-off). Snapshot first (`smoke_core.luau:6-7`).
-- DevRecorder runs in the first player's server and needs `SVDev` (:34-36, :41-44). It sleeps 9 s after the restock because each chase candidate tries up to 12 pathfinding routes (`TalentDrop.lua:145-163`). It grades `result` by staff count: `home` if staff rose, else `timeout` if the player got within 20 studs of the door, else `caught` (:87). So a catch inside 20 studs of the door reads as `timeout`.
+- DevRecorder runs in the first player's server and needs `SVDev` (:34-36, :41-44). It sleeps 9 s after the restock because each chase candidate tries up to 12 pathfinding routes (`TalentDrop.lua:154-172`). It grades `result` by staff count: `home` if staff rose, else `timeout` if the player got within 20 studs of the door, else `caught` (:87). So a catch inside 20 studs of the door reads as `timeout`.
 - Studio frame rate decides whether a robot run means anything. On 9 Oct Studio ran at 2.6-6 FPS (Edit mode 169 ms/frame), so live dodge and BOOST results are not valid yet. Code pasted through the MCP bridge is resumed only about every 0.39 s, which is why DevRobot is a real LocalScript (`DevRobot.client.lua:1-6`).
 - `bas scenario list` reads `Scen.LIST` with the pattern `Scen%.LIST = (%b{})` (`tools/bas.luau:470-471`). Keep it a plain list of strings.
 - `bas` must run from the game folder, where `default.project.json` is (`tools/bas.luau:811`).

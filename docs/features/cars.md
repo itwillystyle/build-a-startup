@@ -9,7 +9,7 @@
 - `src/ServerScriptService/Cars.lua`: `CATALOG` :30 (six cars), `build` :84, Drive prompt :160-176, parking on empty :177-192, `spawn` :211, `grant` :255, `callCar` :272, `buyCar` :305, `status` :336, `init` :346, no-cars-in-a-chase watch :383, showroom :399-595, `save` :597, `onLoad` :603.
 - `src/ServerScriptService/Downtown.lua`: `dealerPads` :333-338 and `dealerForecourt` :345 (where bought cars wait).
 - `src/StarterPlayer/StarterPlayerScripts/CarClient.client.lua`: drive loop :199 (starts when `SeatPart` is an `SVCar`), `call` :335, dealer card :551, turntables :625.
-- `src/StarterPlayer/StarterPlayerScripts/TrafficClient.client.lua`: moves every `TrafficCar` tagged model (:98-100, loop :155). Cars are placed by `src/ServerScriptService/CityKit.lua:482` (straight lanes) and `src/ServerScriptService/CampusHub.lua:575` (ring lanes, `RingR`).
+- `src/StarterPlayer/StarterPlayerScripts/TrafficClient.client.lua`: moves every `TrafficCar` tagged model (:98-100, loop :155). Cars are placed by `src/ServerScriptService/CityKit.lua:482` (straight lanes) and `src/ServerScriptService/CampusHub.lua:612` (ring lanes, `RingR`).
 **State:**
 - Session: `s.cars` (owned ids), `s.car` (the one you drive), `s.jr.drove`.
 - Player attributes: `CarOwned`, `CarId`, `CarName`, `CarTop` (`Cars.lua:217-222, 261`). Client only: `BuildModeOpen` hides the CAR button (`CarClient.client.lua:348`).
@@ -35,4 +35,4 @@
 - The CAR button pulses only while the Journey objective is "car" (`CarClient.client.lua:359-366`).
 - The header comment says "HQ 2". In Wafers mode that means wafer level 5 (`Wafers.lua:166-171`).
 - Security (9 Oct exploit check): `CallCar`, and `BuyCar` on a car you already own, respawn the car for every client, so both share a 2 s gate (`Cars.lua:284, 312`).
-**Last verified:** 2026-10-09 80ce687
+**Last verified:** 2026-10-10 2febbe3

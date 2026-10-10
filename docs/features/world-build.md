@@ -13,7 +13,7 @@
 - `src/ServerScriptService/MountainData.lua`: older painted mesh mountains, tile positions. Read by `ValleyGen.mountainData` :241, used only without the low-poly set (:1371).
 - `src/ServerScriptService/CityKit.lua`: `buildStreet` :162, `buildKenneyCity` :384. `CROSS_X` is now empty :279.
 - `src/ServerScriptService/CampusHub.lua`: `build` :245. Ring radii :32-38 (park 162, districts 452, outer road 596).
-- `src/ServerScriptService/CampusDistricts.lua`: `build` :597. Arrival 0, parking 60, retail 120, event lawn 300 degrees (:606-611). Reserves ground at :120 and :483.
+- `src/ServerScriptService/CampusDistricts.lua`: `build` :598. Arrival 0, parking 60, retail 120, event lawn 300 degrees (:607-612). Reserves ground at :120 and :484.
 - `src/ServerScriptService/Ground.lua`: `reservePart` :51, `sweep` :113, `publish` :146 (writes attribute `GroundZones`).
 - `src/ServerScriptService/Placement.lua`: places by shape, not name. `scanSurfaces` :199, `resolve` :519, `pass` :555.
 - `src/ServerScriptService/FlatLook.lua`: `sweep` :97, `watch` :110, `prop` :140, `propMesh` :163, `contact` :200.
@@ -37,6 +37,7 @@
 - `SVStyle.run()` (`src/ReplicatedStorage/SVStyle.lua:287`) ratchets colour counts against `StyleBaseline.lua`.
 - Server log lines: `[SV] ground sweep`, `[SV] placement`, `[SV] flat look`. No offline spec: these modules touch services at load (`README.md:34`).
 **Gotchas:**
+- The park you see is the park you stand on (10 Oct, `CampusHub.lua:258`). Its lawn, walks and terraces used to be CanCollide and CanQuery false above one flat floor, so players and candidates stood 3.6 studs inside the lawn (a raycast cannot see a CanQuery-false part, so the candidate spawn could not either). They are solid now, every inner step is 1.2 studs or less, and the 4.4-stud outer kerb has eight ramps on the lawn paths (`ParkRamp`, :333). The district pads, their kerbs, the parking islands and the stage step are solid too. Still visible but not solid, on purpose: hedges, trees, lamps, parasols, the bus, the food truck and tents, and the road verges (0.8). Before making a decorative floor non-solid, check what stands on it.
 - Build order is the bug source. The valley plants trees first and later paving covers them (`Ground.lua:9-14`). Only `CampusDistricts` (:125, :488) and `Downtown.lua:191` call `Ground.reservePart`. The `Placement` shape scan catches the rest.
 - Placement looks at shape: broad, thin, flat, not green (`Placement.lua:36-44`). Greenery is still found by name words (`Ground.lua:85`), so a tree with an odd name is missed.
 - Plots build after the world, so `Placement.pass` runs again per plot (`SiliconCore.server.lua:1041-1047`) and once at the end (:3052).
@@ -47,4 +48,4 @@
 - Stale comments: `SkyClient.client.lua:17,230` say LifeClient reads `SVNight`, but LifeClient has no night code. `FlatLook.lua` header says contact discs replace shadows, but `SkyClient.client.lua:84` turns `GlobalShadows` back on.
 - `WorldFxClient`: a red refusal popup only draws on your own plot (:48, :59-67). A rise is skipped if you stand inside the building (:127).
 - `ShadowClient` constant `SKIP_PARENT` (:62) is never used.
-**Last verified:** 2026-10-09 80ce687
+**Last verified:** 2026-10-10 2febbe3

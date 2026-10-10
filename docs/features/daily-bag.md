@@ -12,7 +12,7 @@
 - `src/ServerScriptService/Inventory.lua`: `load` :36, `save` :49, `grant` :56, `use` :74, `codeMult` :115, `scooterBonus` :119, `launchMult` :123, `onHire` :132, `onLaunch` :143, `init` :153 (makes `ItemEvent`, `UseItem`, `ItemsSeen`).
 - `src/ReplicatedStorage/Items.lua`: `LIST` :31 (ids `coffee`, `energy`, `noncompete`, `scout`, `frontpage`), `MAX` 99 :45, `encode` :48, `decode` :56, 3D icons `icon` :135.
 - `src/StarterPlayer/StarterPlayerScripts/InventoryClient.client.lua`: BAG tile :48, gui `Bag` :56, `WHERE` text :35-41, boost rows :235, `setOpen` :212.
-- Callers in `src/ServerScriptService/SiliconCore.server.lua`: `Econ.Daily` init :2714, `Econ.Inv` init :2751, `codeMult` :1325, `onHire` :1898, `launchMult` :3264, `onLaunch` :3267. Also `TalentDrop.lua:272, 853` (`scooterBonus`) and `SaveLoad.lua:395-396`.
+- Callers in `src/ServerScriptService/SiliconCore.server.lua`: `Econ.Daily` init :2714, `Econ.Inv` init :2751, `codeMult` :1325, `onHire` :1898, `launchMult` :3264, `onLaunch` :3267. Also `TalentDrop.lua:281, 866` (`scooterBonus`) and `SaveLoad.lua:395-396`.
 **State:**
 - Session: `s.dailyDay` (UTC day number), `s.streak` (0 to 7), `s.items` (id to count), `s.lastUse`, `s.gotFirstCoffee`.
 - Attributes: `DailyReady`, `DailyStreak`, `DailyLast`, `DailyAmounts`, `DailyItems` (`DailyReward.lua:58-67`). `Items` as `coffee=2;energy=1`, `ItemsNew`, `BoostCode`, `BoostEnergy`, `ArmedScout`, `ArmedPress` (`Inventory.lua:1-12`).
