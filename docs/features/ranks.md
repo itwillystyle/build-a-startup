@@ -10,8 +10,8 @@
 **Files:**
 - `src/ServerScriptService/Ranks.lua`: constants :36-40, `weekId` :43, `rollWeek` :49, `merge` :58, `mine` :82, `newBoard` :117 (`nameFor` :120, `push` :135, `read` :151, `refresh` :161), `init` :195 (`GetRanks` :205), `pushPlayer` :221 (skips every board write in Studio, so test saves never reach the live boards, :228).
 - `src/StarterPlayer/StarterPlayerScripts/RanksClient.client.lua`: corner button :34-43, panel :60, `render` :166, `fetch` :213, `setOpen` :225, `sync` :248.
-- Wiring in `src/ServerScriptService/SiliconCore.server.lua`: stores :558-560, `pushTicker` :3582 (hands off to `Ranks.pushPlayer`; its own fallback write is skipped in Studio), road board `refreshBoard` :3648, `Econ.Ranks` init :3697-3718 (rivals closure).
-- Save fields: `src/ServerScriptService/SaveLoad.lua:91-92` (write), `:175-176` (load).
+- Wiring in `src/ServerScriptService/SiliconCore.server.lua`: stores :558-560, `pushTicker` :3612 (hands off to `Ranks.pushPlayer`; its own fallback write is skipped in Studio), road board `refreshBoard` :3678, `Econ.Ranks` init :3727-3748 (rivals closure).
+- Save fields: `src/ServerScriptService/SaveLoad.lua:93-94` (write), `:177-178` (load).
 **State:**
 - Session: `s.valuation`, `s.weekId`, `s.weekBase` (value at week start), `s.ranksToastWeek` (not saved, so a rejoin can toast again).
 - Saved: `weekId`, `weekBase`. `Ranks.rollWeek` resets a stale or impossible base (`Ranks.lua:49`).
@@ -19,7 +19,7 @@
 - Server memory: `board.cache = { all, week, updated, weekId, weekEnds, stale }`, plus last-written tables that skip unchanged writes.
 - Remote: `SVRemotes.GetRanks` (RemoteFunction). Reply: `all`, `week`, `updated`, `stale`, `weekEnds`, `now`, `mine = { all, week }`, or `{ pending = true }` before the first read (`Ranks.lua:208-219`).
 **Drive it:**
-- `valuation <n>` sets `s.valuation` (`DevHook.lua:184`). Side effect: at 250,000 or more with a name it runs the IPO check and sends a world toast (`SiliconCore.server.lua:3571-3579`).
+- `valuation <n>` sets `s.valuation` (`DevHook.lua:184`). Side effect: at 250,000 or more with a name it runs the IPO check and sends a world toast (`SiliconCore.server.lua:3601-3609`).
 - `name <s>` changes the live name shown on your row (`DevHook.lua:181`).
 - Wait up to 60 s for the board to refresh. There is no SVDev action to force a refresh yet. `scenario hq:5` reaches HQ 2 for the button.
 - Studio Edit datamodel: run `tests/ranks_spec.luau` to test the rules with fake stores.
@@ -28,15 +28,15 @@
 - `tests/offline/journey.spec.luau`: the RANKS tip comes after BAG and INDEX (:122-132).
 - No automated check for the panel itself. `SVCheck` screen pass and `tools/ui_audit.luau` work if the panel is open.
 **Gotchas:**
-- The rank number is lifetime valuation. `s.valuation` is only ever added to (`SiliconCore.server.lua:3108, 3229, 3523`, `Valley.lua:147`), so spending and spin-offs never lower it (`Ranks.lua:10-12`).
+- The rank number is lifetime valuation. `s.valuation` is only ever added to (`SiliconCore.server.lua:3136, 3257, 3552`, `Valley.lua:148`), so spending and spin-offs never lower it (`Ranks.lua:10-12`).
 - Budget: one write per board per player per minute, only on change, and one read per board per server per minute (`Ranks.lua:22-24`). Do not add a per-tap DataStore call.
 - Only the top 25 are listed (`Ranks.TOP` :33). Below that you get "needTop", not an exact rank (`Ranks.lua:109-110`).
 - A company under $1,000 is unranked and not written (`Ranks.lua:86, 138`).
 - The weekly AI rival value is its all-time value times the share of the week gone, so rivals climb all week (`Ranks.lua:168`).
 - `SVWeek_<id>` is a new store every week. Nothing deletes old ones.
 - Names: 10 new lookups per refresh. Unknown ones show "Startup #" plus 4 digits (`Ranks.lua:40, 131`). A company with no name shows that.
-- `Econ.Ranks` is wired late in `SiliconCore` because its rivals closure needs locals defined just above (`SiliconCore.server.lua:3697-3701`). Do not move it up.
+- `Econ.Ranks` is wired late in `SiliconCore` because its rivals closure needs locals defined just above (`SiliconCore.server.lua:3727-3731`). Do not move it up.
 - `RanksClient` header says the button is on the left rail. It was moved top right in v5 (`RanksClient.client.lua:34-43`).
 - The Journey tip finds `RanksCorner.RanksButton` by name (`Journey.lua:170`). Renaming either breaks the tip.
-- If `Ranks` fails to load, the road board and `pushTicker` fall back to the old IPO-only ticker (`SiliconCore.server.lua:3667, 3584`).
-**Last verified:** 2026-10-09 d6a64f6
+- If `Ranks` fails to load, the road board and `pushTicker` fall back to the old IPO-only ticker (`SiliconCore.server.lua:3697, 3614`).
+**Last verified:** 2026-10-09 80ce687
