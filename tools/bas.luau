@@ -10,6 +10,7 @@
 	    lune run tools/bas scenario list    the Studio one-liners for a live check
 	    lune run tools/bas map check        feature-map coverage + staleness
 	    lune run tools/bas ship | world | health   the morning run (Phase 2)
+    lune run tools/bas playtest list | prep <video>|--new | done <video>   review a screen recording
 	Add --json to any command for one machine-readable object on stdout.
 	Add --save to check / sim / baseline diff to file the result in the current evidence folder.
 	Exit codes: 0 ok, 1 a check failed, 2 usage error.
@@ -31,7 +32,7 @@ local A = {}
 for _, a in process.args do
 	if a ~= "--" then table.insert(A, a) end
 end
-local VALUE_FLAGS = { ["--n"] = true, ["--tol"] = true, ["--kind"] = true, ["--log"] = true }
+local VALUE_FLAGS = { ["--n"] = true, ["--tol"] = true, ["--kind"] = true, ["--log"] = true, ["--dir"] = true, ["--note"] = true, ["--days"] = true }
 local JSON = table.find(A, "--json") ~= nil
 local SAVE = table.find(A, "--save") ~= nil
 local function flag(name)
@@ -758,6 +759,173 @@ local function cmdHealth()
 		detail = ("%s, %d open finding(s), written to %s"):format(ok and "GREEN" or "RED", open, HEALTH_MD) } })
 end
 
+-- ============ playtest videos: review a screen recording the same way every time ============
+local Playtest = require("./playtest_lib")
+local PLAYTESTS = "../playtests"                 -- silicon-startup/playtests: outside the repo (frames are big)
+local LEDGER = PLAYTESTS .. "/reviewed.json"     -- name -> { verdict, at, note }
+
+local function videoDir() return flag("--dir") or (HOME .. "/Videos") end
+
+-- the machine's offset from UTC in seconds (EDT = -14400); Luau's os.time(table) reads the table as UTC
+local function utcOffset()
+	local now = os.time()
+	return os.time(os.date("*t", now) :: any) - now
+end
+
+local function unixToLocal(unix)
+	return os.date("%a %d %b %H:%M:%S", unix)
+end
+
+-- recordings named by start time, newest first -> { { name, path, startUnix } }
+local function recordings()
+	local dir, out = videoDir(), {}
+	if not fs.isDir(dir) then return out end
+	local off = utcOffset()
+	for _, f in fs.readDir(dir) do
+		local ext = f:lower():match("%.(%w+)$")
+		local st = (ext == "mp4" or ext == "mkv" or ext == "mov") and Playtest.stamp(f)
+		if st then table.insert(out, { name = f, path = dir .. "/" .. f, startUnix = Playtest.toUnix(st, off) }) end
+	end
+	table.sort(out, function(a, b) return a.startUnix > b.startUnix end)
+	return out
+end
+
+local function duration(path)
+	local r = run("ffprobe", { "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path })
+	return r.ok and tonumber(trim(r.stdout)) or nil
+end
+
+--[[ Every Roblox log (Studio and the Roblox app) that could cover [startUnix, endUnix]:
+	started before it ended and was still being written when it began. The second test
+	matters: 1,263 recordings and a 5.8 GB Studio log (4 Oct) on this machine, 10 Oct. ]]
+local function robloxLogs(startUnix, endUnix)
+	local dir = (process.env.LOCALAPPDATA or "") .. "/Roblox/logs"
+	local out = {}
+	if not fs.isDir(dir) then return out end
+	for _, f in fs.readDir(dir) do
+		local stamp, kind = f:match("_(%d+T%d+Z)_(%a+)_%x+_last%.log$")
+		if stamp and (kind == "Studio" or kind == "Player") then
+			local iso = stamp:gsub("^(%d%d%d%d)(%d%d)(%d%d)T(%d%d)(%d%d)(%d%d)Z$", "%1-%2-%3T%4:%5:%6")
+			local u = Health.isoToUnix(iso)
+			local path = dir .. "/" .. f
+			local ok, meta = pcall(fs.metadata, path)
+			local last = ok and meta.modifiedAt and meta.modifiedAt.unixTimestamp or math.huge
+			if u and u <= endUnix and last >= startUnix then table.insert(out, { path = path, name = f, unix = u, kind = kind }) end
+		end
+	end
+	table.sort(out, function(a, b) return a.unix > b.unix end)
+	return out
+end
+
+local logText = {}   -- path -> text: list and prep --new read the same logs once per recording
+local function readLog(path)
+	logText[path] = logText[path] or fs.readFile(path)
+	return logText[path]
+end
+
+-- what the logs say about a recording: was our game being played, and what did it print?
+-- -> lines, log kinds, session or nil
+local function gameLines(rec, dur)
+	local found, from, session = {}, {}, nil
+	for _, l in robloxLogs(rec.startUnix, rec.startUnix + dur) do
+		local text = readLog(l.path)
+		session = session or Playtest.playing(Playtest.sessions(text, l.kind), rec.startUnix, rec.startUnix + dur)
+		local w = Playtest.window(text, rec.startUnix, rec.startUnix + dur, l.kind)
+		if #w > 0 then
+			table.insert(from, l.kind)
+			for _, x in w do table.insert(found, x) end
+		end
+	end
+	table.sort(found, function(a, b) return a.t < b.t end)
+	return found, from, session
+end
+
+local function stemDir(name)
+	return PLAYTESTS .. "/" .. (name:gsub("%.%w+$", ""):gsub("%s", "_"))
+end
+
+local function prep(rec)
+	local dur = duration(rec.path)
+	if not dur then return { name = "prep", ok = false, ms = 0, detail = rec.name .. ": ffprobe could not read it (is ffmpeg on PATH?)" } end
+	local dir = stemDir(rec.name)
+	ensureDir(PLAYTESTS)
+	ensureDir(dir)
+	for _, f in fs.readDir(dir) do
+		if f:match("^sheet_%d+%.jpg$") then fs.removeFile(dir .. "/" .. f) end
+	end
+	local step = Playtest.step(dur)
+	-- each frame gets its time burned in, so a finding can cite the second it happened
+	local vf = ("fps=1/%d,scale=960:-2,drawtext=fontfile='C\\:/Windows/Fonts/arialbd.ttf':text='%%{pts\\:hms}'"
+		.. ":x=14:y=14:fontsize=44:fontcolor=yellow:box=1:boxcolor=black@0.65:boxborderw=8,tile=3x2"):format(step)
+	local ff = run("ffmpeg", { "-v", "error", "-y", "-i", rec.path, "-vf", vf, dir .. "/sheet_%02d.jpg" })
+	if not ff.ok then return { name = "prep", ok = false, ms = ff.ms, detail = rec.name .. ": ffmpeg failed: " .. trim(ff.stderr):sub(1, 200) } end
+	local speech = {}
+	if not table.find(A, "--no-speech") then
+		local sp = run("python", { "tools/playtest_speech.py", rec.path })
+		if sp.ok then speech = lines(sp.stdout) else table.insert(speech, "(speech step failed: " .. trim(sp.stderr):sub(-160) .. ")") end
+	end
+	local gl, from, session = gameLines(rec, dur)
+	local info = { name = rec.name, duration = dur, startUnix = rec.startUnix, startLocal = unixToLocal(rec.startUnix), step = step,
+		sheets = Playtest.sheets(dur, step), lines = gl, speech = speech, logs = from, session = session }
+	-- never overwrite a review in progress: a fresh skeleton goes beside it
+	local notes = dir .. "/notes.md"
+	local wrote = fs.isFile(notes) and (dir .. "/notes.new.md") or notes
+	fs.writeFile(wrote, Playtest.notes(info))
+	local errs = 0
+	for _, l in gl do if l.level == "ERROR" then errs += 1 end end
+	return { name = "prep", ok = true, ms = ff.ms, detail = ("%s: %s, %s, %d sheet(s), %d spoken line(s), %d game line(s) (%d error(s)) -> %s"):format(
+		rec.name, Playtest.clock(dur), session and session.where or "NOT our game", #info.sheets, #speech, #gl, errs, wrote) }
+end
+
+local function cmdPlaytest()
+	local sub = pos[2] or "list"
+	local ledger = readJson(LEDGER) or {}
+	if sub == "list" then
+		local checks = {}
+		for i, rec in recordings() do
+			if i > 15 then break end
+			local dur = duration(rec.path) or 0
+			local gl, _, session = gameLines(rec, dur)
+			local seen = ledger[rec.name]
+			table.insert(checks, { name = seen and seen.verdict or (session and "new" or "not ours"), ok = true, ms = 0,
+				detail = ("%s  %5s  %s, %d game line(s)"):format(rec.name, Playtest.clock(dur), session and session.where or "-", #gl) })
+		end
+		if #checks == 0 then table.insert(checks, { name = "none", ok = true, ms = 0, detail = "no recordings named by date in " .. videoDir() }) end
+		return result("playtest list", checks)
+	elseif sub == "prep" then
+		local want, checks = pos[3], {}
+		local days = tonumber(flag("--days")) or 3
+		for _, rec in recordings() do
+			local pick
+			if want then
+				pick = rec.name == want or rec.name:gsub("%.%w+$", "") == want
+			else
+				-- --new: the last --days (3) of recordings not yet in the ledger, made while our game ran
+				pick = rec.startUnix >= os.time() - days * 86400 and not ledger[rec.name]
+					and select(3, gameLines(rec, duration(rec.path) or 0)) ~= nil
+			end
+			if pick then table.insert(checks, prep(rec)) end
+		end
+		if #checks == 0 then
+			table.insert(checks, { name = "prep", ok = want == nil, ms = 0,
+				detail = want and ("no recording called " .. want .. " in " .. videoDir()) or "nothing new to review" })
+		end
+		return result("playtest prep", checks)
+	elseif sub == "done" then
+		local name = pos[3]
+		if not name then return nil end
+		for _, rec in recordings() do
+			if rec.name == name or rec.name:gsub("%.%w+$", "") == name then name = rec.name end
+		end
+		local verdict = table.find(A, "--skip") and "skipped" or "reviewed"
+		ensureDir(PLAYTESTS)
+		ledger[name] = { verdict = verdict, at = os.date("!%Y-%m-%dT%H:%M:%SZ"), note = flag("--note") }
+		writeJson(LEDGER, ledger)
+		return result("playtest done", { { name = verdict, ok = true, ms = 0, detail = name .. " filed in " .. LEDGER } })
+	end
+	return nil
+end
+
 local HELP = [[
 bas -- one command for every check this game has. Run from the game folder.
 
@@ -775,6 +943,9 @@ bas -- one command for every check this game has. Run from the game folder.
   lune run tools/bas ship                  is the live game behind main? unmerged branches?
   lune run tools/bas world [save] [--log f]  world health from Studio's log vs the last good run
   lune run tools/bas health                all of it, written to ../HEALTH.md (the morning run)
+  lune run tools/bas playtest list         screen recordings, which are playtests, which are reviewed
+  lune run tools/bas playtest prep <name>|--new [--days 3]   sheets + speech + game log -> ../playtests/<name>/notes.md
+  lune run tools/bas playtest done <name> [--skip] [--note "..."]   file it as reviewed
 
   --json   one JSON object on stdout     --save   also file it in the evidence folder
   exit 0 ok, 1 a check failed, 2 usage error]]
@@ -842,6 +1013,8 @@ elseif cmd == "world" then
 	res = cmdWorld()
 elseif cmd == "health" then
 	res = cmdHealth()
+elseif cmd == "playtest" then
+	res = cmdPlaytest()
 end
 
 if not res then
