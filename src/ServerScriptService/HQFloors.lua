@@ -26,6 +26,7 @@
 ]]
 local RS = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
+local Movement = require(script.Parent:WaitForChild("Movement"))   -- the lift refuses a teleport
 
 local HQFloors = {}
 
@@ -100,6 +101,7 @@ local function initRemotes()
 		if not reg or not root then return end
 		if player:GetAttribute("Carrying") then return end
 		if (lastGo[player] or 0) > os.clock() - 1.2 then return end
+		if not Movement.check(player) then return end   -- standing at the lift, honestly
 		-- the player must be standing at one of THIS building's lifts
 		local near, dest = false, nil
 		for _, st in ipairs(reg.stops) do
