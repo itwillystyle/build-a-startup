@@ -288,7 +288,7 @@ function CampusHub.build(parent)
 	-- the lawn, kerbed on both sides and hedged on the outside
 	ring(f, "ParkKerbIn", R_STEP + 1.6, 3.2, 3.2, 1.5, CONCRETE, { seg = 40, canCollide = true, canQuery = true })
 	ring(f, "ParkLawn", (R_STEP + R_PARK - 36) / 2, (R_PARK - 36) - R_STEP, 3.2, 1.2, LAWN,
-		{ material = Enum.Material.Grass })   -- PLANTED: the lawn back to paint (reverted next commit)
+		{ material = Enum.Material.Grass, canCollide = true, canQuery = true })
 	ring(f, "ParkKerbMid", R_PARK - 37, 3.2, 3.2, 1.5, CONCRETE, { seg = 40, canCollide = true, canQuery = true })
 	ring(f, "ParkHedge", R_PARK - 39.5, 4.0, 4.4, 3.2, HEDGE, { material = Enum.Material.Grass, seg = 40 })
 

@@ -124,7 +124,7 @@ local PathfindingService = game:GetService("PathfindingService")
 	    under 12 studs wide: no path leaves it, so every candidate fell back to the drive.
 	  * from (0, 64-72) every route works: the drive (~139), the far drive (~341), the
 	    park (~222), the next plot (~153). DropOffClient marks it while you carry. ]]
-local ENTRANCE_Z = 30   -- PLANTED: the drop-off back inside the lobby (reverted next commit)
+local ENTRANCE_Z = 66
 local function doorPos(plot)
 	local cf = plot.pivot * CFrame.new(0, 0, ENTRANCE_Z)
 	return Vector3.new(cf.Position.X, groundY(cf.Position.X, cf.Position.Z), cf.Position.Z)
