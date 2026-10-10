@@ -79,6 +79,7 @@ local function isNoise(msg)
 	for _, n in NOISE do if msg:find(n) then return true end end
 	return false
 end
+H.isNoise = isNoise
 
 -- numbers and quoted names vary run to run; the SHAPE of a warning is what is new or not
 function H.shape(msg)
