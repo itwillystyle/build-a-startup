@@ -25,6 +25,7 @@
 local RS = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local SSS = game:GetService("ServerScriptService")
+local Telemetry = require(script.Parent:WaitForChild("Telemetry"))   -- the player loop: cash in and out
 
 local Apartments = {}
 
@@ -453,6 +454,7 @@ local function buy(player, tierId)
 		return
 	end
 	cash.Value -= price
+	Telemetry.money(player, "sink", price, "home")
 	s.apt = t.id
 	s.lastBuy = os.clock()
 	player:SetAttribute("Apt", s.apt)
@@ -592,6 +594,7 @@ function Apartments.botBuy(player)
 	local price = Apartments.priceOf(s, t.id)
 	if cash.Value < price then return false end
 	cash.Value -= price
+	Telemetry.money(player, "sink", price, "home")
 	s.apt = t.id
 	player:SetAttribute("Apt", s.apt)
 	api.recompute(player)

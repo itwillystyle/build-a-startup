@@ -23,6 +23,7 @@
 local RS = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
+local Telemetry = require(script.Parent:WaitForChild("Telemetry"))   -- the player loop: cash in and out
 
 local Cars = {}
 
@@ -320,6 +321,7 @@ local function buyCar(player, id)
 		return
 	end
 	cash.Value -= entry.price
+	Telemetry.money(player, "sink", entry.price, "car")
 	s.lastBuy = os.clock()
 	s.cars = s.cars or {}
 	table.insert(s.cars, id)

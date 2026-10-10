@@ -508,6 +508,10 @@ return function(core)
 		elseif action == "botstop" then
 			if s.bot then s.bot.running = false end
 			return "stopping"
+		elseif action == "feedback" then
+			-- the newest TELL US messages (arg = how many, default 10); Studio entries say studio = true
+			local ok, Fb = pcall(require, game:GetService("ServerScriptService"):WaitForChild("Feedback"))
+			return ok and Fb.latest(arg) or { error = tostring(Fb) }
 		elseif action == "scenario" then
 			-- v5.1: one call to a known state for a live check (DevScenarios.lua)
 			return Scenarios.run({ handle = handle, Econ = Econ, cashOf = cashOf, plotOf = plotOf }, player, arg)

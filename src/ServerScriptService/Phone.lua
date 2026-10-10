@@ -26,6 +26,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
+local Telemetry = require(script.Parent:WaitForChild("Telemetry"))   -- the player loop: cash in and out
 local TextService = game:GetService("TextService")
 local TextChatService = game:GetService("TextChatService")
 local RunService = game:GetService("RunService")
@@ -357,7 +358,7 @@ local function takeOffer(player, th)
 	local o = th.offer
 	th.status = "busy"
 	local cash = api.cash(player)
-	if cash then cash.Value += o.amount end
+	if cash then cash.Value += o.amount; Telemetry.money(player, "source", o.amount, "investor") end
 	if o.item then api.grant(player, o.item, 1, th.persona.first .. " sent a gift") end
 	say(player, th, "them", "Done. Sending it now. Talk soon!")
 	send(player, { kind = "paid", id = th.id, amount = o.amount })
@@ -619,7 +620,7 @@ function Phone.init(a)
 				if ok then
 					local amount = capped(player, th.series and "seriesPush" or "push", niceMoney(o.amount * 1.5))
 					local cash = api.cash(player)
-					if cash then cash.Value += amount end
+					if cash then cash.Value += amount; Telemetry.money(player, "source", amount, "investor") end
 					if o.item then api.grant(player, o.item, 1, th.persona.first .. " sent a gift") end
 					say(player, th, "them", "You drive a hard bargain. Fine. Deal.")
 					send(player, { kind = "paid", id = th.id, amount = amount })

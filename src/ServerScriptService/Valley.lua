@@ -33,6 +33,7 @@
 ]]
 
 local Players = game:GetService("Players")
+local Telemetry = require(script.Parent:WaitForChild("Telemetry"))   -- the player loop: cash in and out
 
 local Valley = {}
 
@@ -143,7 +144,7 @@ local function closeBell()
 	local s = sessionOf(best)
 	local prize = math.floor((s.rate or 0) * BELL_PRIZE_SECONDS)
 	local cash = api.cash(best)
-	if cash and prize > 0 then cash.Value += prize end
+	if cash and prize > 0 then cash.Value += prize; Telemetry.money(best, "source", prize, "bell") end
 	s.valuation = valuationOf(s) + math.floor(prize / 2)
 	local folder = plotFolderOf(best)
 	api.plots:SetAttribute("BellWinner", folder and folder.Name or "")
