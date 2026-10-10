@@ -52,6 +52,8 @@ if not okCine then Cine = nil end
 	(tools/chase_lab.luau) can drive THE SAME maths without Play. Tune there,
 	not here; this file only owns the beats (letterbox, slam, shake, hush). ]]
 local ChaseCam = require(ReplicatedStorage:WaitForChild("ChaseCam"))
+local CameraWalls = require(ReplicatedStorage:WaitForChild("CameraWalls"))
+CameraWalls.start()
 local T = ChaseCam.T
 
 local BEATS = {
@@ -355,7 +357,10 @@ end
 	counted: you and the scooter on you, the TalentRow folder (hunters,
 	candidates, the hire you carry) and anything you can walk through. An
 	invisible collider (the valley has 1,232 collision wedges) is skipped and
-	remembered, so the lens never dives in for a wall nobody can see. ]]
+	remembered, so the lens never dives in for a wall nobody can see -- EXCEPT
+	a building's: an HQ or garage wall is an invisible box standing in for a
+	mesh the cast cannot hit, and skipping it put the lens inside the building
+	(his playtest, 10 Oct). CameraWalls.isSolid knows which those are. ]]
 local occ = {}
 local occParams = RaycastParams.new()
 occParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -376,7 +381,7 @@ local function unblock(cf, root, dt)
 	local hit
 	for _ = 1, 4 do
 		local r = workspace:Spherecast(origin, ChaseCam.OCCLUDE.RADIUS, off, occParams)
-		if r and r.Instance:IsA("BasePart") and r.Instance.Transparency > 0.9 then
+		if r and r.Instance:IsA("BasePart") and r.Instance.Transparency > 0.9 and not CameraWalls.isSolid(r.Instance) then
 			occParams:AddToFilter(r.Instance)
 		else
 			hit = r
