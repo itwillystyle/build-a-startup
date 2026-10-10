@@ -9,7 +9,9 @@
 	  env      what the task server is (running? server? players?)
 	  boot     did SiliconCore start, how far it got ([SV] lines seen), how long
 	  modules  every ModuleScript: "ok", "yield" (waits on something the boot makes), or the error
-	  errors   every error the log printed while all this ran (the thing that fails the check) ]]
+	  errors   every error the log printed while all this ran (the thing that fails the check)
+	  world    surfaces you would sink into (WorldHealth.sinking): any one fails the check
+	  chase    every plot's drop-off route and each chase tier's spot (TalentDrop.health) ]]
 local RunService = game:GetService("RunService")
 local LogService = game:GetService("LogService")
 local SSS = game:GetService("ServerScriptService")
@@ -73,6 +75,19 @@ for _, root in { SSS, RS } do
 	end
 end
 out.modules = modules
+
+-- 3. the two 10 Oct loops, on the world the boot just built: surfaces you would
+-- sink into (WorldHealth) and the chase (TalentDrop.health: every plot's drop-off
+-- joins the street, every chase tier finds a spot in its band)
+if booted then
+	local sv = workspace:FindFirstChild("SiliconValley")
+	local okW, world = pcall(function()
+		return require(SSS:WaitForChild("WorldHealth")).sinking(sv, { sv and sv:FindFirstChild("TalentRow") })
+	end)
+	out.world = okW and world or { error = tostring(world):sub(1, 300) }
+	local okC, chase = pcall(function() return require(SSS:WaitForChild("TalentDrop")).health(3) end)
+	out.chase = okC and chase or { error = tostring(chase):sub(1, 300) }
+end
 out.errors = errors
 out.warnings = #warns
 out.firstWarnings = { warns[1], warns[2], warns[3] }

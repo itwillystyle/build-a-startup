@@ -22,7 +22,7 @@
 - Attributes the HUD reads: `Objective*` :1839-1843, `Milestone*`, `CoachTip`, `CanGoPublic`, `Shipped`, `BuildOpen`, `HQLevel`, `ProductProgress`, `CodeTap`, `Momentum`, `PriceMult`, `IncomeRooms`, `Away`. Leaderstats: Cash, Per Sec, Staff, Valuation.
 - Saved: see saving-data.md (`SaveLoad.lua:78-142`).
 **Drive it:**
-- `dev:Invoke("scenario", p, "ready")`: ship, $1e9 if under $1e8, one hire (`DevScenarios.lua:148-173`). `"rich"` adds $1e9. `"hq:<n>"` builds free to Wafers level n (:229).
+- `dev:Invoke("scenario", p, "ready")`: ship, $1e9 if under $1e8, one hire (`DevScenarios.lua:148-173`). `"rich"` adds $1e9. `"hq:<n>"` builds free to Wafers level n (:238).
 - Raw SVDev: `ship`, `cash <n>`, `upgrade`, `work <n>`, `product` (LAUNCH now), `launch <1-6>`, `earned <n>`, `state` (`DevHook.lua:53,58,62,175,178,113,87,518`).
 - `dev:Invoke("bot", p, "20 2")` plays the whole loop for 2 companies and logs `[BOT]` lines (`DevHook.lua:188`). Read with `botlog`.
 **Prove it:**

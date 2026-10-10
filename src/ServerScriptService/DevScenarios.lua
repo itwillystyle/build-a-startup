@@ -39,7 +39,7 @@ local snapped = {} -- userId -> true once a snapshot was taken in THIS server
 Scen.LIST = {
 	"snapshot", "rich", "ready", "chase:skilled", "chase:star", "chase:genius",
 	"vip-chase", "hq:<n>", "home:<0-3>", "spinoff", "tp:hq", "tp:apt", "tp:car",
-	"tp:candidate:<tier>", "tp:vip", "tp:door", "geo", "restock", "list",
+	"tp:candidate:<tier>", "tp:vip", "tp:door", "geo", "restock", "health", "list",
 }
 
 local function allowed(userId)
@@ -191,6 +191,15 @@ function Scen.run(ctx, player, name)
 			if c then cands[id] = { pos = c.pos, pathLen = c.pathLen } end
 		end
 		return { ok = door ~= nil, door = door, candidates = cands }
+	elseif kind == "health" then
+		-- the two 10 Oct loops, live: sinking surfaces (WorldHealth) and the chase (TalentDrop.health)
+		local WH = require(game:GetService("ServerScriptService"):WaitForChild("WorldHealth"))
+		local skip = { workspace:FindFirstChild("SiliconValley") and workspace.SiliconValley:FindFirstChild("TalentRow") }
+		for _, pl in ipairs(game:GetService("Players"):GetPlayers()) do if pl.Character then table.insert(skip, pl.Character) end end
+		local world = WH.sinking(workspace:WaitForChild("SiliconValley"), skip)
+		local chase = (Econ.Drop and Econ.Drop.health) and Econ.Drop.health(2) or { error = "TalentDrop is not running" }
+		table.insert(did, ("health -> %d sinking surface kinds, chase checked on %d plots"):format(world.found, #(chase.plots or {})))
+		return done(true, nil, { world = world, chase = chase })
 	elseif kind == "restock" then
 		if not (Econ.Drop and Econ.Drop.devRestock) then return done(false, "TalentDrop is not running") end
 		Econ.Drop.devRestock(player)

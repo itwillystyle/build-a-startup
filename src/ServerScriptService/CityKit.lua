@@ -188,7 +188,7 @@ function CityKit.buildStreet(parent, opts)
 	for x = x1 + 30, x2 - 30, 60 do
 		for _, side in ipairs({ -1, 1 }) do
 			CityKit.spawnOnGround("planter", x, z + side * 24, groundY + 0.9, folder,
-				{ name = "Planter", canQuery = false, canCollide = false })
+				{ name = "Planter", canQuery = true, canCollide = true })   -- solid (10 Oct): you walked into it
 			made.props += 1
 		end
 	end

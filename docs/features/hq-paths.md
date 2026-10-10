@@ -24,8 +24,8 @@
 - World: plot folder child `Wafers`, models `L###_kind_dept` tagged `WaferPiece` (`Wafers.lua:1508-1530`). Plots attribute `TowerSpec` (:2796).
 - Saved: `wl`, `wd`, `rec`, `bp`, `hq` (`src/ServerScriptService/SaveLoad.lua:82-87`), `hqPath` (:132).
 **Drive it:**
-- `dev:Invoke("scenario", p, "hq:<n>")` runs raw `wlevel n` (`DevScenarios.lua:195`, `DevHook.lua:65-81`). It builds free up to n, capped by the company's blueprint (18 for company one).
-- Raw `upgrade` calls `tryUpgrade` (`DevHook.lua:62`). `tp:hq` teleports to the HQ pad (`DevScenarios.lua:217`).
+- `dev:Invoke("scenario", p, "hq:<n>")` runs raw `wlevel n` (`DevScenarios.lua:204`, `DevHook.lua:65-81`). It builds free up to n, capped by the company's blueprint (18 for company one).
+- Raw `upgrade` calls `tryUpgrade` (`DevHook.lua:62`). `tp:hq` teleports to the HQ pad (`DevScenarios.lua:226`).
 - Choosing a path: none yet. `wlevel` skips the picker, and `WaferPath` is refused above level 1 (`SiliconCore.server.lua:2858-2861`). Untested idea: fire `WaferPath` from the client at level 1.
 **Prove it:**
 - `tests/offline/wafer.spec.luau` with `tests/offline/wafer_golden.json`: WaferPlan matches the sim (100 pieces, prices, caps, departments, effects, rebuild share, blueprint).
@@ -45,4 +45,4 @@
 - `LiftGo` needs you within 16 studs of a stop, blocks while Carrying, has a 1.2 s cooldown and stands you up from a car first (`HQFloors.lua:95-126`).
 - In Wafers mode `buildShell` runs only for the level 1 garage (`SiliconCore.server.lua:1058`). By the code, `skinHQ` only skins the level 1 garage and the V2 meshes are never used while Wafers is on (`SaveLoad.lua:261-263`, `SiliconCore.server.lua:2175`).
 - Rocket position uses `CFG.HQ_LEVELS[stage].h`, not the tower (`SiliconCore.server.lua:3281-3284`). Unclear if it matches a tall tower's roof.
-**Last verified:** 2026-10-09 80ce687
+**Last verified:** 2026-10-10 d49543c

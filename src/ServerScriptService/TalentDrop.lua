@@ -1021,6 +1021,51 @@ function TalentDrop.bestFor(player, cashValue)
 end
 
 -- Studio test harness only: the VIP pickup the prompt calls (prompts need real input)
+--[[ health (10 Oct): the chase health check. For every plot: does a real route join
+	the drop-off to the street (the walk-in's drive spot), and does the real
+	exploreSpot find each chase tier a spot inside its band? `tries` exploreSpot
+	calls per tier, each up to 12 attempts. His 10 Oct recording found the drop-off
+	unreachable and, once it moved inside the lobby, every candidate falling back
+	to the drive; this is the check that would have said so.
+	Run by the cloud smoke on every PR and the Studio scenario `health`.
+	-> { plots = { { index, door = "ok N" | "NO ROUTE", tiers = { id = { found, tries, lens } } } } } ]]
+function TalentDrop.health(tries)
+	tries = tries or 2
+	local out = { plots = {} }
+	for _, plot in ipairs((api and api.plots) or {}) do
+		if plot.pivot then
+			local row = { index = plot.index, tiers = {} }
+			local door = doorPos(plot)
+			local wx, wz = spotFor(plot, Econ.TIERS[1])
+			local street = Vector3.new(wx, groundY(wx, wz), wz)
+			local path = PathfindingService:CreatePath({ AgentRadius = 2.5, AgentHeight = 5, AgentCanJump = true, WaypointSpacing = 6 })
+			local ok = pcall(function() path:ComputeAsync(door, street) end)
+			if ok and path.Status == Enum.PathStatus.Success then
+				local w, len = path:GetWaypoints(), 0
+				for k = 2, #w do len += (w[k].Position - w[k - 1].Position).Magnitude end
+				row.door = ("ok %d"):format(len)
+			else
+				row.door = "NO ROUTE (" .. tostring(path.Status):gsub("Enum%.PathStatus%.", "") .. ")"
+			end
+			for _, tier in ipairs(Econ.TIERS) do
+				if tier.chase then
+					local t = { found = 0, tries = tries, lens = {} }
+					for _ = 1, tries do
+						local ex, _, _, len = exploreSpot(plot, tier)
+						if ex then
+							t.found += 1
+							table.insert(t.lens, math.floor(len))
+						end
+					end
+					row.tiers[tier.id] = t
+				end
+			end
+			table.insert(out.plots, row)
+		end
+	end
+	return out
+end
+
 function TalentDrop.devPickVip(player)
 	if not game:GetService("RunService"):IsStudio() then return end
 	recruitVip(player)
