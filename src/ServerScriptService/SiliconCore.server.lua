@@ -4165,4 +4165,3 @@ if FlatLook then
 	print(("[SV] flat look: %d parts flattened, watching for more"):format(flattened))
 end
 print(("SILICON VALLEY TYCOON -- %d plots on the road, heightmap valley, downtown east."):format(#plots))
-workspace:FindFirstChild("SmokePlantedFault").Name = "x"   -- PLANTED for the cloud smoke proof; reverted next commit
