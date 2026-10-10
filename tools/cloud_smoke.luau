@@ -116,14 +116,25 @@ if type(out) == "table" then
 	-- the chase check: every plot's drop-off reaches the street, every chase tier finds a spot
 	if type(out.chase) == "table" then
 		if out.chase.error then table.insert(problems, "chase check failed to run: " .. out.chase.error) end
+		--[[ a drop-off with no route is never luck: one plot fails the check. A spot is
+			random (exploreSpot tries 12 points), so one unlucky plot is not a bug: a tier
+			fails only when under half its tries across ALL plots found a spot. The 10 Oct
+			lobby drop-off scored 0%; a 1-try check failed on luck (plot 6 genius). ]]
+		local byTier = {}
 		for _, p in out.chase.plots or {} do
 			if type(p.door) == "string" and not p.door:find("^ok") then
 				table.insert(problems, ("plot %s: no route from the drop-off to the street (%s)"):format(tostring(p.index), p.door))
 			end
 			for id, t in p.tiers or {} do
-				if (t.found or 0) == 0 then
-					table.insert(problems, ("plot %s: %s candidates found no spot in their band (they fall back to the drive)"):format(tostring(p.index), id))
-				end
+				local b = byTier[id] or { found = 0, tries = 0 }
+				b.found += t.found or 0
+				b.tries += t.tries or 0
+				byTier[id] = b
+			end
+		end
+		for id, b in byTier do
+			if b.tries > 0 and b.found / b.tries < 0.5 then
+				table.insert(problems, ("%s candidates found a spot in their band on only %d of %d tries (under half fall back to the drive)"):format(id, b.found, b.tries))
 			end
 		end
 	end

@@ -85,7 +85,7 @@ if booted then
 		return require(SSS:WaitForChild("WorldHealth")).sinking(sv, { sv and sv:FindFirstChild("TalentRow") })
 	end)
 	out.world = okW and world or { error = tostring(world):sub(1, 300) }
-	local okC, chase = pcall(function() return require(SSS:WaitForChild("TalentDrop")).health(1) end)
+	local okC, chase = pcall(function() return require(SSS:WaitForChild("TalentDrop")).health(3) end)
 	out.chase = okC and chase or { error = tostring(chase):sub(1, 300) }
 end
 out.errors = errors
