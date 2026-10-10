@@ -118,10 +118,11 @@ local function pad(parent, a, r, t, w, d, colour, y)
 		the pad inside it too, since it is the outermost piece. ]]
 	local verge = slab(parent, "PadVerge", a, r, t, w + 22, 0.8, d + 22, LAWN, { y = base - 0.4, material = Enum.Material.Grass })
 	Ground.reservePart(verge, "PadVerge")
-	slab(parent, "PadKerb", a, r, t, w + 6, 1.4, d + 6, CONCRETE, { y = base - 0.4 })
+	slab(parent, "PadKerb", a, r, t, w + 6, 1.4, d + 6, CONCRETE, { y = base - 0.4, solid = true })
 	-- queryable: a pad is a floor, and anything asking what it is standing on
 	-- (contact shadows, idle spots, candidates) has to be able to find it
-	return slab(parent, "Pad", a, r, t, w, 1.0, d, colour, { y = base - 0.5 + 0.55, query = true })
+	-- solid (10 Oct): it stands a stud above the ground, and you stood in it
+	return slab(parent, "Pad", a, r, t, w, 1.0, d, colour, { y = base - 0.5 + 0.55, solid = true })
 end
 
 local FlatLook = require(script.Parent:WaitForChild("FlatLook"))   -- v4.7 contact shadows
@@ -407,8 +408,8 @@ local function parking(f, a, R)
 			end
 		end
 		if row < 3 then
-			slab(f, "LotIsland", a, rr + 18, 0, 128, 2.4, 6, CONCRETE, { y = 0.5 })
-			slab(f, "LotIslandGreen", a, rr + 18, 0, 124, 1.0, 4, LAWN, { y = 2.9, material = Enum.Material.Grass })
+			slab(f, "LotIsland", a, rr + 18, 0, 128, 2.4, 6, CONCRETE, { y = 0.5, solid = true })
+			slab(f, "LotIslandGreen", a, rr + 18, 0, 124, 1.0, 4, LAWN, { y = 2.9, material = Enum.Material.Grass, solid = true })
 		end
 	end
 	-- the way in: a hut, a barrier and a sign, at the road end of the lot
@@ -521,7 +522,7 @@ end
 local function eventLawn(f, a, R)
 	pad(f, a, R - 20, 0, 150, 150, LAWN, 0)
 	slab(f, "StageDeck", a, R + 42, 0, 70, 5, 30, OAK, { y = 0.6, solid = true })
-	slab(f, "StageStep", a, R + 26, 0, 26, 2.8, 6, OAK, { y = 0.6, material = Enum.Material.Wood })
+	slab(f, "StageStep", a, R + 26, 0, 26, 2.8, 6, OAK, { y = 0.6, material = Enum.Material.Wood, solid = true })   -- the way onto the (solid) deck
 	local back = slab(f, "StageBack", a, R + 56, 0, 72, 26, 3, Color3.fromRGB(38, 42, 50), { y = 5 })
 	board(back, { "DEMO DAY", "PITCH YOUR COMPANY  -  SATURDAY" },
 		{ ppu = 22, maxDistance = 460, firstColor = GOLD, rowScale = 0.74 })

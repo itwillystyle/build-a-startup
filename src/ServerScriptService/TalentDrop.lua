@@ -113,11 +113,20 @@ local DOOR_Z, DRIVE_MAX = 70, 300     -- the walk is measured from the door, and
 	   If no spot passes (12 tries), the old drive spot is used. ]]
 local PathfindingService = game:GetService("PathfindingService")
 
--- the DOORSTEP: the drive pavement at your HQ's door line. Not the HQ pad: that sits
--- inside the Garage, where a straight run hits the glass and pathfinding finds no
--- route (measured 9 Oct: 0 of 60 points within 28 studs of the pad were reachable)
+--[[ The DOORSTEP: your front yard, the open forecourt right in front of the HQ's entrance
+	(local (0, 66); the building's front face is at about z 51-62, so the 14-stud zone
+	reaches it). Not the HQ pad: that sits inside, where pathfinding finds no route.
+	10 Oct, measured:
+	  * it used to be (-DRIVE_WALK, DOOR_Z) = (-73, 70), the old straight-road layout's
+	    door line, 73 studs off to the side with nothing marking it. His recording: he
+	    rode to the front door, went in, and was caught inside his own HQ.
+	  * the entrance court (0, 30) is INSIDE the Wafers ground floor, behind a doorway
+	    under 12 studs wide: no path leaves it, so every candidate fell back to the drive.
+	  * from (0, 64-72) every route works: the drive (~139), the far drive (~341), the
+	    park (~222), the next plot (~153). DropOffClient marks it while you carry. ]]
+local ENTRANCE_Z = 66
 local function doorPos(plot)
-	local cf = plot.pivot * CFrame.new(-DRIVE_WALK, 0, DOOR_Z)
+	local cf = plot.pivot * CFrame.new(0, 0, ENTRANCE_Z)
 	return Vector3.new(cf.Position.X, groundY(cf.Position.X, cf.Position.Z), cf.Position.Z)
 end
 
@@ -436,6 +445,7 @@ local function endCarry(player, reason, lost, outcome)
 	player:SetAttribute("CarryName", nil)
 	player:SetAttribute("CarryDeadline", nil)
 	player:SetAttribute("CarryHome", nil)
+	player:SetAttribute("CarryHomeR", nil)
 	-- the origin tier restocks only now (a slot stays empty while its candidate
 	-- is in transit; re-arming it at recruit time spawned duplicates -- caught live)
 	if c.entry then
@@ -535,7 +545,8 @@ local function startCarry(player, plot, c)
 	player:SetAttribute("Carrying", c.tier.id)
 	player:SetAttribute("CarryName", c.name)
 	player:SetAttribute("CarryDeadline", c.deadline)
-	player:SetAttribute("CarryHome", doorPos(plot))   -- the chase camera's "home" beat
+	player:SetAttribute("CarryHome", doorPos(plot))   -- the chase camera's "home" beat, and DropOffClient's ring
+	player:SetAttribute("CarryHomeR", Chase.DELIVER_R)
 	-- poachable by other founders while in transit
 	local pp = Instance.new("ProximityPrompt")
 	pp.Name = "PoachPrompt"
@@ -611,6 +622,7 @@ function TalentDrop.poach(thief, victim)
 	scooterOff(victim, c)
 	victim:SetAttribute("Carrying", nil); victim:SetAttribute("CarryName", nil); victim:SetAttribute("CarryDeadline", nil)
 	victim:SetAttribute("CarryHome", nil)
+	victim:SetAttribute("CarryHomeR", nil)
 	if not attach(thief, c) then c.model:Destroy() return end
 	c.fee = feeFor(thief, c.tier) or c.fee
 	-- v4.6: the thief's home is their DOOR, for the timer and the hunter's no-lunge stretch
@@ -627,6 +639,7 @@ function TalentDrop.poach(thief, victim)
 	scooterOn(thief, c)
 	thief:SetAttribute("Carrying", c.tier.id); thief:SetAttribute("CarryName", c.name); thief:SetAttribute("CarryDeadline", c.deadline)
 	thief:SetAttribute("CarryHome", door)
+	thief:SetAttribute("CarryHomeR", Chase.DELIVER_R)
 	for _, H in ipairs(c.hunters or {}) do if H.rig then H.rig:SetAttribute("ChasingUserId", thief.UserId) end end
 	toast(victim, ("%s poached %s from you!"):format(thief.DisplayName, c.name))
 	toast(thief, ("You poached %s! Get them home."):format(c.name))
