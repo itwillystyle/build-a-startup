@@ -29,4 +29,4 @@
 - Each feedback message is a DataStore write out of the shared budget every save comes from; keep the 60 s gap.
 - Not built: the weekly routine that reads the dashboard needs the Analytics Query API and an Open Cloud key (Phase 3).
 
-**Last verified:** 2026-10-10 2febbe3
+**Last verified:** 2026-10-10 d49543c

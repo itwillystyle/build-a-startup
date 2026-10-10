@@ -38,6 +38,7 @@
 - Server log lines: `[SV] ground sweep`, `[SV] placement`, `[SV] flat look`. No offline spec: these modules touch services at load (`README.md:34`).
 **Gotchas:**
 - The park you see is the park you stand on (10 Oct, `CampusHub.lua:258`). Its lawn, walks and terraces used to be CanCollide and CanQuery false above one flat floor, so players and candidates stood 3.6 studs inside the lawn (a raycast cannot see a CanQuery-false part, so the candidate spawn could not either). They are solid now, every inner step is 1.2 studs or less, and the 4.4-stud outer kerb has eight ramps on the lawn paths (`ParkRamp`, :333). The district pads, their kerbs, the parking islands and the stage step are solid too. Still visible but not solid, on purpose: hedges, trees, lamps, parasols, the bus, the food truck and tents, and the road verges (0.8). Before making a decorative floor non-solid, check what stands on it.
+- The check that keeps it true: `src/ServerScriptService/WorldHealth.lua` `sinking` :45 finds every visible, walkable-looking slab (wide, flat, at most 2.5 thick, under y 12, inside the campus) that is not solid and stands over 0.6 studs above the solid floor under it. `ALLOW` :24 lists what is meant to be walked through, each with why; low-poly trees and bushes pass by their `LP_` prefix. It runs in the cloud smoke on every PR and in the Studio scenario `health`. Live on 10 Oct it found the forecourt lawn panels (0.6), the monument plinth (1.6) and the street planters (1.3), now solid; with the lawn planted back to non-solid it reported "ParkLawn sinks 3.6".
 - Build order is the bug source. The valley plants trees first and later paving covers them (`Ground.lua:9-14`). Only `CampusDistricts` (:125, :488) and `Downtown.lua:191` call `Ground.reservePart`. The `Placement` shape scan catches the rest.
 - Placement looks at shape: broad, thin, flat, not green (`Placement.lua:36-44`). Greenery is still found by name words (`Ground.lua:85`), so a tree with an odd name is missed.
 - Plots build after the world, so `Placement.pass` runs again per plot (`SiliconCore.server.lua:1041-1047`) and once at the end (:3052).
@@ -48,4 +49,4 @@
 - Stale comments: `SkyClient.client.lua:17,230` say LifeClient reads `SVNight`, but LifeClient has no night code. `FlatLook.lua` header says contact discs replace shadows, but `SkyClient.client.lua:84` turns `GlobalShadows` back on.
 - `WorldFxClient`: a red refusal popup only draws on your own plot (:48, :59-67). A rise is skipped if you stand inside the building (:127).
 - `ShadowClient` constant `SKIP_PARENT` (:62) is never used.
-**Last verified:** 2026-10-10 2febbe3
+**Last verified:** 2026-10-10 d49543c

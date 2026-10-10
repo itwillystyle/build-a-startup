@@ -18,7 +18,7 @@
 - Plot (temporary): `plot.spinArmed` (clock time, valid 30 s), `plot.spinOffer` ({byId, choose}), `plot.spinSerial`, `plot.spinPickIds`, `plot.spinFromCard`, `plot.busy` (:2938, cleared 1.5 s later :2986).
 - Attributes: `CanGoPublic`, `Spinoffs`, `Prestige`. Cost: floor(4M x spinMult(n) x min(1.3^n, 30)). Measured with `lune run tools/late_game`: n=0 $4.0M, n=1 $7.8M, n=2 $13.5M.
 **Drive it:**
-- Setup: `dev:Invoke("scenario", p, "snapshot")`, then `"rich"`, then `"hq:18"` (free build to the cap, `DevHook.lua:65`), then `"spinoff"` (`DevScenarios.lua:239-246`). The scenario needs the snapshot first.
+- Setup: `dev:Invoke("scenario", p, "snapshot")`, then `"rich"`, then `"hq:18"` (free build to the cap, `DevHook.lua:65`), then `"spinoff"` (`DevScenarios.lua:248-255`). The scenario needs the snapshot first.
 - Raw: `gopublic` returns `listed=... ticker=...` (`DevHook.lua:167`). `spinoff` back-dates `spinArmed` to skip the confirm tap and keeps the best N (no card) (:82-86).
 - After Play stops, restore: `require(game.ServerScriptService.DevScenarios).restore(1688749216)` in EDIT (`DevScenarios.lua:20`).
 - No scenario builds "more Star staff than seats" to test the pick card yet.
@@ -30,7 +30,7 @@
 **Gotchas:**
 - Two taps, 30 s window (`SiliconCore.server.lua:2937-2964`). While a choice is pending, the pad's second tap cannot confirm: "Choose who comes with you" (:2971-2972).
 - `spinOff` only shows a popup when it refuses: "GO PUBLIC first" (:2890), "Need $..." (:2892). `goPublic` returns silently if you are not at the cap (:3525).
-- `scenario spinoff` always returns ok = true (`DevScenarios.lua:243-246`). Check `spinoffs` in the result yourself.
+- `scenario spinoff` always returns ok = true (`DevScenarios.lua:252-255`). Check `spinoffs` in the result yourself.
 - GO PUBLIC raise is 60 s of income, capped at 10% of the spin cost, rounded down (:3530, `Progression.lua:59,104`).
 - Kept people come back as Interns and need a seat (`spawnStaff` `tier = 1`, :1477; popup "build a floor" :2974).
 - Not reset by a spin-off: `s.apt`, `s.earned`, `s.index`, `s.momentum`, `s.hqPath`. A comment says the style is "committed until a spin-off" (:2072) but `spinOff` never clears `s.hqPath`. Unclear which is intended.

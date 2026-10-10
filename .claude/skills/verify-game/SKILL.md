@@ -87,6 +87,13 @@ Then, with the Roblox Studio MCP tools:
 5. Read `game.ServerStorage.ChaseRun.Value` (JSON) when it is not "". Save it next to the video.
    The `[robot]` lines in the Output give the route and the reaction time.
 
+## World and chase health (any change to the map, the HQ, or TalentDrop: 10 s)
+In Play, SERVER datamodel, after `snapshot`: `dev:Invoke("scenario", p, "health")`. PASS = `world.found`
+is 0 and every plot in `chase.plots` has `door = "ok ..."` and every tier `found > 0`. The cloud smoke runs
+the same pair on every PR. A sink is either a bug (make it solid) or on purpose (add it to
+`WorldHealth.ALLOW` with the reason). Both came from his 10 Oct recording: the park lawn you sank 3.6 into,
+and a drop-off nobody could find or route to.
+
 ## Exploit check (before every publish, about 3 min)
 Fires junk at every client->server remote and watches what moves. Wilz only, in Play.
 1. Steps 2-4 of Loop 3 (Play, wait for loaded, `snapshot`).

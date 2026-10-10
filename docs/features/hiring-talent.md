@@ -19,7 +19,7 @@
 - Player attributes: `IndexData` (comma list), `IndexNew` (badge count), `VibeLuck`. Rig attributes: `Role`, `PersonName`, `Talent`, `TalentName`, `Avatar`, `Seated`, `Wander`, `CheerAt`. Rigs carry tag `SVStaff`.
 - Saved: `staff`, `tiers[]`, `talents[]`, `people[]` (`"role:seed"`), `index[]` (`src/ServerScriptService/SaveLoad.lua:101-121`). Load rebuilds staff one by one (:322-343).
 **Drive it:**
-- `dev:Invoke("recruit", p, 1-4)` starts a recruit through the real path (`DevHook.lua:501`). You still carry them to the lot. `"chase:skilled|star|genius"` does setup, teleport and recruit (`DevScenarios.lua:205-233`). `"geo"` lists where your door and candidates are, and `"restock"` moves them (:184-198).
+- `dev:Invoke("recruit", p, 1-4)` starts a recruit through the real path (`DevHook.lua:501`). You still carry them to the lot. `"chase:skilled|star|genius"` does setup, teleport and recruit (`DevScenarios.lua:214-242`). `"geo"` lists where your door and candidates are, and `"restock"` moves them (:184-207).
 - `dev:Invoke("hire", p)` works only for the first intern (`DevHook.lua:171`).
 - `dev:Invoke("talent", p, 1-5)` sets the last hire's talent, no card (`DevHook.lua:90`). `"tier"` sets the first hire's seniority (:155).
 - `dev:Invoke("rolls", p, 20000)` rolls the talent n times and returns counts (`DevHook.lua:472`).
@@ -33,7 +33,7 @@
 - The pad refuses a second hire: "Recruit on the street" (:1870-1873). "No desks free" when `s.staff >= capacityOf` (:1875).
 - Talent is `max(roll, recruit.floor)`. The tier they wore is a floor (:1888-1889). The card says "Signed from the street" for a floor, "Lucky! 1 in N" for a roll above it (`TalentRevealClient.client.lua:271`).
 - Draws run rarest first so a Unicorn is exactly 1 in 1491 (:290). A Scout Report can raise talent after the roll (:1891).
-- `recruit` refuses unless you own the plot, HQ meets the tier, no carry is active, you shipped, staff >= 1, a seat is free and cash >= fee (`TalentDrop.lua:577-600`). It has no distance check, so raw SVDev `recruit` starts the hunter far from you (`DevScenarios.lua:219-220`).
+- `recruit` refuses unless you own the plot, HQ meets the tier, no carry is active, you shipped, staff >= 1, a seat is free and cash >= fee (`TalentDrop.lua:577-600`). It has no distance check, so raw SVDev `recruit` starts the hunter far from you (`DevScenarios.lua:228-229`).
 - Genius floor sets `s.jr.genius` for the HQ 3 task (:1890).
 - The reveal waits for `WelcomeDone` up to 25 s (`TalentRevealClient.client.lua:301-304`). Right after a rejoin it can lag.
 - Index keys are `role:1-5`. Load keeps only keys that match `^(%a+):(%d)$` and a known role (`SaveLoad.lua:316-318`). Spin-off does not clear `s.index`.
@@ -42,4 +42,4 @@
 - Do not move motion back to the server. The header measured 246.5 KB/s per player when it was there (`StaffRig.lua:29-33`).
 - A kept spin-off hire returns as an Intern (`spawnStaff` sets `tier = 1`, :1477).
 - `StaffAnimClient.client.lua:47` says the run animation id is empty. `HUNTER_ANIM.run` is set (:52-53). The comment is stale.
-**Last verified:** 2026-10-10 2febbe3
+**Last verified:** 2026-10-10 d49543c
