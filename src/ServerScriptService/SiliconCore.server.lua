@@ -1,6 +1,5 @@
 --[[
 	SILICON VALLEY TYCOON -- SiliconCore v2 (six plots)
-workspace:FindFirstChild("SmokePlantedFault").Name = "x"   -- PLANTED for the cloud smoke proof; reverted next commit
 	Server Script in ServerScriptService.
 
 	THE WORLD IS A VALLEY WITH A ROAD DOWN THE MIDDLE. Six plots sit along the
@@ -4166,3 +4165,4 @@ if FlatLook then
 	print(("[SV] flat look: %d parts flattened, watching for more"):format(flattened))
 end
 print(("SILICON VALLEY TYCOON -- %d plots on the road, heightmap valley, downtown east."):format(#plots))
+workspace:FindFirstChild("SmokePlantedFault").Name = "x"   -- PLANTED for the cloud smoke proof; reverted next commit
