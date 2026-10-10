@@ -1108,7 +1108,7 @@ function CampusArch.grounds(folder, pivot, slab, path, seed)
 		-- queryable, unlike most decor: this is the surface things stand ON, and
 		-- a raycast that falls through it puts their contact shadow under the kerb
 		mk(f, { Name = "ForecourtPanel", Size = Vector3.new(25.4, 0.5, 37.4), CFrame = g(sx * 27, 1.35, 95),
-			Color = CAMPUS_LAWN, Material = Enum.Material.Grass, CanCollide = false, CastShadow = false })
+			Color = CAMPUS_LAWN, Material = Enum.Material.Grass, CastShadow = false })   -- solid (10 Oct): the drop-off yard; you stood 0.6 in it
 		for _, t in ipairs({ { sx * 20, 83 }, { sx * 34, 95 }, { sx * 20, 107 } }) do
 			tree(f, g(t[1], 1.6, t[2]), rng:NextNumber(10.5, 13), { "tree_detailed", "tree_oak" }, rng)
 		end
@@ -1175,7 +1175,7 @@ function CampusArch.grounds(folder, pivot, slab, path, seed)
 	mk(f, { Name = "MonumentCap", Size = Vector3.new(PY_W + 0.5, 0.5, 1.9), CFrame = g(PY_X, PY_Y + PY_H, PY_Z),
 		Color = Color3.fromRGB(224, 182, 90), Material = Enum.Material.SmoothPlastic, CanCollide = false })
 	mk(f, { Name = "MonumentBase", Size = Vector3.new(PY_W + 2.4, 1.2, 3.4), CFrame = g(PY_X, PY_Y + 0.6, PY_Z),
-		Color = PLINTH, Material = Enum.Material.Concrete, CanCollide = false })
+		Color = PLINTH, Material = Enum.Material.Concrete })   -- solid (10 Oct): a plinth you walked into, 1.6 deep
 	-- the name runs UP the blade: a 6-stud-wide face cannot hold a company name
 	-- across it at any size you could read from the drive
 	local sg = Instance.new("SurfaceGui")

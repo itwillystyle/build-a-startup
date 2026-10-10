@@ -106,6 +106,27 @@ if type(out) == "table" then
 	for name, state in out.modules or {} do
 		if type(state) == "string" and state:find("^error") then table.insert(problems, name .. " " .. state) end
 	end
+	-- the world check: a visible surface you would sink into
+	if type(out.world) == "table" then
+		if out.world.error then table.insert(problems, "world check failed to run: " .. out.world.error) end
+		for _, e in out.world.sinks or {} do
+			table.insert(problems, ("you would sink %.1f studs into %s at (%d, %d): make it solid, or add it to WorldHealth.ALLOW with why"):format(e.gap, e.path, e.x, e.z))
+		end
+	end
+	-- the chase check: every plot's drop-off reaches the street, every chase tier finds a spot
+	if type(out.chase) == "table" then
+		if out.chase.error then table.insert(problems, "chase check failed to run: " .. out.chase.error) end
+		for _, p in out.chase.plots or {} do
+			if type(p.door) == "string" and not p.door:find("^ok") then
+				table.insert(problems, ("plot %s: no route from the drop-off to the street (%s)"):format(tostring(p.index), p.door))
+			end
+			for id, t in p.tiers or {} do
+				if (t.found or 0) == 0 then
+					table.insert(problems, ("plot %s: %s candidates found no spot in their band (they fall back to the drive)"):format(tostring(p.index), id))
+				end
+			end
+		end
+	end
 	if out.boot and out.boot.found and not out.boot.reachedBanner then
 		table.insert(problems, ("the server did not finish booting in %ds (%d [SV] lines)"):format(out.boot.seconds or 0, out.boot.svLines or 0))
 	end
@@ -117,6 +138,17 @@ if SUMMARY then
 	if type(out) == "table" and out.boot then
 		table.insert(md, ("Boot: banner %s after %ss, %s [SV] lines."):format(out.boot.reachedBanner and "reached" or "NOT reached",
 			tostring(out.boot.seconds), tostring(out.boot.svLines)))
+	end
+	if type(out) == "table" and out.world then
+		table.insert(md, ("World: %s surfaces checked, %s you would sink into."):format(tostring(out.world.checked), tostring(out.world.found)))
+	end
+	if type(out) == "table" and out.chase and out.chase.plots then
+		for _, p in out.chase.plots do
+			local t = {}
+			for id, v in p.tiers or {} do table.insert(t, ("%s %d/%d"):format(id, v.found or 0, v.tries or 0)) end
+			table.sort(t)
+			table.insert(md, ("Chase, plot %s: drop-off %s; %s"):format(tostring(p.index), tostring(p.door), table.concat(t, ", ")))
+		end
 	end
 	for _, p in problems do table.insert(md, "- " .. p) end
 	pcall(fs.writeFile, SUMMARY, table.concat(md, "\n") .. "\n")
