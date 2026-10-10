@@ -33,7 +33,7 @@
 **Gotchas:**
 - SVDev `apt` only sets `s.apt` and recomputes (`DevHook.lua:488-492`). It skips the price, the HQ gate, the `Apt` attribute and the objective refresh. The unit is built on the first "Go home" (`Apartments.lua:430`).
 - `vipSpot` is `Vector3.new(640 + 9*plot, 0, 36)` (`Apartments.lua:495-498`). The Residences moved to the campus ring at 240 degrees (`Downtown.lua:43-61`). The comment says "outside the Residences" and the phone text says "outside your building". Unclear if the old plaza spot is still intended.
-- The VIP run ends at your HQ doorstep (within 14 studs, `Chase.DELIVER_R`), not at the Residences (`src/ServerScriptService/TalentDrop.lua:647`). The VIP has no `pathLen`, so its offer timer uses the straight line from the VIP to your door (`TalentDrop.lua:533`). The VIP hunter spawns 22 studs from the VIP, away from your door (`TalentDrop.lua:557-561`).
+- The VIP run ends at your HQ doorstep (within 14 studs, `Chase.DELIVER_R`), not at the Residences (`src/ServerScriptService/TalentDrop.lua:660`). The VIP has no `pathLen`, so its offer timer uses the straight line from the VIP to your door (`TalentDrop.lua:543`). The VIP hunter spawns 22 studs from the VIP, away from your door (`TalentDrop.lua:568-572`).
 - `vipDay` is set at pickup, not at spawn, so an unclaimed VIP waits (`Apartments.lua:482-485`).
 - `trySpawnVip` needs `s.shipped`, apt 1+, not Carrying, and no VIP already out (`Apartments.lua:501-505`).
 - Floor = `(tier-1)*6 + (plot-1)`, so six players never share a floor (`Apartments.lua:115-119`).
@@ -41,4 +41,4 @@
 - If the Residences mesh is missing, no sales desk or lift exists. `init` waits 30 s, then gives up silently (`Apartments.lua:557-561`, `Downtown.lua:265`).
 - While a keeper choice is pending, the pad's second tap cannot confirm. Only the card can (`SiliconCore.server.lua:2971-2974`). Picks are opaque ids matched to staff entries, never positions (`Progression.lua:140-145`).
 - `SPINOFF_BASE` is asserted at load. A missing base would sell homes for $1 (`Apartments.lua:44-45`).
-**Last verified:** 2026-10-09 80ce687
+**Last verified:** 2026-10-10 2febbe3

@@ -254,10 +254,17 @@ function CampusHub.build(parent)
 	local R_COURT, R_STEP, R_PARK = CampusHub.R_COURT, CampusHub.R_STEP, CampusHub.R_PARK
 
 	-- THE WALKING SURFACE. One collidable disc under the whole park, so a
-	-- player can never fall between two scenery rings. Everything above it is
-	-- CanCollide false, which is also why the steps do not need to be climbed:
-	-- the player walks on this and the tiers read as depth.
+	-- player can never fall between two scenery rings.
+	--[[ 10 Oct: the park you see is now the park you stand on. Everything above
+		this disc used to be CanCollide false, on the idea that the tiers would
+		"read as depth" -- but the lawn and the walks stand 3.6 studs ABOVE the
+		disc, so players and candidates walked around buried to the waist (a
+		candidate spawn ray cannot see a CanQuery-false lawn either, so it stood
+		them on the disc underneath). Measured: every step inside the park is 1.2
+		studs or less, which a character walks up; the one 4.4-stud edge, the
+		outer kerb, gets eight ramps (ParkRamp, on the eight lawn paths). ]]
 	flatDisc(f, "ParkFloor", R_PARK + 4, -0.4, 1.2, PAVE_D, { canCollide = true, canQuery = true })
+	local SOLID = { canCollide = true, canQuery = true }
 
 	--[[ OUTWARD FROM THE MIDDLE.
 
@@ -270,26 +277,26 @@ function CampusHub.build(parent)
 
 	-- the sunken court and the three tiers down to it
 	flatDisc(f, "ParkCourt", R_COURT, 0.4, 0.5, PAVE_W)
-	ring(f, "ParkTier3", (R_COURT + R_STEP - 38) / 2, (R_STEP - 38) - R_COURT, 0.4, 1.4, PAVE)
-	ring(f, "ParkTier2", (R_STEP - 38 + R_STEP - 20) / 2, 18, 1.0, 1.6, PAVE_D)
-	ring(f, "ParkTier1", (R_STEP - 20 + R_STEP) / 2, 20, 2.0, 1.8, PAVE)
+	ring(f, "ParkTier3", (R_COURT + R_STEP - 38) / 2, (R_STEP - 38) - R_COURT, 0.4, 1.4, PAVE, SOLID)
+	ring(f, "ParkTier2", (R_STEP - 38 + R_STEP - 20) / 2, 18, 1.0, 1.6, PAVE_D, SOLID)
+	ring(f, "ParkTier1", (R_STEP - 20 + R_STEP) / 2, 20, 2.0, 1.8, PAVE, SOLID)
 	-- a pale nosing on each tread edge: without it the steps vanish side-on
 	for _, nz in ipairs({ { R_STEP - 38, 1.8 }, { R_STEP - 20, 2.6 }, { R_STEP, 3.8 } }) do
-		ring(f, "ParkNosing", nz[1] - 0.9, 2.2, nz[2] - 0.35, 0.4, PAVE_W, { seg = 40 })
+		ring(f, "ParkNosing", nz[1] - 0.9, 2.2, nz[2] - 0.35, 0.4, PAVE_W, { seg = 40, canCollide = true, canQuery = true })
 	end
 
 	-- the lawn, kerbed on both sides and hedged on the outside
-	ring(f, "ParkKerbIn", R_STEP + 1.6, 3.2, 3.2, 1.5, CONCRETE, { seg = 40 })
+	ring(f, "ParkKerbIn", R_STEP + 1.6, 3.2, 3.2, 1.5, CONCRETE, { seg = 40, canCollide = true, canQuery = true })
 	ring(f, "ParkLawn", (R_STEP + R_PARK - 36) / 2, (R_PARK - 36) - R_STEP, 3.2, 1.2, LAWN,
-		{ material = Enum.Material.Grass })
-	ring(f, "ParkKerbMid", R_PARK - 37, 3.2, 3.2, 1.5, CONCRETE, { seg = 40 })
+		{ material = Enum.Material.Grass, canCollide = true, canQuery = true })
+	ring(f, "ParkKerbMid", R_PARK - 37, 3.2, 3.2, 1.5, CONCRETE, { seg = 40, canCollide = true, canQuery = true })
 	ring(f, "ParkHedge", R_PARK - 39.5, 4.0, 4.4, 3.2, HEDGE, { material = Enum.Material.Grass, seg = 40 })
 
 	-- the outer walk: banded, so a 32-stud ring of stone has a grain
-	ring(f, "ParkWalk", R_PARK - 28, 14, 3.2, 1.3, PAVE, { seg = 44 })
-	ring(f, "ParkWalkBand", R_PARK - 20, 2.0, 3.2, 1.35, JOINT, { seg = 44 })
-	ring(f, "ParkWalk", R_PARK - 12, 14, 3.2, 1.3, PAVE_D, { seg = 44 })
-	ring(f, "ParkKerb", R_PARK, 7, 3.2, 2.0, CONCRETE)
+	ring(f, "ParkWalk", R_PARK - 28, 14, 3.2, 1.3, PAVE, { seg = 44, canCollide = true, canQuery = true })
+	ring(f, "ParkWalkBand", R_PARK - 20, 2.0, 3.2, 1.35, JOINT, { seg = 44, canCollide = true, canQuery = true })
+	ring(f, "ParkWalk", R_PARK - 12, 14, 3.2, 1.3, PAVE_D, { seg = 44, canCollide = true, canQuery = true })
+	ring(f, "ParkKerb", R_PARK, 7, 3.2, 2.0, CONCRETE, SOLID)
 	-- radial joints across the walk, every 15 degrees
 	for i = 0, 23 do
 		local a = i * math.pi / 12
@@ -310,15 +317,41 @@ function CampusHub.build(parent)
 			-- X is radial (the path's length), Z is tangential (its width)
 			Size = Vector3.new((R_PARK - 36) - R_STEP + 4, 1.4, 14),
 			CFrame = CFrame.new(math.cos(a) * rMid, 3.9, math.sin(a) * rMid) * CFrame.Angles(0, -a, 0),
-			Color = PAVE_W,
+			Color = PAVE_W, CanCollide = true, CanQuery = true,
 		})
+		--[[ the way up, on the same line as the path: a slope from the inner
+			sidewalk (top 1.2, r 178) to the outer kerb's outer edge (5.25, r 165.6),
+			about 18 degrees, then a flat landing over the kerb onto the walk (a
+			0.7 step down). A tilted slab: local X is radial (outward), so a
+			negative roll about Z lowers the outer end. ]]
+		do
+			local rOut, rIn, hOut, hIn = R_PARK + 16, R_PARK + 3.6, 1.2, 5.25
+			local run, rise = rOut - rIn, hIn - hOut
+			local tilt = math.atan2(rise, run)
+			local rc, hc = (rOut + rIn) / 2, (hOut + hIn) / 2
+			part(f, {
+				Name = "ParkRamp",
+				Size = Vector3.new(math.sqrt(run * run + rise * rise), 1, 14),
+				CFrame = CFrame.new(math.cos(a) * rc, hc, math.sin(a) * rc) * CFrame.Angles(0, -a, 0)
+					* CFrame.Angles(0, 0, -tilt) * CFrame.new(0, -0.5, 0),
+				Color = PAVE_W, CanCollide = true, CanQuery = true,
+			})
+			local lIn = R_PARK - 5     -- over the kerb (r 158.5-165.5) and onto the walk
+			local lc = (rIn + lIn) / 2
+			part(f, {
+				Name = "ParkRamp",
+				Size = Vector3.new(rIn - lIn, 1, 14),
+				CFrame = CFrame.new(math.cos(a) * lc, hIn - 0.5, math.sin(a) * lc) * CFrame.Angles(0, -a, 0),
+				Color = PAVE_W, CanCollide = true, CanQuery = true,
+			})
+		end
 		for _, side in ipairs({ -7.6, 7.6 }) do
 			part(f, {
 				Name = "ParkPathKerb",
 				Size = Vector3.new((R_PARK - 36) - R_STEP + 4, 1.9, 1.2),
 				CFrame = CFrame.new(math.cos(a) * rMid, 4.1, math.sin(a) * rMid)
 					* CFrame.Angles(0, -a, 0) * CFrame.new(0, 0, side),
-				Color = CONCRETE,
+				Color = CONCRETE, CanCollide = true, CanQuery = true,
 			})
 		end
 	end
@@ -328,7 +361,11 @@ function CampusHub.build(parent)
 		local a = math.pi / 4 + i * math.pi / 2
 		local rMid = (R_STEP + R_PARK - 36) / 2
 		local base = CFrame.new(math.cos(a) * rMid, 0, math.sin(a) * rMid) * CFrame.Angles(0, -a, 0)
-		part(f, { Name = "PoolLip", Size = Vector3.new(50, 2.2, 38), CFrame = base * CFrame.new(0, 4.3, 0), Color = CONCRETE })
+		part(f, { Name = "PoolLip", Size = Vector3.new(50, 2.2, 38), CFrame = base * CFrame.new(0, 4.3, 0), Color = CONCRETE,
+			CanCollide = true, CanQuery = true })
+		-- the water stays something you walk into; this bed keeps it ankle-deep, not a 4-stud pit
+		part(f, { Name = "PoolBed", Size = Vector3.new(44, 0.4, 32), CFrame = base * CFrame.new(0, 4.6, 0),
+			Transparency = 1, CanCollide = true, CanQuery = true })
 		part(f, {
 			Name = "ParkPool", Size = Vector3.new(44, 1.0, 32), CFrame = base * CFrame.new(0, 5.0, 0),
 			Color = WATER, Material = Enum.Material.Glass, Transparency = 0.25,
@@ -396,8 +433,8 @@ function CampusHub.build(parent)
 
 	-- SIDEWALKS beside the inner ring road. LifeClient walks its pedestrians
 	-- here, and without them people would be strolling across bare terrain.
-	ring(f, "RingWalkIn", CampusHub.R_ROAD_IN - 22, 16, 0, 1.2, PAVE_D, { seg = 56 })
-	ring(f, "RingWalkOut", CampusHub.R_ROAD_IN + 22, 16, 0, 1.2, PAVE_D, { seg = 56 })
+	ring(f, "RingWalkIn", CampusHub.R_ROAD_IN - 22, 16, 0, 1.2, PAVE_D, { seg = 56, canCollide = true, canQuery = true })
+	ring(f, "RingWalkOut", CampusHub.R_ROAD_IN + 22, 16, 0, 1.2, PAVE_D, { seg = 56, canCollide = true, canQuery = true })
 
 	--[[ KERBS AND MARKINGS (pass 2).
 
