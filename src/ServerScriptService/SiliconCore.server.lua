@@ -64,7 +64,7 @@ local Prog = require(ServerScriptService:WaitForChild("Progression"))   -- v4.3 
 local Mom = require(ServerScriptService:WaitForChild("Momentum"))       -- v5.0 what you bring back from outside (pure, tested offline)
 if not Telemetry then
 	local noop = function() end
-	Telemetry = { joined = noop, step = noop, platform = noop, event = noop, left = noop }
+	Telemetry = setmetatable({}, { __index = function() return noop end })   -- every call a no-op
 end
 if FurnitureKit then
 	local have, missing = FurnitureKit.report()
@@ -1330,6 +1330,7 @@ local function writeCode(player, plot)
 	s.lastCodeAt = tNow
 	local gain = math.floor(math.max(CFG.CODE_REWARD, (s.rate or 0) * CFG.CODE_SECONDS) * (1 + CFG.CODE_COMBO_STEP * s.codeCombo) * brew)
 	cash.Value += gain
+	Telemetry.money(player, "source", gain, "code")
 	player:SetAttribute("CodeCombo", s.codeCombo)
 	player:SetAttribute("CodeGain", gain)
 	player:SetAttribute("CodeTap", (player:GetAttribute("CodeTap") or 0) + 1)   -- what the HUD watches (a repeat gain still counts)
@@ -1886,6 +1887,7 @@ local function hire(player, plot, recruit)
 		return false
 	end
 	cash.Value -= cost
+	Telemetry.money(player, "sink", cost, "hire")
 	s.lastBuy = os.clock()
 	s.staff += 1
 	if cost > 0 then s.hireCost = math.floor(s.hireCost * hireGrowthAt(s.staff)) end
@@ -2088,6 +2090,8 @@ local function wafersBuild(player, plot, s, cash, chosen)
 	if cash.Value < price then popup(plot.hqPad, "Need $" .. fmt(price), CFG.BAD) return end
 	plot.busy = true
 	cash.Value -= price
+	Telemetry.money(player, "sink", price, "floor")
+	Telemetry.mark(player, "build")
 	--[[ The stock is consumed by the build it paid for. Holding it instead
 		would make it a stat that only goes up, and a stat that only goes up
 		stops being a decision by minute ten. Spending it is what turns the
@@ -2139,6 +2143,7 @@ local function wafersBuild(player, plot, s, cash, chosen)
 	updateHirePad(player)
 	local stage = plot.hq.level
 	local lvl = plot.wafer.level
+	if stage ~= stageBefore and stage >= 2 then Telemetry.step(player, "hq_" .. stage) end
 	if stage ~= stageBefore or WAFER_BANNERS[lvl] then
 		plot.hqUpAt = os.clock()   -- v4.3: the Series A text waits for the level-up moment to pass
 		if stage == 2 and stageBefore < 2 and Econ.Cars then
@@ -2181,6 +2186,7 @@ local function tryUpgrade(player, plot, chosen)
 	if cash.Value < cost then popup(plot.hqPad, "Need $" .. fmt(cost), CFG.BAD) return end
 	plot.busy = true
 	cash.Value -= cost
+	Telemetry.money(player, "sink", cost, "floor")
 	s.lastBuy = os.clock()
 	buildShell(plot, plot.hq.level + 1, true)
 	-- the new shell grows around whoever is inside. v5: only someone actually
@@ -2320,6 +2326,7 @@ local function upgradeWing(player, plot, slot)
 	local cost = wingUpgradeCostOf(slot.room, slot.level or 1, plot, s.rate)
 	if cash.Value < cost then popup(slot.header or plot.hirePad, "Need $" .. fmt(cost), CFG.BAD) return end
 	cash.Value -= cost
+	Telemetry.money(player, "sink", cost, "room")
 	s.lastBuy = os.clock()
 	slot.level = (slot.level or 1) + 1
 	applyWingLevel(s, slot.room)
@@ -2359,6 +2366,7 @@ local function buildWing(player, plot, slotIndex, roomId, free)
 		local cost = wingCostOf(room, plot, s.rate)
 		if cash.Value < cost then popup(slot.pad, "Need $" .. fmt(cost), CFG.BAD) return false end
 		cash.Value -= cost
+		Telemetry.money(player, "sink", cost, "room")
 		s.lastBuy = os.clock()
 	end
 	slot.built = room.id
@@ -2410,7 +2418,7 @@ local function buildWing(player, plot, slotIndex, roomId, free)
 	recompute(player)
 	updateHirePad(player)
 	if not free then
-		Telemetry.step(player, "first_wing")
+		Telemetry.mark(player, "room")
 		popup(slot.pad, room.name .. " BUILT", CFG.GOOD)
 	end
 	return true
@@ -2499,7 +2507,12 @@ local function placeAt(player, plot, key, px, pz, yawDeg, free, forcedPrice)
 			end
 		end
 		if why then
-			if free then cash.Value += (forcedPrice or item.price) else toast:FireClient(player, why) end
+			if free then
+				cash.Value += (forcedPrice or item.price)
+				Telemetry.money(player, "source", forcedPrice or item.price, "refund")   -- a saved piece that no longer fits
+			else
+				toast:FireClient(player, why)
+			end
 			return false
 		end
 	end
@@ -2557,6 +2570,7 @@ local function placeAt(player, plot, key, px, pz, yawDeg, free, forcedPrice)
 		if clash then
 			if free then
 				cash.Value += (forcedPrice or item.price)
+				Telemetry.money(player, "source", forcedPrice or item.price, "refund")
 				player:SetAttribute("SVRefunded", (player:GetAttribute("SVRefunded") or 0) + 1)   -- Studio audit reads this
 			else
 				popup(plot.hirePad, clash, CFG.BAD)
@@ -2571,11 +2585,12 @@ local function placeAt(player, plot, key, px, pz, yawDeg, free, forcedPrice)
 	local price = forcedPrice or (free and item.price) or furniturePriceOf(item, s, plot)
 	if not free then
 		if cash.Value < price then popup(plot.hirePad, "Need $" .. fmt(price), CFG.BAD) return false end
-		cash.Value -= price
+		cash.Value -= price   -- telemetry: logged below, once the piece stands (a failed put refunds)
 	end
 
 	local m = FurnitureKit.put(key, CFrame.new(x, y, z), plot.placed, { yaw = yaw, canQuery = true })
 	if not m then if not free then cash.Value += price end return false end
+	if not free then Telemetry.money(player, "sink", price, "furniture") end
 	m:SetAttribute("owner", player.UserId)
 	m:SetAttribute("key", key)
 	m:SetAttribute("px", x); m:SetAttribute("pz", z)
@@ -2626,6 +2641,7 @@ removeItem.OnServerEvent:Connect(function(player, model)
 			if r ~= target and r.y > target.y and rectsOverlap(target.x, target.z, target.w, target.d, r.x, r.z, r.w, r.d) then
 				local rit = FurnitureKit.BY_KEY[r.key]
 				cash.Value += math.floor(r.price / 2)
+				Telemetry.money(player, "source", math.floor(r.price / 2), "refund")
 				if rit and rit.desk then s.placedDesks -= rit.desk end
 				if rit and rit.morale then s.placedMorale -= rit.morale end
 				r.model:Destroy()
@@ -2635,6 +2651,7 @@ removeItem.OnServerEvent:Connect(function(player, model)
 	end
 	local it = FurnitureKit.BY_KEY[target.key]
 	cash.Value += math.floor(target.price / 2)
+	Telemetry.money(player, "source", math.floor(target.price / 2), "refund")
 	if it and it.desk then s.placedDesks -= it.desk end
 	if it and it.morale then s.placedMorale -= it.morale end
 	model:Destroy()
@@ -2786,6 +2803,14 @@ if Econ then
 		if not ok then warn("[SV] Cars init failed: " .. tostring(err)); Econ.Cars = nil end
 	else
 		Econ.Cars = nil
+	end
+	-- the player loop: the TELL US box (Feedback.lua stores what players write)
+	do
+		local Fb = tryRequire(ServerScriptService, "Feedback")
+		if Fb and Fb.init then
+			local ok, err = pcall(Fb.init, { session = function(p) return sessions[p.UserId] end, plotOf = plotOf, remote = remote })
+			if not ok then warn("[SV] Feedback init failed: " .. tostring(err)) end
+		end
 	end
 	-- v4.6 THE WAFERS (docs/superpowers/specs/2026-09-30-wafers-hq-design.md): the one-building HQ
 	Econ.Wafers = tryRequire(ServerScriptService, "Wafers")
@@ -2959,6 +2984,8 @@ spinOff = function(player, plot)
 		end
 	end
 	plot.spinOffer = nil
+	Telemetry.money(player, "sink", cash.Value, "spinoff")
+	Telemetry.step(player, "spinoff")
 	cash.Value = 0
 	releasePlot(plot)                -- wipes rooms, furniture, staff; shell back to the garage
 	plot.owner = player.UserId
@@ -3105,6 +3132,7 @@ task.spawn(function()
 			if s and cash and s.rate > 0 then
 				local earned = math.floor(s.rate * boostOf(s) * (s.share or 1) * afk)
 				cash.Value += earned
+				Telemetry.money(player, "source", earned, "income")
 				s.valuation = (s.valuation or 0) + earned
 				s.earned = (s.earned or 0) + earned
 				if s.earned >= CFG.MILESTONE_BASE * 10 ^ (s.milestones or 0) then checkMilestones(player, s) end
@@ -3222,7 +3250,7 @@ local function launchProduct(player, plot, market, mod, auto)
 			refreshHqPad(plot)      -- the price just changed; the pad and WaferPrice have to say so
 		end
 	end
-	Telemetry.step(player, "first_product")
+	Telemetry.mark(player, "launch")
 	s.markets[market.id] = true          -- now a rival can come for this market
 	s.share = 1                          -- shipping takes the share back
 	s.pressure = nil
@@ -3235,7 +3263,7 @@ local function launchProduct(player, plot, market, mod, auto)
 	end
 	if Econ and Econ.Inv then payday = math.floor(payday * Econ.Inv.launchMult(player)) end   -- v3.2: a Front Page doubles it
 	local cash = cashOf(player)
-	if cash and payday > 0 then cash.Value += payday end
+	if cash and payday > 0 then cash.Value += payday; Telemetry.money(player, "source", payday, "launch") end
 	if Econ and Econ.Inv then pcall(Econ.Inv.onLaunch, player, s) end
 	s.pendingProduct = nil
 	s.work = 0
@@ -3390,7 +3418,7 @@ local function rivalLaunch(forced)
 			s.pressure = os.clock()
 			s.pressureMarket = market.id
 			hit += 1
-			Telemetry.step(pl, "first_rival")
+			Telemetry.mark(pl, "rival")
 			toast:FireClient(pl, ("%s just launched in %s. Your market share is slipping -- ship to take it back.")
 				:format(rival, market.name))
 			local plot = plotOf(pl)
@@ -3520,6 +3548,7 @@ answerOffer.OnServerEvent:Connect(function(player, id, accept)
 	task.delay(3, function() if rig.Parent then rig:Destroy() end end)
 	s.staff = math.max(0, s.staff - 1)
 	cash.Value += o.amount
+	Telemetry.money(player, "source", o.amount, "offer")
 	s.valuation = (s.valuation or 0) + math.floor(o.amount / 2)
 	s.alumni = math.min((s.alumni or 0) + 1, CFG.ALUMNI_CAP)
 	player:SetAttribute("Alumni", s.alumni)
@@ -3553,7 +3582,8 @@ goPublic = function(player, plot)
 	s.ticker = tickerOf(s.name or "Startup")
 	local raise = Prog.capWindfall("gopublic", math.floor((s.rate or 0) * Journey.IPO_RAISE), spinoffCostOf(s))   -- v4.5 the clock
 	local cash = cashOf(player)
-	if cash then cash.Value += raise end
+	if cash then cash.Value += raise; Telemetry.money(player, "source", raise, "ipo") end
+	Telemetry.step(player, "public")
 	refreshSign(plot)
 	refreshHqPad(plot)
 	toast:FireAllClients(("%s (%s) just went PUBLIC on the Valley Exchange!"):format(s.name or "A startup", s.ticker), "news")
@@ -3838,6 +3868,12 @@ local function onJoin(player)
 	-- load BEFORE the beats so a returning player's campus is standing when
 	-- the intro camera arrives
 	if plot then SaveLoad.loadOnce(player, plot) end
+	do
+		local s = sessions[player.UserId]
+		if s and plot then
+			Telemetry.reached(player, { shipped = s.shipped, staff = s.staff, hq = plot.hq.level, listed = s.listed, spinoffs = s.spinoffs })
+		end
+	end
 	if plot then productLoop(player, plot); chatterLoop(player, plot); offerLoop(player, plot) end
 	do
 		local s = sessions[player.UserId]

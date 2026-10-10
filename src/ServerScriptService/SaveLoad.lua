@@ -4,6 +4,8 @@ Moved out of SiliconCore on 28 Sep 2026 (v4.2) to free its top-level locals.
 SiliconCore calls this once, at the same point in its load order the code
 used to run, passing the SiliconCore locals it needs in `core`. Every one of
 them is assigned before this point and never reassigned, so aliasing is safe. ]]
+local Telemetry = require(script.Parent:WaitForChild("Telemetry"))   -- the player loop: cash in and out
+
 return function(core)
 	local CFG = core.CFG
 	local Prog = core.Prog
@@ -209,6 +211,7 @@ return function(core)
 		end
 		if offline > 0 and cash then
 			cash.Value += offline
+			Telemetry.money(player, "source", offline, "offline")
 			player:SetAttribute("OfflineEarned", offline)
 		end
 

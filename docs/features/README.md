@@ -19,7 +19,8 @@ This is shared memory for agents and for you. Code wins when a page and the code
 | [cars](cars.md) | company car, the dealer, traffic |
 | [ipo-spinoff](ipo-spinoff.md) | going public and spinning off (prestige) |
 | [offline-earnings](offline-earnings.md) | what you earn while away |
-| [saving-data](saving-data.md) | the save, DataStores, telemetry and the onboarding funnel |
+| [saving-data](saving-data.md) | the save, DataStores, the save contract |
+| [player-loop](player-loop.md) | analytics (the HQ-ladder funnel, recruit runs, cash flows) and the TELL US box |
 | [phone](phone.md) | investor texts, Series A |
 | [daily-bag](daily-bag.md) | daily reward, the bag, items |
 | [valley](valley.md) | the shared server, the market bell |
@@ -40,8 +41,8 @@ This is shared memory for agents and for you. Code wins when a page and the code
 | ~~Live chase lengths are not the sim's~~ FIXED in a96f2d8: home is the doorstep, candidates spawn at 140-370 walking studs, the sim reads the same bands (map contract test) | **Live** + code |
 | Studio runs at 2-3 Hz on this PC (Edit and Play, GPU idle, threads asleep). Not the game. Cause unsolved: closing League gave one ~2-minute fast window only | **Live** |
 | A stray "Label" placeholder floats mid-screen during a chase; Daily Reward reopens after a catch | **Live** (video) |
-| The saved mute never restores: the server sends it in `MenuStats` (SiliconCore.server.lua:3847), and no client listens to `MenuStats` | **Code** |
-| `s.hqPath` is never cleared, so the path picker never returns after a spin-off, though the comment says it should (SiliconCore.server.lua:2077-2079, 2838) | **Code** |
+| The saved mute never restores: the server sends it in `MenuStats` (SiliconCore.server.lua:3883), and no client listens to `MenuStats` | **Code** |
+| `s.hqPath` is never cleared, so the path picker never returns after a spin-off, though the comment says it should (SiliconCore.server.lua:2079-2081, 2863) | **Code** |
 | Wafers mode builds no lots, so build mode may never place `needs` furniture | Agent |
 | `Apartments.vipSpot` still uses the old plaza coordinates | Agent |
 | `Phone.snapshot` and the `SVOpenDaily` event have no caller or listener | Agent |

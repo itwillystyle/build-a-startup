@@ -44,6 +44,7 @@ end
 
 -- v4.5 THE ECONOMY CLOCK: day d pays at most DAILY_SHARE[d] of the next goal (5% .. 35%)
 local Prog = require(script.Parent:WaitForChild("Progression"))
+local Telemetry = require(script.Parent:WaitForChild("Telemetry"))   -- the player loop: cash in and out
 function DailyReward.amountFor(s, day, goal)
 	local rate = s.rate or 0
 	local raw = math.max(DailyReward.FLOOR[day] or 0, math.floor(rate * (DailyReward.SECONDS[day] or 60)))
@@ -76,6 +77,7 @@ function DailyReward.claim(player)
 	s.dailyDay = today()
 	s.streak = day
 	cash.Value += amount
+	Telemetry.money(player, "source", amount, "daily")
 	player:SetAttribute("DailyLast", amount)
 	local item = DailyReward.ITEMS[day]
 	if item and api.grant then pcall(api.grant, player, item, 1, ("Day %d reward"):format(day)) end

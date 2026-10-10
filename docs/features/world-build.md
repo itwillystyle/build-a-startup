@@ -26,7 +26,7 @@
 - `src/StarterPlayer/StarterPlayerScripts/LifeClient.client.lua`: walkers :179, birds :283, jet :319, Caltrain :394, sound :527. Builds folder `Life` in workspace (:33-35).
 **State:**
 - Nothing is saved. No session fields.
-- Workspace and folder attributes: `GroundZones` (JSON, `Ground.lua:162`), `SVNight` (`SkyClient.client.lua:230`), `SVClockOverride` (read :445, set by IntroClient :166), `TowerSpec` (`SiliconCore.server.lua:2806`).
+- Workspace and folder attributes: `GroundZones` (JSON, `Ground.lua:162`), `SVNight` (`SkyClient.client.lua:230`), `SVClockOverride` (read :445, set by IntroClient :166), `TowerSpec` (`SiliconCore.server.lua:2831`).
 - Tags: `SVCloud` (`ValleyGen.lua:666`), `SVLamp`, `SVSpin`, `SVPulse` (set in `Wafers.lua:423, 569, 840`), `SVIdle`, `SVCar`, `SVStaff`. Part attribute `SVPitted` (`Placement.lua:372`).
 **Drive it:**
 - `dev:Invoke("scenario", p, "tp:hq")` stands you at your HQ pad (`DevScenarios.lua`, `tp` branch). No SVDev action rebuilds the world.
@@ -39,7 +39,7 @@
 **Gotchas:**
 - Build order is the bug source. The valley plants trees first and later paving covers them (`Ground.lua:9-14`). Only `CampusDistricts` (:125, :488) and `Downtown.lua:191` call `Ground.reservePart`. The `Placement` shape scan catches the rest.
 - Placement looks at shape: broad, thin, flat, not green (`Placement.lua:36-44`). Greenery is still found by name words (`Ground.lua:85`), so a tree with an odd name is missed.
-- Plots build after the world, so `Placement.pass` runs again per plot (`SiliconCore.server.lua:1041-1047`) and once at the end (:3025).
+- Plots build after the world, so `Placement.pass` runs again per plot (`SiliconCore.server.lua:1041-1047`) and once at the end (:3052).
 - Meshes live in Studio, not in Rojo (`default.project.json`). Without `SVMeshes.LowPoly`, `ValleyGen` falls back to terrain plus `MountainData` (`ValleyGen.lua:410-426, 1308-1320`). `TreeCullClient` exits if `SVMeshes` is missing (:23-24).
 - `LowPolyData` is generated. Do not hand edit. `luau-lsp` skips it (`check.ps1:11`).
 - The rail line is hard coded twice: `SiliconCore.server.lua:622` and `LifeClient.client.lua:404`. Change both.
@@ -47,4 +47,4 @@
 - Stale comments: `SkyClient.client.lua:17,230` say LifeClient reads `SVNight`, but LifeClient has no night code. `FlatLook.lua` header says contact discs replace shadows, but `SkyClient.client.lua:84` turns `GlobalShadows` back on.
 - `WorldFxClient`: a red refusal popup only draws on your own plot (:48, :59-67). A rise is skipped if you stand inside the building (:127).
 - `ShadowClient` constant `SKIP_PARENT` (:62) is never used.
-**Last verified:** 2026-10-09 d6a64f6
+**Last verified:** 2026-10-09 80ce687

@@ -32,6 +32,7 @@ local CollectionService = game:GetService("CollectionService")
 local TalentDrop = {}
 
 local Players = game:GetService("Players")
+local Telemetry = require(script.Parent:WaitForChild("Telemetry"))   -- carry_start / carry_end by tier and outcome
 local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -420,10 +421,12 @@ local function lostSting(player, text)
 	if r and player and player.Parent then r:FireClient(player, text) end
 end
 
-local function endCarry(player, reason, lost)
+-- outcome: signed / no_seat / caught / timeout / walked_off / left / error (Telemetry carry_end)
+local function endCarry(player, reason, lost, outcome)
 	local c = carries[player]
 	if not c then return end
 	carries[player] = nil
+	Telemetry.carryEnd(player, c.vip and "vip" or c.tier.id, outcome or "left", os.clock() - (c.t0 or os.clock()))
 	scooterOff(player, c)
 	if c.hunter then c.hunter:Destroy() end
 	for _, H in ipairs(c.hunters or {}) do if H.rig and H.rig.Parent then H.rig:Destroy() end end
@@ -522,6 +525,8 @@ end
 local function startCarry(player, plot, c)
 	if not attach(player, c) then c.model:Destroy() return end
 	carries[player] = c
+	c.t0 = os.clock()
+	Telemetry.carryStart(player, c.vip and "vip" or c.tier.id, (c.tier.chase or c.vip) and true or false)
 	scooterOn(player, c)
 	-- the offer timer: enough to walk home steadily with room to spare
 	-- v4.6: the walk is the route home (pathLen), not a straight line
@@ -602,6 +607,7 @@ function TalentDrop.poach(thief, victim)
 	local b = victim.Character and victim.Character:FindFirstChild("HumanoidRootPart")
 	if not (a and b) or (a.Position - b.Position).Magnitude > 12 then return end
 	carries[victim] = nil
+	Telemetry.carryEnd(victim, c.vip and "vip" or c.tier.id, "poached", os.clock() - (c.t0 or os.clock()))
 	scooterOff(victim, c)
 	victim:SetAttribute("Carrying", nil); victim:SetAttribute("CarryName", nil); victim:SetAttribute("CarryDeadline", nil)
 	victim:SetAttribute("CarryHome", nil)
@@ -616,6 +622,8 @@ function TalentDrop.poach(thief, victim)
 		end
 	end
 	carries[thief] = c
+	c.t0 = os.clock()
+	Telemetry.carryStart(thief, c.vip and "vip" or c.tier.id, (c.tier.chase or c.vip) and true or false)
 	scooterOn(thief, c)
 	thief:SetAttribute("Carrying", c.tier.id); thief:SetAttribute("CarryName", c.name); thief:SetAttribute("CarryDeadline", c.deadline)
 	thief:SetAttribute("CarryHome", door)
@@ -631,7 +639,7 @@ local function stepCarry(player, c, dt)
 	local hrp = char and char:FindFirstChild("HumanoidRootPart")
 	local hum = char and char:FindFirstChildOfClass("Humanoid")
 	if not hrp or not hum or hum.Health <= 0 or not c.model.Parent then
-		endCarry(player, c.name .. " walked off", true)
+		endCarry(player, c.name .. " walked off", true, "walked_off")
 		return
 	end
 	local plot = api.plotOf(player)
@@ -642,11 +650,11 @@ local function stepCarry(player, c, dt)
 		local ok = api.hire(player, plot, { floor = c.tier.floor, fee = c.fee, luck = c.luck,
 			kind = c.vip and "vip" or c.tier.id,
 			role = c.model:GetAttribute("RoleKey"), seed = c.model:GetAttribute("Seed") })
-		endCarry(player, ok and "" or ("Couldn't sign " .. c.name .. " (need $" .. api.fmt(c.fee) .. " and a free seat)"))
+		endCarry(player, ok and "" or ("Couldn't sign " .. c.name .. " (need $" .. api.fmt(c.fee) .. " and a free seat)"), nil, ok and "signed" or "no_seat")
 		return
 	end
 	if now() > c.deadline then
-		endCarry(player, c.name .. " took another offer", true)
+		endCarry(player, c.name .. " took another offer", true, "timeout")
 		return
 	end
 	-- v4.3 THE CHASE: ChaseRules (a tension band, telegraphed lunges, lead pursuit;
@@ -672,7 +680,7 @@ local function stepCarry(player, c, dt)
 					local tv = thrp.AssemblyLinearVelocity
 					local ph, dist = Chase.step(c.chaseCfg, H.h, thrp.Position.X, thrp.Position.Z, tv.X, tv.Z, c.speed or 16, dt, t)
 					if dist <= Chase.CATCH then
-						endCarry(player, ("%s's headhunter got %s!"):format(c.hunterRival or "A rival", c.name), true)
+						endCarry(player, ("%s's headhunter got %s!"):format(c.hunterRival or "A rival", c.name), true, "caught")
 						return
 					end
 					minD = math.min(minD, dist)
@@ -754,7 +762,7 @@ function TalentDrop.init(a)
 	folder = Instance.new("Folder")
 	folder.Name = "TalentRow"
 	folder.Parent = workspace:FindFirstChild("SiliconValley") or workspace
-	Players.PlayerRemoving:Connect(function(p) endCarry(p, nil); TalentDrop.clearVip(p) end)
+	Players.PlayerRemoving:Connect(function(p) endCarry(p, nil, nil, "left"); TalentDrop.clearVip(p) end)
 
 	-- restock + ownership: 1 Hz
 	task.spawn(function()
@@ -815,7 +823,7 @@ function TalentDrop.init(a)
 			last = t
 			for player, c in pairs(carries) do
 				local ok, err = pcall(stepCarry, player, c, dt)
-				if not ok then warn("[SV] TalentDrop carry: " .. tostring(err)); endCarry(player, nil) end
+				if not ok then warn("[SV] TalentDrop carry: " .. tostring(err)); endCarry(player, nil, nil, "error") end
 			end
 		end
 	end)

@@ -1,7 +1,7 @@
 # Core loop (tap, hire, build, launch, climb)
 **What:** The main game. You tap WRITE CODE, ship an app, hire people, build HQ floors, and launch apps for paydays. Income per second comes from seated staff times a stack of multipliers. The server owns all of it. `SiliconCore` (`SiliconCore.server.lua`) holds the state and the handlers. `CoreConfig`, `RoomEconomy`, `Progression`, `Momentum` and `Journey` hold the numbers and rules. `HudClient` and `ProductClient` draw it.
 **How a player reaches it:**
-1. Join. `onJoin` gives you a plot and spawns you in the garage (`src/ServerScriptService/SiliconCore.server.lua:3816`, `assignPlot` :3002).
+1. Join. `onJoin` gives you a plot and spawns you in the garage (`src/ServerScriptService/SiliconCore.server.lua:3846`, `assignPlot` :3029).
 2. Tap the laptop prompt "WRITE CODE" (`wirePlot` :2840) or the HUD button (`HudClient.client.lua:208,396`). A tap pays max($5, 0.18 s of income) with a combo (`CoreConfig.lua:10-16`).
 3. Third tap ships the To-Do App (`CLICKS_TO_SHIP` `CoreConfig.lua:17`, `shipFirstProduct` :1291).
 4. Step on the HIRE pad for a free intern (`hire` :1865, see hiring-talent.md). The company name box follows, then the door opens and BUILD pads turn on (beat driver :3859-3901).
@@ -9,7 +9,7 @@
 6. Seated staff fill the product bar. When full, the WRITE CODE button turns into LAUNCH! (`HudClient.client.lua:334`; key L :387-390). Launch pays a payday (`launchProduct` :3170).
 7. The quest card walks you through each HQ level (`Journey.LADDER` `Journey.lua:37`). Top of the blueprint ends in GO PUBLIC and SPIN OFF (see ipo-spinoff.md).
 **Files:**
-- `src/ServerScriptService/SiliconCore.server.lua` (4,103 lines): `recompute` :1201 (rate = `base * F - wages`, :1241-1244), `writeCode` :1316, `journeyState` :1553, `refreshObjective` :1608, `refreshHqPad` :1969, `checkMilestones` :2039, income tick :3059, `offerProduct` :3277, `productLoop` :3354. Remotes `WriteCode` :2651, `PickMarket` :3266, `ProductReady` :529, `Celebrate` :2671.
+- `src/ServerScriptService/SiliconCore.server.lua` (4,103 lines): `recompute` :1201 (rate = `base * F - wages`, :1241-1244), `writeCode` :1316, `journeyState` :1554, `refreshObjective` :1609, `refreshHqPad` :1971, `checkMilestones` :2041, income tick :3086, `offerProduct` :3305, `productLoop` :3382. Remotes `WriteCode` :2668, `PickMarket` :3294, `ProductReady` :529, `Celebrate` :2688.
 - `src/ServerScriptService/CoreConfig.lua`: pure tuning data. `HQ_LEVELS` :46, `TALENT` :80, `MILESTONE_*` :61-63, `IPO_AT` :115.
 - `src/ServerScriptService/RoomEconomy.lua`: price ladder `V3` :223, `HQ_COST` :228, `CAP_BY_HQ` :229, `LAUNCH_PAY` :233, `SPINOFF_BASE` :235; stations :37, role fit :64, recruit tiers :353.
 - `src/ServerScriptService/Progression.lua`: `spinMult` :33, `spinCost` :38, `runScale` :63 (prices of company n+1), `capWindfall` :92.
@@ -20,10 +20,10 @@
 **State:**
 - `sessions[userId]` made in `onJoin` :3790 (clicks, shipped, rate, staff, rigs, placed). Later fields: `valuation`, `earned`, `milestones`, `work`, `workNeed`, `pendingProduct`, `momentum`, `listed`, `spinoffs`, `jr`, `tips`.
 - Attributes the HUD reads: `Objective*` :1839-1843, `Milestone*`, `CoachTip`, `CanGoPublic`, `Shipped`, `BuildOpen`, `HQLevel`, `ProductProgress`, `CodeTap`, `Momentum`, `PriceMult`, `IncomeRooms`, `Away`. Leaderstats: Cash, Per Sec, Staff, Valuation.
-- Saved: see saving-data.md (`SaveLoad.lua:76-140`).
+- Saved: see saving-data.md (`SaveLoad.lua:78-142`).
 **Drive it:**
 - `dev:Invoke("scenario", p, "ready")`: ship, $1e9 if under $1e8, one hire (`DevScenarios.lua:148-173`). `"rich"` adds $1e9. `"hq:<n>"` builds free to Wafers level n (:229).
-- Raw SVDev: `ship`, `cash <n>`, `upgrade`, `work <n>`, `product` (LAUNCH now), `launch <1-6>`, `earned <n>`, `state` (`DevHook.lua:53,58,62,175,178,113,87,514`).
+- Raw SVDev: `ship`, `cash <n>`, `upgrade`, `work <n>`, `product` (LAUNCH now), `launch <1-6>`, `earned <n>`, `state` (`DevHook.lua:53,58,62,175,178,113,87,518`).
 - `dev:Invoke("bot", p, "20 2")` plays the whole loop for 2 companies and logs `[BOT]` lines (`DevHook.lua:188`). Read with `botlog`.
 **Prove it:**
 - Offline specs (`lune run tests/offline/run`, 218 pass at 287a211): `journey.spec.luau`, `momentum.spec.luau`, `progression.spec.luau`, `clock.spec.luau`, `home.spec.luau`.
@@ -36,9 +36,9 @@
 - Wages are not charged under V3 (:1224). `Econ.WAGE` is unused for income now.
 - Launch boost is dead under V3: `launchProduct` sets `s.launch = nil` (:3184). A launch is a payday only.
 - Auto-launch after 60 s only happens once you have launched by hand (:3266-3271).
-- SaveLoad sets `s.momentum` on load (`SaveLoad.lua:361`) but no code sets the `Momentum` attribute then (only :1952, :2092, :3199). The HUD may show 0 after a rejoin until the next change. Not run to confirm.
+- SaveLoad sets `s.momentum` on load (`SaveLoad.lua:364`) but no code sets the `Momentum` attribute then (only :1952, :2092, :3199). The HUD may show 0 after a rejoin until the next change. Not run to confirm.
 - The HUD copies momentum math: `math.min(mom, 12) * 3` (`HudClient.client.lua:497`). Changing `Momentum.SPEND_CAP` or `PER_POINT` will not change it.
 - `SiliconCore` is at Luau's 200 local limit (:2659, :3786). New code goes in a module or a `do` block.
 - The objective attributes refresh every 0.4 s (:3845-3857). Tests that read them right after an action can see the old value (`DevHook.lua:235`).
 - `Journey.task` returns nil while you carry a recruit, a product waits, or nothing shipped (`Journey.lua:72`).
-**Last verified:** 2026-10-09 d6a64f6
+**Last verified:** 2026-10-09 80ce687
