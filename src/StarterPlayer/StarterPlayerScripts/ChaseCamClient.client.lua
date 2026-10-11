@@ -388,7 +388,12 @@ local function unblock(cf, root, dt)
 			break
 		end
 	end
-	local d = ChaseCam.occlude(occ, want, hit and hit.Distance, dt)
+	-- the building walls on their own too: the spherecast above misses a wall it starts inside
+	-- (riding along the HQ), CameraWalls.cast falls back to a ray (game doctor, 11 Oct)
+	local wall = CameraWalls.cast(origin, off)
+	local first = hit and hit.Distance
+	if wall and (not first or wall < first) then first = wall end
+	local d = ChaseCam.occlude(occ, want, first, dt)
 	if d >= want then return cf end
 	return cf - off.Unit * (want - d)
 end
