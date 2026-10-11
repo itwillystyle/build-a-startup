@@ -72,6 +72,7 @@ for i, spec in ipairs({
 	local g = Instance.new("UIGradient", f)
 	g.Rotation = spec[3]
 	g.Transparency = NumberSequence.new(0, 1)
+	f:SetAttribute("Overlay", true)     -- the doctor's ui probe: an overlay, not a card
 	edges[i] = f
 end
 
@@ -246,6 +247,22 @@ RunService.RenderStepped:Connect(function(dt)
 	local dist = player:GetAttribute("ChaseDist")
 	local chasing = carrying and dist ~= nil
 	btn.Visible = chasing
+	--[[ v8 (11 Oct, UI step 5): on a touch screen BOOST sits by the thumb, just left
+		of Roblox's jump button, bottoms level. At (1,-190, 1,-118), placed for a
+		desktop, it stood in the middle of a phone's screen, over the road ahead
+		(measured 439,121 on a 749 x 381 phone). ]]
+	if chasing then
+		local tg = player.PlayerGui:FindFirstChild("TouchGui")
+		local jump = tg and tg.Enabled and tg:FindFirstChild("JumpButton", true)
+		if jump and jump.Visible and jump.AbsoluteSize.X > 0 then
+			local o = gui.AbsolutePosition
+			local right = jump.AbsolutePosition.X - o.X - 12
+			local bottom = jump.AbsolutePosition.Y - o.Y + jump.AbsoluteSize.Y
+			btn.Position = UDim2.new(0, right, 0, bottom)
+		else
+			btn.Position = UDim2.new(1, -190, 1, -118)
+		end
+	end
 	-- 0 (far) .. 1 (on top of you)
 	local fear = chasing and math.clamp(1 - (dist - 4.5) / 24, 0, 1) or 0
 	-- quiet until it crouches (see v4.4 above): a faint wash for distance, a flash for the tell

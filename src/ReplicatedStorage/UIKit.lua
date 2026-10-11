@@ -808,6 +808,12 @@ function UIKit.fitMenu(panel, w, h, sc, vMargin)
 	end
 	refit()
 	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(refit)
+	-- v8 (11 Oct, step 5): and when the parent itself resizes. ViewportSize changes
+	-- first and the ScreenGui's AbsoluteSize a frame later, so a refit on the first
+	-- alone measured the OLD width: after a window resize (1074 to 1917 wide, in
+	-- Studio's simulator) the quest card stayed centred on x 532, not 958.
+	local par = panel.Parent
+	if par and par:IsA("GuiBase2d") then par:GetPropertyChangedSignal("AbsoluteSize"):Connect(refit) end
 	local g = panel:FindFirstAncestorWhichIsA("ScreenGui")
 	if g then g:GetPropertyChangedSignal("Enabled"):Connect(function() if g.Enabled then refit() end end) end
 	return function(yScale, yOffset)
@@ -874,8 +880,10 @@ local function setOpenTray(on)
 		tray.Position = UDim2.fromOffset(a.X + more.AbsoluteSize.X + 10, a.Y - 8)
 	end
 	tray.Visible = on == true
-	-- open, it is the thing you are using: above the quest card (DisplayOrder 9)
+	-- open, it is the thing you are using: above the quest card (DisplayOrder 9),
+	-- and the quest card steps aside (on a phone the tray reaches across it)
 	g.DisplayOrder = tray.Visible and 11 or 5
+	game:GetService("Players").LocalPlayer:SetAttribute("RailTrayOpen", tray.Visible or nil)
 	if more then
 		UIKit.setRailActive(more, tray.Visible)
 		local ic = more:FindFirstChild("Icon")
@@ -1324,17 +1332,28 @@ function UIKit.menu(parent, title, accent, props, opts)
 		close.Name = "Close"
 		close.Text = ""
 		close.AutoButtonColor = false
+		--[[ v8 (11 Oct, UI step 5): the tap target is 52 px, the round button you
+			see is 44 inside it. On a phone a menu shrinks to fit (fitMenu) and a
+			44 px close measured 41-42 px (Daily, Apartments): under the floor. ]]
 		close.AnchorPoint = Vector2.new(1, 0.5)
-		close.Position = UDim2.new(1, -8, 0.5, -1)
-		close.Size = UDim2.new(0, 44, 0, 44)
-		close.BackgroundColor3 = UIKit.PAPER
+		close.Position = UDim2.new(1, -4, 0.5, -1)
+		close.Size = UDim2.new(0, 52, 0, 52)
+		close.BackgroundTransparency = 1
 		close.ZIndex = 3
 		close.Parent = head
-		Instance.new("UICorner", close).CornerRadius = UDim.new(1, 0)
-		local cs = Instance.new("UIStroke", close)
+		local disc = Instance.new("Frame")
+		disc.Name = "Disc"
+		disc.AnchorPoint = Vector2.new(0.5, 0.5)
+		disc.Position = UDim2.new(0.5, 0, 0.5, 0)
+		disc.Size = UDim2.new(0, 44, 0, 44)
+		disc.BackgroundColor3 = UIKit.PAPER
+		disc.ZIndex = 3
+		disc.Parent = close
+		Instance.new("UICorner", disc).CornerRadius = UDim.new(1, 0)
+		local cs = Instance.new("UIStroke", disc)
 		cs.Color = UIKit.deep(accent)
 		cs.Thickness = 2.5
-		UIKit.icon(close, "cross", 20, UIKit.INK_SOFT, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), ZIndex = 4 })
+		UIKit.icon(disc, "cross", 20, UIKit.INK_SOFT, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), ZIndex = 4 })
 		local csc = Instance.new("UIScale", close)
 		local TS = game:GetService("TweenService")
 		close.MouseButton1Down:Connect(function()
@@ -1488,7 +1507,12 @@ end
 	re-measuring every screen.
 ]]
 local REF_Y = 720
-local AUTO_MIN, AUTO_MAX = 0.66, 1.30
+--[[ v8 (11 Oct, UI step 5): the floor was 0.66, so on a phone (381 tall in the
+	simulator) a 14 px label drew at 9.7 px and the bottom toast at 10.9. 0.86 keeps
+	the smallest text (TYPE.caption 14) at 12 px on a phone, which the doctor checks.
+	Most of the HUD carries its own UIScale first and never took this one anyway:
+	a frame honours one UIScale, the first child. ]]
+local AUTO_MIN, AUTO_MAX = 0.86, 1.30
 local AUTO_TAG = "SVAutoScale"
 
 -- set false to turn the whole system off and get v5 behaviour back

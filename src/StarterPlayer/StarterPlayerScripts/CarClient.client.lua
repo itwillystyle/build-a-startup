@@ -347,9 +347,13 @@ local function refreshBtn()
 	-- v5: the decor sheet owns the bottom edge while it is open (it covered this button)
 	carBtn.Visible = player:GetAttribute("CarOwned") == true and not driving and player:GetAttribute("BuildModeOpen") ~= true
 		and not menuOpen()
+		-- v8 (11 Oct): no cars in a chase (the server refuses: "Not during a recruit
+		-- run!"), so the tile steps aside and BOOST takes that spot on a phone
+		and player:GetAttribute("Carrying") == nil
 end
 UIKit.onMenuChange(function() refreshBtn() end)
 player:GetAttributeChangedSignal("CarOwned"):Connect(refreshBtn)
+player:GetAttributeChangedSignal("Carrying"):Connect(refreshBtn)
 player:GetAttributeChangedSignal("BuildModeOpen"):Connect(refreshBtn)
 -- v5: while "Hop in your company car" is the goal, the CAR tile is the loud thing:
 -- a pulsing gold ring (the goal card says "Tap CAR"; there is no world arrow)
