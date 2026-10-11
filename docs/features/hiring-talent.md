@@ -1,19 +1,19 @@
 # Hiring, talent, staff rigs and the Index
 **What:** The HIRE pad only gives the first intern, free. Every later hire is a recruit run on the street. `hire()` in `SiliconCore` signs the person, rolls their talent once (Regular, Skilled, Star, Genius, Unicorn), builds a real R15 rig with `StaffRig`, and seats them. Rare hires get a reveal card (`TalentRevealClient`) and fill a 5 by 5 collection (`IndexClient`). `StaffAnimClient` draws all staff motion on each player's machine. Seniority (Intern to Lead) is separate from talent: it grows with seated time.
 **How a player reaches it:**
-1. Ship the first app, then step on the HIRE pad: "HIRE YOUR FIRST INTERN FREE" (`src/ServerScriptService/SiliconCore.server.lua:1539`, pad handler :2896-2904).
+1. Ship the first app, then step on the HIRE pad: "HIRE YOUR FIRST INTERN FREE" (`src/ServerScriptService/SiliconCore.server.lua:1539`, pad handler :2897-2905).
 2. After that the pad reads "HIRING HAPPENS ON THE STREET" (:1523). Walk out to a candidate and use the "Recruit" prompt (`src/ServerScriptService/TalentDrop.lua:317-328`). Tiers: WALK-IN, SKILLED, STAR (HQ 2), GENIUS (HQ 3) (`RoomEconomy.lua:353-358`). The WALK-IN stands on your drive. SKILLED, STAR and GENIUS stand at a new spot each restock, 140-190, 210-270 and 290-370 walking studs from your HQ doorstep (`TalentDrop.lua:159-188`, `ChaseRules.lua:85-89`).
 3. Carry them home before the timer ends while a headhunter chases (TalentDrop; see chase.md). At your doorstep (within 14 studs, `Chase.DELIVER_R`) `stepCarry` calls `hire(player, plot, {floor, fee, luck, kind})` (`TalentDrop.lua:675-683`).
 4. Skilled or better: the TalentReveal card, a screen glow and a halo on Star and up. A new Index entry flies to the INDEX button (`TalentRevealClient.client.lua:257,191`).
-5. INDEX button on the right rail opens the grid. Q closes it (`IndexClient.client.lua:274-288`).
+5. INDEX button on the right rail opens the grid. Q closes it (`IndexClient.client.lua:273-287`).
 **Files:**
-- `src/ServerScriptService/SiliconCore.server.lua`: `hire` :1884-1982, `spawnStaff` :1484, `assignDesks` :1448, `updateHirePad` :1516, `CFG.TALENT.roll` :295, `talentMultOf` :303, remote `TalentReveal` :548, `Econ.publishIndex` :2689, `IndexSeen` :2695.
+- `src/ServerScriptService/SiliconCore.server.lua`: `hire` :1884-1982, `spawnStaff` :1484, `assignDesks` :1448, `updateHirePad` :1516, `CFG.TALENT.roll` :295, `talentMultOf` :303, remote `TalentReveal` :548, `Econ.publishIndex` :2690, `IndexSeen` :2696.
 - `src/ServerScriptService/StaffRig.lua`: `ROLES` :85, avatar template prewarm :422, `build` :505, `setTalent` :542, `setTitle` :590, `say` :598, `cheer` :637, `setSeated` :659, `animate` :826. Server builds and places only.
 - `src/ServerScriptService/CoreConfig.lua`: `TALENT` odds and multipliers :80-86, `TIER_RATE`/`TIER_TITLE` :77-78, `PROMOTE_EVERY` :79, `ROLE_ORDER` :27.
 - `src/ServerScriptService/RoomEconomy.lua`: `FIT` :64, `TIERS` :353, `INDEX_*` :383-385, `indexLines` :386, `indexMult` :401.
 - `src/StarterPlayer/StarterPlayerScripts/StaffAnimClient.client.lua`: `add` :156, `wander` :220, Heartbeat loop :348. Typing, glances, wander, cheer, hunter anims.
 - `src/StarterPlayer/StarterPlayerScripts/TalentRevealClient.client.lua`: `showCard` :257, listener :300.
-- `src/StarterPlayer/StarterPlayerScripts/IndexClient.client.lua`: `refresh` :229, `setOpen` :274.
+- `src/StarterPlayer/StarterPlayerScripts/IndexClient.client.lua`: `refresh` :229, `setOpen` :273.
 **State:**
 - `s.rigs[i] = { rig, hum, tier, seatedTime, talent, who = {role, seed}, seated, room, fit, eff, seg, dept, home }` (`SiliconCore.server.lua:1496-1497`, `assignDesks` :1465-1477). Also `s.staff`, `s.hireCost`, `s.index` (set of `"role:talent"`), `s.alumni`.
 - Player attributes: `IndexData` (comma list), `IndexNew` (badge count), `VibeLuck`. Rig attributes: `Role`, `PersonName`, `Talent`, `TalentName`, `Avatar`, `Seated`, `Wander`, `CheerAt`. Rigs carry tag `SVStaff`.
@@ -42,4 +42,4 @@
 - Do not move motion back to the server. The header measured 246.5 KB/s per player when it was there (`StaffRig.lua:29-33`).
 - A kept spin-off hire returns as an Intern (`spawnStaff` sets `tier = 1`, :1477).
 - `StaffAnimClient.client.lua:47` says the run animation id is empty. `HUNTER_ANIM.run` is set (:52-53). The comment is stale.
-**Last verified:** 2026-10-10 a7700e2
+**Last verified:** 2026-10-11 34acebb
