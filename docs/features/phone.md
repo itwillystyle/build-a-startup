@@ -40,4 +40,4 @@
 - Calls need `HasVoice` on both players, a 25 s ring, and a 45 s cooldown after a decline (`Phone.lua:502-529`, :469).
 - Investors wear an AI badge. Scripted notices do not (`PhoneClient.client.lua:255-275`).
 - Security (9 Oct exploit check): a typed reply marks the thread busy BEFORE the text filter yields, so a second reply sent during the yield cannot count twice (`Phone.lua:412`).
-**Last verified:** 2026-10-11 34acebb
+**Last verified:** 2026-10-11 c9687dd

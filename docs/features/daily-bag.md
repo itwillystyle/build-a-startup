@@ -37,4 +37,4 @@
 - Armed Scout and Front Page are attributes, not saved. Leaving after arming loses an item that was already spent.
 - Stale: `DailyClient.client.lua:34-35` says there is no rail tile and the phone opens the card. There is a DAILY tile (:226), and the `SVOpenDaily` event (:37) is never fired in `src`.
 - Tips find `Rail.Column.BagButton` and `Rail.Column.DailyButton` by name (`Journey.lua:164, 173`). Do not rename them.
-**Last verified:** 2026-10-11 34acebb
+**Last verified:** 2026-10-11 c9687dd
