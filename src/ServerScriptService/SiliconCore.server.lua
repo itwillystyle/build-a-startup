@@ -2170,8 +2170,9 @@ local function wafersBuild(player, plot, s, cash, chosen)
 		if Econ.celebrate then
 			local head, task1
 			if stage ~= stageBefore then head, task1 = Journey.headline(stage, { hasCar = Econ.Cars and Econ.Cars.hasCar(player) }) end
+			-- big: the HQ stage itself changed (confetti); a banner level on the way is a smaller moment
 			Econ.celebrate:FireClient(player, { kind = "hq", level = stage, name = ("LEVEL %d"):format(lvl), chips = chips,
-				headline = head or ((lvl == 100) and "THE CROWN" or "GARDEN DECK"), task = task1 })
+				headline = head or ((lvl == 100) and "THE CROWN" or "GARDEN DECK"), task = task1, big = stage ~= stageBefore or lvl == 100 })
 		end
 	else
 		local what = (last > L) and ("LEVELS %d-%d REBUILT"):format(L, last)

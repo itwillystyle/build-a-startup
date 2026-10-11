@@ -511,7 +511,9 @@ function UIKit.railButton(key, caption, accent, props, opts)
 	opts.stroke = opts.stroke or UIKit.INK_SOFT
 	opts.iconSize = opts.iconSize or 30
 	opts.captionSize = opts.captionSize or 14
-	local b, t, ic = UIKit.iconButton(UIKit.rail(), key, caption, UIKit.PAPER, props, opts)
+	-- v8: a tile you open now and then lives in the MORE tray (UIKit.railTray)
+	local home = opts.tray and UIKit.railTray() or UIKit.rail()
+	local b, t, ic = UIKit.iconButton(home, key, caption, UIKit.PAPER, props, opts)
 	accent = accent or UIKit.BLUE
 	b:SetAttribute("Accent", accent)
 
@@ -832,6 +834,232 @@ function UIKit.badge(button)
 	local t = UIKit.heading(b, "", UIKit.TYPE.caption, UIKit.TEXT, { Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center,
 		TextStrokeTransparency = 1, ZIndex = button.ZIndex + 6 })
 	return b, t
+end
+
+--[[ v8 (11 Oct) ONE LOUD THING ON THE RAIL.
+
+The UI audit's first screenshot: seven identical tiles down the left, four
+of them flagged at once (BAG 2, PHONE 5, DAILY !, and DECOR's "B" key cap,
+which read as a fourth badge). When everything is flagged, nothing is.
+
+Two rules now.
+  * The rail holds four tiles: BUILD, BAG, PHONE and MORE. The tiles you open
+    now and then (INDEX, DECOR, DAILY, TELL US) sit in a tray that MORE opens:
+    railButton(..., { tray = true }). MORE shows while any of them would.
+  * A red badge means "you can do something here right now", and only ONE
+    shows at a time: the most urgent (lowest rank). Another tile with
+    something to do gets a small ink dot instead. News you can only look at
+    (a new Index entry, kind "look") never reaches the rail: it shows on its
+    tile inside the tray. A tray tile's "act" badge lifts onto MORE.
+A rail badge is made with UIKit.railBadge(tile, kind, rank) and switched with
+UIKit.setBadge(badge, on, text), never by setting Visible: the referee decides
+what actually shows. ]]
+local railBadges = {}      -- badge -> { tile, text, kind, rank, want, label }
+local moreBadge, moreBadgeText
+local arbitrate            -- forward: the tray and the badges call each other
+
+local function trayOf()
+	local pg = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
+	local g = pg and pg:FindFirstChild("Rail")
+	return g and g:FindFirstChild("Tray"), g
+end
+
+local function setOpenTray(on)
+	local tray, g = trayOf()
+	if not tray then return end
+	local more = g.Column:FindFirstChild("MoreButton")
+	if on and more then
+		-- beside MORE, top edges level, in the rail gui's own space
+		local a = more.AbsolutePosition - g.AbsolutePosition
+		tray.Position = UDim2.fromOffset(a.X + more.AbsoluteSize.X + 10, a.Y - 8)
+	end
+	tray.Visible = on == true
+	-- open, it is the thing you are using: above the quest card (DisplayOrder 9)
+	g.DisplayOrder = tray.Visible and 11 or 5
+	if more then
+		UIKit.setRailActive(more, tray.Visible)
+		local ic = more:FindFirstChild("Icon")
+		if ic then
+			game:GetService("TweenService"):Create(ic, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+				{ Rotation = tray.Visible and 90 or 0 }):Play()      -- the dots stand up: open
+		end
+	end
+	arbitrate()
+end
+UIKit.setTrayOpen = setOpenTray
+
+function UIKit.railTray()
+	local col = UIKit.rail()
+	local g = col.Parent
+	local tray = g:FindFirstChild("Tray")
+	if tray then return tray end
+	-- ZIndex stays 1: this gui sorts globally, and a higher card drew over its own tiles.
+	-- NoAutoScale: its tiles match the rail column's (which its FitScale already keeps at 1)
+	tray = UIKit.card(g, {
+		Name = "Tray", Size = UDim2.new(0, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.XY, Visible = false,
+	}, { radius = UIKit.RADIUS.lg, stroke = UIKit.INK_SOFT })
+	tray:SetAttribute("NoAutoScale", true)
+	local pad = Instance.new("UIPadding", tray)
+	pad.PaddingLeft = UDim.new(0, 8); pad.PaddingRight = UDim.new(0, 8)
+	pad.PaddingTop = UDim.new(0, 16); pad.PaddingBottom = UDim.new(0, 12)    -- 16: room for the icons that pop above a tile
+	local row = Instance.new("UIListLayout", tray)
+	row.FillDirection = Enum.FillDirection.Horizontal
+	row.Padding = UDim.new(0, 14)   -- a badge pokes 8 px right of a tile, DECOR's key cap 6 px left
+	row.SortOrder = Enum.SortOrder.LayoutOrder
+
+	local more = UIKit.railButton("plus", "MORE", UIKit.INK_SOFT, {
+		Name = "MoreButton", LayoutOrder = 90, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
+	})
+	-- three ink dots, drawn (the Kenney plus never loaded: measured IsLoaded false),
+	-- named Icon so the nudge wiggles it and the open state turns it upright
+	local glyph = more:FindFirstChild("Icon")
+	if glyph then glyph:Destroy() end
+	local dots = Instance.new("Frame")
+	dots.Name = "Icon"
+	dots.AnchorPoint = Vector2.new(0.5, 0)
+	dots.Position = UDim2.new(0.5, 0, 0, 14)
+	dots.Size = UDim2.new(0, 30, 0, 30)
+	dots.BackgroundTransparency = 1
+	dots.ZIndex = more.ZIndex + 1
+	dots.Parent = more
+	for i = -1, 1 do
+		local d = Instance.new("Frame")
+		d.AnchorPoint = Vector2.new(0.5, 0.5)
+		d.Position = UDim2.new(0.5, i * 10, 0.5, 0)
+		d.Size = UDim2.new(0, 7, 0, 7)
+		d.BackgroundColor3 = UIKit.INK
+		d.BorderSizePixel = 0
+		d.ZIndex = more.ZIndex + 1
+		d.Parent = dots
+		Instance.new("UICorner", d).CornerRadius = UDim.new(1, 0)
+	end
+	moreBadge, moreBadgeText = UIKit.badge(more)
+	more.Activated:Connect(function() setOpenTray(not tray.Visible) end)
+
+	-- MORE shows while any tile in the tray does; a tile tapped closes the tray
+	local function syncMore()
+		local any = false
+		for _, c in ipairs(tray:GetChildren()) do
+			if c:IsA("GuiButton") and c.Visible then any = true break end
+		end
+		more.Visible = any
+		if not any and tray.Visible then setOpenTray(false) end
+		arbitrate()
+	end
+	tray.ChildAdded:Connect(function(c)
+		if not c:IsA("GuiButton") then return end
+		c:GetPropertyChangedSignal("Visible"):Connect(syncMore)
+		c.Activated:Connect(function() setOpenTray(false) end)
+		syncMore()
+	end)
+	-- a menu opening, or a tap anywhere else, closes it
+	UIKit.onMenuChange(function(open) if open and tray.Visible then setOpenTray(false) end end)
+	game:GetService("UserInputService").InputBegan:Connect(function(input)
+		if not tray.Visible then return end
+		local t = input.UserInputType
+		if t ~= Enum.UserInputType.MouseButton1 and t ~= Enum.UserInputType.Touch then return end
+		local p = Vector2.new(input.Position.X, input.Position.Y)   -- the same space as AbsolutePosition
+		local function inside(o)
+			local a, s = o.AbsolutePosition, o.AbsoluteSize
+			return p.X >= a.X and p.X <= a.X + s.X and p.Y >= a.Y and p.Y <= a.Y + s.Y
+		end
+		if not inside(tray) and not inside(more) then setOpenTray(false) end
+	end)
+	return tray
+end
+
+-- the tile to point at for a rail button by name: the tile itself, or MORE
+-- while it sits in the closed tray (the coach's arrow, a hire flying to INDEX)
+function UIKit.railTarget(name)
+	local tray, g = trayOf()
+	if not g then return nil end
+	local tile = g:FindFirstChild(name, true)
+	if not (tile and tile:IsA("GuiObject")) then return nil end
+	if tray and tile:IsDescendantOf(tray) and not tray.Visible then
+		local more = g.Column:FindFirstChild("MoreButton")
+		return (tile.Visible and more and more.Visible) and more or nil
+	end
+	return tile
+end
+
+-- a short wiggle of a tile's icon (or MORE's, while the tile is in the closed
+-- tray): "something new is here", without a badge
+function UIKit.railNudge(tile, seconds)
+	task.spawn(function()
+		local t0 = os.clock()
+		while os.clock() - t0 < (seconds or 3) do
+			local tray = trayOf()
+			local on = (tray and tile:IsDescendantOf(tray) and not tray.Visible) and UIKit.railTarget(tile.Name) or tile
+			local ic = on and on:FindFirstChild("Icon")
+			if ic then ic.Rotation = 10 * math.sin((os.clock() - t0) * 18) * (((os.clock() - t0) % 1) < 0.5 and 1 or 0) end
+			task.wait()
+		end
+		for _, o in ipairs({ tile, UIKit.railTarget(tile.Name) }) do
+			local ic = o and o:FindFirstChild("Icon")
+			if ic and not (o.Name == "MoreButton" and o:GetAttribute("RailActive")) then ic.Rotation = 0 end
+		end
+	end)
+end
+
+function UIKit.railBadge(tile, kind, rank)
+	local b, t = UIKit.badge(tile)
+	railBadges[b] = { tile = tile, text = t, kind = kind or "act", rank = rank or 5, want = false, label = "" }
+	tile:GetPropertyChangedSignal("Visible"):Connect(function() arbitrate() end)
+	return b, t
+end
+
+function UIKit.setBadge(b, on, text)
+	local e = railBadges[b]
+	if not e then
+		b.Visible = on == true
+		local t = b:FindFirstChildWhichIsA("TextLabel")
+		if t and text then t.Text = text end
+		return
+	end
+	e.want, e.label = on == true, text or e.label
+	arbitrate()
+end
+
+-- full: the red count badge; dot: the quiet "also here" mark
+local function paintBadge(b, t, mode, label)
+	b.Visible = mode ~= nil
+	if not mode then return end
+	local dot = mode == "dot"
+	b.Size = dot and UDim2.new(0, 12, 0, 12) or UDim2.new(0, 24, 0, 24)
+	b.Position = dot and UDim2.new(1, -8, 0, 8) or UDim2.new(1, -4, 0, 4)
+	b.BackgroundColor3 = dot and UIKit.INK_SOFT or UIKit.RED
+	t.Visible = not dot
+	t.Text = label or ""
+end
+
+arbitrate = function()
+	local tray = trayOf()
+	local function inTray(e) return tray ~= nil and e.tile:IsDescendantOf(tray) end
+	-- what MORE carries: the most urgent "act" badge among the tray's tiles
+	local lift
+	for _, e in pairs(railBadges) do
+		if inTray(e) and e.want and e.kind == "act" and e.tile.Visible and (not lift or e.rank < lift.rank) then lift = e end
+	end
+	-- the one red badge on the rail
+	local best
+	for _, e in pairs(railBadges) do
+		if not inTray(e) and e.want and e.kind == "act" and e.tile.Visible and (not best or e.rank < best.rank) then best = e end
+	end
+	if lift and not (tray and tray.Visible) and (not best or lift.rank < best.rank) then best = lift end
+	for b, e in pairs(railBadges) do
+		if inTray(e) then
+			-- inside the open tray every tile tells its own news
+			paintBadge(b, e.text, (e.want and tray.Visible) and "full" or nil, e.label)
+		elseif e.want and e.kind == "act" and e.tile.Visible then
+			paintBadge(b, e.text, (e == best) and "full" or "dot", e.label)
+		else
+			paintBadge(b, e.text, nil)
+		end
+	end
+	if moreBadge then
+		local mode = (lift and not tray.Visible) and ((best == lift) and "full" or "dot") or nil
+		paintBadge(moreBadge, moreBadgeText, mode, lift and lift.label)
+	end
 end
 
 -- a reward that pops out of a HUD element and floats away (paydays, sales)
@@ -1283,7 +1511,7 @@ local function fullScreen(o)
 end
 
 local function applyTo(child, s)
-	if not child:IsA("GuiObject") then return end
+	if not child:IsA("GuiObject") or child:GetAttribute("NoAutoScale") then return end
 	if fullScreen(child) then
 		local old = child:FindFirstChild(AUTO_TAG)
 		if old then old:Destroy() end

@@ -20,7 +20,7 @@ local MAX = 300
 -- ============ the tile ============
 local railBtn = UIKit.railButton("info", "TELL US", UIKit.PINK, {
 	Name = "FeedbackButton", LayoutOrder = 99, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
-}, { iconSize = 26 })
+}, { iconSize = 26, tray = true })   -- v8: in the MORE tray
 local function refreshVisible() railBtn.Visible = player:GetAttribute("Shipped") == true end
 player:GetAttributeChangedSignal("Shipped"):Connect(refreshVisible)
 refreshVisible()

@@ -112,7 +112,7 @@ gui.Parent = player:WaitForChild("PlayerGui")
 -- the rail button. Home icon + one word; desktop gets a small key cap.
 local toggle = UIKit.railButton("home", "DECOR", UIKit.PURPLE, {
 	Name = "BuildToggle", LayoutOrder = 4, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
-}, { iconSize = 28 })
+}, { iconSize = 28, tray = true })   -- v8: in the MORE tray
 if not isTouch then
 	-- v5: a paper keycap at the top-LEFT (the top-right corner is where red count
 	-- badges live, and a dark "B" there read as a notification)
@@ -133,6 +133,7 @@ pulseScale.Parent = toggle
 local pulseUntil = 0
 local pulsing = false
 local function pulse(seconds)
+	UIKit.railNudge(toggle, seconds)   -- v8: in the closed tray, MORE's icon wiggles instead
 	pulseUntil = math.max(pulseUntil, os.clock() + seconds)
 	if pulsing then return end
 	pulsing = true

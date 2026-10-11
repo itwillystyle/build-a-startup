@@ -177,7 +177,30 @@ do -- 17 (v4.3) an earned moment never waits behind ambient news: P1 bumps a P3 
 	d3:show(item("top", 2, "progress")); d3:pump()
 	expect(count("open progress") == 0, "17c P2 still waits for P3")
 end
+do -- 18 (v8) loud(): the quest card steps aside for a card that matters, never for ambient news
+	local d = reset()
+	expect(d:loud() == false, "18a quiet at start")
+	local news = item("top", 3, "news"); d:show(news); d:pump()
+	expect(d:loud() == false, "18b ambient P3 is not loud")
+	news.done()
+	local lvl = item("top", 1, "levelup"); d:show(lvl); d:pump()
+	expect(d:loud() == true, "18c a P1 top card is loud")
+	lvl.done()
+	expect(d:loud() == false, "18d quiet again when it is done")
+	d:hold("top", "headhunter")
+	expect(d:loud() == true, "18e a held lane (the chase) is loud")
+	d:release("headhunter")
+	local ask = item("centre", 1, "spinAsk"); d:show(ask); d:pump()
+	expect(d:loud() == true, "18f a centre card is loud")
+	-- the change is announced when the card takes its lane, before it draws
+	local seen
+	local e = env(); e.changed = function(dd) if seen == nil then seen = dd:loud() end end
+	local d2 = Notify.new(e)
+	local x = item("top", 1, "x"); x.open = function(done) table.insert(log, "open x " .. tostring(seen)); x.done = done end
+	d2:show(x)
+	expect(count("open x true") == 1, "18g changed() fired before open()")
+end
 expect(type(Notify.toast) == "function", "14 toast exported")
 
 clone:Destroy()
-return #fails == 0 and "PASS 17 groups" or ("FAIL " .. #fails .. "\n" .. table.concat(fails, "\n"))
+return #fails == 0 and "PASS 18 groups" or ("FAIL " .. #fails .. "\n" .. table.concat(fails, "\n"))

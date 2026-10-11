@@ -48,7 +48,7 @@ local function now() return workspace:GetServerTimeNow() end
 local railBtn = UIKit.railButton("bag", "BAG", UIKit.ORANGE, {
 	Name = "BagButton", LayoutOrder = 2, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
 }, { iconSize = 28 })
-local badge, badgeText = UIKit.badge(railBtn)
+local badge, badgeText = UIKit.railBadge(railBtn, "act", 3)   -- v8: a new item is something to use
 
 -- ============ THE BAG ============
 
@@ -162,8 +162,7 @@ local function refresh()
 	end
 	if any or player:GetAttribute("ArmedScout") or player:GetAttribute("ArmedPress") then railBtn.Visible = true end
 	local new = player:GetAttribute("ItemsNew") or 0
-	badge.Visible = new > 0 and not gui.Enabled
-	badgeText.Text = new > 9 and "9+" or tostring(new)
+	UIKit.setBadge(badge, new > 0 and not gui.Enabled, new > 9 and "9+" or tostring(new))
 	if gui.Enabled then drawDetail() end
 end
 
@@ -285,6 +284,9 @@ UIKit.label(brew, "COFFEE", UIKit.TYPE.caption, UIKit.INK, { AnchorPoint = Vecto
 	Size = UDim2.new(1, 0, 0, 16), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = brew.ZIndex + 2 }, UIKit.HEAD)
 local brewBadge, brewCount = UIKit.badge(brew)
 brewBadge.Visible = true
+-- v8: how many you hold is a count, not news: an ink pill (red means "act now", and
+-- this sat red all session beside the rail's one red badge)
+brewBadge.BackgroundColor3 = UIKit.INK_SOFT
 brew.MouseButton1Click:Connect(function() UIKit.sfx("tap"); useItem:FireServer("coffee") end)
 
 -- a rescue under the headhunter warning (Non-Compete first, else an Energy Drink)

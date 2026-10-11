@@ -1,7 +1,7 @@
 # Phone (AI investor texts, term sheets, Series A, voice calls)
 **What:** A phone on the left rail. AI investors text you, ask three questions, then offer money (a term sheet). You TAKE, PUSH FOR MORE, or PASS. The game scores your answers; the model only writes the words. At HQ 4 a big investor sends a Series A worth about 3x. The phone also rings other players for voice calls.
 **How a player reaches it:**
-1. Ship the first app. The PHONE tile shows at HQ 2, or at once for a returning player (`src/StarterPlayer/StarterPlayerScripts/PhoneClient.client.lua:1290-1299`).
+1. Ship the first app. The PHONE tile shows at HQ 2, or at once for a returning player (`src/StarterPlayer/StarterPlayerScripts/PhoneClient.client.lua:1290-1298`).
 2. At HQ 2 the first investor texts about 25 s later (`src/ServerScriptService/Phone.lua:674`). A banner drops in the top lane (`PhoneClient.client.lua:954`). Tap it or the tile.
 3. Pick one of three replies, or type your own, three times (`Phone.lua:384`). The investor answers each time.
 4. A term sheet arrives. TAKE pays the cash and maybe an item (`takeOffer` `Phone.lua:357`). PUSH may pay 1.5x or walk (`:616-634`). PASS ends it.
@@ -10,14 +10,14 @@
 **Files:**
 - `src/ServerScriptService/Phone.lua`: `PERSONAS` :40, `THESIS` :52, `facts` :124, `sanitize` :194, `aiReact` :223, `makeOffer` :336, `respond` :371, `reply` :397, `startThread` :431, `startCall` :502, `answer` :530, `init` :560, `seriesA` :698, `notice` :709, dev hooks :726-757.
 - `src/StarterPlayer/StarterPlayerScripts/PhoneClient.client.lua`: rail tile :68, apps Texts :218 and Calls :235, `setOpen` :855, `showBanner` :954, ring card :968, `upsert` :1142, event handler :1182, `refreshBadge` :1290.
-- Wiring: `SiliconCore.server.lua` `Econ.Phone` init :2775-2793 (gives `session`, `nextGoal`, `grant`, `onSeriesA`).
+- Wiring: `SiliconCore.server.lua` `Econ.Phone` init :2776-2794 (gives `session`, `nextGoal`, `grant`, `onSeriesA`).
 - Remotes (made in `Phone.init`): `PhoneEvent` server to client, `PhoneAction` client to server (`Phone.lua:579-584`). Actions: `reply`, `text`, `offer`, `read`, `voice`, `call`, `answer`, `hangup` (:595-645).
 - Related, not in this page: `src/ServerScriptService/VoiceCheck.lua` (voice state), `Apartments.lua:517` (front desk text through `Phone.notice`).
 **State:**
 - In memory only, per player: threads (up to 6), active thread, `nextAt` (`Phone.lua:259`, :446). Not saved.
 - Session: `s.board` (Boardroom floors, makes investors keener, max 2, `:438`), `s.jr.seriesA`, `s.seriesAt`.
 - Player attributes: `PhoneUnread`, `Company`, `HasVoice`, `InCall`, `CallSince`.
-- Saved: only the Series A flag, inside `jr` (`SaveLoad.lua:137`). A spin-off clears it (`SiliconCore.server.lua:3011`). Item gifts go to the bag (see daily-bag.md).
+- Saved: only the Series A flag, inside `jr` (`SaveLoad.lua:137`). A spin-off clears it (`SiliconCore.server.lua:3012`). Item gifts go to the bag (see daily-bag.md).
 **Drive it:**
 - `phone`: returns the live thread (id, firm, status, offer). Studio only (`DevHook.lua:160`, `Phone.lua:726`).
 - `phoneoffer <n>`: sets interest n (default 8) and makes the term sheet through the real `makeOffer` (`DevHook.lua:164`, `Phone.lua:734`). Needs a live thread.
@@ -40,4 +40,4 @@
 - Calls need `HasVoice` on both players, a 25 s ring, and a 45 s cooldown after a decline (`Phone.lua:502-529`, :469).
 - Investors wear an AI badge. Scripted notices do not (`PhoneClient.client.lua:255-275`).
 - Security (9 Oct exploit check): a typed reply marks the thread busy BEFORE the text filter yields, so a second reply sent during the yield cannot count twice (`Phone.lua:412`).
-**Last verified:** 2026-10-09 80ce687
+**Last verified:** 2026-10-11 34acebb

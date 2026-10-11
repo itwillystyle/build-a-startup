@@ -57,8 +57,8 @@ local TALENTS = {  -- SiliconCore TALENT (odds = 1 in N hires)
 
 local btn = UIKit.railButton("grid", "INDEX", UIKit.BLUE, {
 	Name = "IndexButton", LayoutOrder = 1, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
-}, { iconSize = 28 })
-local badge, badgeText = UIKit.badge(btn)
+}, { iconSize = 28, tray = true })   -- v8: in the MORE tray
+local badge = UIKit.railBadge(btn, "look", 9)   -- a new entry is news to look at, not a job: never on the rail
 
 -- ============ THE PANEL ============
 
@@ -264,8 +264,7 @@ local function refresh()
 	if not hintActive then hint.Text = nextLine end
 	btn.Visible = n > 0
 	local new = player:GetAttribute("IndexNew") or 0
-	badge.Visible = new > 0 and not gui.Enabled
-	badgeText.Text = new > 9 and "9+" or tostring(new)
+	UIKit.setBadge(badge, new > 0 and not gui.Enabled, new > 9 and "9+" or tostring(new))
 end
 refresh()
 player:GetAttributeChangedSignal("IndexData"):Connect(refresh)

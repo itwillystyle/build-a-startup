@@ -591,23 +591,33 @@ local function hqBanner(e, done)
 	local scale = math.clamp(gap / BANNER_W, 0.78, 1)
 	local w = scale < 1 and BANNER_W or gap
 	local x = cx - fx.AbsolutePosition.X
+	--[[ v8 ONE NUMBER. The banner said "HQ LEVEL 5" over "LEVEL 18!": the HQ
+		stage and the building level, two counters on one card, and only the
+		second is the one the world shows ("BUILD LEVEL 18" on the pad, the
+		founder boards). A building level is the headline alone; what the new
+		stage hands you is the NEW pill. A named HQ (the other paths) keeps its
+		stage number over the name, since there the name has no number. ]]
+	local isLevel = type(e.name) == "string" and e.name:match("^LEVEL %d+$") ~= nil
+	local lift = isLevel and 24 or 0          -- no caption line: everything moves up
 	local card = UIKit.card(fx, {
-		AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0, x, 0, -180), Size = UDim2.new(0, w, 0, e.headline and 176 or 136),
+		AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0, x, 0, -180), Size = UDim2.new(0, w, 0, (e.headline and 176 or 136) - lift),
 	}, { radius = UIKit.RADIUS.lg, stroke = UIKit.GOLD, strokeWidth = 4 })
 	local fit = Instance.new("UIScale")
 	fit.Scale = scale
 	fit.Parent = card
-	local top = UIKit.label(card, ("HQ LEVEL %d"):format(e.level or 2), UIKit.TYPE.label, UIKit.GOLD_DEEP, {
-		Position = UDim2.new(0, 0, 0, 10), Size = UDim2.new(1, 0, 0, 22), TextXAlignment = Enum.TextXAlignment.Center,
-	}, UIKit.HEAD)
+	if not isLevel then
+		UIKit.label(card, ("HQ LEVEL %d"):format(e.level or 2), UIKit.TYPE.label, UIKit.GOLD_DEEP, {
+			Position = UDim2.new(0, 0, 0, 10), Size = UDim2.new(1, 0, 0, 22), TextXAlignment = Enum.TextXAlignment.Center,
+		}, UIKit.HEAD)
+	end
 	local name = UIKit.outlined(card, (e.name or "NEW HQ") .. "!", UIKit.TYPE.display, UIKit.GOLD, {
-		Position = UDim2.new(0, 0, 0, 32), Size = UDim2.new(1, 0, 0, 44), TextXAlignment = Enum.TextXAlignment.Center,
+		Position = UDim2.new(0, 0, 0, 32 - lift + (isLevel and 4 or 0)), Size = UDim2.new(1, 0, 0, 44), TextXAlignment = Enum.TextXAlignment.Center,
 	})
 	-- v4.3: the ONE new thing this level hands you (Journey.LADDER), then what to do with it
 	if e.headline then
 		local pill = Instance.new("Frame")
 		pill.AnchorPoint = Vector2.new(0.5, 0)
-		pill.Position = UDim2.new(0.5, 0, 0, Notify.topY(100) - 20)
+		pill.Position = UDim2.new(0.5, 0, 0, 80 - lift)
 		pill.Size = UDim2.new(0, 0, 0, 34)
 		pill.AutomaticSize = Enum.AutomaticSize.X
 		pill.BackgroundColor3 = UIKit.GOLD_LIGHT     -- v5 critique: a black pill read as the navy-pill anti-reference
@@ -625,7 +635,7 @@ local function hqBanner(e, done)
 	end
 	local chips = Instance.new("Frame")
 	chips.BackgroundTransparency = 1
-	chips.Position = UDim2.new(0, 10, 0, e.headline and 124 or 86)
+	chips.Position = UDim2.new(0, 10, 0, (e.headline and 124 or 86) - lift)
 	chips.Size = UDim2.new(1, -20, 0, 36)
 	chips.Parent = card
 	local cl = Instance.new("UIListLayout", chips)
@@ -656,9 +666,10 @@ local function hqBanner(e, done)
 	end
 	tween(card, 0.45, { Position = UDim2.new(0, x, 0, Notify.topY(100)) }, Enum.EasingStyle.Back)
 	Notify.followTop(card, 100)
-	-- confetti
+	-- confetti only when the HQ itself changed (e.big); a building level on the
+	-- way is a smaller moment (v8: it rained over the whole screen every time)
 	local colours = { UIKit.GOLD, UIKit.GREEN, UIKit.BLUE, UIKit.RED, UIKit.ORANGE }
-	for k = 1, 40 do
+	for k = 1, (e.big == false) and 0 or 40 do
 		local p = Instance.new("Frame")
 		p.BorderSizePixel = 0
 		p.BackgroundColor3 = colours[(k % #colours) + 1]
@@ -697,7 +708,7 @@ end
 
 -- the spin-off confirm card: what you keep vs what resets
 local spinCard
-local function spinAsk(e)
+local function spinAsk(e, done)
 	if spinCard then spinCard:Destroy() end
 	local w = math.min(440, fx.AbsoluteSize.X * 0.92)
 	local panel, body = UIKit.menu(fx, ("SPIN OFF #%d?"):format(e.number or 1), UIKit.ORANGE, {
@@ -805,7 +816,10 @@ local function spinAsk(e)
 	Instance.new("UICorner", fill).CornerRadius = UDim.new(0, UIKit.RADIUS.md)
 	if yesLabel then yesLabel.ZIndex = yes.ZIndex + 1 end
 	player:SetAttribute("ModalOpen", true)
-	panel.Destroying:Connect(function() player:SetAttribute("ModalOpen", nil) end)
+	panel.Destroying:Connect(function()
+		player:SetAttribute("ModalOpen", nil)
+		if done then done() end           -- every way out (NOT YET, the hold, the 30 s timeout) frees the lane
+	end)
 	no.MouseButton1Click:Connect(function()
 		remotes:WaitForChild("SpinCancel"):FireServer()
 		panel:Destroy(); spinCard = nil
@@ -840,7 +854,7 @@ local function spinAsk(e)
 end
 
 local ROMAN = { "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X" }
-local function spinCeremony(e)
+local function spinCeremony(e, done)
 	UIKit.sfx("rebirth")
 	local flash = Instance.new("Frame")
 	flash.BackgroundColor3 = UIKit.PAPER
@@ -859,7 +873,10 @@ local function spinCeremony(e)
 	tween(sc, 0.5, { Scale = 1 }, Enum.EasingStyle.Back)
 	task.delay(3.2, function()
 		fadeText(title, 0.5); fadeText(sub, 0.5)
-		task.delay(0.6, function() title:Destroy(); sub:Destroy(); flash:Destroy() end)
+		task.delay(0.6, function()
+			title:Destroy(); sub:Destroy(); flash:Destroy()
+			if done then done() end
+		end)
 	end)
 end
 
@@ -892,10 +909,16 @@ if celebrate then
 					popUnderCash(("%s earned!  +%d%% money"):format(UIKit.money(e.earned or 0), e.bonus or 2), UIKit.GOLD, 2.4)
 					task.delay(2.9, done)
 				end })
+		--[[ v8: the spin-off card and the ceremony go through the director like
+			every other card (they drew straight onto the screen, over whatever
+			was there): centre lane, earned (P1), so they still come first ]]
 		elseif e.kind == "spinAsk" then
-			spinAsk(e)
+			Notify.show({ lane = "centre", priority = 1, key = "spinAsk", maxHold = 32,
+				close = function() if spinCard then spinCard:Destroy(); spinCard = nil end end,
+				open = function(done) spinAsk(e, done) end })
 		elseif e.kind == "spin" then
-			spinCeremony(e)
+			Notify.show({ lane = "centre", priority = 1, key = "spin", maxHold = 6,
+				open = function(done) spinCeremony(e, done) end })
 		end
 	end)
 end

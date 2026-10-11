@@ -83,6 +83,9 @@ end
 function Director:_open(it, now)
 	local lane = self.lanes[it.lane]
 	lane.current = it
+	-- say so BEFORE it draws: the quest card steps aside first, so the card
+	-- measures the top of the screen with the quest card already gone
+	if self.env.changed then self.env.changed(self) end
 	it.shownAt = now
 	if it.priority == 3 then self.lastAmbient = now end
 	local run = {}
@@ -145,6 +148,23 @@ function Director:hold(laneName, key)
 	if not lane or lane.hold == key then return end
 	lane.hold = key
 	self:_bump(lane)
+	self:pump()
+end
+
+--[[ v8 (11 Oct) IS SOMETHING LOUD UP? The quest card is not a lane item: it
+	is always there, so it reports its bottom edge and top cards park below it
+	(Notify.topY). That still made two cards in the top third, and the audit
+	caught a LOST! card and the level-up banner printed straight over it. Now
+	the quest card steps aside while any card that matters holds the screen: a
+	centre or top card of priority 0-2, or a held lane (the headhunter chase).
+	Ambient news (P3, a phone text) still parks below it: it would blink the
+	quest card out every 20 s. ]]
+function Director:loud()
+	for _, name in ipairs({ "top", "centre" }) do
+		local lane = self.lanes[name]
+		if lane.hold or (lane.current and lane.current.priority <= 2) then return true end
+	end
+	return false
 end
 
 function Director:release(key)
@@ -217,6 +237,7 @@ function Director:pump()
 		end
 	until not self.again
 	self.pumping = false
+	if self.env.changed then self.env.changed(self) end
 end
 
 -- ============ THE SHARED INSTANCE (the running game) ============
@@ -226,6 +247,8 @@ local RunService = game:GetService("RunService")
 local RS = game:GetService("ReplicatedStorage")
 
 local default
+local loudWas = false
+local loudFns = {}
 local function realEnv(player)
 	local okU, UIKit = pcall(function() return require(RS:WaitForChild("UIKit", 10)) end)
 	local okC, Cine = pcall(function() return require(RS:WaitForChild("Cine", 10)) end)
@@ -249,6 +272,12 @@ local function realEnv(player)
 				menu = menu,
 			}
 		end,
+		changed = function(d)
+			local now = d:loud()
+			if now == loudWas then return end
+			loudWas = now
+			for _, fn in ipairs(loudFns) do task.spawn(fn, now) end
+		end,
 	}
 end
 
@@ -270,6 +299,9 @@ function Notify.show(it) return get():show(it) end
 function Notify.hold(lane, key) get():hold(lane, key) end
 function Notify.release(key) get():release(key) end
 function Notify.state() return get().env.state() end
+function Notify.loud() return get():loud() end
+-- fn(loud) whenever that flips (the quest card steps aside and comes back)
+function Notify.onLoud(fn) get(); table.insert(loudFns, fn) end
 
 -- v4.3: for overlays that must never HOLD a lane (the HUD tips, CoachClient): is
 -- something on screen they should step aside for? A card or banner in the centre
