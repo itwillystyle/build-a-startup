@@ -144,6 +144,7 @@ function M.run(R, rules, opts, seed)
 			end
 		end
 		local minDist = math.huge
+		local nearH, nearPh
 		for i, H in hunters do
 			if not H.active and i == 2 and t >= rules.secondDelay then
 				H.active = true
@@ -155,6 +156,7 @@ function M.run(R, rules, opts, seed)
 					M.lastCatch = { x = px, z = pz, phase = ph, t = t }
 					return false, t, closeCalls, danger / math.max(t, 1e-6)
 				end
+				if dist < minDist then nearH, nearPh = H.h, ph end
 				minDist = math.min(minDist, dist)
 				if ph == "windup" and H.last ~= "windup" and dist < 20 and not pendingBoostAt and rnd() < prof.boostChance then
 					pendingBoostAt = t + prof.react[1] + rnd() * (prof.react[2] - prof.react[1])
@@ -170,6 +172,8 @@ function M.run(R, rules, opts, seed)
 				H.last = ph
 			end
 		end
+		-- v8 (11 Oct): the frame, for a watcher (tools/chase_tune feeds it to the camera director)
+		if opts.onFrame then opts.onFrame(t, px, pz, vx, vz, nearH, nearPh, minDist) end
 		if minDist < M.DANGER then danger += dt end
 		if minDist < R.NEAR then near = true
 		elseif near and minDist > R.NEAR * 1.8 then near = false; closeCalls += 1 end

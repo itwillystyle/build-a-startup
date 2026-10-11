@@ -934,6 +934,22 @@ local DOCTOR_TXT = "../DOCTOR-discord.txt"
 local DOCTOR_LAST = ".bas/doctor.json"           -- the last run's finding keys, for "new" and "fixed"
 local WEBHOOK = "../.discord-webhook"             -- one line, the channel's webhook URL; never in the repo
 
+-- one place posts to Discord, and only to Discord's own webhook endpoint: this file
+-- must not be able to send a report anywhere else. Returns ok, detail.
+local function postDiscord(text)
+	if not fs.isFile(WEBHOOK) then
+		return false, "no ../.discord-webhook yet: Discord > Server Settings > Integrations > Webhooks > New > Copy URL, saved as that file"
+	end
+	local url = trim(fs.readFile(WEBHOOK))
+	if not (url:match("^https://discord%.com/api/webhooks/%d+/[%w_%-]+$") or url:match("^https://discordapp%.com/api/webhooks/%d+/[%w_%-]+$")) then
+		return false, "../.discord-webhook is not a Discord webhook URL"
+	end
+	local body = serde.encode("json", { content = text, allowed_mentions = { parse = {} } })
+	local ok, res = pcall(net.request, { url = url, method = "POST", headers = { ["Content-Type"] = "application/json" }, body = body })
+	local fine = ok and res.ok
+	return fine, fine and "posted" or ("failed: " .. (ok and (tostring(res.statusCode) .. " " .. tostring(res.body):sub(1, 120)) or tostring(res)))
+end
+
 local function cmdCheckup()
 	local sub = pos[2]
 	if sub == "report" then
@@ -958,25 +974,36 @@ local function cmdCheckup()
 			detail = ("%d BLOCKER, %d BUG, %d MISSING, %d FEEL; %d new, %d fixed -> %s"):format(c.BLOCKER, c.BUG, c.MISSING, c.FEEL,
 				#diff.new, #diff.fixed, DOCTOR_MD) } }, { text = fs.readFile(DOCTOR_TXT) })
 	elseif sub == "post" then
-		if not fs.isFile(WEBHOOK) then
-			return result("checkup post", { { name = "webhook", ok = false, ms = 0,
-				detail = "no ../.discord-webhook yet: Discord > Server Settings > Integrations > Webhooks > New > Copy URL, saved as that file" } })
-		end
-		local url = trim(fs.readFile(WEBHOOK))
-		-- only ever Discord's own webhook endpoint: this file must not be able to send the report anywhere else
-		if not (url:match("^https://discord%.com/api/webhooks/%d+/[%w_%-]+$") or url:match("^https://discordapp%.com/api/webhooks/%d+/[%w_%-]+$")) then
-			return result("checkup post", { { name = "webhook", ok = false, ms = 0, detail = "../.discord-webhook is not a Discord webhook URL" } })
-		end
 		if not fs.isFile(DOCTOR_TXT) then
 			return result("checkup post", { { name = "summary", ok = false, ms = 0, detail = "nothing to post: run `bas checkup report` first" } })
 		end
-		local body = serde.encode("json", { content = fs.readFile(DOCTOR_TXT), allowed_mentions = { parse = {} } })
-		local ok, res = pcall(net.request, { url = url, method = "POST", headers = { ["Content-Type"] = "application/json" }, body = body })
-		local fine = ok and res.ok
-		return result("checkup post", { { name = "discord", ok = fine, ms = 0,
-			detail = fine and "posted" or ("failed: " .. (ok and (tostring(res.statusCode) .. " " .. tostring(res.body):sub(1, 120)) or tostring(res))) } })
+		local fine, detail = postDiscord(fs.readFile(DOCTOR_TXT))
+		return result("checkup post", { { name = "discord", ok = fine, ms = 0, detail = detail } })
 	end
 	return nil
+end
+
+-- ============ tune: the overnight chase tuner's morning post ============
+-- (the tuner itself is `lune run tools/chase_tune -- --minutes N`; routine.sh starts it at night)
+local TUNE_TXT = "../tuning/chase-discord.txt"
+local TUNE_PROGRESS = "../tuning/chase-progress.json"
+local function cmdTune()
+	if pos[2] ~= "post" then return nil end
+	local today = os.date("%Y-%m-%d")
+	local fresh = fs.isFile("../tuning/chase-" .. today .. ".json")
+	local text
+	if fresh and fs.isFile(TUNE_TXT) then
+		text = fs.readFile(TUNE_TXT)
+	else
+		-- the night run did not finish: say so, with the best it had, instead of last night's news
+		local prog = readJson(TUNE_PROGRESS)
+		text = ("**Chase tuning, %s**: the night run did not finish (no report for today).%s"):format(os.date("%a %d %b"),
+			prog and (" Best so far: score %s (start %s) after %s tries, at %s."):format(
+				tostring(math.floor(prog.bestScore or 0)), tostring(math.floor(prog.baseScore or 0)), tostring(prog.evals), tostring(prog.at)) or "")
+	end
+	local fine, detail = postDiscord(text)
+	return result("tune post", { { name = "discord", ok = fine, ms = 0, detail = detail },
+		{ name = "report", ok = fresh, ms = 0, detail = fresh and "tonight's report" or "no report for today" } })
 end
 
 local HELP = [[
@@ -1001,6 +1028,8 @@ bas -- one command for every check this game has. Run from the game folder.
   lune run tools/bas playtest done <name> [--skip] [--note "..."]   file it as reviewed
   lune run tools/bas checkup report <report.json>   judge a game-doctor run -> ../DOCTOR.md
   lune run tools/bas checkup post          post the summary to Discord (../.discord-webhook)
+  lune run tools/chase_tune -- --minutes N  the chase tuner (judge: chase.spec + chasecam.spec + the design spec)
+  lune run tools/bas tune post             post the night's chase tuning to Discord
 
   --json   one JSON object on stdout     --save   also file it in the evidence folder
   exit 0 ok, 1 a check failed, 2 usage error]]
@@ -1073,6 +1102,8 @@ elseif cmd == "playtest" then
 	res = cmdPlaytest()
 elseif cmd == "checkup" then
 	res = cmdCheckup()
+elseif cmd == "tune" then
+	res = cmdTune()
 end
 
 if not res then
