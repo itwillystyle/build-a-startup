@@ -200,7 +200,16 @@ do -- 18 (v8) loud(): the quest card steps aside for a card that matters, never 
 	d2:show(x)
 	expect(count("open x true") == 1, "18g changed() fired before open()")
 end
+do -- 19 (v8) ambient news waits while a P0/P1 card holds the centre
+	local d = reset()
+	local ipo = item("centre", 0, "ipo"); d:show(ipo)
+	d:show(item("bottom", 3, "bell")); d:pump()
+	expect(count("open bell") == 0, "19a ambient toast waits under the IPO")
+	d:show(item("bottom", 2, "toast2")); d:pump()
+	expect(count("open toast2") == 1, "19b a progress toast is not held")
+	ipo.done(); t = 1; d:pump()
+end
 expect(type(Notify.toast) == "function", "14 toast exported")
 
 clone:Destroy()
-return #fails == 0 and "PASS 18 groups" or ("FAIL " .. #fails .. "\n" .. table.concat(fails, "\n"))
+return #fails == 0 and "PASS 19 groups" or ("FAIL " .. #fails .. "\n" .. table.concat(fails, "\n"))

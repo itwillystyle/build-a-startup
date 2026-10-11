@@ -130,22 +130,28 @@ local cashText = UIKit.outlined(pill, "$0", UIKit.TYPE.display, UIKit.MONEY, {
 	Name = "Amount", Size = UDim2.new(0, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.X, LayoutOrder = 2,
 })
 
--- income line (tap it for the per-building breakdown)
+-- income line (tap the money for the per-building breakdown)
+--[[ v8 (11 Oct, UI step 5): the income line sits right above the cash. When v7
+	moved the money to the bottom-left corner this line was left anchored by its
+	BOTTOM edge at y -2, so it drew wholly above the screen on every device
+	(measured: y -75 at 749x381), and its tap target stayed top centre, under the
+	quest card. Placed by placeMoney below, with the tap target over both. ]]
 local rateText = UIKit.outlined(gui, "", UIKit.TYPE.label, UIKit.MONEY, {
-	Name = "Rate", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 2, 0, -2),
-	Size = UDim2.new(0, 220, 0, 22), TextXAlignment = Enum.TextXAlignment.Center,
+	Name = "Rate", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 18, 1, -62),
+	Size = UDim2.new(0, 0, 0, 22), AutomaticSize = Enum.AutomaticSize.X, TextXAlignment = Enum.TextXAlignment.Left,
 })
 local rateHit = Instance.new("TextButton")
 rateHit.Name = "RateHit"
 rateHit.BackgroundTransparency = 1
 rateHit.Text = ""
-rateHit.AnchorPoint = Vector2.new(0.5, 0)
-rateHit.Position = UDim2.new(0.5, 0, 0, 54)
-rateHit.Size = UDim2.new(0, 200, 0, 44)      -- v5: 200 wide (300 reached the goal card on a phone)
+rateHit.AnchorPoint = Vector2.new(0, 1)
+rateHit.Position = UDim2.new(0, 14, 1, -14)
+rateHit.Size = UDim2.new(0, 230, 0, 70)
+rateHit:SetAttribute("NoAutoScale", true)    -- sized from the measured cash pill; a shrink made it 136 x 30
 rateHit.Parent = gui
 
 local breakdown = UIKit.card(gui, {
-	Name = "Breakdown", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 94),
+	Name = "Breakdown", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 14, 1, -92),
 	Size = UDim2.new(0, 240, 0, 40), Visible = false,
 }, { radius = UIKit.RADIUS.md })
 local bList = Instance.new("UIListLayout", breakdown)
@@ -162,7 +168,7 @@ local function drawBreakdown()
 		if name then
 			n += 1
 			local val = tonumber(v)
-			local l = UIKit.label(breakdown, ("%s   %s%s / sec"):format(name, val < 0 and "-" or "+", UIKit.money(math.abs(val))), 16,
+			local l = UIKit.label(breakdown, ("%s   %s%s / sec"):format(name, val < 0 and "-" or "+", UIKit.money(math.abs(val))), UIKit.TYPE.body,
 				val < 0 and UIKit.RED_DEEP or UIKit.CARD_TEXT, { Size = UDim2.new(1, 0, 0, 20) }, UIKit.BODY)
 			l.LayoutOrder = n
 		end
@@ -180,6 +186,45 @@ rateHit.MouseButton1Click:Connect(function()
 	end
 end)
 player:GetAttributeChangedSignal("IncomeRooms"):Connect(function() if breakdown.Visible then drawBreakdown() end end)
+
+--[[ v8 (11 Oct, UI step 5) THE MONEY BLOCK ON A PHONE. Measured in Studio's phone
+	simulator (iPhone, 749 x 381): the cash pill (y 263-309) sat on the movement
+	thumbstick's resting spot (y 230-304), where a thumb lands to walk, and the
+	coffee button's left edge (x 160) was inside the pill (x 14-244). The bottom-left
+	corner belongs to the thumbstick on a touch screen. So the money block (income
+	line, cash, tap target, breakdown) rises above whatever shares its strip: the
+	thumbstick, the item buttons, WRITE CODE on a narrow screen. Measured, not a
+	per-device constant, and re-measured every second (items appear as you earn
+	them, a phone rotates). ]]
+local MONEY_X, MONEY_GAP = 14, 14
+local moneyTop = 84        -- px from the bottom to the top of the money block (the income line)
+local function placeMoney()
+	local pg = player.PlayerGui
+	local origin, h = gui.AbsolutePosition, gui.AbsoluteSize.Y
+	local right = MONEY_X + math.max(pill.AbsoluteSize.X, 200) + 8
+	local lift = MONEY_GAP
+	local function clear(o)
+		if not (o and o:IsA("GuiObject") and o.Visible and o.AbsoluteSize.X > 2) then return end
+		local sg = o:FindFirstAncestorWhichIsA("ScreenGui")
+		if sg and not sg.Enabled then return end
+		local a = o.AbsolutePosition - origin
+		if a.X < right and a.X + o.AbsoluteSize.X > MONEY_X and a.Y > h * 0.5 then
+			lift = math.max(lift, h - a.Y + 8)
+		end
+	end
+	local touch = pg:FindFirstChild("TouchGui")
+	if touch then clear(touch:FindFirstChild("ThumbstickStart", true)) end
+	local items = pg:FindFirstChild("ItemQuick")
+	if items then for _, c in ipairs(items:GetDescendants()) do if c:IsA("GuiButton") then clear(c) end end end
+	clear(gui:FindFirstChild("WriteCode"))      -- made further down this script
+	local ph = pill.AbsoluteSize.Y > 0 and pill.AbsoluteSize.Y or 46
+	pill.Position = UDim2.new(0, MONEY_X, 1, -lift)
+	rateText.Position = UDim2.new(0, MONEY_X + 4, 1, -lift - ph - 2)
+	rateHit.Position = UDim2.new(0, MONEY_X, 1, -lift)
+	rateHit.Size = UDim2.new(0, right - 8 - MONEY_X, 0, ph + 26)
+	breakdown.Position = UDim2.new(0, MONEY_X, 1, -lift - ph - 32)
+	moneyTop = lift + ph + 24
+end
 
 -- ============ THE NEXT-ACTION SLOT (v5) ============
 --[[ The bottom-centre button is whatever you should do next with your thumb.
@@ -512,10 +557,13 @@ local function bumpCash(k)
 end
 
 -- a gold "+$X" under the cash
+-- v8 (11 Oct, step 5): right above the money block. It still popped at the top
+-- centre, where the cash was before v7 moved it to the bottom-left corner, so a
+-- payday landed on the quest card or the level-up banner (found at phone size).
 local function popUnderCash(text, color, hold)
 	local l = UIKit.outlined(gui, text, UIKit.TYPE.display, color or UIKit.GOLD, {
-		AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 100), Size = UDim2.new(0, 320, 0, 40),
-		TextXAlignment = Enum.TextXAlignment.Center,
+		AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, MONEY_X, 1, -(moneyTop + 4)), Size = UDim2.new(0, 320, 0, 40),
+		TextXAlignment = Enum.TextXAlignment.Left,
 	})
 	local sc = Instance.new("UIScale", l)
 	sc.Scale = 0.4
@@ -1009,3 +1057,12 @@ task.spawn(function()
 		task.delay(20, collect)   -- never hold the money hostage
 		end })
 end)
+
+-- the money block keeps clear of the thumbstick and the bottom row (placeMoney)
+task.spawn(function()
+	while true do
+		pcall(placeMoney)
+		task.wait(1)
+	end
+end)
+workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function() task.defer(placeMoney) end)

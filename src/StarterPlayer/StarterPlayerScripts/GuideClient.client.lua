@@ -619,6 +619,7 @@ local function readObjective()
 	-- a level-up, a rare hire, LOST!, the chase): one loud thing at a time
 	card.Visible = show and key ~= "product" and player:GetAttribute("NamingOpen") ~= true
 		and key ~= player:GetAttribute(DISMISS_ATTR) and not menu and not Notify.loud()
+		and player:GetAttribute("RailTrayOpen") ~= true      -- the MORE tray is open over it
 	gui.Enabled = show and player:GetAttribute("NamingOpen") ~= true and not menu
 	local showMarker = show and target ~= nil
 	pin.Enabled = showMarker
@@ -838,6 +839,7 @@ end)
 
 -- a menu opening or closing changes whether the card may draw, so re-run the render
 UIKit.onMenuChange(function() pcall(readObjective) end)
+player:GetAttributeChangedSignal("RailTrayOpen"):Connect(function() pcall(readObjective) end)
 Notify.onLoud(function(loud)
 	-- hide first and free the top now (readObjective can yield measuring text,
 	-- and the card about to open reads Notify.topY straight away)

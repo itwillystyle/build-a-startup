@@ -13,7 +13,7 @@
 - `src/StarterPlayer/StarterPlayerScripts/HomeClient.client.lua`: sales card :72, fades :136, move-in and car shots :164, indoor zoom cap :209, HQ level-up orbit :244.
 - `src/StarterPlayer/StarterPlayerScripts/LiftClient.client.lua`: floor picker for HQ lifts, NOT the Residences lift. Covered in hq-paths.md.
 - `src/ServerScriptService/Progression.lua`: `APARTMENTS` :107, `KEEP_SLOTS` :126, `keepSlots` :128, `rankKeepers` :146, `chooseKeepers` :164, `HOME_SHARE` :208, `homePrice` :210.
-- Keeper slots in the spin-off: `SiliconCore.server.lua:2703` (SpinConfirm), `:2960-2998` (offer and keep). Card UI: `HudClient.client.lua:709` (spinAsk).
+- Keeper slots in the spin-off: `SiliconCore.server.lua:2703` (SpinConfirm), `:2960-2998` (offer and keep). Card UI: `HudClient.client.lua:757` (spinAsk).
 **State:**
 - Session: `s.apt` (0-3), `s.vipDay` (UTC day number), `s.lastBuy`. Price reads `s.spinoffs` (`Apartments.lua:50-53`).
 - Player attribute: `Apt` (`Apartments.lua:460`). I found no reader in `src`. Unclear if it is used.

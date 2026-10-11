@@ -95,6 +95,7 @@ local function moment(e, done)
 	shade.Size = UDim2.fromScale(1, 1)
 	shade.BackgroundColor3 = UIKit.INK
 	shade.BackgroundTransparency = 1
+	shade:SetAttribute("Overlay", true)
 	shade.Parent = gui
 	TweenService:Create(shade, TweenInfo.new(0.3), { BackgroundTransparency = 0.45 }):Play()
 	local card = UIKit.card(shade, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.46),

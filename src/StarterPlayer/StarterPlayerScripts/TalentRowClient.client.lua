@@ -200,6 +200,7 @@ for _, e in ipairs({
 	local g = Instance.new("UIGradient", f)
 	g.Rotation = e[4]
 	g.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.1), NumberSequenceKeypoint.new(1, 1) })
+	f:SetAttribute("Overlay", true)
 	table.insert(lostEdges, f)
 end
 

@@ -62,6 +62,9 @@ end
 function Director:_canUse(it)
 	local lane = self.lanes[it.lane]
 	if lane.current or lane.hold then return false end
+	-- v8 (11 Oct): ambient news waits while a danger or earned card holds the
+	-- centre (found at phone size: "THE MARKET BELL" toast under the IPO moment)
+	if it.priority == 3 and self.lanes.centre.current and self.lanes.centre.current.priority <= 1 then return false end
 	-- a centre card reaches up into the top strip on a phone: only danger shares
 	if it.lane == "top" and it.priority > 0 and self.lanes.centre.current then return false end
 	if it.lane == "centre" and self.lanes.top.current and self.lanes.top.current.priority > 0 then return false end

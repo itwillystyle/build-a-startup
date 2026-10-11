@@ -24,6 +24,8 @@ Probes.RUN_ID = "rbxassetid://129982348627259"   -- the hunter's run (StaffAnimC
 Probes.MOVING = 4             -- studs/s: a hunter faster than this should be running
 Probes.STUTTER = 1.5          -- studs: a frame-to-frame step change this big is a visible hitch
 Probes.MIN_TEXT = 14          -- px on screen (DESIGN.md)
+Probes.MIN_TEXT_PHONE = 12    -- on a phone-height screen (under 520 tall): UIKit.autoScale's floor 0.86 x 14
+Probes.PHONE_BELOW = 520
 Probes.MIN_TAP = 44           -- px on screen (DESIGN.md)
 
 -- one frame of the camera: was it a cut?
@@ -59,6 +61,9 @@ function Probes.ui()
 	local pg = Players.LocalPlayer:WaitForChild("PlayerGui")
 	local viewport = workspace.CurrentCamera.ViewportSize
 	local function paints(o)
+		-- a screen overlay drawn over everything on purpose (the chase's red edges,
+		-- LOST!'s flash, the IPO's dim) is not a card over a card
+		if o:GetAttribute("Overlay") then return false end
 		if (o:IsA("Frame") or o:IsA("TextButton") or o:IsA("TextLabel") or o:IsA("TextBox") or o:IsA("ImageLabel")
 			or o:IsA("ImageButton") or o:IsA("ScrollingFrame")) and o.BackgroundTransparency < 0.95 then return true end
 		if (o:IsA("ImageLabel") or o:IsA("ImageButton")) and o.Image ~= "" and o.ImageTransparency < 0.95 then return true end
@@ -135,20 +140,25 @@ function Probes.ui()
 	--[[ DESIGN.md's two floors, as the player actually sees them: text under 14 px and
 		taps under 44 px AFTER every UIScale (UIKit.autoScale shrinks the HUD on a short
 		screen, so a 14 px label can land at 10). tools/ui_audit.luau, made a probe. ]]
+	-- a frame honours ONE UIScale, the first child (measured 11 Oct: the rail column
+	-- has FitScale 1 then SVAutoScale 0.68, and its 66 px tiles draw at 64 = the grid
+	-- cell, unshrunk). Multiplying them all reported its 14 px captions as 10 px.
 	local function scaleOf(o)
 		local s, x = 1, o
 		while x and not x:IsA("ScreenGui") do
-			for _, c in ipairs(x:GetChildren()) do if c:IsA("UIScale") then s *= c.Scale end end
+			local first = x:FindFirstChildWhichIsA("UIScale")
+			if first then s *= first.Scale end
 			x = x.Parent
 		end
 		return s
 	end
 	local smallText, smallTaps = {}, {}
+	local floorText = viewport.Y < Probes.PHONE_BELOW and Probes.MIN_TEXT_PHONE or Probes.MIN_TEXT
 	for _, it in ipairs(items) do
 		local o = it.obj
 		if (o:IsA("TextLabel") or o:IsA("TextButton")) and o.Text ~= "" and o.TextTransparency < 0.9 then
 			local px = o.TextScaled and o.TextBounds.Y or o.TextSize * scaleOf(o)
-			if px < Probes.MIN_TEXT - 0.5 then table.insert(smallText, ("%s %.0fpx"):format(path(o, it.gui), px)) end
+			if px < floorText - 0.5 then table.insert(smallText, ("%s %.0fpx"):format(path(o, it.gui), px)) end
 		end
 		if o:IsA("GuiButton") and o.Active then
 			local m = math.min(o.AbsoluteSize.X, o.AbsoluteSize.Y)
@@ -156,7 +166,7 @@ function Probes.ui()
 		end
 	end
 	return { painted = #items, overlaps = rows, blocked = blocked, smallText = smallText, smallTaps = smallTaps,
-		viewport = ("%dx%d"):format(viewport.X, viewport.Y) }
+		viewport = ("%dx%d"):format(viewport.X, viewport.Y), textFloor = floorText }
 end
 
 -- args.zoom (studs, default 12). From where the character stands now.
