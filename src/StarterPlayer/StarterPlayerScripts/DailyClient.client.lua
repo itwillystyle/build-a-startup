@@ -225,9 +225,8 @@ investor texts. Now it has the first rail slot: a red "!" and a wiggle when a
 gift is waiting, quiet when today's is claimed. ]]
 local railBtn = UIKit.railButton("gift", "DAILY", UIKit.GOLD, {
 	Name = "DailyButton", LayoutOrder = 5, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
-}, { iconSize = 28 })
-local railBadge, railBadgeText = UIKit.badge(railBtn)
-railBadgeText.Text = "!"
+}, { iconSize = 28, tray = true })   -- v8: in the MORE tray; its "!" lifts onto MORE
+local railBadge = UIKit.railBadge(railBtn, "act", 1)
 local railIcon = railBtn:FindFirstChild("Icon")
 
 -- today's tile breathes while it waits, and the rail icon wiggles
@@ -281,7 +280,7 @@ railBtn.MouseButton1Click:Connect(function() setOpen(not gui.Enabled) end)
 UIKit.bindRail(railBtn, gui)
 local function syncRail()
 	railBtn.Visible = unlocked()
-	railBadge.Visible = railBtn.Visible and player:GetAttribute("DailyReady") == true and not gui.Enabled
+	UIKit.setBadge(railBadge, railBtn.Visible and player:GetAttribute("DailyReady") == true and not gui.Enabled, "!")
 end
 for _, a in ipairs({ "DailyReady", "DailyAmounts", "Shipped", "HQLevel", "Returning", "JrRes" }) do
 	player:GetAttributeChangedSignal(a):Connect(syncRail)

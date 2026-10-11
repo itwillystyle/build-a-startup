@@ -68,7 +68,7 @@ local call = {}                          -- { state, with, name, id, since, mute
 local railBtn = UIKit.railButton("phone", "PHONE", UIKit.RED, {
 	Name = "PhoneButton", LayoutOrder = 3, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
 }, { iconSize = 28 })
-local railBadge, railBadgeText = UIKit.badge(railBtn)
+local railBadge = UIKit.railBadge(railBtn, "act", 2)   -- v8: an investor is waiting on a reply
 
 -- ============ THE PHONE ============
 
@@ -1295,8 +1295,7 @@ refreshBadge = function()
 		or player:GetAttribute("Returning") == true or unread > 0 or call.state ~= nil)
 	railBtn.Visible = open
 	-- v5: the badge means one thing, "an investor texted" (the daily gift has its own tile)
-	railBadge.Visible = unread > 0 and not gui.Enabled
-	railBadgeText.Text = unread > 9 and "9+" or tostring(unread)
+	UIKit.setBadge(railBadge, unread > 0 and not gui.Enabled, unread > 9 and "9+" or tostring(unread))
 	apps.messages.dot.Visible = unread > 0
 	apps.messages.dotText.Text = unread > 9 and "9+" or tostring(unread)
 	apps.calls.dot.Visible = false

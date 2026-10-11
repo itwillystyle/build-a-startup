@@ -189,12 +189,12 @@ end
 -- ============ FLY TO THE INDEX ============
 
 local function flyToIndex(color, roleKey)
-	local rail = player.PlayerGui:FindFirstChild("Rail")
-	local target = rail and rail:FindFirstChild("IndexButton", true)
+	-- v8: INDEX lives in the MORE tray; railTarget answers MORE while the tray is shut
+	local target = UIKit.railTarget("IndexButton")
 	if not (target and target.Visible) then
 		-- the INDEX button appears with the first entry; give it a frame to lay out
 		task.wait(0.3)
-		target = rail and rail:FindFirstChild("IndexButton", true)
+		target = UIKit.railTarget("IndexButton")
 		if not (target and target.Visible) then return end
 	end
 	local token = Instance.new("Frame")

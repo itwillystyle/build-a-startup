@@ -27,6 +27,9 @@ gui.DisplayOrder = 30
 gui.Parent = player:WaitForChild("PlayerGui")
 
 local function findTarget(path)
+	-- v8: a rail tile can sit in the closed MORE tray; then the tip points at MORE
+	local tile = (path or ""):match("^Rail%..-([%w_]+)$")
+	if tile then return UIKit.railTarget(tile) end
 	local node = player:FindFirstChild("PlayerGui")
 	for part in string.gmatch(path or "", "[^%.]+") do
 		node = node and node:FindFirstChild(part)
