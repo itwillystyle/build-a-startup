@@ -11,6 +11,7 @@
 	    lune run tools/bas map check        feature-map coverage + staleness
 	    lune run tools/bas ship | world | health   the morning run (Phase 2)
     lune run tools/bas playtest list | prep <video>|--new | done <video>   review a screen recording
+    lune run tools/bas checkup report <json> | post   judge a game-doctor run, post it to Discord
 	Add --json to any command for one machine-readable object on stdout.
 	Add --save to check / sim / baseline diff to file the result in the current evidence folder.
 	Exit codes: 0 ok, 1 a check failed, 2 usage error.
@@ -926,6 +927,58 @@ local function cmdPlaytest()
 	return nil
 end
 
+-- ============ checkup: judge a game-doctor run, post it ============
+local Doctor = require("./doctor_lib")
+local DOCTOR_MD = "../DOCTOR.md"                  -- silicon-startup/DOCTOR.md: outside the repo, like HEALTH.md
+local DOCTOR_TXT = "../DOCTOR-discord.txt"
+local DOCTOR_LAST = ".bas/doctor.json"           -- the last run's finding keys, for "new" and "fixed"
+local WEBHOOK = "../.discord-webhook"             -- one line, the channel's webhook URL; never in the repo
+
+local function cmdCheckup()
+	local sub = pos[2]
+	if sub == "report" then
+		local file = pos[3]
+		local raw = file and fs.isFile(file) and fs.readFile(file)
+		local ok, report = pcall(serde.decode, "json", raw or "")
+		if not (raw and ok and type(report) == "table") then
+			return result("checkup report", { { name = "report", ok = false, ms = 0, detail = "no readable game-doctor JSON at " .. tostring(file) } })
+		end
+		ensureDir(".bas")
+		local findings, infos = Doctor.findings(report)
+		local prev = readJson(DOCTOR_LAST)
+		local diff = Doctor.diff(prev and prev.keys or {}, findings)
+		local when = os.date("%a %d %b %Y, %H:%M")
+		fs.writeFile(DOCTOR_MD, Doctor.markdown(report, findings, infos, diff, when))
+		fs.writeFile(DOCTOR_TXT, Doctor.discord(findings, diff, when))
+		local keys = {}
+		for _, f in ipairs(findings) do table.insert(keys, f.key) end
+		writeJson(DOCTOR_LAST, { at = os.time(), keys = keys })
+		local c = Doctor.counts(findings)
+		return result("checkup report", { { name = "DOCTOR.md", ok = c.BLOCKER == 0, ms = 0,
+			detail = ("%d BLOCKER, %d BUG, %d MISSING, %d FEEL; %d new, %d fixed -> %s"):format(c.BLOCKER, c.BUG, c.MISSING, c.FEEL,
+				#diff.new, #diff.fixed, DOCTOR_MD) } }, { text = fs.readFile(DOCTOR_TXT) })
+	elseif sub == "post" then
+		if not fs.isFile(WEBHOOK) then
+			return result("checkup post", { { name = "webhook", ok = false, ms = 0,
+				detail = "no ../.discord-webhook yet: Discord > Server Settings > Integrations > Webhooks > New > Copy URL, saved as that file" } })
+		end
+		local url = trim(fs.readFile(WEBHOOK))
+		-- only ever Discord's own webhook endpoint: this file must not be able to send the report anywhere else
+		if not (url:match("^https://discord%.com/api/webhooks/%d+/[%w_%-]+$") or url:match("^https://discordapp%.com/api/webhooks/%d+/[%w_%-]+$")) then
+			return result("checkup post", { { name = "webhook", ok = false, ms = 0, detail = "../.discord-webhook is not a Discord webhook URL" } })
+		end
+		if not fs.isFile(DOCTOR_TXT) then
+			return result("checkup post", { { name = "summary", ok = false, ms = 0, detail = "nothing to post: run `bas checkup report` first" } })
+		end
+		local body = serde.encode("json", { content = fs.readFile(DOCTOR_TXT), allowed_mentions = { parse = {} } })
+		local ok, res = pcall(net.request, { url = url, method = "POST", headers = { ["Content-Type"] = "application/json" }, body = body })
+		local fine = ok and res.ok
+		return result("checkup post", { { name = "discord", ok = fine, ms = 0,
+			detail = fine and "posted" or ("failed: " .. (ok and (tostring(res.statusCode) .. " " .. tostring(res.body):sub(1, 120)) or tostring(res))) } })
+	end
+	return nil
+end
+
 local HELP = [[
 bas -- one command for every check this game has. Run from the game folder.
 
@@ -946,6 +999,8 @@ bas -- one command for every check this game has. Run from the game folder.
   lune run tools/bas playtest list         screen recordings, which are playtests, which are reviewed
   lune run tools/bas playtest prep <name>|--new [--days 3]   sheets + speech + game log -> ../playtests/<name>/notes.md
   lune run tools/bas playtest done <name> [--skip] [--note "..."]   file it as reviewed
+  lune run tools/bas checkup report <report.json>   judge a game-doctor run -> ../DOCTOR.md
+  lune run tools/bas checkup post          post the summary to Discord (../.discord-webhook)
 
   --json   one JSON object on stdout     --save   also file it in the evidence folder
   exit 0 ok, 1 a check failed, 2 usage error]]
@@ -979,6 +1034,7 @@ local function show(res)
 	end
 	if res.dir then print("  folder: " .. res.dir) end
 	if res.manifest then print(serde.encode("json", res.manifest, true)) end
+	if res.text then print(res.text) end
 	if res.saved then print("  saved " .. res.saved .. " at " .. tostring(res.commit)) end
 	if res.savedTo then print("  filed in " .. res.savedTo) end
 	for _, c in res.checks do
@@ -1015,6 +1071,8 @@ elseif cmd == "health" then
 	res = cmdHealth()
 elseif cmd == "playtest" then
 	res = cmdPlaytest()
+elseif cmd == "checkup" then
+	res = cmdCheckup()
 end
 
 if not res then

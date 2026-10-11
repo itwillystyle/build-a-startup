@@ -65,10 +65,12 @@ local function tierColor(tier)
 	return (t and t.color) or Color3.fromRGB(236, 236, 232)
 end
 
-local function groundY(x, z)
+local function groundY(x, z, skip)
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { folder }
+	local list = { folder }
+	for _, inst in ipairs(skip or {}) do table.insert(list, inst) end
+	params.FilterDescendantsInstances = list
 	local hit = workspace:Raycast(Vector3.new(x, 60, z), Vector3.new(0, -120, 0), params)
 	return hit and hit.Position.Y or 0.8
 end
@@ -126,9 +128,20 @@ local PathfindingService = game:GetService("PathfindingService")
 	  * from (0, 64-72) every route works: the drive (~139), the far drive (~341), the
 	    park (~222), the next plot (~153). DropOffClient marks it while you carry. ]]
 local ENTRANCE_Z = 66
+--[[ The doorstep's GROUND, not the first thing above it. 11 Oct, the game doctor: from
+	HQ level 18 (wafer 2) the entrance portal's lintel (PodiumCap, Wafers.lua) spans the
+	forecourt, and the ray from the sky hit its top: the doorstep sat 18.4 studs up, so
+	the drop-off ring, beam and sign were drawn on top of the arch and every route home
+	was measured from up there. Delivery still worked (it is a flat distance), which is
+	why nothing failed. The HQ is never the ground: every plot's tower is skipped. ]]
 local function doorPos(plot)
 	local cf = plot.pivot * CFrame.new(0, 0, ENTRANCE_Z)
-	return Vector3.new(cf.Position.X, groundY(cf.Position.X, cf.Position.Z), cf.Position.Z)
+	local towers = {}
+	for _, p in ipairs((api and api.plots) or {}) do
+		local w = p.folder and p.folder:FindFirstChild("Wafers")
+		if w then table.insert(towers, w) end
+	end
+	return Vector3.new(cf.Position.X, groundY(cf.Position.X, cf.Position.Z, towers), cf.Position.Z)
 end
 
 local function flatDist(a, b)

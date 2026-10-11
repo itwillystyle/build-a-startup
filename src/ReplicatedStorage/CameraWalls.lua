@@ -69,7 +69,14 @@ function CameraWalls.cast(origin, offset)
 	end
 	if #list == 0 then return nil end
 	local hit = workspace:Spherecast(origin, CameraWalls.RADIUS, offset, params)
-	return hit and hit.Distance or nil
+	if hit then return hit.Distance end
+	--[[ A spherecast ignores anything it STARTS inside. Riding along an HQ wall puts
+		your head within RADIUS of it, the sphere starts in the wall, misses it, and
+		the lens goes straight through: found by the game doctor on 11 Oct (the
+		chase camera inside the HQ, 625 of 784 frames). A plain ray from the same
+		point still hits the wall's face. ]]
+	local ray = workspace:Raycast(origin, offset, params)
+	return ray and ray.Distance or nil
 end
 
 function CameraWalls.start()
