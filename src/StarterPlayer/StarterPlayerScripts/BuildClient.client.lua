@@ -92,7 +92,7 @@ local function makeRow(room, i)
 	row.Size = UDim2.new(1, 0, 0, ROW_H)
 	row.BackgroundColor3 = UIKit.CARD
 	row.Parent = list
-	Instance.new("UICorner", row).CornerRadius = UDim.new(0, 12)
+	Instance.new("UICorner", row).CornerRadius = UDim.new(0, UIKit.RADIUS.md)
 	local st = Instance.new("UIStroke", row)
 	st.Color = UIKit.CARD_LINE
 	st.Thickness = 1.5
@@ -105,14 +105,14 @@ local function makeRow(room, i)
 	tile.BackgroundColor3 = room.accent
 	tile.BorderSizePixel = 0
 	tile.Parent = row
-	Instance.new("UICorner", tile).CornerRadius = UDim.new(0, 10)
+	Instance.new("UICorner", tile).CornerRadius = UDim.new(0, UIKit.RADIUS.md)
 	UIKit.icon(tile, ROOM_ICON[room.id] or "plus", ROW_H - 30, UIKit.INK, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0) })
 
-	local nm = UIKit.label(row, room.name, 18, UIKit.CARD_TEXT, {
+	local nm = UIKit.label(row, room.name, UIKit.TYPE.label, UIKit.CARD_TEXT, {
 		Name = "RoomName", Position = UDim2.new(0, ROW_H + 2, 0, 7), Size = UDim2.new(1, -(ROW_H + 132), 0, 22),
 		TextTruncate = Enum.TextTruncate.AtEnd,
 	}, UIKit.HEAD)
-	local blurb = UIKit.label(row, room.blurb or "", 16, UIKit.MUTED_TEXT, {
+	local blurb = UIKit.label(row, room.blurb or "", UIKit.TYPE.body, UIKit.MUTED_TEXT, {
 		Name = "RoomBlurb", Position = UDim2.new(0, ROW_H + 2, 0, 30), Size = UDim2.new(1, -(ROW_H + 132), 0, 20),
 		TextTruncate = Enum.TextTruncate.AtEnd,
 	}, UIKit.HEAD)
@@ -120,7 +120,7 @@ local function makeRow(room, i)
 	local buy, buyLabel = UIKit.button(row, "", UIKit.GREEN, {
 		Name = "Buy", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.new(0, 116, 0, 44),
 	}, { textSize = 18 })
-	local need = UIKit.label(row, "", 14, UIKit.RED, {
+	local need = UIKit.label(row, "", UIKit.TYPE.caption, UIKit.RED, {
 		Name = "Need", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -8, 1, -2), Size = UDim2.new(0, 116, 0, 15),
 		TextXAlignment = Enum.TextXAlignment.Center, Visible = false,
 	}, UIKit.HEAD)

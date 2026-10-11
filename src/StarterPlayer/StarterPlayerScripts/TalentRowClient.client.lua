@@ -64,7 +64,7 @@ local function addTimer(m)
 	t.Font = UIKit.HEAD
 	t.TextScaled = true
 	t.TextStrokeTransparency = 0.1
-	t.TextColor3 = m:GetAttribute("TierColor") or Color3.new(1, 1, 1)
+	t.TextColor3 = m:GetAttribute("TierColor") or UIKit.PAPER
 	t.Parent = bb
 	bb.Parent = head
 	timers[m] = t
@@ -155,19 +155,19 @@ gui.Parent = player:WaitForChild("PlayerGui")
 local danger = UIKit.card(gui, {
 	Name = "Danger", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 96),
 	Size = UDim2.new(0, 330, 0, 50), Visible = false,
-}, { radius = 999, strokeWidth = 3 })
+}, { radius = UIKit.RADIUS.pill, strokeWidth = 3 })
 local dangerStroke = danger:FindFirstChildOfClass("UIStroke")
 local dangerIcon = UIKit.icon(danger, "alert", 28, UIKit.ORANGE, { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 14, 0.5, 0) })
-local dangerText = UIKit.label(danger, "", 20, UIKit.CARD_TEXT, {
+local dangerText = UIKit.label(danger, "", UIKit.TYPE.label, UIKit.CARD_TEXT, {
 	Position = UDim2.new(0, 50, 0, 0), Size = UDim2.new(1, -64, 1, 0), TextTruncate = Enum.TextTruncate.AtEnd,
 }, UIKit.HEAD)
 local dangerScale = Instance.new("UIScale", danger)
 
 local restock = UIKit.card(UIKit.column(), {
 	Name = "Restock", LayoutOrder = 3, Size = UDim2.new(1, 0, 0, 44), Visible = false,
-}, { radius = 14 })
+}, { radius = UIKit.RADIUS.md })
 UIKit.icon(restock, "person", 22, UIKit.CARD_MUTED, { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 12, 0.5, 0) })
-local restockText = UIKit.label(restock, "", 16, UIKit.CARD_TEXT, {
+local restockText = UIKit.label(restock, "", UIKit.TYPE.body, UIKit.CARD_TEXT, {
 	Position = UDim2.new(0, 42, 0, 0), Size = UDim2.new(1, -52, 1, 0), TextTruncate = Enum.TextTruncate.AtEnd,
 }, UIKit.HEAD)
 
@@ -175,13 +175,13 @@ local restockText = UIKit.label(restock, "", 16, UIKit.CARD_TEXT, {
 local lostCard = UIKit.card(gui, {
 	Name = "Lost", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 96),
 	Size = UDim2.new(0.9, 0, 0, 74), Visible = false,
-}, { radius = 16, strokeWidth = 4, stroke = UIKit.RED })
+}, { radius = UIKit.RADIUS.lg, strokeWidth = 4, stroke = UIKit.RED })
 local lcap = Instance.new("UISizeConstraint", lostCard)
 lcap.MaxSize = Vector2.new(440, 74)
-local lostTitle = UIKit.outlined(lostCard, "LOST!", 26, UIKit.RED, {
+local lostTitle = UIKit.outlined(lostCard, "LOST!", UIKit.TYPE.headline, UIKit.RED, {
 	Position = UDim2.new(0, 16, 0, 6), Size = UDim2.new(1, -32, 0, 32),
 })
-local lostText = UIKit.label(lostCard, "", 18, UIKit.INK, {
+local lostText = UIKit.label(lostCard, "", UIKit.TYPE.label, UIKit.INK, {
 	Position = UDim2.new(0, 16, 0, 40), Size = UDim2.new(1, -32, 0, 24), TextTruncate = Enum.TextTruncate.AtEnd,
 }, UIKit.HEAD)
 local lostEdges = {}

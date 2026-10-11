@@ -116,13 +116,13 @@ end
 
 local function build(id, target, done)
 	local W, H = 290, 140
-	local card = UIKit.card(gui, { Name = "CoachCard", Size = UDim2.new(0, W, 0, H), ZIndex = 2 }, { radius = 16, strokeWidth = 3 })
+	local card = UIKit.card(gui, { Name = "CoachCard", Size = UDim2.new(0, W, 0, H), ZIndex = 2 }, { radius = UIKit.RADIUS.lg, strokeWidth = 3 })
 	local stroke = card:FindFirstChildOfClass("UIStroke")
 	if stroke then stroke.Color = UIKit.GOLD end
-	UIKit.label(card, player:GetAttribute("CoachTitle") or "", 20, UIKit.INK, {
+	UIKit.label(card, player:GetAttribute("CoachTitle") or "", UIKit.TYPE.label, UIKit.INK, {
 		Position = UDim2.new(0, 14, 0, 10), Size = UDim2.new(1, -28, 0, 24), ZIndex = 3,
 	}, UIKit.HEAD)
-	UIKit.label(card, player:GetAttribute("CoachBody") or "", 16, UIKit.INK_SOFT, {
+	UIKit.label(card, player:GetAttribute("CoachBody") or "", UIKit.TYPE.body, UIKit.INK_SOFT, {
 		Position = UDim2.new(0, 14, 0, 38), Size = UDim2.new(1, -28, 0, 44), TextWrapped = true,
 		TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 3,
 	}, UIKit.BODY)
@@ -139,7 +139,7 @@ local function build(id, target, done)
 	ring.AnchorPoint = Vector2.new(0.5, 0.5)
 	ring.ZIndex = 1
 	ring.Parent = gui
-	Instance.new("UICorner", ring).CornerRadius = UDim.new(0, 18)
+	Instance.new("UICorner", ring).CornerRadius = UDim.new(0, UIKit.RADIUS.lg)
 	local rs = Instance.new("UIStroke", ring)
 	rs.Color = UIKit.GOLD
 	rs.Thickness = 4

@@ -83,7 +83,7 @@ card.Size = UDim2.new(0.9, 0, 0, CARD_H)
 card.BackgroundColor3 = UIKit.CARD
 card.Visible = false
 card.Parent = gui
-Instance.new("UICorner", card).CornerRadius = UDim.new(0, 18)
+Instance.new("UICorner", card).CornerRadius = UDim.new(0, UIKit.RADIUS.lg)
 local cap = Instance.new("UISizeConstraint", card)
 cap.MaxSize = Vector2.new(480, CARD_H)
 local stroke = Instance.new("UIStroke", card)
@@ -101,31 +101,31 @@ Instance.new("UICorner", disc).CornerRadius = UDim.new(1, 0)
 local vpf = Instance.new("ViewportFrame")
 vpf.BackgroundTransparency = 1
 vpf.Size = UDim2.new(1, 0, 1, 0)
-vpf.Ambient = Color3.fromRGB(210, 210, 215)
-vpf.LightColor = Color3.fromRGB(255, 250, 240)
+vpf.Ambient = Color3.fromRGB(210, 210, 215)  -- world colour
+vpf.LightColor = Color3.fromRGB(255, 250, 240)  -- world colour
 vpf.LightDirection = Vector3.new(-0.4, -1, -0.6)
 vpf.Parent = disc
 Instance.new("UICorner", vpf).CornerRadius = UDim.new(1, 0)
 local fallback = UIKit.icon(disc, "person", 56, UIKit.INK, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), Visible = false })
 
 local TEXT_X = 116
-local title = UIKit.outlined(card, "", 30, UIKit.TEXT, {
+local title = UIKit.outlined(card, "", UIKit.TYPE.headline, UIKit.TEXT, {
 	Name = "Title", Position = UDim2.new(0, TEXT_X, 0, 12), Size = UDim2.new(1, -(TEXT_X + 12), 0, 36),
 	TextScaled = true,
 })
 local tsc = Instance.new("UITextSizeConstraint", title)
-tsc.MaxTextSize = 30
-tsc.MinTextSize = 18
+tsc.MaxTextSize = UIKit.TYPE.headline
+tsc.MinTextSize = UIKit.TYPE.label
 local titleScale = Instance.new("UIScale", title)
 
-local who = UIKit.label(card, "", 20, UIKit.INK, {
+local who = UIKit.label(card, "", UIKit.TYPE.label, UIKit.INK, {
 	Name = "Who", Position = UDim2.new(0, TEXT_X, 0, 50), Size = UDim2.new(1, -(TEXT_X + 12), 0, 24),
 	TextScaled = true,
 }, UIKit.HEAD)
 local wsc = Instance.new("UITextSizeConstraint", who)
-wsc.MaxTextSize = 20
-wsc.MinTextSize = 14
-local odds = UIKit.label(card, "", 16, UIKit.MUTED_TEXT, {
+wsc.MaxTextSize = UIKit.TYPE.label
+wsc.MinTextSize = UIKit.TYPE.caption
+local odds = UIKit.label(card, "", UIKit.TYPE.body, UIKit.MUTED_TEXT, {
 	Name = "Odds", Position = UDim2.new(0, TEXT_X, 0, 76), Size = UDim2.new(1, -(TEXT_X + 12), 0, 18),
 	TextTruncate = Enum.TextTruncate.AtEnd,
 }, UIKit.HEAD)
@@ -140,7 +140,7 @@ chip.BorderSizePixel = 0
 chip.Visible = false
 chip.Parent = card
 Instance.new("UICorner", chip).CornerRadius = UDim.new(1, 0)
-local chipText = UIKit.label(chip, "", 14, UIKit.TEXT, { Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.HEAD)
+local chipText = UIKit.label(chip, "", UIKit.TYPE.caption, UIKit.TEXT, { Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.HEAD)
 
 -- ============ PORTRAIT ============
 
@@ -259,7 +259,7 @@ local function showCard(d, done)
 	local mine = serial
 	doneFor[mine] = done
 	local tier = d.tier or 2
-	local col = Color3.new(d.color[1], d.color[2], d.color[3])
+	local col = Color3.new(d.color[1], d.color[2], d.color[3])   -- server colour: the tier colour the server sent
 	local role = string.upper(tostring(d.role or "hire"))
 	local roleKey = string.lower(tostring(d.role or ""))
 	title.Text = ("%s %s!"):format(string.upper(tostring(d.name)), role == "RESEARCH" and "RESEARCHER" or role)

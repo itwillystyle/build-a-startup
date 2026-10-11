@@ -59,7 +59,7 @@ box.PlaceholderText = "Type here..."
 box.PlaceholderColor3 = UIKit.CARD_MUTED
 box.Text = ""
 box.TextColor3 = UIKit.CARD_TEXT
-box.TextSize = 18
+box.TextSize = UIKit.TYPE.label
 box.FontFace = UIKit.BODY
 box.TextWrapped = true
 box.MultiLine = true
@@ -81,7 +81,7 @@ pad.Parent = box
 box.Focused:Connect(function() boxStroke.Color = UIKit.PINK end)
 box.FocusLost:Connect(function() boxStroke.Color = UIKit.CARD_LINE end)
 
-local count = UIKit.label(body, "0/" .. MAX, 14, UIKit.MUTED_TEXT, {
+local count = UIKit.label(body, "0/" .. MAX, UIKit.TYPE.caption, UIKit.MUTED_TEXT, {
 	Name = "Count", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, -8), Size = UDim2.new(0.5, 0, 0, 20),
 	TextXAlignment = Enum.TextXAlignment.Left,
 }, UIKit.BODY)

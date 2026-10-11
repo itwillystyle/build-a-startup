@@ -44,7 +44,7 @@ local panel, body, close = UIKit.menu(gui, "NAME YOUR COMPANY", UIKit.BLUE, {
 local cap = Instance.new("UISizeConstraint", panel)
 cap.MaxSize = Vector2.new(440, 226)
 
-local hint = UIKit.label(body, HINT, 16, UIKit.CARD_MUTED, {
+local hint = UIKit.label(body, HINT, UIKit.TYPE.body, UIKit.CARD_MUTED, {
 	Size = UDim2.new(1, 0, 0, 22), TextTruncate = Enum.TextTruncate.AtEnd,
 }, UIKit.BODY)
 
@@ -72,7 +72,7 @@ box.PlaceholderText = "Your company"
 box.PlaceholderColor3 = UIKit.CARD_MUTED
 box.Text = suggest()
 box.TextColor3 = UIKit.CARD_TEXT
-box.TextSize = 22
+box.TextSize = UIKit.TYPE.title
 box.Font = UIKit.HEAD
 box.TextXAlignment = Enum.TextXAlignment.Left
 box.ClearTextOnFocus = false

@@ -3,18 +3,18 @@
 **How a player reaches it:**
 1. Join a server. Boards appear on their own once a plot has an owner. There is no menu.
 2. The first bell opens 150 s after server start, then every 330 s (`src/ServerScriptService/Valley.lua:40-42, 162`). A toast says "THE MARKET BELL" (:123).
-3. During the 90 s the player grows valuation (earning raises it every tick, `SiliconCore.server.lua:3136`). Their board shows `+gain` in green.
+3. During the 90 s the player grows valuation (earning raises it every tick, `SiliconCore.server.lua:3149`). Their board shows `+gain` in green.
 4. The bell closes. The best gain gets a payday of 45 s of income (:42, :137-141). A toast names the winner (:143).
 **Files:**
 - `src/ServerScriptService/Valley.lua`: `publish` :84, `openBell` :114, `closeBell` :126, `init` :157, `forceBell` :191, `endBell` :192.
-- `src/StarterPlayer/StarterPlayerScripts/ValleyClient.client.lua`: `towerTop` :52, `makeBoard` :73, `redraw` :144, `setCrown` :182, wiring :218-251.
-- `src/ServerScriptService/SiliconCore.server.lua:3751-3770`: starts it with `plots`, `session`, `plotOf`, `cash`, `fmt`, `toast`, `level`. The level comes from `Econ.Wafers.level(plot)` (:3766), so the board shows the wafer level (1 to 100), not the stage.
+- `src/StarterPlayer/StarterPlayerScripts/ValleyClient.client.lua`: `towerTop` :54, `makeBoard` :75, `redraw` :146, `setCrown` :184, wiring :220-253.
+- `src/ServerScriptService/SiliconCore.server.lua:3764-3783`: starts it with `plots`, `session`, `plotOf`, `cash`, `fmt`, `toast`, `level`. The level comes from `Econ.Wafers.level(plot)` (:3779), so the board shows the wafer level (1 to 100), not the stage.
 **State:**
 - Per plot folder (`Plots/PlotN`): `OwnerId`, `Company`, `Valuation`, `Listed`, `Rank`, `Level`, `BellGain` (`Valley.lua:92-98`). Cleared when nobody owns the plot (:103-109). Refresh every 2 s (:44).
 - On the `Plots` folder: `BellOn`, `BellSeconds`, `BellWinner` (a plot folder name, e.g. "Plot3") (`Valley.lua:121-122, 150, 160-161`).
 - Module state: `bell` = `on`, `startedAt`, `base` (valuation per user at open), `nextAt` (:46). A player whose save is still loading gets no `base` and sits that bell out (`settled` :62, used at :118 and :132), so a join-time 0 cannot "grow" into a win.
 - Session: `s.valuation`, `s.rate`, `s.ipo`, `s.name`. Nothing new is saved. The valuation itself is saved (`SaveLoad.lua:176`).
-- Client only: `boards[folder]` parts named `SVFounderBoard`, a ball named `SVRoundCrown` (`ValleyClient.client.lua:73, 182`).
+- Client only: `boards[folder]` parts named `SVFounderBoard`, a ball named `SVRoundCrown` (`ValleyClient.client.lua:75, 184`).
 **Drive it:**
 - Raw `bell` opens the bell at the next 1 s tick. `bell end` closes it (`DevHook.lua:102-110`). It needs a player in the server.
 - `valuation <n>` sets `s.valuation` (`DevHook.lua:184`). Open the bell, then raise it, then `bell end`, to make a winner. Untested.
@@ -22,13 +22,13 @@
 **Prove it:** no automated check yet. No spec requires `Valley.lua`. `SVCheck` has nothing for boards or the crown.
 **Gotchas:**
 - `forceBell` only sets `nextAt = 0` (`Valley.lua:191`). If a bell is already on, nothing happens. `endBell` does nothing when no bell is on (:192).
-- With zero growth the bell closes "with nothing built" and sets `BellWinner` to the number 0, not "" (`Valley.lua:138-143`). The client only treats "" as empty (`ValleyClient.client.lua:184`). Unclear what `FindFirstChild(0)` does there.
+- With zero growth the bell closes "with nothing built" and sets `BellWinner` to the number 0, not "" (`Valley.lua:138-143`). The client only treats "" as empty (`ValleyClient.client.lua:186`). Unclear what `FindFirstChild(0)` does there.
 - Nothing reads `BellOn` or `BellSeconds`. I searched `src`. The only client signal is the toast (`Valley.lua:123`) and `BellGain` on boards.
 - The toast text says "90 seconds" as a literal (`Valley.lua:151`). `BELL_WINDOW` is separate. Change both.
-- The crown is placed once, at `towerTop + 30`. The timer only spins it, so a tower that grows later leaves it behind (`ValleyClient.client.lua:182-216, 249`).
-- `towerTop` walks the parts of the plot's `Wafers` folder, because it is a Folder and has no bounding box (`ValleyClient.client.lua:52-71`).
+- The crown is placed once, at `towerTop + 30`. The timer only spins it, so a tower that grows later leaves it behind (`ValleyClient.client.lua:184-218, 251`).
+- `towerTop` walks the parts of the plot's `Wafers` folder, because it is a Folder and has no bounding box (`ValleyClient.client.lua:54-73`).
 - Boards use studs for size and `MaxDistance` is measured from `camera.Focus`. In a cutscene they pop in and out. This is expected (`ValleyClient.client.lua:19-21`).
-- `Valley.init` runs inside a `pcall`. A failure only warns, and the server runs without boards (`SiliconCore.server.lua:3757-3768`).
+- `Valley.init` runs inside a `pcall`. A failure only warns, and the server runs without boards (`SiliconCore.server.lua:3770-3781`).
 - SiliconCore is at the 200 top-level local limit, so no handle to `Valley` is kept (:3711-3712). Tests must `require` it again.
 - The bell never opens in an empty server (`Valley.lua:181`).
 **Last verified:** 2026-10-09 80ce687

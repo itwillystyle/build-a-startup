@@ -46,6 +46,24 @@ UIKit.RED_DEEP = rgb(160, 36, 36)
 UIKit.PURPLE = rgb(165, 92, 255)        -- the rare (GENIUS)
 UIKit.PURPLE_DEEP = rgb(106, 47, 192)
 UIKit.PINK = rgb(236, 120, 170)         -- the design studio's colour
+UIKit.SLATE = rgb(126, 136, 156)        -- the server room's colour (cool grey, never a button)
+UIKit.SILVER = rgb(96, 104, 120)        -- 2nd place (readable on paper)
+UIKit.BRONZE = rgb(158, 92, 40)         -- 3rd place (readable on paper)
+UIKit.BLACK = rgb(8, 9, 12)             -- letterbox bars and fades only: the screen going dark
+
+--[[ v6 (11 Oct): ONE place for the colours that mean something in the game. They
+	were typed out again in each script (IndexClient's tiers, WaferClient's and
+	GuideClient's departments, HomeClient's home tiers), 57 different hand-picked
+	colours in all, so the same GENIUS was three purples. tests/offline/uistyle.spec
+	now fails on a Color3.fromRGB in UI code that is not marked as a world colour. ]]
+UIKit.TIER = { regular = rgb(172, 180, 196), skilled = UIKit.GREEN, star = UIKit.BLUE, genius = UIKit.PURPLE, unicorn = UIKit.GOLD }
+-- the HQ's floors: the SAME tints the building is painted with (Wafers.TINT, server side)
+UIKit.DEPT = {
+	lobby = rgb(236, 214, 170), eng = rgb(150, 188, 232), studio = rgb(236, 164, 192), cafe = rgb(246, 176, 116),
+	servers = rgb(70, 78, 96), labs = rgb(122, 214, 198), board = rgb(236, 202, 112),
+}
+-- the three HQ styles on the picker
+UIKit.PATH = { W_ = rgb(122, 170, 80), T_ = rgb(236, 170, 70), D_ = rgb(150, 166, 188) }
 
 -- v3-v4 names, kept so every script still reads (values follow the v5 roles)
 UIKit.TEXT = rgb(255, 252, 246)         -- text ON a coloured fill
@@ -86,7 +104,7 @@ UIKit.HEAD = Enum.Font.FredokaOne                                        -- the 
 UIKit.BODY = Font.new("rbxasset://fonts/families/Nunito.json", Enum.FontWeight.ExtraBold)   -- for reading
 UIKit.BOLD = Font.new("rbxasset://fonts/families/Nunito.json", Enum.FontWeight.Heavy)
 UIKit.TYPE = { caption = 14, body = 16, label = 18, title = 22, headline = 28, display = 36, money = 44 }
-UIKit.RADIUS = { sm = 8, md = 12, lg = 16 }
+UIKit.RADIUS = { sm = 8, md = 12, lg = 16, xl = 24, pill = 999 }   -- xl: a device's outline (the phone); pill: fully round
 
 -- a font argument may be an Enum.Font (FredokaOne) or a Font (Nunito with a weight)
 function UIKit.setFont(obj, font)
@@ -811,7 +829,7 @@ function UIKit.badge(button)
 	local st = Instance.new("UIStroke", b)
 	st.Color = Color3.new(1, 1, 1)
 	st.Thickness = 2
-	local t = UIKit.heading(b, "", 14, UIKit.TEXT, { Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center,
+	local t = UIKit.heading(b, "", UIKit.TYPE.caption, UIKit.TEXT, { Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center,
 		TextStrokeTransparency = 1, ZIndex = button.ZIndex + 6 })
 	return b, t
 end
@@ -825,7 +843,7 @@ function UIKit.popReward(parent, text, at, color)
 	l.Position = at
 	l.Size = UDim2.new(0, 240, 0, 40)
 	l.Font = UIKit.HEAD
-	l.TextSize = 32
+	l.TextSize = UIKit.TYPE.headline
 	l.Text = text
 	l.TextColor3 = color or UIKit.GOLD
 	l.TextStrokeColor3 = UIKit.INK
@@ -1048,7 +1066,7 @@ function UIKit.menu(parent, title, accent, props, opts)
 	rule.Position = UDim2.new(0, 0, 1, 0)
 	rule.Size = UDim2.new(1, 0, 0, 3)
 	rule.Parent = head
-	local t = UIKit.label(head, title or "", 24, UIKit.TEXT, {
+	local t = UIKit.label(head, title or "", UIKit.TYPE.title, UIKit.TEXT, {
 		Name = "Title", Position = UDim2.new(0, 18, 0, 0), Size = UDim2.new(1, -84, 1, -3),
 		TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 2,
 	}, UIKit.HEAD)

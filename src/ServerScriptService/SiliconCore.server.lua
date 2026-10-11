@@ -392,21 +392,34 @@ local function part(props, parent)
 	return p
 end
 
+--[[ A sign IN the world: a wall hides it. v6 (11 Oct): every one of these was
+	AlwaysOnTop, so inside the HQ "BUILD LEVEL 18 · $403.3K", "REBUILD LEVELS 19-26"
+	and "HIRING HAPPENS ON THE STREET" floated over the walls and over each other
+	(his playtests, 10 Oct). Read like debug text. Now they are part of the room:
+	seen when you can see the thing they name, with the sticker outline the HUD
+	uses (an ink UIStroke, not the thin TextStroke). `noTop` is kept for callers;
+	nothing is drawn through walls any more. ]]
 local function label(parent, text, size, offsetY, maxDist, noTop)
+	local _ = noTop
 	local bb = Instance.new("BillboardGui")
 	bb.Size = UDim2.new(0, 260, 0, 54)
 	bb.StudsOffset = Vector3.new(0, offsetY or 3, 0)
-	bb.AlwaysOnTop = not noTop
+	bb.AlwaysOnTop = false
+	bb.LightInfluence = 0
 	bb.MaxDistance = maxDist or 90
 	bb.Parent = parent
 	local t = Instance.new("TextLabel")
 	t.Size = UDim2.new(1, 0, 1, 0)
 	t.BackgroundTransparency = 1
 	t.Text = text
-	t.TextColor3 = Color3.new(1, 1, 1)
-	t.TextStrokeTransparency = 0.2
+	t.TextColor3 = Color3.fromRGB(255, 252, 246)   -- UIKit.PAPER (UIKit is client-side)
+	t.TextStrokeTransparency = 1
 	t.TextSize = size or 20
-	t.Font = Enum.Font.FredokaOne       -- v2.8: the game's one display font (was GothamBlack)
+	t.Font = Enum.Font.FredokaOne       -- UIKit.HEAD
+	local st = Instance.new("UIStroke")
+	st.Color = Color3.fromRGB(20, 22, 30)           -- UIKit.INK
+	st.Thickness = 2
+	st.Parent = t
 	t.Parent = bb
 	return t
 end

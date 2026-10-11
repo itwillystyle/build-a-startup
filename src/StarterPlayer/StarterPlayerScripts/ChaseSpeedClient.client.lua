@@ -20,6 +20,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ChaseSpeed = require(ReplicatedStorage:WaitForChild("ChaseSpeed"))
+local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
 
 local player = Players.LocalPlayer
 
@@ -52,7 +53,7 @@ for i = 1, POOL do
 	frame.Name = "Streak" .. i
 	frame.AnchorPoint = Vector2.new(0.5, 0.5)
 	frame.BorderSizePixel = 0
-	frame.BackgroundColor3 = Color3.new(1, 1, 1)
+	frame.BackgroundColor3 = UIKit.PAPER
 	frame.BackgroundTransparency = 1
 	-- a horizontal bar, turned to lie along its own ray from the centre
 	frame.Size = UDim2.fromOffset(length, THICKNESS)

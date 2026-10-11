@@ -53,6 +53,7 @@ if not okCine then Cine = nil end
 	not here; this file only owns the beats (letterbox, slam, shake, hush). ]]
 local ChaseCam = require(ReplicatedStorage:WaitForChild("ChaseCam"))
 local CameraWalls = require(ReplicatedStorage:WaitForChild("CameraWalls"))
+local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
 CameraWalls.start()
 local T = ChaseCam.T
 
@@ -129,7 +130,7 @@ local function ensureStage()
 	gui.Parent = player:WaitForChild("PlayerGui")
 	local function bar(y, anchor)
 		local f = Instance.new("Frame")
-		f.BackgroundColor3 = Color3.new(0, 0, 0)
+		f.BackgroundColor3 = UIKit.BLACK
 		f.BorderSizePixel = 0
 		f.AnchorPoint = Vector2.new(0, anchor)
 		f.Position = UDim2.new(0, 0, y, 0)
@@ -140,10 +141,10 @@ local function ensureStage()
 	bars = { gui = gui, top = bar(0, 0), bottom = bar(1, 1) }
 	label = Instance.new("TextLabel")
 	label.BackgroundTransparency = 1
-	label.Font = Enum.Font.FredokaOne
-	label.TextColor3 = Color3.fromRGB(255, 255, 255)
+	label.Font = UIKit.HEAD
+	label.TextColor3 = UIKit.TEXT
 	label.TextStrokeTransparency = 0.4
-	label.TextSize = 30
+	label.TextSize = UIKit.TYPE.headline
 	label.Text = ""
 	label.AnchorPoint = Vector2.new(0.5, 0)
 	label.Position = UDim2.new(0.5, 0, 0.12, 0)
@@ -154,8 +155,8 @@ local function ensureStage()
 		cut is making. Reading it back during a chase is the only way to tell
 		a motivated edit from one that merely looks busy. ]]
 	cause = label:Clone()
-	cause.TextSize = 16
-	cause.Font = Enum.Font.Gotham
+	cause.TextSize = UIKit.TYPE.body
+	cause.FontFace = UIKit.BODY
 	cause.Position = UDim2.new(0.5, 0, 0.88, 0)
 	cause.TextTransparency = 1
 	cause.Parent = gui
@@ -179,8 +180,8 @@ local function slam(text)
 	ensureStage()
 	label.Text = text or ""
 	label.TextTransparency = 1
-	label.TextSize = 44
-	TweenService:Create(label, TweenInfo.new(0.18), { TextTransparency = 0, TextSize = 30 }):Play()
+	label.TextSize = UIKit.TYPE.money
+	TweenService:Create(label, TweenInfo.new(0.18), { TextTransparency = 0, TextSize = UIKit.TYPE.headline }):Play()
 	task.delay(1.6, function()
 		if label then TweenService:Create(label, TweenInfo.new(0.4), { TextTransparency = 1 }):Play() end
 	end)

@@ -1,7 +1,7 @@
 # Cars (company car, dealer, driving, ambient traffic)
 **What:** At HQ stage 2 the company gives the player a free hatchback. Valley Motors sells five faster cars. The player drives with a VehicleSeat that the client steers. Separate from that, ambient traffic is scenery that each client moves on its own.
 **How a player reaches it:**
-1. Build to stage 2 (wafer level 5). The server calls `Cars.grant(player, "hatch", "COMPANY CAR!")` after 3.5 s (`src/ServerScriptService/SiliconCore.server.lua:2149-2150`). The car parks in the plot's bay (`src/ServerScriptService/Cars.lua:227-229`).
+1. Build to stage 2 (wafer level 5). The server calls `Cars.grant(player, "hatch", "COMPANY CAR!")` after 3.5 s (`src/ServerScriptService/SiliconCore.server.lua:2162-2163`). The car parks in the plot's bay (`src/ServerScriptService/Cars.lua:227-229`).
 2. Walk up and press the "Drive" prompt (owner only), or tap the CAR button or press C to call the car (`CallCar`, `Cars.lua:272`).
 3. Move with WASD or thumbstick. Jump to get out. Shift is nitro, H is the horn (`src/StarterPlayer/StarterPlayerScripts/CarClient.client.lua:167-192`).
 4. Buy more at the campus showroom car (prompt "Cars", `Cars.lua:560`) or the dealership display pads (prompt "Look", `Cars.lua:580`). `DealerMenu` opens the list, `BuyCar` buys or switches (`Cars.lua:305-334`, `CarClient.client.lua:551-616`).

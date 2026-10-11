@@ -52,7 +52,7 @@ local ICON_FOR = { code = "code", watch = "code", wait = "code", hire = "hire", 
 	apartment = "key", car = "car" }
 local ROOM_WORDS = { { "office", "office" }, { "studio", "studio" }, { "caf", "cafe" }, { "server", "servers" } }
 local TINT = { code = UIKit.GREEN, hire = UIKit.BLUE, rocket = UIKit.ORANGE, hq = UIKit.BLUE, home = UIKit.GREEN,
-	office = UIKit.BLUE, studio = UIKit.PINK, cafe = UIKit.ORANGE, servers = Color3.fromRGB(126, 136, 156),
+	office = UIKit.BLUE, studio = UIKit.PINK, cafe = UIKit.ORANGE, servers = UIKit.SLATE,
 	key = GOLD, car = UIKit.GREEN, target = GOLD }
 local function iconFor(key, text)
 	local t = string.lower(text or "")
@@ -245,11 +245,11 @@ local function tint(name)
 	tileStroke.Color = UIKit.deep(c)
 end
 
-local title = UIKit.label(card, "", 20, UIKit.INK, {
+local title = UIKit.label(card, "", UIKit.TYPE.label, UIKit.INK, {
 	Name = "Title", Position = UDim2.new(0, TEXT_X, 0, PAD), Size = UDim2.new(1, -(TEXT_X + PAD + 24), 0, 24),
 	TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top,
 }, UIKit.HEAD)
-local sub = UIKit.label(card, "", 16, UIKit.MUTED_TEXT, {
+local sub = UIKit.label(card, "", UIKit.TYPE.body, UIKit.MUTED_TEXT, {
 	Name = "Sub", Position = UDim2.new(0, TEXT_X, 0, 36), Size = UDim2.new(1, -(TEXT_X + PAD + 24), 0, 20),
 	TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top,
 }, UIKit.BODY)
@@ -267,15 +267,27 @@ local sub = UIKit.label(card, "", 16, UIKit.MUTED_TEXT, {
 local DISMISS_ATTR = "GuideDismissed"
 local closeBtn = Instance.new("TextButton")
 closeBtn.Name = "Dismiss"
+-- v6 (11 Oct): the tap target is 44x44 (DESIGN.md: no tap under 44); the round
+-- 26 px X you see is drawn inside it, where it always was
 closeBtn.AnchorPoint = Vector2.new(1, 0)
-closeBtn.Position = UDim2.new(1, -8, 0, 8)
-closeBtn.Size = UDim2.new(0, 26, 0, 26)
-closeBtn.BackgroundColor3 = UIKit.SURFACE_2
+closeBtn.Position = UDim2.new(1, 1, 0, -1)
+closeBtn.Size = UDim2.new(0, 44, 0, 44)
+closeBtn.BackgroundTransparency = 1
 closeBtn.BorderSizePixel = 0
-closeBtn.Text = "\u{00D7}"
-closeBtn.TextColor3 = UIKit.MUTED_TEXT
-closeBtn.TextSize = 20
-closeBtn.Font = Enum.Font.GothamBold
+closeBtn.Text = ""
+local closeDot = Instance.new("TextLabel")
+closeDot.Name = "Dot"
+closeDot.AnchorPoint = Vector2.new(0.5, 0.5)
+closeDot.Position = UDim2.fromScale(0.5, 0.5)
+closeDot.Size = UDim2.new(0, 26, 0, 26)
+closeDot.BackgroundColor3 = UIKit.SURFACE_2
+closeDot.BorderSizePixel = 0
+closeDot.Text = "\u{00D7}"
+closeDot.TextColor3 = UIKit.MUTED_TEXT
+closeDot.TextSize = UIKit.TYPE.label
+closeDot.FontFace = UIKit.BOLD
+closeDot.Parent = closeBtn
+Instance.new("UICorner", closeDot).CornerRadius = UDim.new(1, 0)
 --[[ ABOVE "Hit" (ZIndex 20), which is the whole-card tap target that turns the
 	camera to the goal. At ZIndex 8 the X was UNDER it, so every click on the X
 	went to Hit and swung the camera instead -- which from the player's seat
@@ -295,7 +307,7 @@ chip.Size = UDim2.new(1, -(TEXT_X + PAD), 0, 24)
 chip.BackgroundColor3 = UIKit.GREEN_LIGHT
 chip.BorderSizePixel = 0
 chip.TextColor3 = UIKit.GREEN_DEEP
-chip.TextSize = 14
+chip.TextSize = UIKit.TYPE.caption
 chip.TextWrapped = true
 chip.TextXAlignment = Enum.TextXAlignment.Left
 chip.Visible = false
@@ -333,7 +345,7 @@ local shineGrad = Instance.new("UIGradient", shine)
 shineGrad.Rotation = 20
 shineGrad.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.42, 1),
 	NumberSequenceKeypoint.new(0.5, 0.55), NumberSequenceKeypoint.new(0.58, 1), NumberSequenceKeypoint.new(1, 1) })
-local price = UIKit.label(meter, "", 14, UIKit.INK, {
+local price = UIKit.label(meter, "", UIKit.TYPE.caption, UIKit.INK, {
 	Size = UDim2.new(1, -16, 1, 0), Position = UDim2.new(0, 8, 0, 0), TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 3,
 }, UIKit.HEAD)
 
@@ -349,10 +361,10 @@ rule.BackgroundColor3 = UIKit.LINE_LIGHT
 rule.BorderSizePixel = 0
 rule.Size = UDim2.new(1, 0, 0, 2)
 rule.Parent = footer
-local bigTitle = UIKit.label(footer, "", 14, UIKit.INK_SOFT, {
+local bigTitle = UIKit.label(footer, "", UIKit.TYPE.caption, UIKit.INK_SOFT, {
 	Position = UDim2.new(0, 0, 0, 8), Size = UDim2.new(1, 0, 0, 18), TextTruncate = Enum.TextTruncate.AtEnd,
 }, UIKit.HEAD)
-local bigSub = UIKit.label(footer, "", 14, UIKit.MUTED_TEXT, {
+local bigSub = UIKit.label(footer, "", UIKit.TYPE.caption, UIKit.MUTED_TEXT, {
 	Position = UDim2.new(0, 0, 0, 26), Size = UDim2.new(1, 0, 0, 18), TextTruncate = Enum.TextTruncate.AtEnd,
 }, UIKit.BODY)
 local bigBar = Instance.new("Frame")
@@ -392,7 +404,7 @@ local edgeStroke = Instance.new("UIStroke", edge)
 edgeStroke.Color = INK
 edgeStroke.Thickness = 3
 local arrow = UIKit.icon(edge, "up", 36, INK, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0) })
-local edgeDist = UIKit.outlined(edge, "", 16, UIKit.TEXT, {
+local edgeDist = UIKit.outlined(edge, "", UIKit.TYPE.body, UIKit.TEXT, {
 	AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 1, 4), Size = UDim2.new(0, 110, 0, 20),
 	TextXAlignment = Enum.TextXAlignment.Center,
 })
@@ -431,7 +443,7 @@ local function textHeight(label, width)
 		return TextService:GetTextBoundsAsync(p)
 	end)
 	if ok and size then return size.Y end
-	return TextService:GetTextSize(label.Text, fontSize, Enum.Font.FredokaOne, Vector2.new(width, 1000)).Y
+	return TextService:GetTextSize(label.Text, fontSize, UIKit.HEAD, Vector2.new(width, 1000)).Y
 end
 
 local function bigVisible()

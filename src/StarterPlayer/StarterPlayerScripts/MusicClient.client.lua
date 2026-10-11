@@ -60,7 +60,7 @@ UIKit.safe(gui)
 local btn, btnLabel, btnIcon = UIKit.iconButton(gui, "musicOn", nil, UIKit.CARD, {
 	Name = "MuteButton", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 10),
 	Size = UDim2.new(0, 44, 0, 44),
-}, { iconSize = 22, dark = true, radius = 22 })
+}, { iconSize = 22, dark = true, radius = UIKit.RADIUS.lg })
 -- v5: steps aside while a menu is open (the Index's close button sat on it)
 UIKit.onMenuChange(function(open) btn.Visible = not open end)
 

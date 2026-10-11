@@ -59,7 +59,7 @@ local panel, body, close = UIKit.menu(gui, "DAILY REWARD", UIKit.GREEN, {
 local fit = Instance.new("UIScale", panel)
 local place = UIKit.fitMenu(panel, W, H, fit)   -- v5: the shared rule (clears the rail, scales to fit)
 
-local sub = UIKit.label(body, "", 16, UIKit.CARD_TEXT, {
+local sub = UIKit.label(body, "", UIKit.TYPE.body, UIKit.CARD_TEXT, {
 	Name = "Sub", Size = UDim2.new(1, 0, 0, 24), TextXAlignment = Enum.TextXAlignment.Center,
 }, UIKit.BODY)
 
@@ -72,12 +72,12 @@ for d = 1, 7 do
 	t.BackgroundColor3 = UIKit.CARD
 	t.BorderSizePixel = 0
 	t.Parent = body
-	Instance.new("UICorner", t).CornerRadius = UDim.new(0, 12)
+	Instance.new("UICorner", t).CornerRadius = UDim.new(0, UIKit.RADIUS.md)
 	local st = Instance.new("UIStroke", t)
 	st.Thickness = 2
 	st.Color = UIKit.CARD_LINE
 	st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	local day = UIKit.label(t, d == 7 and "DAY 7!" or ("DAY " .. d), 14, UIKit.CARD_MUTED, {
+	local day = UIKit.label(t, d == 7 and "DAY 7!" or ("DAY " .. d), UIKit.TYPE.caption, UIKit.CARD_MUTED, {
 		Position = UDim2.new(0, 0, 0, 6), Size = UDim2.new(1, 0, 0, 18), TextXAlignment = Enum.TextXAlignment.Center,
 	}, UIKit.HEAD)
 	-- a pile that grows with the day: one coin on day 1, a stack by day 7
@@ -101,13 +101,13 @@ for d = 1, 7 do
 		cs.Color = UIKit.darker(UIKit.GOLD, 0.55)
 		cs.Thickness = 2
 	end
-	local amt = UIKit.label(t, "", 16, UIKit.CARD_TEXT, {
+	local amt = UIKit.label(t, "", UIKit.TYPE.body, UIKit.CARD_TEXT, {
 		Position = UDim2.new(0, 2, 1, -28), Size = UDim2.new(1, -4, 0, 20), TextXAlignment = Enum.TextXAlignment.Center,
 		TextScaled = true,
 	}, UIKit.HEAD)
 	local ac = Instance.new("UITextSizeConstraint", amt)
-	ac.MaxTextSize = 16
-	ac.MinTextSize = 14
+	ac.MaxTextSize = UIKit.TYPE.body
+	ac.MinTextSize = UIKit.TYPE.caption
 	local tick = UIKit.icon(t, "check", 30, UIKit.GREEN, {
 		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, 44), Visible = false, ZIndex = 3,
 	})
@@ -132,7 +132,7 @@ local claimBtn, claimLabel = UIKit.button(body, "CLAIM", UIKit.GREEN, {
 }, { textSize = 24, silent = true })
 -- v5 critique: once claimed, the countdown is a flat chip; a lipped button that
 -- does nothing reads as broken (the old quest card's "GO >" problem)
-local nextChip = UIKit.label(body, "", 18, UIKit.INK_SOFT, {
+local nextChip = UIKit.label(body, "", UIKit.TYPE.label, UIKit.INK_SOFT, {
 	Name = "NextGift", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -6), Size = UDim2.new(0, 280, 0, 44),
 	TextXAlignment = Enum.TextXAlignment.Center, BackgroundColor3 = UIKit.SURFACE_2, BackgroundTransparency = 0, Visible = false,
 }, UIKit.HEAD)
@@ -186,7 +186,7 @@ local function refresh()
 	if ready then
 		sub.Text = day == 1 and "Come back every day. Day 7 pays the most!" or ("Day %d in a row! Miss a day and it starts over."):format(day)
 		claimLabel.Text = "CLAIM " .. UIKit.money(a[day] or 0)
-		claimLabel.TextSize = 24
+		claimLabel.TextSize = UIKit.TYPE.title
 		claimBtn.Visible, nextChip.Visible = true, false
 		UIKit.setButtonColor(claimBtn, UIKit.GREEN)
 	else

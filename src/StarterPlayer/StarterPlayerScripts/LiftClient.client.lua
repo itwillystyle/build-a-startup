@@ -36,7 +36,7 @@ fadeGui.IgnoreGuiInset = true
 fadeGui.Parent = player.PlayerGui
 local fade = Instance.new("Frame")
 fade.Size = UDim2.new(1, 0, 1, 0)
-fade.BackgroundColor3 = Color3.fromRGB(12, 14, 20)
+fade.BackgroundColor3 = UIKit.BLACK
 fade.BackgroundTransparency = 1
 fade.BorderSizePixel = 0
 fade.Parent = fadeGui
@@ -125,18 +125,18 @@ liftMenu.OnClientEvent:Connect(function(data)
 		badge.BackgroundColor3 = here and UIKit.PAPER or UIKit.BLUE_DEEP
 		badge.Text = badgeText
 		badge.TextColor3 = here and UIKit.MUTED_TEXT or UIKit.TEXT
-		badge.TextSize = 20
+		badge.TextSize = UIKit.TYPE.label
 		badge.Font = UIKit.HEAD
 		badge.ZIndex = b.ZIndex + 1
 		badge.Parent = b
 		Instance.new("UICorner", badge).CornerRadius = UDim.new(1, 0)
-		local nm = UIKit.label(b, name, 16, here and UIKit.INK or UIKit.TEXT, {
+		local nm = UIKit.label(b, name, UIKit.TYPE.body, here and UIKit.INK or UIKit.TEXT, {
 			Position = UDim2.new(0, 52, 0, 4), Size = UDim2.new(1, -58, 0, 22), TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = b.ZIndex + 1,
 		}, UIKit.HEAD)
 		if not here then UIKit.paintLabel(nm, UIKit.BLUE) end
 		local sub = here and "YOU ARE HERE" or ""
 		if sub ~= "" then
-			local sl = UIKit.label(b, sub, 14, here and UIKit.MUTED_TEXT or UIKit.TEXT, {
+			local sl = UIKit.label(b, sub, UIKit.TYPE.caption, here and UIKit.MUTED_TEXT or UIKit.TEXT, {
 				Position = UDim2.new(0, 52, 0, 25), Size = UDim2.new(1, -58, 0, 18), TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = b.ZIndex + 1,
 			}, UIKit.BODY)
 			if not here then UIKit.paintLabel(sl, UIKit.BLUE) end

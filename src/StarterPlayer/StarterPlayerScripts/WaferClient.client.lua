@@ -17,13 +17,13 @@ local buildRemote = remotes:WaitForChild("WaferBuild", 60)
 if not buildRemote then return end
 
 local DEPTS = {
-	eng = { name = "ENGINEERING", short = "ENG", blurb = "+2 seats for engineers and researchers", tint = Color3.fromRGB(150, 188, 232) },
-	studio = { name = "DESIGN STUDIO", short = "STUDIO", blurb = "+2 seats for designers, more money", tint = Color3.fromRGB(236, 164, 192) },
-	cafe = { name = "CAFE", short = "CAFE", blurb = "+4 seats for sales and recruiters, more output", tint = Color3.fromRGB(246, 176, 116) },
-	servers = { name = "SERVER ROOM", short = "SERVERS", blurb = "Bigger launch paydays", tint = Color3.fromRGB(70, 78, 96) },
-	labs = { name = "AI LABS", short = "AI LABS", blurb = "+2 seats for researchers, products 15% faster", tint = Color3.fromRGB(122, 214, 198) },
-	board = { name = "BOARDROOM", short = "BOARD", blurb = "Investors on your phone start keener (up to 2 boardrooms)", tint = Color3.fromRGB(236, 202, 112) },
-	lobby = { name = "LOBBY", short = "LOBBY", blurb = "Your front door: +2 seats", tint = Color3.fromRGB(236, 214, 170) },
+	eng = { name = "ENGINEERING", short = "ENG", blurb = "+2 seats for engineers and researchers", tint = UIKit.DEPT.eng },
+	studio = { name = "DESIGN STUDIO", short = "STUDIO", blurb = "+2 seats for designers, more money", tint = UIKit.DEPT.studio },
+	cafe = { name = "CAFE", short = "CAFE", blurb = "+4 seats for sales and recruiters, more output", tint = UIKit.DEPT.cafe },
+	servers = { name = "SERVER ROOM", short = "SERVERS", blurb = "Bigger launch paydays", tint = UIKit.DEPT.servers },
+	labs = { name = "AI LABS", short = "AI LABS", blurb = "+2 seats for researchers, products 15% faster", tint = UIKit.DEPT.labs },
+	board = { name = "BOARDROOM", short = "BOARD", blurb = "Investors on your phone start keener (up to 2 boardrooms)", tint = UIKit.DEPT.board },
+	lobby = { name = "LOBBY", short = "LOBBY", blurb = "Your front door: +2 seats", tint = UIKit.DEPT.lobby },
 }
 local ORDER = { "lobby", "eng", "studio", "cafe", "servers", "labs", "board" }
 local HOMES = { "STUDIO", "LOFT", "PENTHOUSE" }
@@ -59,7 +59,7 @@ body.Size = UDim2.new(1, -28, 1, -62)
 local fit = Instance.new("UIScale", panel)
 UIKit.fitMenu(panel, PW, PH, fit)
 
-local title = UIKit.label(body, "", 20, UIKit.INK, {
+local title = UIKit.label(body, "", UIKit.TYPE.label, UIKit.INK, {
 	Name = "Title", Position = UDim2.new(0, 0, 0, 0), Size = UDim2.new(1, 0, 0, 26), TextXAlignment = Enum.TextXAlignment.Left,
 }, UIKit.HEAD)
 
@@ -74,7 +74,7 @@ rl.FillDirection = Enum.FillDirection.Horizontal
 rl.Padding = UDim.new(0, 8)
 rl.SortOrder = Enum.SortOrder.LayoutOrder
 
-local blurb = UIKit.label(body, "", 16, UIKit.INK_SOFT, {
+local blurb = UIKit.label(body, "", UIKit.TYPE.body, UIKit.INK_SOFT, {
 	Name = "Blurb", Position = UDim2.new(0, 0, 0, 132), Size = UDim2.new(1, 0, 0, 40), TextWrapped = true,
 	TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top,
 }, UIKit.BODY)
@@ -82,7 +82,7 @@ local blurb = UIKit.label(body, "", 16, UIKit.INK_SOFT, {
 local buildBtn = UIKit.button(body, "BUILD", UIKit.GREEN, {
 	Name = "BuildGo", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, 0, 1, 0), Size = UDim2.new(0, 220, 0, 52),
 }, { textSize = 22 })
-local priceLabel = UIKit.label(body, "", 20, UIKit.INK, {
+local priceLabel = UIKit.label(body, "", UIKit.TYPE.label, UIKit.INK, {
 	Name = "Price", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, -12), Size = UDim2.new(1, -240, 0, 28),
 	TextXAlignment = Enum.TextXAlignment.Left,
 }, UIKit.HEAD)
@@ -127,8 +127,8 @@ local function render()
 				sw.Size = UDim2.new(0, 40, 0, 32)
 				sw.ZIndex = b.ZIndex + 1
 				sw.Parent = b
-				Instance.new("UICorner", sw).CornerRadius = UDim.new(0, 8)
-				UIKit.label(b, d.short, 15, UIKit.INK, {
+				Instance.new("UICorner", sw).CornerRadius = UDim.new(0, UIKit.RADIUS.sm)
+				UIKit.label(b, d.short, UIKit.TYPE.caption, UIKit.INK, {
 					Name = "Name", Position = UDim2.new(0, 2, 0, 46), Size = UDim2.new(1, -4, 0, 30), ZIndex = b.ZIndex + 1,
 					TextXAlignment = Enum.TextXAlignment.Center,
 				}, UIKit.HEAD)
@@ -183,11 +183,11 @@ building is the content, and a tile washed in colour buries it.
 choosing, and this is a choice made in about two seconds. ]]
 local PATHS = {
 	{ key = "W_", name = "WAFERS",   tag = "GREEN",      blurb = "Stacked rings with garden floors between them",
-	  col = Color3.fromRGB(122, 170, 80) },
+	  col = UIKit.PATH.W_ },
 	{ key = "T_", name = "TERRAFAB", tag = "INDUSTRIAL", blurb = "A chip fab. Your wafers ride the track outside",
-	  col = Color3.fromRGB(236, 170, 70) },
+	  col = UIKit.PATH.T_ },
 	{ key = "D_", name = "DOME",     tag = "LIGHT",      blurb = "Layered canopies with a lit seam at every tier",
-	  col = Color3.fromRGB(150, 166, 188) },
+	  col = UIKit.PATH.D_ },
 }
 
 local pathGui = Instance.new("ScreenGui")
@@ -207,7 +207,7 @@ qBody.Position = UDim2.new(0, 14, 0, 52)
 qBody.Size = UDim2.new(1, -28, 1, -62)
 UIKit.fitMenu(qPanel, QW, QH, Instance.new("UIScale", qPanel))
 
-UIKit.label(qBody, "You can change it when you spin off.", 15, UIKit.MUTED or UIKit.INK, {
+UIKit.label(qBody, "You can change it when you spin off.", UIKit.TYPE.caption, UIKit.MUTED or UIKit.INK, {
 	Name = "Sub", Size = UDim2.new(1, 0, 0, 20), Position = UDim2.new(0, 0, 0, 0),
 	TextXAlignment = Enum.TextXAlignment.Center,
 })
@@ -241,7 +241,7 @@ for i, def in ipairs(PATHS) do
 	vpf.ZIndex = tile.ZIndex + 1
 	vpf.Parent = tile
 	local vc = Instance.new("UICorner", vpf)
-	vc.CornerRadius = UDim.new(0, 10)
+	vc.CornerRadius = UDim.new(0, UIKit.RADIUS.md)
 
 	-- the accent bar: the building's own colour, a line not a wash
 	local bar = Instance.new("Frame")
@@ -255,15 +255,15 @@ for i, def in ipairs(PATHS) do
 	local bc = Instance.new("UICorner", bar)
 	bc.CornerRadius = UDim.new(1, 0)
 
-	UIKit.label(tile, def.tag, 11, UIKit.MUTED_TEXT, {
+	UIKit.label(tile, def.tag, UIKit.TYPE.caption, UIKit.MUTED_TEXT, {
 		Name = "Tag", Size = UDim2.new(1, -10, 0, 14), Position = UDim2.new(0, 5, 0, 136),
 		TextXAlignment = Enum.TextXAlignment.Center,
 	})
-	UIKit.label(tile, def.name, 19, UIKit.INK, {
+	UIKit.label(tile, def.name, UIKit.TYPE.label, UIKit.INK, {
 		Name = "Name", Size = UDim2.new(1, -10, 0, 24), Position = UDim2.new(0, 5, 0, 150),
 		TextXAlignment = Enum.TextXAlignment.Center,
 	})
-	UIKit.label(tile, def.blurb, 12, UIKit.MUTED_TEXT, {
+	UIKit.label(tile, def.blurb, UIKit.TYPE.caption, UIKit.MUTED_TEXT, {
 		Name = "Blurb", Size = UDim2.new(1, -14, 0, 30), Position = UDim2.new(0, 7, 0, 172),
 		TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Center,
 	})

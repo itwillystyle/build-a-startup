@@ -51,7 +51,7 @@ panel.BackgroundColor3 = UIKit.CARD           -- v3.0: HUD cards are white (Run 
 panel.BackgroundTransparency = 0
 panel.Visible = false
 panel.Parent = gui
-Instance.new("UICorner", panel).CornerRadius = UDim.new(0, 14)
+Instance.new("UICorner", panel).CornerRadius = UDim.new(0, UIKit.RADIUS.md)
 local cap = Instance.new("UISizeConstraint", panel)
 cap.MaxSize = Vector2.new(640, 236)
 local stroke = Instance.new("UIStroke", panel)
@@ -64,7 +64,7 @@ title.Size = UDim2.new(1, -32, 0, 26)
 title.BackgroundTransparency = 1
 title.Text = "PRODUCT READY!  Pick who it is for"
 title.TextColor3 = UIKit.CARD_TEXT
-title.TextSize = 20
+title.TextSize = UIKit.TYPE.label
 title.Font = UIKit.HEAD
 title.TextXAlignment = Enum.TextXAlignment.Left
 title.Parent = panel
@@ -89,9 +89,9 @@ for i = 1, 3 do
 	b.Text = ""
 	b.AutoButtonColor = true
 	b.Parent = row
-	Instance.new("UICorner", b).CornerRadius = UDim.new(0, 10)
+	Instance.new("UICorner", b).CornerRadius = UDim.new(0, UIKit.RADIUS.md)
 	local st = Instance.new("UIStroke", b)
-	st.Color = Color3.fromRGB(60, 68, 84)
+	st.Color = UIKit.LINE
 
 	local nm = Instance.new("TextLabel")
 	nm.Name = "Market"
@@ -99,7 +99,7 @@ for i = 1, 3 do
 	nm.Size = UDim2.new(1, -16, 0, 30)
 	nm.BackgroundTransparency = 1
 	nm.TextColor3 = INK
-	nm.TextSize = 24
+	nm.TextSize = UIKit.TYPE.title
 	nm.Font = UIKit.HEAD
 	nm.TextScaled = true
 	nm.Parent = b
@@ -110,7 +110,7 @@ for i = 1, 3 do
 	bl.Size = UDim2.new(1, -16, 0, 40)
 	bl.BackgroundTransparency = 1
 	bl.TextColor3 = MUTED
-	bl.TextSize = 14
+	bl.TextSize = UIKit.TYPE.caption
 	UIKit.setFont(bl, UIKit.BODY)
 	bl.TextWrapped = true
 	bl.Parent = b
@@ -122,7 +122,7 @@ for i = 1, 3 do
 	shp.Size = UDim2.new(1, -16, 0, 32)
 	shp.BackgroundTransparency = 1
 	shp.TextColor3 = INK
-	shp.TextSize = 14
+	shp.TextSize = UIKit.TYPE.caption
 	UIKit.setFont(shp, UIKit.BOLD)
 	shp.TextWrapped = true
 	shp.RichText = true
@@ -133,7 +133,7 @@ for i = 1, 3 do
 	fit.Position = UDim2.new(0, 8, 0, 122)
 	fit.Size = UDim2.new(1, -16, 0, 26)
 	fit.BackgroundTransparency = 1
-	fit.TextSize = 14
+	fit.TextSize = UIKit.TYPE.caption
 	UIKit.setFont(fit, UIKit.BOLD)
 	fit.TextWrapped = true
 	fit.Parent = b
@@ -144,12 +144,12 @@ for i = 1, 3 do
 	sp.Size = UDim2.new(1, -16, 0, 24)
 	sp.BackgroundTransparency = 1
 	sp.TextColor3 = GOLD
-	sp.TextSize = 22
+	sp.TextSize = UIKit.TYPE.title
 	sp.Font = UIKit.HEAD
 	sp.Parent = b
 
 	-- v2.8: the single LAUNCH card is a big green button with a rocket
-	local ic = UIKit.icon(b, "rocket", 58, Color3.fromRGB(255, 255, 255), {
+	local ic = UIKit.icon(b, "rocket", 58, UIKit.TEXT, {
 		AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 18, 0.5, 0), Visible = false })
 
 	b.MouseButton1Click:Connect(function()
@@ -212,8 +212,8 @@ productReady.OnClientEvent:Connect(function(options)
 		c.btn.Size = UDim2.new(single and 1 or 0.31, 0, 1, 0)
 		local launchCard = o and o.launch and true or false
 		c.ic.Visible = launchCard
-		c.btn.BackgroundColor3 = launchCard and Color3.fromRGB(62, 196, 104) or CARD
-		c.stroke.Color = launchCard and Color3.fromRGB(34, 120, 62) or Color3.fromRGB(60, 68, 84)
+		c.btn.BackgroundColor3 = launchCard and UIKit.GREEN or CARD
+		c.stroke.Color = launchCard and UIKit.GREEN_DEEP or UIKit.LINE
 		c.nm.Position = launchCard and UDim2.new(0, 70, 0, 8) or UDim2.new(0, 8, 0, 12)
 		c.nm.Size = launchCard and UDim2.new(1, -82, 0, 30) or UDim2.new(1, -16, 0, 30)
 		c.nm.TextXAlignment = launchCard and Enum.TextXAlignment.Left or Enum.TextXAlignment.Center
@@ -224,7 +224,7 @@ productReady.OnClientEvent:Connect(function(options)
 		c.ic.Size = launchCard and UDim2.new(0, 42, 0, 42) or c.ic.Size
 		c.ic.Position = launchCard and UDim2.new(0, 14, 0.5, 0) or c.ic.Position
 		c.shp.TextXAlignment = launchCard and Enum.TextXAlignment.Left or Enum.TextXAlignment.Center
-		c.nm.TextColor3 = launchCard and Color3.fromRGB(255, 255, 255) or INK
+		c.nm.TextColor3 = launchCard and UIKit.TEXT or INK
 		c.bl.Visible = not launchCard
 		if o and o.launch then
 			c.nm.Text = "LAUNCH " .. string.upper(o.blurb or "")
@@ -283,22 +283,22 @@ offer.BackgroundColor3 = PANEL
 offer.BackgroundTransparency = 0.05
 offer.Visible = false
 offer.Parent = gui
-Instance.new("UICorner", offer).CornerRadius = UDim.new(0, 14)
+Instance.new("UICorner", offer).CornerRadius = UDim.new(0, UIKit.RADIUS.md)
 local ocap = Instance.new("UISizeConstraint", offer)
 ocap.MaxSize = Vector2.new(520, 136)
 local ostroke = Instance.new("UIStroke", offer)
 ostroke.Color = GOLD
 ostroke.Thickness = 2
 
-local oTitle = UIKit.heading(offer, "", 20, GOLD, {
+local oTitle = UIKit.heading(offer, "", UIKit.TYPE.label, GOLD, {
 	Position = UDim2.new(0, 16, 0, 10), Size = UDim2.new(1, -32, 0, 26), TextTruncate = Enum.TextTruncate.AtEnd,
 })
 -- v1.8: the trade in TWO plain lines. Green = what you get, in money AND in
 -- minutes of income (the one unit every player already understands). Grey =
 -- the cost, one sentence, no numbers. ALUMNI is a reward, so it is told AFTER
 -- the sale (server toast), never in the decision.
-local oGain = UIKit.heading(offer, "", 20, GOOD, { Position = UDim2.new(0, 16, 0, 38), Size = UDim2.new(1, -32, 0, 24) })
-local oLoss = UIKit.label(offer, "", 14, Color3.fromRGB(200, 204, 214), { Position = UDim2.new(0, 16, 0, 62), Size = UDim2.new(1, -32, 0, 18) })
+local oGain = UIKit.heading(offer, "", UIKit.TYPE.label, GOOD, { Position = UDim2.new(0, 16, 0, 38), Size = UDim2.new(1, -32, 0, 24) })
+local oLoss = UIKit.label(offer, "", UIKit.TYPE.caption, UIKit.SURFACE_2, { Position = UDim2.new(0, 16, 0, 62), Size = UDim2.new(1, -32, 0, 18) })
 local accept = UIKit.button(offer, "", GOOD, {
 	AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -16, 1, -12), Size = UDim2.new(0, 170, 0, 46),
 }, { dark = true, textSize = 18 })

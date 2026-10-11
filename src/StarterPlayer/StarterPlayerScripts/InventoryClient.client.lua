@@ -82,7 +82,7 @@ gl.CellPadding = UDim2.new(0, 8, 0, 8)
 gl.SortOrder = Enum.SortOrder.LayoutOrder
 
 local detail = UIKit.card(body, { Name = "Detail", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 0),
-	Size = UDim2.new(1, -312, 1, 0) }, { radius = 14 })
+	Size = UDim2.new(1, -312, 1, 0) }, { radius = UIKit.RADIUS.md })
 local dPad = Instance.new("UIPadding", detail)
 dPad.PaddingLeft, dPad.PaddingRight, dPad.PaddingTop, dPad.PaddingBottom = UDim.new(0, 12), UDim.new(0, 12), UDim.new(0, 10), UDim.new(0, 10)
 
@@ -98,7 +98,7 @@ local function slot(it)
 	b.LayoutOrder = it.order
 	b.BackgroundColor3 = UIKit.CARD
 	b.Parent = grid
-	Instance.new("UICorner", b).CornerRadius = UDim.new(0, 14)
+	Instance.new("UICorner", b).CornerRadius = UDim.new(0, UIKit.RADIUS.md)
 	local st = Instance.new("UIStroke", b)
 	st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	st.Color = UIKit.CARD_LINE
@@ -111,7 +111,7 @@ local function slot(it)
 	local m = Items.icon(it.id, vpf)
 	-- a sway, never a full turn: a contract or a newspaper seen edge-on is a grey line
 	if m then table.insert(spin, { m = m, base = m:GetPivot(), phase = it.order * 1.3 }) end
-	UIKit.label(b, it.name, 14, UIKit.CARD_TEXT, { Position = UDim2.new(0, 4, 0, 70), Size = UDim2.new(1, -8, 0, 18),
+	UIKit.label(b, it.name, UIKit.TYPE.caption, UIKit.CARD_TEXT, { Position = UDim2.new(0, 4, 0, 70), Size = UDim2.new(1, -8, 0, 18),
 		TextXAlignment = Enum.TextXAlignment.Center, TextTruncate = Enum.TextTruncate.AtEnd }, UIKit.HEAD)
 	-- v5: rarity in words (a 6 px underline was colour as the only signal)
 	local rar = Instance.new("TextLabel")
@@ -125,7 +125,7 @@ local function slot(it)
 	rar.BorderSizePixel = 0
 	rar.Text = Items.RARITY[it.rarity].name
 	rar.TextColor3 = UIKit.INK_SOFT
-	rar.TextSize = 14
+	rar.TextSize = UIKit.TYPE.caption
 	rar.Font = UIKit.HEAD
 	rar.Parent = b
 	Instance.new("UICorner", rar).CornerRadius = UDim.new(1, 0)
@@ -139,7 +139,7 @@ local function slot(it)
 	cnt.ZIndex = 3
 	cnt.Parent = b
 	Instance.new("UICorner", cnt).CornerRadius = UDim.new(1, 0)
-	local ct = UIKit.label(cnt, "0", 14, UIKit.TEXT, { Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 4 }, UIKit.HEAD)
+	local ct = UIKit.label(cnt, "0", UIKit.TYPE.caption, UIKit.TEXT, { Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 4 }, UIKit.HEAD)
 	b.MouseButton1Down:Connect(function() UIKit.sfx("tap") end)
 	slots[it.id] = { button = b, stroke = st, vpf = vpf, count = cnt, countText = ct }
 	return b
@@ -175,13 +175,13 @@ drawDetail = function()
 	if not it then return end
 	local n = counts()[it.id] or 0
 	local r = Items.RARITY[it.rarity]
-	UIKit.label(detail, it.name, 22, UIKit.INK, { Size = UDim2.new(1, 0, 0, 26) }, UIKit.HEAD)
-	UIKit.label(detail, r.name, 14, UIKit.MUTED_TEXT, { Position = UDim2.new(0, 0, 0, 26), Size = UDim2.new(1, 0, 0, 18) }, UIKit.HEAD)
-	UIKit.label(detail, it.desc, 16, UIKit.INK_SOFT, { Position = UDim2.new(0, 0, 0, 50), Size = UDim2.new(1, 0, 0, 62),
+	UIKit.label(detail, it.name, UIKit.TYPE.title, UIKit.INK, { Size = UDim2.new(1, 0, 0, 26) }, UIKit.HEAD)
+	UIKit.label(detail, r.name, UIKit.TYPE.caption, UIKit.MUTED_TEXT, { Position = UDim2.new(0, 0, 0, 26), Size = UDim2.new(1, 0, 0, 18) }, UIKit.HEAD)
+	UIKit.label(detail, it.desc, UIKit.TYPE.body, UIKit.INK_SOFT, { Position = UDim2.new(0, 0, 0, 50), Size = UDim2.new(1, 0, 0, 62),
 		TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top }, UIKit.BODY)
 	if n == 0 then
-		UIKit.label(detail, "HOW TO GET IT", 14, UIKit.MUTED_TEXT, { Position = UDim2.new(0, 0, 0, 118), Size = UDim2.new(1, 0, 0, 18) }, UIKit.HEAD)
-		UIKit.label(detail, WHERE[it.id] or "", 16, UIKit.INK_SOFT, { Position = UDim2.new(0, 0, 0, 138), Size = UDim2.new(1, 0, 0, 60),
+		UIKit.label(detail, "HOW TO GET IT", UIKit.TYPE.caption, UIKit.MUTED_TEXT, { Position = UDim2.new(0, 0, 0, 118), Size = UDim2.new(1, 0, 0, 18) }, UIKit.HEAD)
+		UIKit.label(detail, WHERE[it.id] or "", UIKit.TYPE.body, UIKit.INK_SOFT, { Position = UDim2.new(0, 0, 0, 138), Size = UDim2.new(1, 0, 0, 60),
 			TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top }, UIKit.BODY)
 		return
 	end
@@ -232,7 +232,7 @@ end)
 -- ============ BOOSTS (right column) ============
 -- what is running right now, and how long it has left
 
-local boosts = UIKit.card(UIKit.column(), { Name = "Boosts", LayoutOrder = 4, Size = UDim2.new(1, 0, 0, 40), Visible = false }, { radius = 14 })
+local boosts = UIKit.card(UIKit.column(), { Name = "Boosts", LayoutOrder = 4, Size = UDim2.new(1, 0, 0, 40), Visible = false }, { radius = UIKit.RADIUS.md })
 local bList = Instance.new("UIListLayout", boosts)
 bList.Padding = UDim.new(0, 2)
 local bPad = Instance.new("UIPadding", boosts)
@@ -250,7 +250,7 @@ local function boostRow(id)
 	vpf.Size = UDim2.new(0, 28, 0, 28)
 	vpf.Parent = row
 	Items.icon(id, vpf)
-	local t = UIKit.label(row, "", 16, UIKit.INK_SOFT, { Position = UDim2.new(0, 34, 0, 0), Size = UDim2.new(1, -34, 1, 0),
+	local t = UIKit.label(row, "", UIKit.TYPE.body, UIKit.INK_SOFT, { Position = UDim2.new(0, 34, 0, 0), Size = UDim2.new(1, -34, 1, 0),
 		TextTruncate = Enum.TextTruncate.AtEnd }, UIKit.HEAD)
 	boostRows[id] = { row = row, text = t }
 end
@@ -281,7 +281,7 @@ brewVpf.Size = UDim2.new(1, -16, 1, -24)
 brewVpf.ZIndex = brew.ZIndex + 1
 brewVpf.Parent = brew
 Items.icon("coffee", brewVpf)
-UIKit.label(brew, "COFFEE", 14, UIKit.INK, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -7),
+UIKit.label(brew, "COFFEE", UIKit.TYPE.caption, UIKit.INK, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -7),
 	Size = UDim2.new(1, 0, 0, 16), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = brew.ZIndex + 2 }, UIKit.HEAD)
 local brewBadge, brewCount = UIKit.badge(brew)
 brewBadge.Visible = true
@@ -376,7 +376,7 @@ local function gotCard(id, n, source, done)
 	-- v5: in the gap between the rail and the goal card (centred it ran onto the goal card on a phone)
 	local cx = UIKit.hudGap(330)
 	local card = UIKit.card(fx, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, cx - fx.AbsolutePosition.X, 0.42, 0), Size = UDim2.new(0, 330, 0, 106) },
-		{ radius = 18, strokeWidth = 3, stroke = UIKit.GOLD })          -- gold = a reward
+		{ radius = UIKit.RADIUS.lg, strokeWidth = 3, stroke = UIKit.GOLD })          -- gold = a reward
 	local vpf = Instance.new("ViewportFrame")
 	vpf.BackgroundTransparency = 1
 	vpf.Position = UDim2.new(0, 8, 0, 8)
@@ -386,9 +386,9 @@ local function gotCard(id, n, source, done)
 	local base = m and m:GetPivot()
 	UIKit.label(card, ("+%d %s"):format(n or 1, it.name), 20, UIKit.CARD_TEXT, { Position = UDim2.new(0, 96, 0, 12), Size = UDim2.new(1, -104, 0, 24),
 		TextTruncate = Enum.TextTruncate.AtEnd }, UIKit.HEAD)
-	UIKit.label(card, it.short, 16, UIKit.INK_SOFT, { Position = UDim2.new(0, 96, 0, 38), Size = UDim2.new(1, -104, 0, 18) }, UIKit.HEAD)
+	UIKit.label(card, it.short, UIKit.TYPE.body, UIKit.INK_SOFT, { Position = UDim2.new(0, 96, 0, 38), Size = UDim2.new(1, -104, 0, 18) }, UIKit.HEAD)
 	-- v5: two lines, whole sentence ("Launch day: your team made cold..." was cut)
-	UIKit.label(card, source or "", 14, UIKit.CARD_MUTED, { Position = UDim2.new(0, 96, 0, 60), Size = UDim2.new(1, -108, 0, 36),
+	UIKit.label(card, source or "", UIKit.TYPE.caption, UIKit.CARD_MUTED, { Position = UDim2.new(0, 96, 0, 60), Size = UDim2.new(1, -108, 0, 36),
 		TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top }, UIKit.BODY)
 	local sc = Instance.new("UIScale", card)
 	sc.Scale = 0.4
@@ -440,7 +440,7 @@ itemEvent.OnClientEvent:Connect(function(e)
 		local lbl = detail:FindFirstChild("Refused")
 		if lbl then lbl:Destroy() end
 		if gui.Enabled then
-			UIKit.label(detail, e.text or "", 14, UIKit.RED_DEEP, { Name = "Refused", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, -54),
+			UIKit.label(detail, e.text or "", UIKit.TYPE.caption, UIKit.RED_DEEP, { Name = "Refused", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, -54),
 				Size = UDim2.new(1, 0, 0, 36), TextWrapped = true }, UIKit.HEAD)
 		end
 	end

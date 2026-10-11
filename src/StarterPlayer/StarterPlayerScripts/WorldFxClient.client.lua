@@ -27,10 +27,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local remotes = ReplicatedStorage:WaitForChild("SVRemotes")
+local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
 local popupRemote = remotes:WaitForChild("Popup", 30)
 local riseRemote = remotes:WaitForChild("Rise", 30)
 
-local GOOD = Color3.fromRGB(90, 220, 130)
+local GOOD = UIKit.GREEN
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 local NEAR = 70      -- studs from the camera
@@ -84,12 +85,12 @@ if popupRemote then
 		t.Text = tostring(text)
 		t.TextColor3 = typeof(color) == "Color3" and color or GOOD
 		t.TextStrokeTransparency = 1
-		t.TextSize = 28
+		t.TextSize = UIKit.TYPE.headline
 		t.TextWrapped = true
-		t.Font = Enum.Font.FredokaOne
+		t.Font = UIKit.HEAD
 		t.Parent = bb
 		local st = Instance.new("UIStroke")
-		st.Color = Color3.fromRGB(20, 22, 30)
+		st.Color = UIKit.INK
 		st.Thickness = 3
 		st.LineJoinMode = Enum.LineJoinMode.Round
 		st.Parent = t

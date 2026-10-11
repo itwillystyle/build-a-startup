@@ -117,7 +117,7 @@ local function startDrive(m, seat)
 		local a = att("SmokeL" .. side, Vector3.new(side * size.X * 0.42, -size.Y * 0.4, size.Z * 0.42))
 		local pe = Instance.new("ParticleEmitter")
 		pe.Texture = "rbxasset://textures/particles/smoke_main.dds"
-		pe.Color = ColorSequence.new(Color3.fromRGB(235, 235, 235))
+		pe.Color = ColorSequence.new(Color3.fromRGB(235, 235, 235))  -- world colour
 		pe.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.55), NumberSequenceKeypoint.new(1, 1) })
 		pe.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.2), NumberSequenceKeypoint.new(1, 4.5) })
 		pe.Lifetime = NumberRange.new(0.6, 1.1)
@@ -133,7 +133,7 @@ local function startDrive(m, seat)
 		light.Angle = 70
 		light.Range = 45
 		light.Brightness = 2.2
-		light.Color = Color3.fromRGB(255, 244, 214)
+		light.Color = Color3.fromRGB(255, 244, 214)  -- world colour
 		light.Enabled = false
 		light.Parent = la
 		table.insert(fx, light)
@@ -142,7 +142,7 @@ local function startDrive(m, seat)
 	local flame = att("Nitro", Vector3.new(0, -size.Y * 0.2, size.Z * 0.52))
 	local pe = Instance.new("ParticleEmitter")
 	pe.Texture = "rbxasset://textures/particles/fire_main.dds"
-	pe.Color = ColorSequence.new(Color3.fromRGB(120, 200, 255), Color3.fromRGB(255, 150, 60))
+	pe.Color = ColorSequence.new(Color3.fromRGB(120, 200, 255), Color3.fromRGB(255, 150, 60))  -- world colour
 	pe.LightEmission = 1
 	pe.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.4), NumberSequenceKeypoint.new(1, 0.2) })
 	pe.Lifetime = NumberRange.new(0.15, 0.3)
@@ -392,16 +392,16 @@ local speedo = UIKit.card and UIKit.card(gui, {
 	Name = "Speedo", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -24), Size = UDim2.new(0, 320, 0, 126), Visible = false,
 }) or Instance.new("Frame")
 -- v5: two rows, so nothing overlaps: the key hints on top, the speed under them
-local carNameLbl = UIKit.label(speedo, "COMPANY CAR", 15, UIKit.INK, {
+local carNameLbl = UIKit.label(speedo, "COMPANY CAR", UIKit.TYPE.caption, UIKit.INK, {
 	Size = UDim2.new(0, 190, 0, 18), Position = UDim2.new(0, 12, 0, 6), TextXAlignment = Enum.TextXAlignment.Left,
 }, UIKit.BOLD)
-local bestLbl = UIKit.label(speedo, "", 13, UIKit.MUTED_TEXT, {
+local bestLbl = UIKit.label(speedo, "", UIKit.TYPE.caption, UIKit.MUTED_TEXT, {
 	Size = UDim2.new(0, 108, 0, 18), Position = UDim2.new(1, -120, 0, 6), TextXAlignment = Enum.TextXAlignment.Right,
 }, UIKit.BOLD)
-local speedText = UIKit.label(speedo, "0", 30, UIKit.INK, {
+local speedText = UIKit.label(speedo, "0", UIKit.TYPE.headline, UIKit.INK, {
 	Size = UDim2.new(0, 96, 0, 34), Position = UDim2.new(0, 10, 0, 26), TextXAlignment = Enum.TextXAlignment.Right,
 }, UIKit.HEAD)
-UIKit.label(speedo, "MPH", 14, UIKit.MUTED_TEXT, { Size = UDim2.new(0, 40, 0, 24), Position = UDim2.new(0, 110, 0, 34) }, UIKit.BOLD)
+UIKit.label(speedo, "MPH", UIKit.TYPE.caption, UIKit.MUTED_TEXT, { Size = UDim2.new(0, 40, 0, 24), Position = UDim2.new(0, 110, 0, 34) }, UIKit.BOLD)
 
 -- how fast, as a fraction of THIS car's top speed: a number alone has no scale
 local speedBar = Instance.new("Frame")
@@ -420,10 +420,10 @@ speedFill.Parent = speedBar
 Instance.new("UICorner", speedFill).CornerRadius = UDim.new(1, 0)
 
 -- where this drive is actually going
-local goLbl = UIKit.label(speedo, "", 14, UIKit.INK, {
+local goLbl = UIKit.label(speedo, "", UIKit.TYPE.caption, UIKit.INK, {
 	Size = UDim2.new(1, -24, 0, 18), Position = UDim2.new(0, 12, 0, 100), TextXAlignment = Enum.TextXAlignment.Left,
 }, UIKit.BOLD)
-local exitHint = UIKit.label(speedo, UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled and "JUMP = OUT" or "SPACE = OUT", 13, UIKit.MUTED_TEXT, {
+local exitHint = UIKit.label(speedo, UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled and "JUMP = OUT" or "SPACE = OUT", UIKit.TYPE.caption, UIKit.MUTED_TEXT, {
 	Size = UDim2.new(0, 150, 0, 16), Position = UDim2.new(1, -162, 0, 60), TextXAlignment = Enum.TextXAlignment.Right,
 }, UIKit.BOLD)
 local _ = exitHint
@@ -442,7 +442,7 @@ nitroFill.BorderSizePixel = 0
 nitroFill.Size = UDim2.new(1, 0, 1, 0)
 nitroFill.Parent = nitroBar
 Instance.new("UICorner", nitroFill).CornerRadius = UDim.new(1, 0)
-local nitroLbl = UIKit.label(speedo, UserInputService.KeyboardEnabled and "SHIFT = NITRO" or "NITRO", 13, UIKit.MUTED_TEXT, {
+local nitroLbl = UIKit.label(speedo, UserInputService.KeyboardEnabled and "SHIFT = NITRO" or "NITRO", UIKit.TYPE.caption, UIKit.MUTED_TEXT, {
 	Size = UDim2.new(0, 150, 0, 16), Position = UDim2.new(0, 12, 0, 60), TextXAlignment = Enum.TextXAlignment.Left,
 }, UIKit.BOLD)
 local nitroBtn = UIKit.button(gui, "NITRO", UIKit.BLUE, {
@@ -498,7 +498,7 @@ dg.DisplayOrder = 12
 dg.Enabled = false
 UIKit.safe(dg)
 dg.Parent = player.PlayerGui
-local panel, body, closeBtn = UIKit.menu(dg, "VALLEY MOTORS", Color3.fromRGB(38, 41, 48), {
+local panel, body, closeBtn = UIKit.menu(dg, "VALLEY MOTORS", UIKit.INK_SOFT, {
 	Name = "Panel", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -20, 0.5, 0), Size = UDim2.new(0, 360, 0, 380),
 })
 local fit = Instance.new("UIScale", panel)
@@ -533,7 +533,7 @@ local function money(n) return UIKit.money and UIKit.money(n) or ("$" .. tostrin
 -- money counter (fitting it below the counter would shrink its words under 14 px
 -- and its buttons under 44), so the number you shop with lives here
 local header = panel:FindFirstChild("Header")
-local cashLbl = header and UIKit.outlined(header, "", 20, UIKit.MONEY, {
+local cashLbl = header and UIKit.outlined(header, "", UIKit.TYPE.label, UIKit.MONEY, {
 	Name = "Cash", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -62, 0.5, 0), Size = UDim2.new(0, 120, 0, 26),
 	TextXAlignment = Enum.TextXAlignment.Right,
 })
@@ -558,10 +558,10 @@ local function showDealer(st)
 			row.Size = UDim2.new(1, -10, 0, 54)      -- room for the scroll bar
 			row.BackgroundColor3 = c.id == st.focus and UIKit.GOLD_LIGHT or UIKit.CARD
 			row.Parent = shelf
-			Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
+			Instance.new("UICorner", row).CornerRadius = UDim.new(0, UIKit.RADIUS.md)
 			local stroke = Instance.new("UIStroke", row)
 			stroke.Color = UIKit.CARD_LINE
-			UIKit.label(row, c.name, 18, UIKit.INK, { Size = UDim2.new(0, 170, 0, 22), Position = UDim2.new(0, 10, 0, 5) }, UIKit.HEAD)
+			UIKit.label(row, c.name, UIKit.TYPE.label, UIKit.INK, { Size = UDim2.new(0, 170, 0, 22), Position = UDim2.new(0, 10, 0, 5) }, UIKit.HEAD)
 			-- top speed as a bar
 			local bar = Instance.new("Frame")
 			bar.BackgroundColor3 = UIKit.SURFACE_2
@@ -582,7 +582,7 @@ local function showDealer(st)
 			else label, color, enabled = money(c.price), UIKit.MUTED, false end
 			local b, t = UIKit.button(row, label, color, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.new(0, 124, 0, 44) }, { textSize = 18 })
 			if t then t.Text = label end
-			if not t then UIKit.label(b, label, 16, UIKit.TEXT, { Size = UDim2.new(1, 0, 1, -5), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.HEAD) end
+			if not t then UIKit.label(b, label, UIKit.TYPE.body, UIKit.TEXT, { Size = UDim2.new(1, 0, 1, -5), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.HEAD) end
 			if enabled then
 				b.MouseButton1Click:Connect(function() dg.Enabled = false; buyCar:FireServer(c.id) end)
 			elseif not c.owned then
