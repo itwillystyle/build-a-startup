@@ -388,7 +388,7 @@ local function toastParts()
 	pill.BackgroundColor3 = UIKit.CARD
 	pill.Text = ""
 	pill.TextColor3 = UIKit.CARD_TEXT
-	pill.TextSize = 16
+	pill.TextSize = UIKit.TYPE.body
 	UIKit.setFont(pill, UIKit.BODY)
 	pill.TextTruncate = Enum.TextTruncate.AtEnd
 	pill.Parent = toastGui

@@ -76,7 +76,7 @@ local function build(at, radius)
 	label.Text = "DROP OFF"
 	label.Parent = gui
 	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 12)
+	corner.CornerRadius = UDim.new(0, UIKit.RADIUS.md)
 	corner.Parent = label
 	local pad = Instance.new("UIPadding")
 	pad.PaddingLeft, pad.PaddingRight, pad.PaddingTop, pad.PaddingBottom = UDim.new(0, 8), UDim.new(0, 8), UDim.new(0, 4), UDim.new(0, 4)

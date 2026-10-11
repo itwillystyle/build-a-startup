@@ -24,10 +24,10 @@ local col = UIKit.column()
 local btn = UIKit.button(col, "", UIKit.GOLD, {
 	Name = "GoPublic", LayoutOrder = 0, Size = UDim2.new(1, 0, 0, 96), Visible = false,
 }, { textSize = 26 })
-UIKit.outlined(btn, "GO PUBLIC!", 30, UIKit.TEXT, {
+UIKit.outlined(btn, "GO PUBLIC!", UIKit.TYPE.headline, UIKit.TEXT, {
 	Position = UDim2.new(0, 12, 0, 10), Size = UDim2.new(1, -24, 0, 36), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = btn.ZIndex + 2,
 })
-UIKit.label(btn, "Ring the bell on the Valley Exchange", 14, UIKit.INK, {
+UIKit.label(btn, "Ring the bell on the Valley Exchange", UIKit.TYPE.caption, UIKit.INK, {
 	Position = UDim2.new(0, 12, 0, 52), Size = UDim2.new(1, -24, 0, 20), TextXAlignment = Enum.TextXAlignment.Center,
 	ZIndex = btn.ZIndex + 2,
 }, UIKit.HEAD)
@@ -64,7 +64,7 @@ gui.DisplayOrder = 40
 gui.Parent = player:WaitForChild("PlayerGui")
 
 local function confetti(parent)
-	local colours = { UIKit.GOLD, UIKit.GREEN, UIKit.BLUE, UIKit.ORANGE, Color3.fromRGB(236, 120, 170) }
+	local colours = { UIKit.GOLD, UIKit.GREEN, UIKit.BLUE, UIKit.ORANGE, UIKit.PINK }
 	for i = 1, 70 do
 		local f = Instance.new("Frame")
 		f.BorderSizePixel = 0
@@ -97,15 +97,15 @@ local function moment(e, done)
 	shade.Parent = gui
 	TweenService:Create(shade, TweenInfo.new(0.3), { BackgroundTransparency = 0.45 }):Play()
 	local card = UIKit.card(shade, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.46),
-		Size = UDim2.new(0, 460, 0, 250) }, { radius = 22, strokeWidth = 4 })
+		Size = UDim2.new(0, 460, 0, 250) }, { radius = UIKit.RADIUS.lg, strokeWidth = 4 })
 	local st = card:FindFirstChildOfClass("UIStroke")
 	if st then st.Color = UIKit.GOLD end
 	local sc = Instance.new("UIScale", card)
 	sc.Scale = 0.4
 	TweenService:Create(sc, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
-	UIKit.label(card, "DING DING DING!", 18, UIKit.CARD_MUTED, { Position = UDim2.new(0, 0, 0, 18), Size = UDim2.new(1, 0, 0, 22),
+	UIKit.label(card, "DING DING DING!", UIKit.TYPE.label, UIKit.CARD_MUTED, { Position = UDim2.new(0, 0, 0, 18), Size = UDim2.new(1, 0, 0, 22),
 		TextXAlignment = Enum.TextXAlignment.Center }, UIKit.HEAD)
-	UIKit.label(card, ("%s IS PUBLIC!"):format(string.upper(e.name or "YOUR COMPANY")), 30, UIKit.INK, {
+	UIKit.label(card, ("%s IS PUBLIC!"):format(string.upper(e.name or "YOUR COMPANY")), UIKit.TYPE.headline, UIKit.INK, {
 		Position = UDim2.new(0, 16, 0, 46), Size = UDim2.new(1, -32, 0, 40), TextXAlignment = Enum.TextXAlignment.Center,
 		TextScaled = true }, UIKit.HEAD)
 	local tick = Instance.new("Frame")
@@ -115,9 +115,9 @@ local function moment(e, done)
 	tick.BackgroundColor3 = UIKit.INK
 	tick.Parent = card
 	Instance.new("UICorner", tick).CornerRadius = UDim.new(1, 0)
-	UIKit.label(tick, tostring(e.ticker or "?"), 24, UIKit.GOLD, { Size = UDim2.fromScale(1, 1),
+	UIKit.label(tick, tostring(e.ticker or "?"), UIKit.TYPE.title, UIKit.GOLD, { Size = UDim2.fromScale(1, 1),
 		TextXAlignment = Enum.TextXAlignment.Center }, UIKit.HEAD)
-	UIKit.outlined(card, ("+%s raised"):format(UIKit.money(e.raise or 0)), 30, UIKit.MONEY, {
+	UIKit.outlined(card, ("+%s raised"):format(UIKit.money(e.raise or 0)), UIKit.TYPE.headline, UIKit.MONEY, {
 		Position = UDim2.new(0, 0, 0, 146), Size = UDim2.new(1, 0, 0, 38), TextXAlignment = Enum.TextXAlignment.Center })
 	UIKit.label(card, "Next: SPIN OFF a new company for more money, forever.", 16, UIKit.INK_SOFT, {
 		Position = UDim2.new(0, 20, 1, -46), Size = UDim2.new(1, -40, 0, 36), TextWrapped = true,

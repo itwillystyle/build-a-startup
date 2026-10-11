@@ -48,7 +48,7 @@ local function ensure()
 	local function bar(name, anchorY)
 		local f = Instance.new("Frame")
 		f.Name = name
-		f.BackgroundColor3 = Color3.fromRGB(8, 9, 12)
+		f.BackgroundColor3 = UIKit.BLACK
 		f.BorderSizePixel = 0
 		f.AnchorPoint = Vector2.new(0, anchorY)
 		f.Position = UDim2.new(0, 0, anchorY, 0)
@@ -60,7 +60,7 @@ local function ensure()
 	bottomBar = bar("Bottom", 1)
 	fade = Instance.new("Frame")
 	fade.Name = "Fade"
-	fade.BackgroundColor3 = Color3.fromRGB(8, 9, 12)
+	fade.BackgroundColor3 = UIKit.BLACK
 	fade.BackgroundTransparency = 1
 	fade.BorderSizePixel = 0
 	fade.Size = UDim2.new(1, 0, 1, 0)
@@ -74,17 +74,17 @@ local function ensure()
 	card.Size = UDim2.new(0.7, 0, 0, 96)
 	card.ZIndex = 5
 	card.Parent = gui
-	titleL = UIKit.outlined(card, "", 44, Color3.fromRGB(255, 255, 255), {
+	titleL = UIKit.outlined(card, "", UIKit.TYPE.money, UIKit.TEXT, {
 		Name = "Title", Size = UDim2.new(1, 0, 0, 52), Position = UDim2.new(0, 0, 0, 0), ZIndex = 6,
 	})
-	subL = UIKit.label(card, "", 20, Color3.fromRGB(236, 236, 230), {
+	subL = UIKit.label(card, "", UIKit.TYPE.label, UIKit.SURFACE, {
 		Name = "Sub", Size = UDim2.new(1, 0, 0, 30), Position = UDim2.new(0, 2, 0, 54), ZIndex = 6, TextWrapped = true,
 	}, UIKit.HEAD)
 	subL.TextStrokeTransparency = 0.5
 	-- JUMP_ZONE: Roblox's touch jump button owns the bottom-right corner, so on a
 	-- phone the button clears it (the same 150-stud rule the build bar already uses)
 	local JUMP_ZONE = 150
-	skipBtn = UIKit.button(gui, "SKIP", Color3.fromRGB(240, 240, 236), {
+	skipBtn = UIKit.button(gui, "SKIP", UIKit.PAPER, {
 		Name = "Skip", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -24, 1, isTouch and -JUMP_ZONE or -22),
 		Size = UDim2.new(0, 104, 0, 48), Visible = false, ZIndex = 8,
 	}, { textSize = 18, dark = true })

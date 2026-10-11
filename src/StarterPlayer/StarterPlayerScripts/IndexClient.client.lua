@@ -41,15 +41,15 @@ local ROLES = {   -- StaffRig.ROLES
 	{ key = "research",  name = "Researcher" },
 }
 local TALENTS = {  -- SiliconCore TALENT (odds = 1 in N hires)
-	{ name = "REGULAR", mult = "x1",   odds = "common",    color = Color3.fromRGB(172, 180, 196),
+	{ name = "REGULAR", mult = "x1",   odds = "common",    color = UIKit.TIER.regular,
 		where = "Every hire can be Regular." },
-	{ name = "SKILLED", mult = "x1.5", odds = "1 in 5",    color = Color3.fromRGB(90, 210, 130),
+	{ name = "SKILLED", mult = "x1.5", odds = "1 in 5",    color = UIKit.TIER.skilled,
 		where = "1 in 5 hires. Or recruit from the SKILLED spot down the street." },
-	{ name = "STAR",    mult = "x2.5", odds = "1 in 25",   color = Color3.fromRGB(90, 170, 255),
+	{ name = "STAR",    mult = "x2.5", odds = "1 in 25",   color = UIKit.TIER.star,
 		where = "1 in 25 hires. The STAR spot down the street opens at HQ 2." },
-	{ name = "GENIUS",  mult = "x5",   odds = "1 in 150",  color = Color3.fromRGB(190, 120, 255),
+	{ name = "GENIUS",  mult = "x5",   odds = "1 in 150",  color = UIKit.TIER.genius,
 		where = "1 in 150 hires. The GENIUS spot at the far end opens at HQ 3." },
-	{ name = "UNICORN", mult = "x12",  odds = "1 in 1,491", color = Color3.fromRGB(255, 208, 70),
+	{ name = "UNICORN", mult = "x12",  odds = "1 in 1,491", color = UIKit.TIER.unicorn,
 		where = "1 in 1,491. Pure luck, on any hire." },
 }
 
@@ -99,7 +99,7 @@ body.Size = UDim2.new(1, -22, 1, -(HEAD_H + 20))
 local fit = Instance.new("UIScale", panel)   -- shrink to fit a small phone (only below ~360 px tall)
 UIKit.fitMenu(panel, W, H, fit, 16)   -- v5: the shared rule (clears the rail, scales to fit)
 
-local count = UIKit.label(panel:FindFirstChild("Header"), "0 / 25", 22, UIKit.TEXT, {
+local count = UIKit.label(panel:FindFirstChild("Header"), "0 / 25", UIKit.TYPE.title, UIKit.TEXT, {
 	Name = "Count", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -62, 0.5, -1), Size = UDim2.new(0, 90, 0, 28),
 	TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 3,
 }, UIKit.HEAD)
@@ -121,8 +121,8 @@ for c, t in ipairs(TALENTS) do
 	ps.Color = UIKit.darker(t.color, 0.6)
 	ps.Thickness = 2
 	ps.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	UIKit.label(pill, t.name, 14, UIKit.INK, { Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.HEAD)
-	UIKit.label(body, t.mult .. " money", 14, UIKit.GREEN_DEEP, {
+	UIKit.label(pill, t.name, UIKit.TYPE.caption, UIKit.INK, { Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.HEAD)
+	UIKit.label(body, t.mult .. " money", UIKit.TYPE.caption, UIKit.GREEN_DEEP, {
 		Position = UDim2.new(0, x - 4, 0, PILL_H + 2), Size = UDim2.new(0, CELL_W + 8, 0, MULT_H), TextXAlignment = Enum.TextXAlignment.Center,
 	}, UIKit.BODY)
 	colChecks[c] = UIKit.art(pill, "check", 26, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -2, 0, 2), ZIndex = 3, Visible = false })
@@ -134,7 +134,7 @@ local hint     -- assigned below; cell taps write to it
 local showHint
 for r, role in ipairs(ROLES) do
 	local y = COLHEAD_H + (r - 1) * (CELL_H + GAP)
-	UIKit.label(body, role.name, 16, UIKit.INK, {
+	UIKit.label(body, role.name, UIKit.TYPE.body, UIKit.INK, {
 		Position = UDim2.new(0, 0, 0, y), Size = UDim2.new(0, ROW_W - 4, 0, CELL_H), TextTruncate = Enum.TextTruncate.AtEnd,
 	}, UIKit.HEAD)
 	rowChecks[r] = UIKit.art(body, "check", 22, {         -- top-right of the label, above its words
@@ -190,9 +190,9 @@ sst.Color = UIKit.CARD_LINE
 sst.Thickness = 2
 local spad = Instance.new("UIPadding", side)
 spad.PaddingLeft, spad.PaddingRight, spad.PaddingTop = UDim.new(0, 12), UDim.new(0, 12), UDim.new(0, 12)
-UIKit.label(side, "EVERY FULL LINE", 14, UIKit.MUTED_TEXT, { Size = UDim2.new(1, 0, 0, 18) }, UIKit.HEAD)
-UIKit.outlined(side, ("+%d%% money"):format(LINE_BONUS), 24, UIKit.MONEY, { Position = UDim2.new(0, 0, 0, 20), Size = UDim2.new(1, 0, 0, 32) })
-local bonus = UIKit.label(side, "", 16, UIKit.GREEN_DEEP, {
+UIKit.label(side, "EVERY FULL LINE", UIKit.TYPE.caption, UIKit.MUTED_TEXT, { Size = UDim2.new(1, 0, 0, 18) }, UIKit.HEAD)
+UIKit.outlined(side, ("+%d%% money"):format(LINE_BONUS), UIKit.TYPE.title, UIKit.MONEY, { Position = UDim2.new(0, 0, 0, 20), Size = UDim2.new(1, 0, 0, 32) })
+local bonus = UIKit.label(side, "", UIKit.TYPE.body, UIKit.GREEN_DEEP, {
 	Name = "Bonus", Position = UDim2.new(0, 0, 0, 58), Size = UDim2.new(1, 0, 0, 22),
 }, UIKit.HEAD)
 local rule = Instance.new("Frame")
@@ -201,7 +201,7 @@ rule.BorderSizePixel = 0
 rule.Position = UDim2.new(0, 0, 0, 88)
 rule.Size = UDim2.new(1, 0, 0, 2)
 rule.Parent = side
-hint = UIKit.label(side, "", 16, UIKit.INK_SOFT, {
+hint = UIKit.label(side, "", UIKit.TYPE.body, UIKit.INK_SOFT, {
 	Name = "Hint", Position = UDim2.new(0, 0, 0, 100), Size = UDim2.new(1, 0, 1, -112),
 	TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top,
 }, UIKit.BODY)

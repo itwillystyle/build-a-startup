@@ -39,7 +39,7 @@ UIKit.safe(corner)
 corner.Parent = player:WaitForChild("PlayerGui")
 local btn = UIKit.iconButton(corner, "trophy", nil, UIKit.CARD, {
 	Name = "RanksButton", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -64, 0, 10), Size = UDim2.new(0, 44, 0, 44), Visible = false,
-}, { iconSize = 22, dark = true, radius = 22 })
+}, { iconSize = 22, dark = true, radius = UIKit.RADIUS.lg })
 btn:SetAttribute("Accent", UIKit.GOLD)
 
 -- ============ THE PANEL ============
@@ -63,7 +63,7 @@ local panel, body, close = UIKit.menu(gui, "RANKS", UIKit.GOLD, {
 local fit = Instance.new("UIScale", panel)            -- a phone held sideways is ~390 px tall
 UIKit.fitMenu(panel, W, H, fit)   -- v5: the shared rule (clears the rail, scales to fit)
 
-local status = UIKit.label(panel:FindFirstChild("Header"), "", 14, UIKit.TEXT, {
+local status = UIKit.label(panel:FindFirstChild("Header"), "", UIKit.TYPE.caption, UIKit.TEXT, {
 	Name = "Status", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -58, 0.5, 0), Size = UDim2.new(0, 190, 0, 20),
 	TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 3,
 }, UIKit.HEAD)
@@ -108,20 +108,20 @@ mine.Size = UDim2.new(1, 0, 0, MINE_H)
 mine.BackgroundColor3 = UIKit.GOLD
 mine.BorderSizePixel = 0
 mine.Parent = body
-Instance.new("UICorner", mine).CornerRadius = UDim.new(0, 12)
+Instance.new("UICorner", mine).CornerRadius = UDim.new(0, UIKit.RADIUS.md)
 local mineStroke = Instance.new("UIStroke", mine)
 mineStroke.Color = UIKit.GOLD_DEEP
 mineStroke.Thickness = 2
-local mineTop = UIKit.label(mine, "", 18, UIKit.CARD_TEXT, {
+local mineTop = UIKit.label(mine, "", UIKit.TYPE.label, UIKit.CARD_TEXT, {
 	Name = "Top", Position = UDim2.new(0, 14, 0, 6), Size = UDim2.new(1, -28, 0, 24), TextTruncate = Enum.TextTruncate.AtEnd,
 }, UIKit.HEAD)
-local mineSub = UIKit.label(mine, "", 16, UIKit.INK_SOFT, {
+local mineSub = UIKit.label(mine, "", UIKit.TYPE.body, UIKit.INK_SOFT, {
 	Name = "Sub", Position = UDim2.new(0, 14, 0, 28), Size = UDim2.new(1, -28, 0, 20), TextTruncate = Enum.TextTruncate.AtEnd,
 }, UIKit.BODY)
 
 -- ============ DRAW ============
 local data
-local RANK_COLOR = { UIKit.GOLD_DEEP, Color3.fromRGB(96, 104, 120), Color3.fromRGB(158, 92, 40) }   -- v5: readable on paper
+local RANK_COLOR = { UIKit.GOLD_DEEP, UIKit.SILVER, UIKit.BRONZE }   -- v5: readable on paper
 
 local function row(i, r, me)
 	local f = Instance.new("Frame")
@@ -131,13 +131,13 @@ local function row(i, r, me)
 	f.BackgroundColor3 = (r.key == me) and UIKit.GOLD or (i % 2 == 0 and UIKit.SURFACE_2 or UIKit.CARD)
 	f.BorderSizePixel = 0
 	f.Parent = list
-	Instance.new("UICorner", f).CornerRadius = UDim.new(0, 8)
+	Instance.new("UICorner", f).CornerRadius = UDim.new(0, UIKit.RADIUS.sm)
 	-- your own row is gold, so its rank is dark (a gold #1 on gold vanished)
-	UIKit.label(f, "#" .. tostring(r.rank or i), 16, (r.key == me) and UIKit.CARD_TEXT or (RANK_COLOR[r.rank or i] or UIKit.CARD_MUTED), {
+	UIKit.label(f, "#" .. tostring(r.rank or i), UIKit.TYPE.body, (r.key == me) and UIKit.CARD_TEXT or (RANK_COLOR[r.rank or i] or UIKit.CARD_MUTED), {
 		Position = UDim2.new(0, 8, 0, 0), Size = UDim2.new(0, 44, 1, 0),
 	}, UIKit.HEAD)
 	local nameW = r.ai and -(54 + 116 + 40) or -(54 + 116)
-	UIKit.label(f, tostring(r.name or "?"), 16, UIKit.CARD_TEXT, {
+	UIKit.label(f, tostring(r.name or "?"), UIKit.TYPE.body, UIKit.CARD_TEXT, {
 		Position = UDim2.new(0, 54, 0, 0), Size = UDim2.new(1, nameW, 1, 0), TextTruncate = Enum.TextTruncate.AtEnd,
 	}, UIKit.HEAD)
 	if r.ai then
@@ -149,9 +149,9 @@ local function row(i, r, me)
 		tag.BorderSizePixel = 0
 		tag.Parent = f
 		Instance.new("UICorner", tag).CornerRadius = UDim.new(1, 0)
-		UIKit.label(tag, "AI", 14, UIKit.TEXT, { Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.HEAD)
+		UIKit.label(tag, "AI", UIKit.TYPE.caption, UIKit.TEXT, { Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.HEAD)
 	end
-	UIKit.label(f, UIKit.money(r.value or 0), 16, (r.key == me) and UIKit.INK or UIKit.GREEN_DEEP, {
+	UIKit.label(f, UIKit.money(r.value or 0), UIKit.TYPE.body, (r.key == me) and UIKit.INK or UIKit.GREEN_DEEP, {
 		AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, 0), Size = UDim2.new(0, 110, 1, 0),
 		TextXAlignment = Enum.TextXAlignment.Right,
 	}, UIKit.HEAD)
@@ -179,7 +179,7 @@ render = function()
 	local rows = data[current] or {}
 	for i, r in ipairs(rows) do row(i, r, me) end
 	if #rows == 0 then
-		UIKit.label(list, "No companies yet. Yours could be first.", 16, UIKit.CARD_MUTED, {
+		UIKit.label(list, "No companies yet. Yours could be first.", UIKit.TYPE.body, UIKit.CARD_MUTED, {
 			Size = UDim2.new(1, -8, 0, ROW_H), TextXAlignment = Enum.TextXAlignment.Center,
 		}, UIKit.HEAD)
 	end

@@ -24,14 +24,16 @@
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UIKit = require(game:GetService("ReplicatedStorage"):WaitForChild("UIKit"))
 
 local player = Players.LocalPlayer
 
-local PAPER = Color3.fromRGB(243, 239, 230)
-local INK = Color3.fromRGB(30, 37, 48)
-local GOLD = Color3.fromRGB(255, 194, 61)
-local GREEN = Color3.fromRGB(64, 170, 96)
-local MUTED = Color3.fromRGB(120, 126, 136)
+-- the shared palette (it kept its own near-copies of these until v6, 11 Oct)
+local PAPER = UIKit.PAPER
+local INK = UIKit.INK
+local GOLD = UIKit.GOLD
+local GREEN = UIKit.GREEN_DEEP
+local MUTED = UIKit.MUTED_TEXT
 
 local boards = {}             -- plot folder -> { part, gui, ... }
 local crown                   -- the current round winner's marker
@@ -94,7 +96,7 @@ local function makeBoard(folder)
 	card.BorderSizePixel = 0
 	card.Parent = gui
 	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 18)
+	corner.CornerRadius = UDim.new(0, UIKit.RADIUS.lg)
 	corner.Parent = card
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = INK
@@ -107,20 +109,20 @@ local function makeBoard(folder)
 	rank.Position = UDim2.fromScale(0.035, 0.1)
 	rank.BackgroundColor3 = GOLD
 	rank.BorderSizePixel = 0
-	rank.Font = Enum.Font.FredokaOne
+	rank.Font = UIKit.HEAD
 	rank.TextScaled = true
 	rank.TextColor3 = INK
 	rank.Text = "#1"
 	rank.Parent = card
 	local rc = Instance.new("UICorner")
-	rc.CornerRadius = UDim.new(0, 12)
+	rc.CornerRadius = UDim.new(0, UIKit.RADIUS.md)
 	rc.Parent = rank
 
 	local name = Instance.new("TextLabel")
 	name.Size = UDim2.fromScale(0.73, 0.5)
 	name.Position = UDim2.fromScale(0.25, 0.08)
 	name.BackgroundTransparency = 1
-	name.Font = Enum.Font.FredokaOne
+	name.Font = UIKit.HEAD
 	name.TextScaled = true
 	name.TextXAlignment = Enum.TextXAlignment.Left
 	name.TextColor3 = INK
@@ -131,7 +133,7 @@ local function makeBoard(folder)
 	sub.Size = UDim2.fromScale(0.93, 0.34)
 	sub.Position = UDim2.fromScale(0.035, 0.6)
 	sub.BackgroundTransparency = 1
-	sub.Font = Enum.Font.GothamBold
+	sub.FontFace = UIKit.BOLD
 	sub.TextScaled = true
 	sub.TextXAlignment = Enum.TextXAlignment.Left
 	sub.TextColor3 = MUTED
@@ -160,10 +162,10 @@ local function redraw(folder)
 	if not company or company == "" then company = "A NEW STARTUP" end
 	local mine = owner == player.UserId
 	b.name.Text = string.upper(company)
-	b.name.TextColor3 = mine and Color3.fromRGB(28, 96, 168) or INK
+	b.name.TextColor3 = mine and UIKit.BLUE_DEEP or INK
 	local r = folder:GetAttribute("Rank") or 0
 	b.rank.Text = r > 0 and ("#" .. r) or "--"
-	b.rank.BackgroundColor3 = r == 1 and GOLD or Color3.fromRGB(214, 210, 200)
+	b.rank.BackgroundColor3 = r == 1 and GOLD or UIKit.SURFACE_2
 
 	local lvl = folder:GetAttribute("Level") or 1
 	local val = folder:GetAttribute("Valuation") or 0
@@ -204,7 +206,7 @@ local function setCrown(plots, name)
 	local t = Instance.new("TextLabel")
 	t.Size = UDim2.fromScale(1, 1)
 	t.BackgroundTransparency = 1
-	t.Font = Enum.Font.FredokaOne
+	t.Font = UIKit.HEAD
 	t.TextScaled = true
 	t.TextColor3 = GOLD
 	t.Text = "ROUND WINNER"

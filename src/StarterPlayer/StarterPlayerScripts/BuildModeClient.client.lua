@@ -117,8 +117,8 @@ if not isTouch then
 	-- v5: a paper keycap at the top-LEFT (the top-right corner is where red count
 	-- badges live, and a dark "B" there read as a notification)
 	local cap = UIKit.panel(toggle, { Name = "KeyCap", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, 6, 0, 6),
-		Size = UDim2.new(0, 24, 0, 24), ZIndex = toggle.ZIndex + 2 }, { radius = 6, color = UIKit.PAPER, stroke = UIKit.INK_SOFT, strokeWidth = 2 })
-	UIKit.label(cap, "B", 14, UIKit.INK, { Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center,
+		Size = UDim2.new(0, 24, 0, 24), ZIndex = toggle.ZIndex + 2 }, { radius = UIKit.RADIUS.sm, color = UIKit.PAPER, stroke = UIKit.INK_SOFT, strokeWidth = 2 })
+	UIKit.label(cap, "B", UIKit.TYPE.caption, UIKit.INK, { Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center,
 		ZIndex = toggle.ZIndex + 3 }, UIKit.HEAD)
 end
 
@@ -174,11 +174,11 @@ cap.MaxSize = Vector2.new(860, SHEET_H)
 body.Position = UDim2.new(0, 12, 0, 54 + 8)
 body.Size = UDim2.new(1, -24, 1, -(54 + 16))
 title.Size = UDim2.new(0.32, 0, 1, 0)
-title.TextSize = 20
+title.TextSize = UIKit.TYPE.label
 title.TextScaled = true
 local tsc = Instance.new("UITextSizeConstraint", title)
-tsc.MaxTextSize = 20
-tsc.MinTextSize = 14
+tsc.MaxTextSize = UIKit.TYPE.label
+tsc.MinTextSize = UIKit.TYPE.caption
 
 -- v5: the header is the tabs' alone. It also carried VIBE + five stars + the
 -- luck, which left each tab 45 px on a phone and broke the words ("Offic/e",
@@ -233,8 +233,8 @@ shelfLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
 -- v3.2.1 the first card answers "why would I place this?" in one breath
 local info = UIKit.panel(shelf, { Name = "WhyDecor", LayoutOrder = 0, Size = UDim2.new(0, 184, 1, -8) },
-	{ radius = 12, color = UIKit.GOLD, stroke = UIKit.darker(UIKit.GOLD, 0.7), strokeWidth = 2 })
-UIKit.label(info, "VIBE", 18, UIKit.INK, { Position = UDim2.new(0, 10, 0, 8), Size = UDim2.new(0, 44, 0, 20) }, UIKit.HEAD)
+	{ radius = UIKit.RADIUS.md, color = UIKit.GOLD, stroke = UIKit.darker(UIKit.GOLD, 0.7), strokeWidth = 2 })
+UIKit.label(info, "VIBE", UIKit.TYPE.label, UIKit.INK, { Position = UDim2.new(0, 10, 0, 8), Size = UDim2.new(0, 44, 0, 20) }, UIKit.HEAD)
 local infoStars = Instance.new("Frame")
 infoStars.Name = "Stars"
 infoStars.BackgroundTransparency = 1
@@ -251,11 +251,11 @@ for i = 1, 5 do
 end
 UIKit.label(info, "More stars, more rare hires. Place pieces inside your buildings.", 16, UIKit.INK, {
 	Position = UDim2.new(0, 10, 0, 30), Size = UDim2.new(1, -20, 0, 52), TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top }, UIKit.BODY)
-local infoNext = UIKit.label(info, "", 14, UIKit.CARD_TEXT, { Name = "Next", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 10, 1, -8),
+local infoNext = UIKit.label(info, "", UIKit.TYPE.caption, UIKit.CARD_TEXT, { Name = "Next", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 10, 1, -8),
 	Size = UDim2.new(1, -20, 0, 36), TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Bottom }, UIKit.HEAD)
 
 -- delete-mode hint replaces the shelf
-local delHint = UIKit.label(body, "", 18, UIKit.CARD_TEXT, {
+local delHint = UIKit.label(body, "", UIKit.TYPE.label, UIKit.CARD_TEXT, {
 	Name = "DeleteHint", Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center, Visible = false,
 	TextWrapped = true,
 }, UIKit.HEAD)
@@ -269,15 +269,15 @@ delHint.Text = isTouch and "Aim the circle at something you placed, then tap REM
 -- short of the right edge, so the jump button keeps its corner.
 local actionBar = UIKit.panel(gui, { Name = "ActionBar", AnchorPoint = Vector2.new(0, 1),
 	Position = UDim2.new(0, RAIL_R, 1, -12), Size = UDim2.new(1, -(RAIL_R + 150), 0, ACTION_H), Visible = false },
-	{ radius = 16, color = UIKit.CARD, stroke = UIKit.CARD_LINE, strokeWidth = 2 })
+	{ radius = UIKit.RADIUS.lg, color = UIKit.CARD, stroke = UIKit.CARD_LINE, strokeWidth = 2 })
 local abCap = Instance.new("UISizeConstraint", actionBar)
 abCap.MaxSize = Vector2.new(620, ACTION_H)
 local backBtn = UIKit.button(actionBar, "", UIKit.BLUE, { Name = "Back", AnchorPoint = Vector2.new(0, 0.5),
-	Position = UDim2.new(0, 8, 0.5, 0), Size = UDim2.new(0, 48, 0, 48) }, { radius = 12 })
+	Position = UDim2.new(0, 8, 0.5, 0), Size = UDim2.new(0, 48, 0, 48) }, { radius = UIKit.RADIUS.md })
 UIKit.icon(backBtn, "up", 24, UIKit.TEXT, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, -2), Rotation = -90, ZIndex = backBtn.ZIndex + 2 })
-local actName = UIKit.label(actionBar, "", 18, UIKit.INK, { Name = "ItemName", Position = UDim2.new(0, 66, 0, 9),
+local actName = UIKit.label(actionBar, "", UIKit.TYPE.label, UIKit.INK, { Name = "ItemName", Position = UDim2.new(0, 66, 0, 9),
 	Size = UDim2.new(1, -66 - (isTouch and 250 or 136), 0, 22), TextTruncate = Enum.TextTruncate.AtEnd }, UIKit.HEAD)
-local actSub = UIKit.label(actionBar, "", 16, UIKit.MUTED_TEXT, { Name = "Hint", Position = UDim2.new(0, 66, 0, 33),
+local actSub = UIKit.label(actionBar, "", UIKit.TYPE.body, UIKit.MUTED_TEXT, { Name = "Hint", Position = UDim2.new(0, 66, 0, 33),
 	Size = UDim2.new(1, -66 - (isTouch and 250 or 136), 0, 20), TextTruncate = Enum.TextTruncate.AtEnd }, UIKit.BODY)
 local placeBtn, placeLabel = UIKit.button(actionBar, "PLACE", GOOD, {
 	Name = "PlaceButton", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0),
@@ -333,9 +333,9 @@ local function thumbnail(parent, key)
 	-- a tinted well, so a white lamp still reads on a white card
 	vpf.BackgroundColor3 = UIKit.SURFACE_2
 	vpf.BackgroundTransparency = 0
-	Instance.new("UICorner", vpf).CornerRadius = UDim.new(0, 9)
-	vpf.Ambient = Color3.fromRGB(200, 200, 205)
-	vpf.LightColor = Color3.fromRGB(255, 250, 240)
+	Instance.new("UICorner", vpf).CornerRadius = UDim.new(0, UIKit.RADIUS.sm)
+	vpf.Ambient = Color3.fromRGB(200, 200, 205)  -- world colour
+	vpf.LightColor = Color3.fromRGB(255, 250, 240)  -- world colour
 	vpf.Parent = parent
 
 	local m = FK.put(key, CFrame.new(0, 0, 0), vpf)
@@ -388,7 +388,7 @@ local function makeCard(item, order)
 	btn.Text = ""
 	btn.Visible = false
 	btn.Parent = shelf
-	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 12)
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, UIKit.RADIUS.md)
 	local st = Instance.new("UIStroke", btn)
 	st.Color = UIKit.CARD_LINE
 	st.Thickness = 1.5
@@ -396,11 +396,11 @@ local function makeCard(item, order)
 
 	local vpf = thumbnail(btn, item.key)
 
-	local nm = UIKit.label(btn, item.name, 16, UIKit.INK, {
+	local nm = UIKit.label(btn, item.name, UIKit.TYPE.body, UIKit.INK, {
 		Name = "ItemName", Position = UDim2.new(0, 8, 1, -40), Size = UDim2.new(1, -16, 0, 17),
 		TextTruncate = Enum.TextTruncate.AtEnd,
 	}, UIKit.HEAD)
-	local pr = UIKit.label(btn, "", 16, UIKit.GREEN_DEEP, {
+	local pr = UIKit.label(btn, "", UIKit.TYPE.body, UIKit.GREEN_DEEP, {
 		Name = "Price", Position = UDim2.new(0, 8, 1, -22), Size = UDim2.new(1, -16, 0, 18),
 		TextTruncate = Enum.TextTruncate.AtEnd,
 	}, UIKit.HEAD)
@@ -418,7 +418,7 @@ local function makeCard(item, order)
 		chip.ZIndex = 3
 		chip.Parent = btn
 		Instance.new("UICorner", chip).CornerRadius = UDim.new(1, 0)
-		chipLabel = UIKit.label(chip, bt, 14, UIKit.GREEN_DEEP, { Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 4 }, UIKit.HEAD)
+		chipLabel = UIKit.label(chip, bt, UIKit.TYPE.caption, UIKit.GREEN_DEEP, { Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 4 }, UIKit.HEAD)
 	end
 	local lock = UIKit.icon(btn, "lock", 28, UIKit.CARD_MUTED, {
 		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, -18), ZIndex = 3, Visible = false,
@@ -719,12 +719,12 @@ local function refreshShelf()
 		if locked then
 			c.price.Text = NEEDS_NAME[c.item.needs] or ("Needs a " .. string.upper(c.item.needs))
 			c.price.TextColor3 = UIKit.ORANGE_DEEP
-			c.price.TextSize = 14
+			c.price.TextSize = UIKit.TYPE.caption
 			c.btn.BackgroundColor3 = UIKit.SURFACE_2
 		else
 			c.price.Text = UIKit.money(p)
 			c.price.TextColor3 = afford and UIKit.GREEN_DEEP or UIKit.MUTED_TEXT
-			c.price.TextSize = 16
+			c.price.TextSize = UIKit.TYPE.body
 			c.btn.BackgroundColor3 = UIKit.CARD
 		end
 	end
@@ -742,12 +742,12 @@ end
 for i, cat in ipairs(CATS) do
 	local b, t = UIKit.button(tabRow, CAT_NAME[cat] or cat, UIKit.darker(UIKit.BLUE, 0.8), {
 		Name = "Tab_" .. cat, LayoutOrder = i, Size = UDim2.new(0.25, -5, 1, 0), ZIndex = 3,
-	}, { textSize = 16, radius = 10 })
+	}, { textSize = 16, radius = UIKit.RADIUS.md })
 	t.ZIndex = 4
 	t.TextScaled = true
 	local tc = Instance.new("UITextSizeConstraint", t)
-	tc.MaxTextSize = 16
-	tc.MinTextSize = 14
+	tc.MaxTextSize = UIKit.TYPE.body
+	tc.MinTextSize = UIKit.TYPE.caption
 	tabBtns[cat] = { btn = b, label = t }
 	b.MouseButton1Click:Connect(function()
 		activeCat = cat

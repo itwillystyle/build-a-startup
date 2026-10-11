@@ -36,7 +36,7 @@ gui.Parent = player:WaitForChild("PlayerGui")
 -- v5: 318 tall so it sits below the money line on a phone (at 330 it covered
 -- the counter and reached Roblox's top-left buttons); the blurb box was 17 px too tall
 local PANEL_W, PANEL_H = 620, 318
-local panel, body, closeBtn = UIKit.menu(gui, "THE RESIDENCES", Color3.fromRGB(38, 41, 48), {
+local panel, body, closeBtn = UIKit.menu(gui, "THE RESIDENCES", UIKit.INK_SOFT, {
 	Name = "Panel", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 10), Size = UDim2.new(0, PANEL_W, 0, PANEL_H),
 })
 local fit = Instance.new("UIScale", panel)
@@ -48,13 +48,13 @@ row.Padding = UDim.new(0, 10)
 row.SortOrder = Enum.SortOrder.LayoutOrder
 row.Parent = body
 
-local TIER_COLOR = { Color3.fromRGB(92, 170, 230), Color3.fromRGB(240, 150, 70), Color3.fromRGB(255, 200, 60) }
+local TIER_COLOR = { UIKit.BLUE, UIKit.ORANGE, UIKit.GOLD }
 local openedAt
 
 -- v5: your cash in the header (the menu covers the money counter on a phone),
 -- as at the car dealer: the two shops read the same
 local header = panel:FindFirstChild("Header")
-local cashLbl = header and UIKit.outlined(header, "", 20, UIKit.MONEY, {
+local cashLbl = header and UIKit.outlined(header, "", UIKit.TYPE.label, UIKit.MONEY, {
 	Name = "Cash", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -62, 0.5, 0), Size = UDim2.new(0, 120, 0, 26),
 	TextXAlignment = Enum.TextXAlignment.Right,
 })
@@ -78,7 +78,7 @@ local function showMenu(st)
 		c.Size = UDim2.new(1 / 3, -7, 1, 0)
 		c.BackgroundColor3 = UIKit.CARD
 		c.Parent = body
-		Instance.new("UICorner", c).CornerRadius = UDim.new(0, 12)
+		Instance.new("UICorner", c).CornerRadius = UDim.new(0, UIKit.RADIUS.md)
 		local stroke = Instance.new("UIStroke", c)
 		stroke.Color = t.state == "buy" and TIER_COLOR[i] or UIKit.CARD_LINE
 		stroke.Thickness = t.state == "buy" and 3 or 1.5
@@ -87,15 +87,15 @@ local function showMenu(st)
 		band.Size = UDim2.new(1, 0, 0, 8)
 		band.BorderSizePixel = 0
 		band.Parent = c
-		Instance.new("UICorner", band).CornerRadius = UDim.new(0, 12)
+		Instance.new("UICorner", band).CornerRadius = UDim.new(0, UIKit.RADIUS.md)
 		UIKit.art(c, "key", 46, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 14) })
-		UIKit.label(c, t.name, 22, UIKit.CARD_TEXT, { Size = UDim2.new(1, -16, 0, 26), Position = UDim2.new(0, 8, 0, 66), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.HEAD)
+		UIKit.label(c, t.name, UIKit.TYPE.title, UIKit.CARD_TEXT, { Size = UDim2.new(1, -16, 0, 26), Position = UDim2.new(0, 8, 0, 66), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.HEAD)
 		-- what a home DOES: the number of rare hires that survive a spin-off (from the server)
 		if (t.slots or 0) > 0 then
 			UIKit.label(c, ("Keeps %d %s"):format(t.slots, t.slots == 1 and "person" or "people"), 16, UIKit.GREEN_DEEP, {
 				Size = UDim2.new(1, -16, 0, 18), Position = UDim2.new(0, 8, 0, 94), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.BOLD)
 		end
-		UIKit.label(c, t.blurb or "", 14, UIKit.INK_SOFT, {
+		UIKit.label(c, t.blurb or "", UIKit.TYPE.caption, UIKit.INK_SOFT, {
 			Size = UDim2.new(1, -20, 0, 32), Position = UDim2.new(0, 10, 0, 134), TextWrapped = true,
 			TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Top }, UIKit.BODY)
 		local label, color, enabled
@@ -106,10 +106,10 @@ local function showMenu(st)
 		local b = UIKit.button(c, label, color, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Size = UDim2.new(1, -20, 0, 44) },
 			{ textSize = 18 })
 		if t.why then
-			UIKit.label(c, t.why, 14, UIKit.RED_DEEP, { AnchorPoint = Vector2.new(0.5, 1), Size = UDim2.new(1, -16, 0, 16),
+			UIKit.label(c, t.why, UIKit.TYPE.caption, UIKit.RED_DEEP, { AnchorPoint = Vector2.new(0.5, 1), Size = UDim2.new(1, -16, 0, 16),
 				Position = UDim2.new(0.5, 0, 1, -56), TextXAlignment = Enum.TextXAlignment.Center, TextWrapped = true }, UIKit.BOLD)
 		elseif t.state == "buy" and st.cash < t.price then
-			UIKit.label(c, ("Need %s more"):format(UIKit.money(t.price - st.cash)), 14, UIKit.MUTED_TEXT, { AnchorPoint = Vector2.new(0.5, 1),
+			UIKit.label(c, ("Need %s more"):format(UIKit.money(t.price - st.cash)), UIKit.TYPE.caption, UIKit.MUTED_TEXT, { AnchorPoint = Vector2.new(0.5, 1),
 				Size = UDim2.new(1, -16, 0, 16), Position = UDim2.new(0.5, 0, 1, -56), TextXAlignment = Enum.TextXAlignment.Center }, UIKit.BOLD)
 		end
 		if enabled then

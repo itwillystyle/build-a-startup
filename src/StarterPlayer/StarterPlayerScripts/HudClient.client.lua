@@ -116,7 +116,7 @@ Instance.new("UICorner", coin).CornerRadius = UDim.new(1, 0)
 local cst = Instance.new("UIStroke", coin)
 cst.Color = UIKit.INK
 cst.Thickness = 3
-local dollar = UIKit.heading(coin, "$", 28, UIKit.INK, { Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center })
+local dollar = UIKit.heading(coin, "$", UIKit.TYPE.headline, UIKit.INK, { Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center })
 dollar.TextStrokeTransparency = 1
 -- v3.6 (V8): the rendered gold coin replaces the flat disc and its "$"
 if UIKit.ART and UIKit.ART.coin then
@@ -125,12 +125,12 @@ if UIKit.ART and UIKit.ART.coin then
 	dollar.Visible = false
 	UIKit.art(coin, "coin", 40, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0) })
 end
-local cashText = UIKit.outlined(pill, "$0", 34, UIKit.MONEY, {
+local cashText = UIKit.outlined(pill, "$0", UIKit.TYPE.display, UIKit.MONEY, {
 	Name = "Amount", Size = UDim2.new(0, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.X, LayoutOrder = 2,
 })
 
 -- income line (tap it for the per-building breakdown)
-local rateText = UIKit.outlined(gui, "", 18, UIKit.MONEY, {
+local rateText = UIKit.outlined(gui, "", UIKit.TYPE.label, UIKit.MONEY, {
 	Name = "Rate", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 2, 0, -2),
 	Size = UDim2.new(0, 220, 0, 22), TextXAlignment = Enum.TextXAlignment.Center,
 })
@@ -146,7 +146,7 @@ rateHit.Parent = gui
 local breakdown = UIKit.card(gui, {
 	Name = "Breakdown", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 94),
 	Size = UDim2.new(0, 240, 0, 40), Visible = false,
-}, { radius = 12 })
+}, { radius = UIKit.RADIUS.md })
 local bList = Instance.new("UIListLayout", breakdown)
 bList.Padding = UDim.new(0, 2)
 local bPad = Instance.new("UIPadding", breakdown)
@@ -203,7 +203,7 @@ local pickMarket = remotes:WaitForChild("PickMarket", 10)
 local productReady = remotes:WaitForChild("ProductReady", 10)
 local FULL = UDim2.new(0, 236, 0, 64)
 local QUIET = UDim2.new(0, 206, 0, 56)
-local MINT = Color3.fromRGB(176, 242, 198)
+local MINT = UIKit.GREEN_LIGHT
 local codeBtn, codeLabel = UIKit.button(gui, "WRITE CODE", UIKit.GREEN, {
 	Name = "WriteCode", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -22),
 	Size = FULL, ClipsDescendants = false,
@@ -220,11 +220,11 @@ local slotArt = UIKit.art(codeBtn, "code", 50, { AnchorPoint = Vector2.new(0, 0.
 codeLabel.Position = UDim2.new(0, 56, 0, 0)
 codeLabel.Size = UDim2.new(1, -64, 1, -5)
 -- the payday line under LAUNCH! (hidden while it is WRITE CODE)
-local payLabel = UIKit.label(codeBtn, "", 16, UIKit.INK, {
+local payLabel = UIKit.label(codeBtn, "", UIKit.TYPE.body, UIKit.INK, {
 	Name = "Pay", Position = UDim2.new(0, 56, 0, 33), Size = UDim2.new(1, -64, 0, 20), Visible = false,
 	TextXAlignment = Enum.TextXAlignment.Center, ZIndex = codeBtn.ZIndex + 1,
 }, UIKit.HEAD)
-local codeCaption = UIKit.outlined(codeBtn, "NEXT APP", 14, UIKit.TEXT, {
+local codeCaption = UIKit.outlined(codeBtn, "NEXT APP", UIKit.TYPE.caption, UIKit.TEXT, {
 	Name = "Caption", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 0, -4),
 	Size = UDim2.new(1, 40, 0, 18), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = codeBtn.ZIndex + 2,
 })
@@ -261,7 +261,7 @@ local tbStroke = Instance.new("UIStroke", timeBadge)
 tbStroke.Color = UIKit.PAPER
 tbStroke.Thickness = 2
 tbStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-local timeText = UIKit.label(timeBadge, "", 18, UIKit.TEXT, {
+local timeText = UIKit.label(timeBadge, "", UIKit.TYPE.label, UIKit.TEXT, {
 	Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = codeBtn.ZIndex + 4,
 }, UIKit.HEAD)
 
@@ -418,7 +418,7 @@ local function floatGain()
 	if not gain then return end
 	local combo = player:GetAttribute("CodeCombo") or 0
 	local text = "+" .. UIKit.money(gain) .. (combo >= 2 and ("  x%.1f"):format(1 + 0.1 * combo) or "")
-	local g = UIKit.outlined(gui, text, 20 + math.min(combo, 8), combo >= 5 and UIKit.GOLD or UIKit.MONEY, {
+	local g = UIKit.outlined(gui, text, UIKit.TYPE.label + math.min(combo, 8), combo >= 5 and UIKit.GOLD or UIKit.MONEY, {
 		AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0, 200, 0, 28), TextXAlignment = Enum.TextXAlignment.Center,
 		Position = UDim2.new(0.5, math.random(-70, 70), 1, -112),
 	})
@@ -512,7 +512,7 @@ end
 
 -- a gold "+$X" under the cash
 local function popUnderCash(text, color, hold)
-	local l = UIKit.outlined(gui, text, 34, color or UIKit.GOLD, {
+	local l = UIKit.outlined(gui, text, UIKit.TYPE.display, color or UIKit.GOLD, {
 		AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 100), Size = UDim2.new(0, 320, 0, 40),
 		TextXAlignment = Enum.TextXAlignment.Center,
 	})
@@ -593,14 +593,14 @@ local function hqBanner(e, done)
 	local x = cx - fx.AbsolutePosition.X
 	local card = UIKit.card(fx, {
 		AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0, x, 0, -180), Size = UDim2.new(0, w, 0, e.headline and 176 or 136),
-	}, { radius = 18, stroke = UIKit.GOLD, strokeWidth = 4 })
+	}, { radius = UIKit.RADIUS.lg, stroke = UIKit.GOLD, strokeWidth = 4 })
 	local fit = Instance.new("UIScale")
 	fit.Scale = scale
 	fit.Parent = card
-	local top = UIKit.label(card, ("HQ LEVEL %d"):format(e.level or 2), 18, UIKit.GOLD_DEEP, {
+	local top = UIKit.label(card, ("HQ LEVEL %d"):format(e.level or 2), UIKit.TYPE.label, UIKit.GOLD_DEEP, {
 		Position = UDim2.new(0, 0, 0, 10), Size = UDim2.new(1, 0, 0, 22), TextXAlignment = Enum.TextXAlignment.Center,
 	}, UIKit.HEAD)
-	local name = UIKit.outlined(card, (e.name or "NEW HQ") .. "!", 38, UIKit.GOLD, {
+	local name = UIKit.outlined(card, (e.name or "NEW HQ") .. "!", UIKit.TYPE.display, UIKit.GOLD, {
 		Position = UDim2.new(0, 0, 0, 32), Size = UDim2.new(1, 0, 0, 44), TextXAlignment = Enum.TextXAlignment.Center,
 	})
 	-- v4.3: the ONE new thing this level hands you (Journey.LADDER), then what to do with it
@@ -619,7 +619,7 @@ local function hqBanner(e, done)
 		ps.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 		local pp = Instance.new("UIPadding", pill)
 		pp.PaddingLeft = UDim.new(0, 16); pp.PaddingRight = UDim.new(0, 16)
-		UIKit.label(pill, "NEW: " .. e.headline, 20, UIKit.GOLD_DEEP, { Size = UDim2.new(0, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.X }, UIKit.HEAD)
+		UIKit.label(pill, "NEW: " .. e.headline, UIKit.TYPE.label, UIKit.GOLD_DEEP, { Size = UDim2.new(0, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.X }, UIKit.HEAD)
 		-- v5: say it once. The "Next:" line repeated the goal card, and the
 		-- headline was also one of the chips (GENIUS three times on one card)
 	end
@@ -710,8 +710,8 @@ local function spinAsk(e)
 		f.Position = UDim2.new(x, x > 0 and 6 or 0, 0, 0)
 		f.Size = UDim2.new(0.5, -6, 0, 140)
 		f.Parent = body
-		Instance.new("UICorner", f).CornerRadius = UDim.new(0, 12)
-		UIKit.label(f, title, 18, color, { Position = UDim2.new(0, 12, 0, 8), Size = UDim2.new(1, -24, 0, 22) }, UIKit.HEAD)
+		Instance.new("UICorner", f).CornerRadius = UDim.new(0, UIKit.RADIUS.md)
+		UIKit.label(f, title, UIKit.TYPE.label, color, { Position = UDim2.new(0, 12, 0, 8), Size = UDim2.new(1, -24, 0, 22) }, UIKit.HEAD)
 		-- v5: the reason to press it is the loud line (it was the same body text as "Keep your bag")
 		local y = 36
 		for i, line in ipairs(lines) do
@@ -755,7 +755,7 @@ local function spinAsk(e)
 		layout.CellPadding = UDim2.new(0, 6, 0, 6)
 		layout.SortOrder = Enum.SortOrder.LayoutOrder
 		layout.Parent = strip
-		local count = UIKit.label(body, "", 14, UIKit.INK_SOFT,
+		local count = UIKit.label(body, "", UIKit.TYPE.caption, UIKit.INK_SOFT,
 			{ Position = UDim2.new(0, 0, 0, 236), Size = UDim2.new(1, 0, 0, 18) }, UIKit.BODY)
 		local chips = {}
 		local function redraw()
@@ -843,12 +843,12 @@ local ROMAN = { "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X" }
 local function spinCeremony(e)
 	UIKit.sfx("rebirth")
 	local flash = Instance.new("Frame")
-	flash.BackgroundColor3 = Color3.new(1, 1, 1)
+	flash.BackgroundColor3 = UIKit.PAPER
 	flash.BorderSizePixel = 0
 	flash.Size = UDim2.new(1, 0, 1, 0)
 	flash.Parent = fx
 	tween(flash, 0.9, { BackgroundTransparency = 1 })
-	local title = UIKit.outlined(fx, ("SPIN-OFF %s!"):format(ROMAN[(e.number or 1) + 1] or tostring(e.number)), 56, UIKit.ORANGE, {
+	local title = UIKit.outlined(fx, ("SPIN-OFF %s!"):format(ROMAN[(e.number or 1) + 1] or tostring(e.number)), UIKit.TYPE.money, UIKit.ORANGE, {
 		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.36, 0), Size = UDim2.new(1, 0, 0, 64), TextXAlignment = Enum.TextXAlignment.Center,
 	})
 	local sub = UIKit.outlined(fx, ("Money x%s forever"):format((string.format("%.1f", e.mult or 1)):gsub("%.0$", "")), 30, UIKit.GOLD, {
@@ -941,17 +941,17 @@ task.spawn(function()
 		-- v5: under the income line (at 0.45 on a phone it covered "+$20 / sec")
 		local card = UIKit.card(fx, {
 			AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 96), Size = UDim2.new(0, w, 0, 200),
-		}, { radius = 18, stroke = UIKit.GREEN, strokeWidth = 4 })
-		UIKit.label(card, "WHILE YOU WERE AWAY", 18, UIKit.CARD_MUTED, {
+		}, { radius = UIKit.RADIUS.lg, stroke = UIKit.GREEN, strokeWidth = 4 })
+		UIKit.label(card, "WHILE YOU WERE AWAY", UIKit.TYPE.label, UIKit.CARD_MUTED, {
 			Position = UDim2.new(0, 0, 0, 14), Size = UDim2.new(1, 0, 0, 22), TextXAlignment = Enum.TextXAlignment.Center,
 		}, UIKit.HEAD)
-		UIKit.outlined(card, "+" .. UIKit.money(away), 48, UIKit.MONEY, {
+		UIKit.outlined(card, "+" .. UIKit.money(away), UIKit.TYPE.money, UIKit.MONEY, {
 			Position = UDim2.new(0, 0, 0, 40), Size = UDim2.new(1, 0, 0, 56), TextXAlignment = Enum.TextXAlignment.Center,
 		})
 		-- v4.2 home turf: the apartment that did it gets the credit
 		local aptN = player:GetAttribute("OfflineApt") or 0
 		local aptName = ({ "STUDIO", "LOFT", "PENTHOUSE" })[aptN]
-		UIKit.label(card, aptName and ("Your %s kept things running."):format(aptName) or "Your team kept working.", 16, UIKit.CARD_TEXT, {
+		UIKit.label(card, aptName and ("Your %s kept things running."):format(aptName) or "Your team kept working.", UIKit.TYPE.body, UIKit.CARD_TEXT, {
 			Position = UDim2.new(0, 0, 0, 98), Size = UDim2.new(1, 0, 0, 22), TextXAlignment = Enum.TextXAlignment.Center,
 		}, UIKit.HEAD)
 		local btn = UIKit.button(card, "COLLECT", UIKit.GREEN, {

@@ -38,7 +38,7 @@ local WHOOSH = "rbxassetid://9126229255"     -- PSE "Whoosh By Fast"
 local BOOST_SND = "rbxassetid://9126228631"  -- PSE "Whoosh Back Zoom"
 local COOLDOWN = 5                           -- mirrors ChaseRules.BOOST.cooldown (server enforces it)
 local LANE_WIDTH = 9                         -- studs: two catch radii, the space you have to clear
-local LANE = Color3.fromRGB(235, 40, 50)
+local LANE = Color3.fromRGB(235, 40, 50)  -- world colour (the lane painted on the road)
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "ChaseFx"
@@ -58,7 +58,7 @@ for i, spec in ipairs({
 	local f = Instance.new("Frame")
 	f.Name = "Edge" .. i
 	f.Position, f.Size = spec[1], spec[2]
-	f.BackgroundColor3 = Color3.fromRGB(200, 20, 30)
+	f.BackgroundColor3 = UIKit.RED_DEEP
 	f.BorderSizePixel = 0
 	f.BackgroundTransparency = 1
 	f.Parent = gui
@@ -90,10 +90,10 @@ local btn = UIKit.button(gui, "", UIKit.ORANGE, {
 	Name = "Boost", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -190, 1, -118), Size = UDim2.new(0, 120, 0, 84),
 	Visible = false,
 }, { textSize = 24 })
-local btnText = UIKit.outlined(btn, "BOOST", 26, UIKit.TEXT, {
+local btnText = UIKit.outlined(btn, "BOOST", UIKit.TYPE.headline, UIKit.TEXT, {
 	Position = UDim2.new(0, 0, 0, 10), Size = UDim2.new(1, 0, 0, 30), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = btn.ZIndex + 2,
 })
-UIKit.label(btn, UserInputService.KeyboardEnabled and "SHIFT" or "TAP", 14, UIKit.INK, {
+UIKit.label(btn, UserInputService.KeyboardEnabled and "SHIFT" or "TAP", UIKit.TYPE.caption, UIKit.INK, {
 	Position = UDim2.new(0, 0, 0, 46), Size = UDim2.new(1, 0, 0, 18), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = btn.ZIndex + 2,
 }, UIKit.HEAD)
 local cdFill = Instance.new("Frame")
@@ -106,7 +106,7 @@ cdFill.Position = UDim2.new(0, 0, 1, 0)
 cdFill.Size = UDim2.new(1, 0, 0, 0)
 cdFill.ZIndex = btn.ZIndex + 3
 cdFill.Parent = btn
-Instance.new("UICorner", cdFill).CornerRadius = UDim.new(0, 12)
+Instance.new("UICorner", cdFill).CornerRadius = UDim.new(0, UIKit.RADIUS.md)
 local btnScale = Instance.new("UIScale", btn)
 
 local lastBoostSent = -math.huge
@@ -131,7 +131,7 @@ end)
 -- ============ CLOSE CALL ============
 local function closeCall()
 	play(WHOOSH, 0.7, 1)
-	local lbl = UIKit.outlined(gui, "CLOSE CALL!", 46, UIKit.GOLD, {
+	local lbl = UIKit.outlined(gui, "CLOSE CALL!", UIKit.TYPE.money, UIKit.GOLD, {
 		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.36, 0), Size = UDim2.new(0, 520, 0, 60),
 		TextXAlignment = Enum.TextXAlignment.Center,
 	})

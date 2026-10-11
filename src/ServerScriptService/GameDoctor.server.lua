@@ -238,6 +238,10 @@ local function run()
 			if ui then
 				check("cards over cards", #ui.overlaps == 0, "FEEL", #ui.overlaps, 0, short(ui.overlaps))
 				check("buttons something covers", #ui.blocked == 0, "BUG", #ui.blocked, 0, short(ui.blocked))
+				check("text under 14 px on screen", #(ui.smallText or {}) == 0, "FEEL", #(ui.smallText or {}), 0,
+					("at %s: %s"):format(tostring(ui.viewport), short(ui.smallText or {}, 4)))
+				check("taps under 44 px on screen", #(ui.smallTaps or {}) == 0, "BUG", #(ui.smallTaps or {}), 0,
+					("at %s: %s"):format(tostring(ui.viewport), short(ui.smallTaps or {}, 4)))
 			else
 				check("ui probe answered", false, "BUG", "no answer", "answer")
 			end

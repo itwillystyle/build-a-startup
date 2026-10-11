@@ -27,8 +27,8 @@ local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 local isTouch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
-local GOLD = Color3.fromRGB(255, 208, 70)
 local UIKit = require(game:GetService("ReplicatedStorage"):WaitForChild("UIKit"))
+local GOLD = UIKit.GOLD
 
 -- ============ FIND MY PLOT ============
 
@@ -56,15 +56,15 @@ gui.Parent = player:WaitForChild("PlayerGui")
 local card = UIKit.card(gui, {
 	Name = "Card", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -40),
 	Size = UDim2.new(0.9, 0, 0, 112),
-}, { radius = 18, strokeWidth = 3, stroke = UIKit.darker(UIKit.GOLD, 0.8) })
+}, { radius = UIKit.RADIUS.lg, strokeWidth = 3, stroke = UIKit.darker(UIKit.GOLD, 0.8) })
 local cap = Instance.new("UISizeConstraint", card)
 cap.MaxSize = Vector2.new(620, 112)
 
-local title = UIKit.outlined(card, "BUILD A STARTUP!", 30, GOLD, {
+local title = UIKit.outlined(card, "BUILD A STARTUP!", UIKit.TYPE.headline, GOLD, {
 	Position = UDim2.new(0, 20, 0, 12), Size = UDim2.new(1, -40, 0, 38),
 })
 
-local line = UIKit.label(card, "", 18, UIKit.CARD_TEXT, {
+local line = UIKit.label(card, "", UIKit.TYPE.label, UIKit.CARD_TEXT, {
 	Position = UDim2.new(0, 20, 0, 54), Size = UDim2.new(1, -150, 0, 46), TextWrapped = true,
 	TextYAlignment = Enum.TextYAlignment.Top,
 }, UIKit.HEAD)
@@ -243,7 +243,7 @@ local function runIntro()
 						Translucent SmoothPlastic plus the game's own Highlight outline
 						reads as a blueprint and keeps the silhouette crisp. ]]
 					c.Material = Enum.Material.SmoothPlastic
-					c.Color = Color3.fromRGB(96, 170, 226)
+					c.Color = Color3.fromRGB(96, 170, 226)  -- world colour
 					c.Transparency = 0.5
 					c.Parent = ghost
 					top = math.max(top, y1)
@@ -253,7 +253,7 @@ local function runIntro()
 				local hl = Instance.new("Highlight")
 				hl.Adornee = ghost
 				hl.FillTransparency = 1
-				hl.OutlineColor = Color3.fromRGB(24, 44, 70)
+				hl.OutlineColor = Color3.fromRGB(24, 44, 70)  -- world colour
 				hl.DepthMode = Enum.HighlightDepthMode.Occluded
 				hl.Parent = ghost
 				ghost.Parent = workspace
