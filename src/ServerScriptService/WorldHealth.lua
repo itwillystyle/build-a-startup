@@ -79,4 +79,90 @@ function WorldHealth.sinking(root, skip)
 	return { checked = checked, found = #list, sinks = list }
 end
 
+--[[ THROUGH THE FLOORS (11 Oct 2026). His screenshot: on floor 7 he stood waist-deep
+	in a blue floor with "a cone in it" -- the deck below's tent mesh, 3.9 studs up
+	through floor 7, where the lift lets you off. `sinking` cannot see that: it looks
+	for slabs near the ground, and this was a picture of one storey standing in the
+	next, 90 studs up.
+
+	For every HQ (each plot's Wafers folder), the floors you walk on are the tops of
+	its Floor and Deck colliders. A visible mesh that starts well below one of those
+	floors (a storey under it) and ends above it, over the floor's footprint, is
+	poking through it. Pure rule: `pokes`. ]]
+WorldHealth.POKE = 0.5          -- studs above a floor that count as through it
+WorldHealth.BELOW = 2           -- a mesh starting this far under a floor belongs to a lower storey
+
+function WorldHealth.pokes(meshBottom, meshTop, floorTop)
+	return meshBottom < floorTop - WorldHealth.BELOW and meshTop > floorTop + WorldHealth.POKE
+end
+
+-- -> { checked = n floors, found = n, through = { { plot, mesh, floor, by } } } (worst first)
+function WorldHealth.throughFloors(plots)
+	local through, checked = {}, 0
+	for _, plot in ipairs(plots:GetChildren()) do
+		local hq = plot:FindFirstChild("Wafers")
+		if hq then
+			local floors, meshes = {}, {}
+			for _, d in ipairs(hq:GetDescendants()) do
+				if d:IsA("BasePart") then
+					if (d.Name == "Floor" or d.Name == "Deck") and d.CanCollide then
+						table.insert(floors, d)
+					elseif d:IsA("MeshPart") and d.Transparency < 0.5 then
+						table.insert(meshes, d)
+					end
+				end
+			end
+			checked += #floors
+			local seen = {}
+			for _, f in ipairs(floors) do
+				local top = f.Position.Y + f.Size.Y / 2
+				for _, m in ipairs(meshes) do
+					local lo, hi = m.Position.Y - m.Size.Y / 2, m.Position.Y + m.Size.Y / 2
+					local key = m:GetFullName() .. "@" .. math.floor(top)
+					if not seen[key] and WorldHealth.pokes(lo, hi, top) then
+						-- over the floor's footprint: the floor's centre inside the mesh's box, seen from above
+						local l = m.CFrame:PointToObjectSpace(f.Position)
+						if math.abs(l.X) <= m.Size.X / 2 and math.abs(l.Z) <= m.Size.Z / 2 then
+							seen[key] = true
+							table.insert(through, { plot = plot.Name, mesh = m.Parent.Name .. "." .. m.Name,
+								floor = math.floor(top * 10) / 10, by = math.floor((hi - top) * 10) / 10 })
+						end
+					end
+				end
+			end
+		end
+	end
+	table.sort(through, function(a, b) return a.by > b.by end)
+	return { checked = checked, found = #through, through = through }
+end
+
+--[[ LIFT LANDINGS (11 Oct 2026). The lift to floor 8 put you down over nothing and
+	you fell 13 studs (half-built storey, Wafers.lua `landable`). For every lift stop
+	HQFloors knows ([plot] = { stops = { { id, stand = CFrame } } }), something solid
+	must be under the spot it puts you, within FEET studs.
+	-> { checked = n, found = n, bad = { { plot, stop, drop } } } ]]
+WorldHealth.FEET = 2.5
+
+function WorldHealth.liftLandings(lifts)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.RespectCanCollide = true
+	local skip = {}
+	for _, pl in ipairs(game:GetService("Players"):GetPlayers()) do if pl.Character then table.insert(skip, pl.Character) end end
+	params.FilterDescendantsInstances = skip
+	local bad, checked = {}, 0
+	for plotIndex, reg in pairs(lifts or {}) do
+		for _, st in ipairs(reg.stops or {}) do
+			checked += 1
+			local from = st.stand.Position + Vector3.new(0, 1, 0)
+			local hit = workspace:Raycast(from, Vector3.new(0, -60, 0), params)
+			local drop = hit and (st.stand.Position.Y - hit.Position.Y) or 60
+			if drop > WorldHealth.FEET then
+				table.insert(bad, { plot = plotIndex, stop = st.id, drop = math.floor(drop * 10) / 10 })
+			end
+		end
+	end
+	return { checked = checked, found = #bad, bad = bad }
+end
+
 return WorldHealth

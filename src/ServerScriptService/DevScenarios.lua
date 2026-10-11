@@ -192,14 +192,19 @@ function Scen.run(ctx, player, name)
 		end
 		return { ok = door ~= nil, door = door, candidates = cands }
 	elseif kind == "health" then
-		-- the two 10 Oct loops, live: sinking surfaces (WorldHealth) and the chase (TalentDrop.health)
+		-- the 10-11 Oct loops, live: sinking surfaces and meshes through floors (WorldHealth), and the chase (TalentDrop.health)
 		local WH = require(game:GetService("ServerScriptService"):WaitForChild("WorldHealth"))
 		local skip = { workspace:FindFirstChild("SiliconValley") and workspace.SiliconValley:FindFirstChild("TalentRow") }
 		for _, pl in ipairs(game:GetService("Players"):GetPlayers()) do if pl.Character then table.insert(skip, pl.Character) end end
 		local world = WH.sinking(workspace:WaitForChild("SiliconValley"), skip)
 		local chase = (Econ.Drop and Econ.Drop.health) and Econ.Drop.health(2) or { error = "TalentDrop is not running" }
-		table.insert(did, ("health -> %d sinking surface kinds, chase checked on %d plots"):format(world.found, #(chase.plots or {})))
-		return done(true, nil, { world = world, chase = chase })
+		-- 11 Oct: a lower storey's mesh standing in a floor above (the Dome deck's tent on floor 7)
+		local floors = WH.throughFloors(workspace.SiliconValley:WaitForChild("Plots"))
+		local HQF = require(game:GetService("ServerScriptService"):WaitForChild("HQFloors"))
+		local lifts = WH.liftLandings(HQF.lifts)
+		table.insert(did, ("health -> %d sinking surface kinds, %d meshes through a floor, %d/%d lift stops over nothing, chase checked on %d plots"):format(
+			world.found, floors.found, lifts.found, lifts.checked, #(chase.plots or {})))
+		return done(true, nil, { world = world, floors = floors, lifts = lifts, chase = chase })
 	elseif kind == "restock" then
 		if not (Econ.Drop and Econ.Drop.devRestock) then return done(false, "TalentDrop is not running") end
 		Econ.Drop.devRestock(player)

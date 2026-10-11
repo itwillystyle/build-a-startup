@@ -1184,6 +1184,25 @@ local function buildRing(plot, L, model, planted)
 	if name then
 		local frame = anchor * CFrame.new(0, -G.SLAB, 0)
 		local v = mesh(model, frame, name, nil, { CastShadow = true })
+		--[[ A DECK MUST FIT UNDER THE WAFER ABOVE IT. His screenshot, 11 Oct: on
+			floor 7 he stood waist-deep in a blue floor with "a cone in it". The
+			Dome's deck carries its own tent (blender/dome.py build_deck: a canopy
+			from 10.5 to 18.4 studs up), but the next wafer's slab starts 13 up, so
+			the tent's top rings came 3.9 studs through floor 7 (and 4.2 through
+			floor 3, over deck 1) right where the lift lets you off. Measured in
+			Studio: the deck's top 95.9, floor 7 at 92. The collision was right;
+			the picture was standing in it. Squashing the deck's height to the gap
+			keeps the tent (flatter), the planters and the deck surface (0.1 stud
+			lower), and no deck mesh can poke through, whatever a later export does.
+			WorldHealth.throughFloors is the check. ]]
+		if v and pc.kind == "deck" then
+			local room = G.H - 0.05
+			if v.Size.Y > room then
+				local bottom = v.Position.Y - v.Size.Y / 2
+				v.Size = Vector3.new(v.Size.X, room, v.Size.Z)
+				v.CFrame = v.CFrame + Vector3.new(0, bottom + room / 2 - v.Position.Y, 0)
+			end
+		end
 		if v then table.insert(visual, v) end
 		local gname = (pc.kind == "deck" and "W_DeckGlass_" .. pc.wafer) or "W_RoofGlass"
 		local gv = mesh(model, frame, gname, nil, glassOf(Color3.fromRGB(200, 222, 232), 0.5))
@@ -1356,6 +1375,15 @@ local function topStorey(st)
 	return top
 end
 
+-- can you stand where the lift lets you off on storey s? (its door is in segment 5)
+local function landable(st, s)
+	for L = 2, st.level do
+		local pc = P.PIECES[L]
+		if pc.storey == s and (pc.kind == "deck" or pc.kind == "roof" or (pc.kind == "segment" and pc.seg == 5)) then return true end
+	end
+	return false
+end
+
 -- the wafer whose ring the lift's bridge reaches at storey s (nil for the ground)
 local function waferAt(s)
 	for L = 2, P.MAX do
@@ -1493,7 +1521,12 @@ local function buildCore(plot)
 				CFrame = frame * CFrame.new(0, G.H / 2 - G.SLAB, 0) * CFrame.Angles(0, 0, math.rad(90)), Color = Color3.fromRGB(190, 214, 226),
 				Material = Enum.Material.Glass, Transparency = 0.45, CanCollide = true, CastShadow = false }))
 		end
-		if s >= 1 then
+		--[[ NO STOP WITHOUT A FLOOR AT THE DOOR. Measured 11 Oct (level 18): the
+			lift to floor 8 put you down over nothing and you fell 13 studs to
+			floor 7, because floor 8's ring was half built and the lift lands at the
+			door in segment 5, which did not exist yet. A storey gets its stop once
+			that segment (or a whole deck) is there to stand on. ]]
+		if s >= 1 and landable(st, s) then
 			local from = (frame * CFrame.new(0, walkY - y, -(G.CORE.r + 0.6))).Position
 			bridgeBetween(st, from, door)
 			local stand = CFrame.lookAt((frame * CFrame.new(0, walkY - y + 0.1, -(G.CORE.r + 3.5))).Position,
