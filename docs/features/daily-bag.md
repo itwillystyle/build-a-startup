@@ -12,7 +12,7 @@
 - `src/ServerScriptService/Inventory.lua`: `load` :36, `save` :49, `grant` :56, `use` :74, `codeMult` :115, `scooterBonus` :119, `launchMult` :123, `onHire` :132, `onLaunch` :143, `init` :153 (makes `ItemEvent`, `UseItem`, `ItemsSeen`).
 - `src/ReplicatedStorage/Items.lua`: `LIST` :31 (ids `coffee`, `energy`, `noncompete`, `scout`, `frontpage`), `MAX` 99 :45, `encode` :48, `decode` :56, 3D icons `icon` :135.
 - `src/StarterPlayer/StarterPlayerScripts/InventoryClient.client.lua`: BAG tile :48, gui `Bag` :56, `WHERE` text :35-41, boost rows :235, `setOpen` :212.
-- Callers in `src/ServerScriptService/SiliconCore.server.lua`: `Econ.Daily` init :2714, `Econ.Inv` init :2751, `codeMult` :1325, `onHire` :1898, `launchMult` :3264, `onLaunch` :3267. Also `TalentDrop.lua:295, 892` (`scooterBonus`) and `SaveLoad.lua:395-396`.
+- Callers in `src/ServerScriptService/SiliconCore.server.lua`: `Econ.Daily` init :2727, `Econ.Inv` init :2764, `codeMult` :1338, `onHire` :1911, `launchMult` :3277, `onLaunch` :3280. Also `TalentDrop.lua:295, 892` (`scooterBonus`) and `SaveLoad.lua:395-396`.
 **State:**
 - Session: `s.dailyDay` (UTC day number), `s.streak` (0 to 7), `s.items` (id to count), `s.lastUse`, `s.gotFirstCoffee`.
 - Attributes: `DailyReady`, `DailyStreak`, `DailyLast`, `DailyAmounts`, `DailyItems` (`DailyReward.lua:58-67`). `Items` as `coffee=2;energy=1`, `ItemsNew`, `BoostCode`, `BoostEnergy`, `ArmedScout`, `ArmedPress` (`Inventory.lua:1-12`).
@@ -20,7 +20,7 @@
 - Not saved: boost timers, armed flags, `gotFirstCoffee`.
 **Drive it:**
 - `item <id>` puts one in the bag (`DevHook.lua:479`).
-- `ship` sets `s.shipped` so a claim works (`DevHook.lua:53`). `scenario hq:5` then `scenario home:1` unlocks the tile (HQ 2 and `JrRes`, `SiliconCore.server.lua:1836`).
+- `ship` sets `s.shipped` so a claim works (`DevHook.lua:53`). `scenario hq:5` then `scenario home:1` unlocks the tile (HQ 2 and `JrRes`, `SiliconCore.server.lua:1849`).
 - Nothing resets `dailyDay` yet, so a second claim the same day is not testable. `wipe` deletes the whole save (`DevHook.lua:131`), so avoid it.
 **Prove it:**
 - `tests/offline/clock.spec.luau`: daily pay is 5 percent of the goal on day 1 up to 35 percent on day 7 (:57-63).
@@ -29,7 +29,7 @@
 - No offline spec for `nextDay` or `Inventory.use`: both load game services or `Progression` at load.
 **Gotchas:**
 - The day is `os.time() / 86400`, so it turns at 00:00 UTC (`DailyReward.lua:34`). A missed day goes back to day 1. After day 7 it wraps to day 1 (:37-43).
-- Pay is capped by `Progression.capWindfall("daily", ...)` against the next goal (`DailyReward.lua:48-52`). The card numbers change when the goal moves (`SiliconCore.server.lua:1975`).
+- Pay is capped by `Progression.capWindfall("daily", ...)` against the next goal (`DailyReward.lua:48-52`). The card numbers change when the goal moves (`SiliconCore.server.lua:1988`).
 - The item grant is in a `pcall`. If it fails the claim still counts (`DailyReward.lua:82-84`).
 - Item id `coffee` is shown as "Cold Brew" in `Items.lua` and as "COFFEE" on the quick button (`InventoryClient.client.lua:284`).
 - `InventoryClient` `WHERE` text is hard coded. Keep it in step with `DailyReward.ITEMS` and `Phone.lua:348-350`.
