@@ -21,10 +21,10 @@
 - Saved: `apt`, `vipDay` (`src/ServerScriptService/SaveLoad.lua:135-136`). Load clamps `apt` to 0-3 (`SaveLoad.lua:361`).
 - Plot, temporary: `plot.spinArmed`, `spinOffer`, `spinPickIds`. The card is armed for 30 s.
 **Drive it:**
-- `dev:Invoke("scenario", p, "home:<0-3>")` runs raw `apt <n>` (`src/ServerScriptService/DevScenarios.lua:259-263`, `DevHook.lua:488`).
-- `"tp:apt"` goes to the sales desk (`DevScenarios.lua:280-281`). `"vip-chase"` sets apt 1, spawns the VIP, walks to it, picks it up (`DevScenarios.lua:243-253`).
+- `dev:Invoke("scenario", p, "home:<0-3>")` runs raw `apt <n>` (`src/ServerScriptService/DevScenarios.lua:264-268`, `DevHook.lua:488`).
+- `"tp:apt"` goes to the sales desk (`DevScenarios.lua:285-286`). `"vip-chase"` sets apt 1, spawns the VIP, walks to it, picks it up (`DevScenarios.lua:248-258`).
 - Raw `apt <0-3>`, `vip` (`DevHook.lua:493`), `vippick` (`:497`).
-- Keeper pick on the spin-off card: `spinoff` scenario needs `snapshot` first (`DevScenarios.lua:265`). No scenario sets up "more Star staff than slots" yet.
+- Keeper pick on the spin-off card: `spinoff` scenario needs `snapshot` first (`DevScenarios.lua:270`). No scenario sets up "more Star staff than slots" yet.
 **Prove it:**
 - `tests/offline/home.spec.luau`: ladder is HQ steps only, offline pay windows, keeper slot table (1/3/5), a bad save cannot mint slots, home price shares, no money bonus left.
 - `tests/offline/progression.spec.luau`: `chooseKeepers` cases (pick beats order, left or demoted staff dropped, stale ids ignored, no over-fill).
