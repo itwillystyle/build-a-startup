@@ -16,6 +16,8 @@
 #   routine.sh playtest-done "<video>" [--skip] [--note "..."]
 #   routine.sh checkup-report <report.json>   judge a game-doctor run -> DOCTOR.md
 #   routine.sh checkup-post                   post DOCTOR's summary to Discord
+#   routine.sh chase-tune [minutes]           start the chase tuner, detached (default 330 min)
+#   routine.sh chase-tune-post                post the night's tuning to Discord
 set -u
 G=/c/Users/lukex/Downloads/silicon-startup/game
 H=/c/Users/lukex/Downloads/silicon-startup/game-health
@@ -39,5 +41,8 @@ case "$cmd" in
 	playtest-done)  cd "$H" && "$L" run tools/bas playtest done "$@" ;;
 	checkup-report) fresh && cd "$H" && "$L" run tools/bas checkup report "$@" ;;
 	checkup-post)   cd "$H" && "$L" run tools/bas checkup post ;;
+	# its own hidden process, so it outlives the routine's session; output in ../tuning/
+	chase-tune)     fresh && mkdir -p "$H/../tuning" && powershell.exe -NoProfile -Command 	                  "Start-Process -WindowStyle Hidden -FilePath '$(cygpath -w "$L")' -WorkingDirectory '$(cygpath -w "$H")' -ArgumentList 'run','tools/chase_tune','--','--minutes','${1:-330}' -RedirectStandardOutput '$(cygpath -w "$H/../tuning")\chase-night.log' -RedirectStandardError '$(cygpath -w "$H/../tuning")\chase-night.err'" 	                  && echo "chase tuner started for ${1:-330} min: silicon-startup/tuning/chase-night.log" ;;
+	chase-tune-post) cd "$H" && "$L" run tools/bas tune post ;;
 	*) grep '^#   routine.sh' "$0"; exit 2 ;;
 esac
