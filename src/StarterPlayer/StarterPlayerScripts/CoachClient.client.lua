@@ -197,7 +197,7 @@ local function build(id, target, done)
 	card.Destroying:Connect(function() if arrow then arrow:Destroy() end end)
 	local sc = Instance.new("UIScale", card)
 	sc.Scale = 0.7
-	TweenService:Create(sc, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	TweenService:Create(sc, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 	UIKit.sfx("ding", 1.25, 0.4)
 end
 

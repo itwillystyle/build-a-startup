@@ -48,12 +48,19 @@ gui.DisplayOrder = 9
 gui.Parent = player:WaitForChild("PlayerGui")
 
 -- ============ RED EDGES ============
+--[[ v8 (11 Oct, UI de-slop step 4) EDGE PULSES, NOT A WASH. The audit's chase
+	frame was red from edge to edge: four bands, each 22% of the height or 16%
+	of the width, flashing to 80% during a crouch, covered most of the picture,
+	so the one moment you most need to SEE the road it was tinted. Now the
+	bands are thin (9% / 7%), they beat with the heartbeat and grow as the
+	hunter closes (fear), and the crouch is a sharper flash on the same thin
+	edges rather than a flood. ]]
 local edges = {}
 for i, spec in ipairs({
-	{ UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0.22, 0), 90 },
-	{ UDim2.new(0, 0, 0.78, 0), UDim2.new(1, 0, 0.22, 0), -90 },
-	{ UDim2.new(0, 0, 0, 0), UDim2.new(0.16, 0, 1, 0), 0 },
-	{ UDim2.new(0.84, 0, 0, 0), UDim2.new(0.16, 0, 1, 0), 180 },
+	{ UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0.09, 0), 90 },
+	{ UDim2.new(0, 0, 0.91, 0), UDim2.new(1, 0, 0.09, 0), -90 },
+	{ UDim2.new(0, 0, 0, 0), UDim2.new(0.07, 0, 1, 0), 0 },
+	{ UDim2.new(0.93, 0, 0, 0), UDim2.new(0.07, 0, 1, 0), 180 },
 }) do
 	local f = Instance.new("Frame")
 	f.Name = "Edge" .. i
@@ -66,6 +73,35 @@ for i, spec in ipairs({
 	g.Rotation = spec[3]
 	g.Transparency = NumberSequence.new(0, 1)
 	edges[i] = f
+end
+
+-- ============ THE CLOCK (v8) ============
+--[[ The offer clock used to live only over the candidate's head in the world
+	("0:12" floating by the HQ in the audit's frame), and the headhunter chip
+	that said how close it was is a TalentRow gui the chase camera hides. This
+	gui is the one the chase camera keeps, so the clock and the distance live
+	here, top centre, on the letterbox's top bar: one pill, read at a glance. ]]
+local clockPill = UIKit.card(gui, {
+	Name = "ChaseClock", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 10),
+	Size = UDim2.new(0, 0, 0, 48), AutomaticSize = Enum.AutomaticSize.X, Visible = false,
+}, { radius = UIKit.RADIUS.pill, stroke = UIKit.INK_SOFT, strokeWidth = 3 })
+local cpPad = Instance.new("UIPadding", clockPill)
+cpPad.PaddingLeft = UDim.new(0, 18); cpPad.PaddingRight = UDim.new(0, 18)
+local cpRow = Instance.new("UIListLayout", clockPill)
+cpRow.FillDirection = Enum.FillDirection.Horizontal
+cpRow.VerticalAlignment = Enum.VerticalAlignment.Center
+cpRow.Padding = UDim.new(0, 12)
+cpRow.SortOrder = Enum.SortOrder.LayoutOrder
+local clockText = UIKit.label(clockPill, "", UIKit.TYPE.headline, UIKit.INK, {
+	Name = "Time", Size = UDim2.new(0, 0, 0, 34), AutomaticSize = Enum.AutomaticSize.X, LayoutOrder = 1,
+}, UIKit.HEAD)
+local distText = UIKit.label(clockPill, "", UIKit.TYPE.body, UIKit.MUTED_TEXT, {
+	Name = "Behind", Size = UDim2.new(0, 0, 0, 22), AutomaticSize = Enum.AutomaticSize.X, LayoutOrder = 2,
+}, UIKit.HEAD)
+local clockScale = Instance.new("UIScale", clockPill)
+local function clockOf(sec)
+	sec = math.max(0, math.floor(sec))
+	return ("%d:%02d"):format(sec // 60, sec % 60)
 end
 
 -- ============ THE HEARTBEAT ============
@@ -137,7 +173,7 @@ local function closeCall()
 	})
 	local sc = Instance.new("UIScale", lbl)
 	sc.Scale = 0.3
-	TweenService:Create(sc, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	TweenService:Create(sc, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 	task.delay(1.1, function()
 		TweenService:Create(lbl, TweenInfo.new(0.4), { TextTransparency = 1 }):Play()
 		local st = lbl:FindFirstChildOfClass("UIStroke")
@@ -203,7 +239,9 @@ local row = workspace:WaitForChild("SiliconValley", 30)
 local lungeSeen = {}
 local crouchSeen = {}
 local live = {}
-RunService.RenderStepped:Connect(function()
+local beatPhase, dtFrame = 0, 0
+RunService.RenderStepped:Connect(function(dt)
+	dtFrame = dt
 	local carrying = player:GetAttribute("Carrying") ~= nil
 	local dist = player:GetAttribute("ChaseDist")
 	local chasing = carrying and dist ~= nil
@@ -219,9 +257,24 @@ RunService.RenderStepped:Connect(function()
 				and (m:GetAttribute("Windup") or m:GetAttribute("Lunging")) then tell = true end
 		end
 	end
+	-- the beat: the same rate the heartbeat sound plays at (0.9x .. 1.6x of ~1.1 Hz)
+	beatPhase = (beatPhase + (1.1 * (0.9 + 0.7 * fear)) * dtFrame) % 1
+	local beat = math.max(0, math.sin(beatPhase * math.pi * 2)) ^ 3     -- a short thump, then rest
 	for _, e in ipairs(edges) do
-		local a = tell and (0.55 + 0.25 * math.sin(os.clock() * 22)) or (fear * 0.18)
+		local a = tell and (0.42 + 0.18 * math.sin(os.clock() * 22)) or (fear * (0.12 + 0.26 * beat))
 		e.BackgroundTransparency = 1 - a
+	end
+	-- the clock: offer time left, and how far behind the hunter is
+	local deadline = player:GetAttribute("CarryDeadline")
+	clockPill.Visible = carrying and deadline ~= nil
+	if clockPill.Visible then
+		local left = deadline - workspace:GetServerTimeNow()
+		clockText.Text = clockOf(left)
+		local urgent = left <= 10
+		clockText.TextColor3 = urgent and UIKit.RED_DEEP or UIKit.INK
+		distText.Text = dist and ("%dm behind"):format(math.floor(dist / 3.5 + 0.5)) or "Get home!"
+		distText.TextColor3 = (tell or fear > 0.7) and UIKit.RED_DEEP or UIKit.MUTED_TEXT
+		clockScale.Scale = urgent and (1 + 0.05 * beat) or 1
 	end
 	if chasing then
 		if not heart.IsPlaying then heart:Play() end

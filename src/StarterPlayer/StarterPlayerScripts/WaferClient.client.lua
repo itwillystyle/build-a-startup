@@ -358,7 +358,7 @@ for i, def in ipairs(PATHS) do
 				local sc = other:FindFirstChildOfClass("UIScale")
 				if other == tile then
 					UIKit.setButtonColor(other, UIKit.light(def.col))
-					if sc then TweenService:Create(sc, TweenInfo.new(0.16, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1.08 }):Play() end
+					if sc then TweenService:Create(sc, TweenInfo.new(0.16, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Scale = 1.08 }):Play() end
 				elseif sc then
 					TweenService:Create(sc, TweenInfo.new(0.16), { Scale = 0.94 }):Play()
 					other.BackgroundTransparency = 0.4

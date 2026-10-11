@@ -394,7 +394,7 @@ local function gotCard(id, n, source, done)
 		TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top }, UIKit.BODY)
 	local sc = Instance.new("UIScale", card)
 	sc.Scale = 0.4
-	TweenService:Create(sc, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	TweenService:Create(sc, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 	UIKit.sfx("ding", 1.2)
 	task.spawn(function()
 		local t0 = os.clock()
@@ -416,7 +416,7 @@ local function gotCard(id, n, source, done)
 		local bs = railBtn:FindFirstChildOfClass("UIScale")
 		if bs then
 			bs.Scale = 1.25
-			TweenService:Create(bs, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+			TweenService:Create(bs, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 		end
 	end)
 	return card

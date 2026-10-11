@@ -235,7 +235,7 @@ if lostRemote then
 				lostCard.Position = UDim2.new(0.5, 0, 0, Notify.topY(96) - 36)
 				lostCard.Size = UDim2.new(0, centreWidth(440, lostCard), 0, 74)
 				lostCard.Visible = true
-				TweenService:Create(lostCard, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+				TweenService:Create(lostCard, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
 					{ Position = UDim2.new(lostCard.Position.X.Scale, lostCard.Position.X.Offset, 0, Notify.topY(96)) }):Play()
 				Notify.followTop(lostCard, 96)
 				UIKit.sfx("thunk", 0.55, 0.8)
@@ -272,6 +272,8 @@ RunService.RenderStepped:Connect(function(dt)
 			local carrier = Players:GetPlayerByUserId(m:GetAttribute("CarriedBy") or 0)
 			local deadline = carrier and carrier:GetAttribute("CarryDeadline")
 			t.Text = deadline and clock(deadline - serverNow) or ""
+			-- v8: your own carry's clock is in the HUD (ChaseFx); the world one is for everyone else
+			if t.Parent then t.Parent.Enabled = carrier ~= player end
 		end
 	end
 	if danger.Visible then dangerScale.Scale = 1 + (wasClose and 0.04 * math.sin(os.clock() * 14) or 0) end
@@ -297,7 +299,9 @@ RunService.RenderStepped:Connect(function(dt)
 				danger.Position = UDim2.new(0.5, 0, 0, Notify.topY(96))   -- v4.9: clear the quest card
 				Notify.followTop(danger, 96)
 			end
-			danger.Visible = true
+			-- v8: the chip stays hidden: ChaseFx's clock pill (kept on screen by the chase
+			-- camera, which hides this gui) carries the distance now; the lane is still held
+			danger.Visible = false
 			setDanger(true)
 			local close = dashing or nearest < 20
 			if close and not wasClose then UIKit.sfx("thunk", 1.4, 0.5) end

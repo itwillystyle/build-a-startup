@@ -583,7 +583,7 @@ local function readObjective()
 			ss.Name = "StampScale"
 			ss.Parent = stamp
 			ss.Scale = 2.2
-			TweenService:Create(ss, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+			TweenService:Create(ss, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()   -- reward: the DONE stamp on a finished goal
 			confetti()
 			UIKit.sfx("ding", 1.1)
 			task.delay(0.9, function()
@@ -648,7 +648,7 @@ local function inCar()
 end
 local function popPin()
 	pinScale.Scale = 1.5
-	tween(pinScale, 0.4, { Scale = 1 }, Enum.EasingStyle.Back)
+	tween(pinScale, 0.4, { Scale = 1 }, Enum.EasingStyle.Quint)
 end
 local function lookAtGoal()
 	if looking then return end

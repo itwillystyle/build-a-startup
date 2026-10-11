@@ -128,7 +128,7 @@ if riseRemote then
 		if standingIn(parts) then return end      -- never sweep a building through the player inside it
 		drop = tonumber(drop) or 10
 		seconds = tonumber(seconds) or 0.8
-		local info = TweenInfo.new(seconds, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+		local info = TweenInfo.new(seconds, Enum.EasingStyle.Back, Enum.EasingDirection.Out)   -- reward: the building you paid for rises
 		for _, p in ipairs(parts) do
 			if typeof(p) == "Instance" and p:IsA("BasePart") and p.Parent then
 				local final = p.CFrame

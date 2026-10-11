@@ -33,6 +33,7 @@ local player = Players.LocalPlayer
 pcall(function() player:WaitForChild("PlayerGui").ScreenOrientation = Enum.ScreenOrientation.LandscapeSensor end)
 local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
 local Notify = require(ReplicatedStorage:WaitForChild("Notify"))
+local Moment = require(ReplicatedStorage:WaitForChild("Moment"))
 local remotes = ReplicatedStorage:WaitForChild("SVRemotes")
 
 -- hide the default leaderboard (retry: CoreGui can refuse for the first frames)
@@ -355,7 +356,7 @@ local function setLaunch(o)
 		if not was then
 			UIKit.sfx("ding", 0.9)
 			local sc = codeBtn:FindFirstChildOfClass("UIScale")
-			if sc then sc.Scale = 1.15; tween(sc, 0.35, { Scale = 1 }, Enum.EasingStyle.Back) end
+			if sc then sc.Scale = 1.15; tween(sc, 0.35, { Scale = 1 }, Enum.EasingStyle.Quint) end
 		end
 	else
 		UIKit.setButtonColor(codeBtn, UIKit.GREEN)
@@ -507,7 +508,7 @@ end)
 
 local function bumpCash(k)
 	pillScale.Scale = k or 1.1
-	tween(pillScale, 0.3, { Scale = 1 }, Enum.EasingStyle.Back)
+	tween(pillScale, 0.3, { Scale = 1 }, Enum.EasingStyle.Quint)
 end
 
 -- a gold "+$X" under the cash
@@ -518,7 +519,7 @@ local function popUnderCash(text, color, hold)
 	})
 	local sc = Instance.new("UIScale", l)
 	sc.Scale = 0.4
-	tween(sc, 0.35, { Scale = 1 }, Enum.EasingStyle.Back)
+	tween(sc, 0.35, { Scale = 1 }, Enum.EasingStyle.Quint)
 	task.delay(hold or 1.2, function()
 		-- fade in place: rising put it over the income line, and a UIStroke
 		-- does not fade with TextTransparency (it left a black ghost of the number)
@@ -613,6 +614,10 @@ local function hqBanner(e, done)
 	local name = UIKit.outlined(card, (e.name or "NEW HQ") .. "!", UIKit.TYPE.display, UIKit.GOLD, {
 		Position = UDim2.new(0, 0, 0, 32 - lift + (isLevel and 4 or 0)), Size = UDim2.new(1, 0, 0, 44), TextXAlignment = Enum.TextXAlignment.Center,
 	})
+	-- the number punches in as the card lands (Moment: hit, enter, payoff)
+	local punch = Instance.new("UIScale", name)
+	punch.Scale = 0
+	task.delay(0.3, function() Moment.enter(punch, 1.5, 0.35) end)
 	-- v4.3: the ONE new thing this level hands you (Journey.LADDER), then what to do with it
 	if e.headline then
 		local pill = Instance.new("Frame")
@@ -662,26 +667,19 @@ local function hqBanner(e, done)
 		UIKit.label(c, (text:upper():gsub("X(%d)", "x%1")), 18, money and UIKit.GREEN_DEEP or UIKit.CARD_TEXT, { Size = UDim2.new(0, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.X }, UIKit.HEAD)
 		local sc = Instance.new("UIScale", c)
 		sc.Scale = 0
-		task.delay(0.35 + i * 0.15, function() tween(sc, 0.3, { Scale = 1 }, Enum.EasingStyle.Back) end)
+		task.delay(0.55 + i * 0.15, function() tween(sc, 0.3, { Scale = 1 }, Enum.EasingStyle.Back) end)   -- reward
 	end
-	tween(card, 0.45, { Position = UDim2.new(0, x, 0, Notify.topY(100)) }, Enum.EasingStyle.Back)
+	tween(card, 0.45, { Position = UDim2.new(0, x, 0, Notify.topY(100)) }, Enum.EasingStyle.Back)   -- reward
 	Notify.followTop(card, 100)
-	-- confetti only when the HQ itself changed (e.big); a building level on the
-	-- way is a smaller moment (v8: it rained over the whole screen every time)
-	local colours = { UIKit.GOLD, UIKit.GREEN, UIKit.BLUE, UIKit.RED, UIKit.ORANGE }
-	for k = 1, (e.big == false) and 0 or 40 do
-		local p = Instance.new("Frame")
-		p.BorderSizePixel = 0
-		p.BackgroundColor3 = colours[(k % #colours) + 1]
-		p.Size = UDim2.new(0, math.random(8, 14), 0, math.random(12, 18))
-		p.Rotation = math.random(0, 360)
-		p.Position = UDim2.new(math.random(), 0, 0, -20)
-		p.Parent = fx
-		local t = 1.3 + math.random() * 0.7
-		tween(p, t, { Position = UDim2.new(p.Position.X.Scale + (math.random() - 0.5) * 0.2, 0, 1, 20), Rotation = p.Rotation + math.random(-360, 360) },
-			Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-		task.delay(t, function() p:Destroy() end)
-	end
+	-- v8: a ring opens behind it as it lands; confetti bursts from the card, and
+	-- only when the HQ itself changed (e.big). It used to rain 40 pieces over the
+	-- whole screen for every level.
+	task.delay(0.42, function()          -- as the card's drop (0.45 s) lands
+		if not card.Parent then return end
+		local at = Moment.centreOf(card)
+		Moment.ring(fx, at, UIKit.GOLD, w * scale * 1.1)
+		if e.big ~= false then Moment.burst(fx, at, 36, w * scale * 0.7) end
+	end)
 	-- 4.4 s to read it (the biggest moment in the game), or tap it away sooner
 	local gone = false
 	local function leave()
@@ -865,12 +863,19 @@ local function spinCeremony(e, done)
 	local title = UIKit.outlined(fx, ("SPIN-OFF %s!"):format(ROMAN[(e.number or 1) + 1] or tostring(e.number)), UIKit.TYPE.money, UIKit.ORANGE, {
 		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.36, 0), Size = UDim2.new(1, 0, 0, 64), TextXAlignment = Enum.TextXAlignment.Center,
 	})
-	local sub = UIKit.outlined(fx, ("Money x%s forever"):format((string.format("%.1f", e.mult or 1)):gsub("%.0$", "")), 30, UIKit.GOLD, {
+	local sub = UIKit.outlined(fx, "", UIKit.TYPE.headline, UIKit.GOLD, {
 		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.36, 56), Size = UDim2.new(1, 0, 0, 36), TextXAlignment = Enum.TextXAlignment.Center,
 	})
 	local sc = Instance.new("UIScale", title)
-	sc.Scale = 0.3
-	tween(sc, 0.5, { Scale = 1 }, Enum.EasingStyle.Back)
+	Moment.enter(sc, 0.3, 0.5)
+	-- the payoff counts: the multiplier climbs from where you were to where you are
+	local function m(v) return (string.format("%.1f", v)):gsub("%.0$", "") end
+	task.delay(0.35, function()
+		local at = Moment.centreOf(title)
+		Moment.ring(fx, at, UIKit.ORANGE, 420)
+		Moment.burst(fx, at, 40, 300)
+		Moment.countUp(sub, 1, e.mult or 1, function(v) return ("Money x%s forever"):format(m(v)) end, 1.1)
+	end)
 	task.delay(3.2, function()
 		fadeText(title, 0.5); fadeText(sub, 0.5)
 		task.delay(0.6, function()
@@ -982,7 +987,7 @@ task.spawn(function()
 		}, { textSize = 24 })
 		local sc = Instance.new("UIScale", card)
 		sc.Scale = 0.5
-		tween(sc, 0.35, { Scale = 1 }, Enum.EasingStyle.Back)
+		tween(sc, 0.35, { Scale = 1 }, Enum.EasingStyle.Quint)
 		player:SetAttribute("ModalOpen", true)     -- the bottom row steps aside: COLLECT is the one loud thing
 		card.Destroying:Connect(function() player:SetAttribute("ModalOpen", nil) end)
 		local done = false
