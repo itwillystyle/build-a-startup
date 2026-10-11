@@ -936,7 +936,7 @@ local function showBannerNow(th, text, done)
 	bnText.Text = text or ""
 	centreOn(banner, 380, 280, 78, -90)
 	banner.Visible = true
-	TweenService:Create(banner, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = atY(banner, 96) }):Play()
+	TweenService:Create(banner, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Position = atY(banner, 96) }):Play()
 	UIKit.sfx("ding", 1.45, 0.45)
 	task.delay(0.16, function() UIKit.sfx("ding", 1.7, 0.4) end)
 	task.delay(7, function()

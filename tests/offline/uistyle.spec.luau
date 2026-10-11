@@ -20,7 +20,7 @@ local T = {}
 local function test(name, fn) table.insert(T, { name = name, fn = fn }) end
 
 local DIR = "src/StarterPlayer/StarterPlayerScripts"
-local EXTRA = { "src/ReplicatedStorage/Notify.lua", "src/ReplicatedStorage/Cine.lua" }
+local EXTRA = { "src/ReplicatedStorage/Notify.lua", "src/ReplicatedStorage/Cine.lua", "src/ReplicatedStorage/Moment.lua" }
 -- client scripts that draw only the 3D world (or are Studio test harnesses), no UI
 local NOT_UI = {
 	LifeClient = true, TrafficClient = true, TreeCullClient = true, SkyClient = true, StaffAnimClient = true,
@@ -103,6 +103,26 @@ test("corners come from UIKit.RADIUS (or are pills), never typed pixels", functi
 		local px = code:match("CornerRadius%s*=%s*UDim%.new%(%s*0%s*,%s*(%d+)%s*%)") or code:match("[{,]%s*radius%s*=%s*(%d+)")
 		return px and ("corner " .. px .. " px typed in") or nil
 	end)
+	assert(#bad == 0, report(bad))
+end)
+
+--[[ v8 (11 Oct, step 4) MOTION. DESIGN.md: overshoot is for rewards. On 11 Oct 24 tweens
+	used EasingStyle.Back, most on routine things (a phone banner, the cash bump, a coach tip),
+	so a paycheck tick moved like a level-up and nothing felt bigger than anything else. Now
+	Back / Elastic / Bounce is allowed only on a line that says "reward" (the four Moment
+	sequences, the DONE stamp, a building rising); everything else eases out (Quint). ]]
+test("overshoot (Back, Elastic, Bounce) only on a line marked as a reward", function()
+	local bad = {}
+	local all = files()
+	table.insert(all, { path = "src/ReplicatedStorage/UIKit.lua", name = "UIKit" })   -- its buttons move too
+	for _, f in all do
+		for _, l in codeLines(fs.readFile(f.path)) do
+			local style = l.code:match("EasingStyle%.(Back)") or l.code:match("EasingStyle%.(Elastic)") or l.code:match("EasingStyle%.(Bounce)")
+			if style and not l.comment:find("reward", 1, true) then
+				table.insert(bad, ("%s:%d %s on a routine tween (use Quint, or mark it '-- reward')"):format(f.name, l.n, style))
+			end
+		end
+	end
 	assert(#bad == 0, report(bad))
 end)
 

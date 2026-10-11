@@ -184,7 +184,7 @@ local function showPicker()
 	panel.AnchorPoint = anchor
 	panel.Visible = true
 	panel.Position = pos + UDim2.new(0, 0, 0, -30)
-	TweenService:Create(panel, TweenInfo.new(0.25, Enum.EasingStyle.Back), { Position = pos }):Play()
+	TweenService:Create(panel, TweenInfo.new(0.25, Enum.EasingStyle.Quint), { Position = pos }):Play()
 end
 -- ============ LAUNCH (v5: moved) ============
 --[[ The v3.1 LAUNCH card lived at the top of the right column. v5 moved

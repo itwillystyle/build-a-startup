@@ -232,7 +232,7 @@ function UIKit.button(parent, text, color, props, opts)
 	local function iconTip(down)
 		local ic = b:FindFirstChild("Icon")
 		if ic and ic:IsA("ImageLabel") then
-			TS:Create(ic, TweenInfo.new(down and 0.07 or 0.3, down and Enum.EasingStyle.Quad or Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+			TS:Create(ic, TweenInfo.new(down and 0.07 or 0.3, down and Enum.EasingStyle.Quad or Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
 				{ Rotation = down and -9 or 0 }):Play()
 		end
 	end
@@ -1081,7 +1081,7 @@ function UIKit.popReward(parent, text, at, color)
 	local sc = Instance.new("UIScale")
 	sc.Scale = 0.3
 	sc.Parent = l
-	TweenService:Create(sc, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	TweenService:Create(sc, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 	-- coins burst out of the same point
 	for k = 1, 8 do
 		local c = Instance.new("Frame")
@@ -1506,8 +1506,15 @@ end
 
 -- A full-screen child (letterbox bars, fades, the touch reticle layer) must NOT
 -- scale: shrinking a 1x1 black frame leaves the world showing around the edges.
+-- v8 (11 Oct): or one that spans the whole width or height, a letterbox bar or an
+-- edge band. Measured: the cutscene's letterbox bars ended at 70% of the screen
+-- width (750 of 1074 px) and the chase's red edges were cut short the same way.
+-- A band is sized in scale only (no pixel offsets): the rail and the right column
+-- are full height too, but in pixels, and they still scale.
 local function fullScreen(o)
-	return o.Size.Width.Scale >= 0.9 and o.Size.Height.Scale >= 0.9
+	local w, h = o.Size.Width.Scale, o.Size.Height.Scale
+	local band = o.Size.Width.Offset == 0 and o.Size.Height.Offset == 0 and (w >= 0.99 or h >= 0.99)
+	return (w >= 0.9 and h >= 0.9) or band
 end
 
 local function applyTo(child, s)

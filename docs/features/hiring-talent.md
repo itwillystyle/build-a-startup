@@ -4,7 +4,7 @@
 1. Ship the first app, then step on the HIRE pad: "HIRE YOUR FIRST INTERN FREE" (`src/ServerScriptService/SiliconCore.server.lua:1539`, pad handler :2897-2905).
 2. After that the pad reads "HIRING HAPPENS ON THE STREET" (:1523). Walk out to a candidate and use the "Recruit" prompt (`src/ServerScriptService/TalentDrop.lua:317-328`). Tiers: WALK-IN, SKILLED, STAR (HQ 2), GENIUS (HQ 3) (`RoomEconomy.lua:353-358`). The WALK-IN stands on your drive. SKILLED, STAR and GENIUS stand at a new spot each restock, 140-190, 210-270 and 290-370 walking studs from your HQ doorstep (`TalentDrop.lua:159-188`, `ChaseRules.lua:85-89`).
 3. Carry them home before the timer ends while a headhunter chases (TalentDrop; see chase.md). At your doorstep (within 14 studs, `Chase.DELIVER_R`) `stepCarry` calls `hire(player, plot, {floor, fee, luck, kind})` (`TalentDrop.lua:675-683`).
-4. Skilled or better: the TalentReveal card, a screen glow and a halo on Star and up. A new Index entry flies to the INDEX button (`TalentRevealClient.client.lua:257,191`).
+4. Skilled or better: the TalentReveal card, a screen glow and a halo on Star and up. A new Index entry flies to the INDEX button (`TalentRevealClient.client.lua:258,192`).
 5. INDEX button on the right rail opens the grid. Q closes it (`IndexClient.client.lua:273-287`).
 **Files:**
 - `src/ServerScriptService/SiliconCore.server.lua`: `hire` :1884-1982, `spawnStaff` :1484, `assignDesks` :1448, `updateHirePad` :1516, `CFG.TALENT.roll` :295, `talentMultOf` :303, remote `TalentReveal` :548, `Econ.publishIndex` :2690, `IndexSeen` :2696.
@@ -12,7 +12,7 @@
 - `src/ServerScriptService/CoreConfig.lua`: `TALENT` odds and multipliers :80-86, `TIER_RATE`/`TIER_TITLE` :77-78, `PROMOTE_EVERY` :79, `ROLE_ORDER` :27.
 - `src/ServerScriptService/RoomEconomy.lua`: `FIT` :64, `TIERS` :353, `INDEX_*` :383-385, `indexLines` :386, `indexMult` :401.
 - `src/StarterPlayer/StarterPlayerScripts/StaffAnimClient.client.lua`: `add` :156, `wander` :220, Heartbeat loop :348. Typing, glances, wander, cheer, hunter anims.
-- `src/StarterPlayer/StarterPlayerScripts/TalentRevealClient.client.lua`: `showCard` :257, listener :300.
+- `src/StarterPlayer/StarterPlayerScripts/TalentRevealClient.client.lua`: `showCard` :258, listener :310.
 - `src/StarterPlayer/StarterPlayerScripts/IndexClient.client.lua`: `refresh` :229, `setOpen` :273.
 **State:**
 - `s.rigs[i] = { rig, hum, tier, seatedTime, talent, who = {role, seed}, seated, room, fit, eff, seg, dept, home }` (`SiliconCore.server.lua:1496-1497`, `assignDesks` :1465-1477). Also `s.staff`, `s.hireCost`, `s.index` (set of `"role:talent"`), `s.alumni`.
@@ -31,15 +31,15 @@
 - Funnel step `first_hire` (`SiliconCore.server.lua:1907`).
 **Gotchas:**
 - The pad refuses a second hire: "Recruit on the street" (:1870-1873). "No desks free" when `s.staff >= capacityOf` (:1875).
-- Talent is `max(roll, recruit.floor)`. The tier they wore is a floor (:1888-1889). The card says "Signed from the street" for a floor, "Lucky! 1 in N" for a roll above it (`TalentRevealClient.client.lua:271`).
+- Talent is `max(roll, recruit.floor)`. The tier they wore is a floor (:1888-1889). The card says "Signed from the street" for a floor, "Lucky! 1 in N" for a roll above it (`TalentRevealClient.client.lua:272`).
 - Draws run rarest first so a Unicorn is exactly 1 in 1491 (:290). A Scout Report can raise talent after the roll (:1891).
 - `recruit` refuses unless you own the plot, HQ meets the tier, no carry is active, you shipped, staff >= 1, a seat is free and cash >= fee (`TalentDrop.lua:591-614`). It has no distance check, so raw SVDev `recruit` starts the hunter far from you (`DevScenarios.lua:233-234`).
 - Genius floor sets `s.jr.genius` for the HQ 3 task (:1890).
-- The reveal waits for `WelcomeDone` up to 25 s (`TalentRevealClient.client.lua:301-304`). Right after a rejoin it can lag.
+- The reveal waits for `WelcomeDone` up to 25 s (`TalentRevealClient.client.lua:311-314`). Right after a rejoin it can lag.
 - Index keys are `role:1-5`. Load keeps only keys that match `^(%a+):(%d)$` and a known role (`SaveLoad.lua:316-318`). Spin-off does not clear `s.index`.
 - A person's look comes from a seed. New hires use their staff number unless `who` is given (`SiliconCore.server.lua:1487-1491`), so a rejoin keeps faces only through `people[]`.
 - Avatar templates build at server start. A hire in the first seconds waits up to 12 s, then falls back to the block rig (`StaffRig.lua:439-447,505-515`).
 - Do not move motion back to the server. The header measured 246.5 KB/s per player when it was there (`StaffRig.lua:29-33`).
 - A kept spin-off hire returns as an Intern (`spawnStaff` sets `tier = 1`, :1477).
 - `StaffAnimClient.client.lua:47` says the run animation id is empty. `HUNTER_ANIM.run` is set (:52-53). The comment is stale.
-**Last verified:** 2026-10-11 34acebb
+**Last verified:** 2026-10-11 c9687dd

@@ -13,6 +13,7 @@ local SoundService = game:GetService("SoundService")
 local player = Players.LocalPlayer
 local UIKit = require(RS:WaitForChild("UIKit"))
 local Notify = require(RS:WaitForChild("Notify"))
+local Moment = require(RS:WaitForChild("Moment"))
 local remotes = RS:WaitForChild("SVRemotes")
 local goRemote = remotes:WaitForChild("GoPublic")
 local celebrate = remotes:WaitForChild("Celebrate", 30)
@@ -101,8 +102,7 @@ local function moment(e, done)
 	local st = card:FindFirstChildOfClass("UIStroke")
 	if st then st.Color = UIKit.GOLD end
 	local sc = Instance.new("UIScale", card)
-	sc.Scale = 0.4
-	TweenService:Create(sc, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	Moment.enter(sc, 0.4, 0.45)
 	UIKit.label(card, "DING DING DING!", UIKit.TYPE.label, UIKit.CARD_MUTED, { Position = UDim2.new(0, 0, 0, 18), Size = UDim2.new(1, 0, 0, 22),
 		TextXAlignment = Enum.TextXAlignment.Center }, UIKit.HEAD)
 	UIKit.label(card, ("%s IS PUBLIC!"):format(string.upper(e.name or "YOUR COMPANY")), UIKit.TYPE.headline, UIKit.INK, {
@@ -117,19 +117,29 @@ local function moment(e, done)
 	Instance.new("UICorner", tick).CornerRadius = UDim.new(1, 0)
 	UIKit.label(tick, tostring(e.ticker or "?"), UIKit.TYPE.title, UIKit.GOLD, { Size = UDim2.fromScale(1, 1),
 		TextXAlignment = Enum.TextXAlignment.Center }, UIKit.HEAD)
-	UIKit.outlined(card, ("+%s raised"):format(UIKit.money(e.raise or 0)), UIKit.TYPE.headline, UIKit.MONEY, {
+	local raised = UIKit.outlined(card, "", UIKit.TYPE.headline, UIKit.MONEY, {
 		Position = UDim2.new(0, 0, 0, 146), Size = UDim2.new(1, 0, 0, 38), TextXAlignment = Enum.TextXAlignment.Center })
+	-- v8 (Moment): the bell rings, a ring opens, the money counts up, then lands in your cash
+	task.delay(0.4, function()
+		local at = Moment.centreOf(card)
+		Moment.ring(gui, at, UIKit.GOLD, 560)
+		Moment.burst(gui, at, 40, 340)
+		Moment.countUp(raised, 0, e.raise or 0, function(v) return ("+%s raised"):format(UIKit.money(v)) end, 1.4)
+	end)
 	UIKit.label(card, "Next: SPIN OFF a new company for more money, forever.", 16, UIKit.INK_SOFT, {
 		Position = UDim2.new(0, 20, 1, -46), Size = UDim2.new(1, -40, 0, 36), TextWrapped = true,
 		TextXAlignment = Enum.TextXAlignment.Center }, UIKit.BODY)
+	-- once per company, so this one also rains over the whole screen (once: the
+	-- second wave was a repeat of the first)
 	confetti(gui)
-	task.delay(1.2, function() confetti(gui) end)
 	UIKit.sfx("levelup", 1, 0.6)
 	task.delay(5.5, function()
+		local from = Moment.centreOf(raised)
 		TweenService:Create(shade, TweenInfo.new(0.35), { BackgroundTransparency = 1 }):Play()
 		TweenService:Create(sc, TweenInfo.new(0.3), { Scale = 0.8 }):Play()
 		task.delay(0.36, function()
 			shade:Destroy()
+			Moment.landMoney(from, 16)     -- the money goes where it lives
 			done()
 		end)
 	end)

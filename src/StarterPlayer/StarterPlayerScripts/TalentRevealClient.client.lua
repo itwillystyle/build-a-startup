@@ -24,6 +24,7 @@ local TweenService = game:GetService("TweenService")
 local player = Players.LocalPlayer
 local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
 local Notify = require(ReplicatedStorage:WaitForChild("Notify"))
+local Moment = require(ReplicatedStorage:WaitForChild("Moment"))
 local remote = ReplicatedStorage:WaitForChild("SVRemotes"):WaitForChild("TalentReveal", 30)
 if not remote then return end
 
@@ -223,7 +224,7 @@ local function flyToIndex(color, roleKey)
 	local sc = target:FindFirstChildOfClass("UIScale")
 	if sc then
 		sc.Scale = 1.25
-		TweenService:Create(sc, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+		TweenService:Create(sc, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()   -- reward: the hire lands in the Index
 	end
 end
 
@@ -283,13 +284,22 @@ local function showCard(d, done)
 	player:SetAttribute("RevealShowing", true)       -- client-local: PhoneClient moves its banner below this card
 	player:SetAttribute("Celebrating", true)
 	card.Position = UDim2.new(0, cardX, 0, -CARD_H - 20)
-	TweenService:Create(card, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+	TweenService:Create(card, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out),   -- reward
 		{ Position = UDim2.new(0, cardX, 0, Notify.topY(TOP)) }):Play()
 	Notify.followTop(card, TOP)        -- the quest card above can grow while this is up
 	titleScale.Scale = 0.3
-	TweenService:Create(titleScale, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	TweenService:Create(titleScale, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()   -- reward
 	UIKit.sfx(SOUND[tier] or "ding", tier == 2 and 1.15 or 1)
 	glow(col, ({ [2] = 0.35, [3] = 0.5, [4] = 0.65, [5] = 0.8 })[tier] or 0.4, 0.8 + tier * 0.3)
+	-- v8 (Moment): a ring in the hire's tier colour opens behind the portrait as the
+	-- card lands; a GENIUS or a UNICORN (tier 4+) also bursts. A SKILLED does not:
+	-- the size of the moment says how rare the hire is.
+	task.delay(0.38, function()
+		if serial ~= mine or not card.Visible then return end
+		local at = Moment.centreOf(disc)
+		Moment.ring(gui, at, col, 120 + tier * 30)
+		if tier >= 4 then Moment.burst(gui, at, 12 + tier * 4, 160 + tier * 20) end
+	end)
 
 	if d.newIndex then
 		task.delay(1.2, function() if serial == mine then flyToIndex(col, roleKey) end end)

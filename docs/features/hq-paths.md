@@ -45,4 +45,4 @@
 - `LiftGo` needs you within 16 studs of a stop, blocks while Carrying, has a 1.2 s cooldown and stands you up from a car first (`HQFloors.lua:96-128`).
 - In Wafers mode `buildShell` runs only for the level 1 garage (`SiliconCore.server.lua:1071`). By the code, `skinHQ` only skins the level 1 garage and the V2 meshes are never used while Wafers is on (`SaveLoad.lua:261-263`, `SiliconCore.server.lua:2189`).
 - Rocket position uses `CFG.HQ_LEVELS[stage].h`, not the tower (`SiliconCore.server.lua:3295-3298`). Unclear if it matches a tall tower's roof.
-**Last verified:** 2026-10-11 34acebb
+**Last verified:** 2026-10-11 c9687dd
