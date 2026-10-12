@@ -121,6 +121,18 @@ C.BOOST = { add = 8, time = 1.0, cooldown = 5 }
 -- speeds as multiples of the tier's REFERENCE speed: the scooter you have the
 -- day the tier unlocks (SKILLED at HQ 1 = 16, STAR at HQ 2 = 17, GENIUS at HQ 3
 -- = 18). A faster scooter later (HQ levels, an Energy Drink) is a real edge.
+--[[ v8 (12 Oct): the genius row's lunge, range and every are the overnight tuner's
+	(tools/chase_tune, run of 11 Oct). Steering on a genius's tell escaped 7% at
+	18 studs/s before (the tell barely helped); 56% now at every scooter speed, the
+	same as boosting. It lunges from closer (13 -> 10.2) and less often (every
+	6.5 -> 7.5 s), and sits within 12 studs of a good player 78% of the run (was 41%):
+	more tension, less punishment. Holding W or spamming BOOST still loses (0%).
+	The tuner's star and timing changes were NOT taken: at 20 studs/s they let a
+	W-holder escape a star 100% (was 5%), a gap in its judge, now closed (the star's
+	exploit ceilings). The design spec's 80% is out of reach for a player who reads
+	75% of tells while a chase holds about two lunges (0.75 x 0.75 = 56%): a design
+	call, not a tuning one. Live (doctor, 12 Oct): all checks pass; camera cuts 0.44
+	/ 0.32 / 0.22 per s (skilled / star / genius), was 0.66-1.28 on the genius. ]]
 C.TIERS = {
 	-- tuned in the simulation (tools/chase_sim): see the header for what each row does
 	-- stalk: its speed inside the band, as a multiple of YOUR scooter (see v4.4)
@@ -128,7 +140,7 @@ C.TIERS = {
 	-- STAR punishes a straight line; GENIUS wants nearly every tell read
 	skilled = { ref = 16, sprint = 1.15, stalk = 1.05, jog = 0.94, lunge = 0.95, range = 8, every = 7.0, hunters = 1 },   -- v4.6 lunge 1.10 -> 0.95 (swept: straight runners got away again)
 	star = { ref = 17, sprint = 1.20, stalk = 1.02, jog = 0.97, lunge = 1.50, range = 10, every = 5.5, hunters = 1 },
-	genius = { ref = 18, sprint = 1.25, stalk = 1.10, jog = 0.97, lunge = 1.90, range = 13, every = 6.5, hunters = 1 },   -- v4.6 every 5.0 -> 6.5 (swept)
+	genius = { ref = 18, sprint = 1.25, stalk = 1.10, jog = 0.97, lunge = 1.84, range = 10.2, every = 7.5, hunters = 1 },   -- v4.6 every 5.0 -> 6.5 (swept); v8 tuned (12 Oct)
 }
 C.VIP_HUNTERS = 2
 C.SECOND = { jog = 0.86, lunge = 1.35 }   -- the second VIP hunter is a junior: it herds, the first one hunts

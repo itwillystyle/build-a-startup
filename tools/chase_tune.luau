@@ -143,7 +143,7 @@ w("| Target | Today | Tuned | Wanted |")
 w("|---|---|---|---|")
 for i, r in b0Rows do
 	local a = b1Rows[i]
-	w(("| %s | %.0f%% | %.0f%% | %.0f%%+ |"):format(r.what, r.value * 100, a.value * 100, r.target * 100))
+	w(("| %s | %.0f%% | %.0f%% | %.0f%%%s |"):format(r.what, r.value * 100, a.value * 100, r.target * 100, r.most and " or less" or "+"))
 end
 w(("| Camera cuts per second (simulated) | %.2f | %.2f | 0.50 or less |"):format(b0Cuts, b1Cuts))
 w("")
@@ -172,7 +172,7 @@ table.insert(short, ("**Chase tuning, %s**: %s"):format(os.date("%a %d %b"),
 	improved and ("better, score %.0f -> %.0f"):format(b0Score, b1Score) or "no tuning worth landing tonight"))
 for i, r in b0Rows do
 	local a = b1Rows[i]
-	table.insert(short, ("- %s: %.0f%% -> %.0f%% (wants %.0f%%+)"):format(r.what, r.value * 100, a.value * 100, r.target * 100))
+	table.insert(short, ("- %s: %.0f%% -> %.0f%% (wants %.0f%%%s)"):format(r.what, r.value * 100, a.value * 100, r.target * 100, r.most and " or less" or "+"))
 end
 table.insert(short, ("- camera cuts/s (simulated): %.2f -> %.2f (wants 0.5 or less)"):format(b0Cuts, b1Cuts))
 table.insert(short, ("%d tries, %d edits. Full read: silicon-startup/tuning/CHASE-TUNE.md. To land it: \"apply the chase tuning\"."):format(evals, #edits))
