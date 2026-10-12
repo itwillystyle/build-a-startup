@@ -56,4 +56,10 @@ test("the knobs it may turn are read live (none baked in when the module loads)"
 	for _, d in L.PARAMS do assert(d.key ~= "BEHIND_DEG", "BEHIND_DEG cannot be tuned at runtime") end
 end)
 
+test("every tier is judged at a fast scooter too: the star's exploit ceilings are in the score", function()
+	local seen = {}
+	for _, t in L.TARGETS do if t[5] == "most" then seen[t[2] .. "@" .. t[3] .. ":" .. t[4]] = true end end
+	assert(seen["star@20:straight"] and seen["star@20:spammer"], "the star at 20 studs/s must be scored (night of 11 Oct: 100% escapes)")
+end)
+
 return T

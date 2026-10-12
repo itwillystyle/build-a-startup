@@ -166,6 +166,13 @@ L.TARGETS = {
 	{ "star @17 steers on the tell", "star", 17, "dodger", "escape", 0.85 },
 	{ "star @17 boosts on the tell", "star", 17, "good", "escape", 0.85 },
 	{ "genius @18 stays scary (time within 12 studs, good player)", "genius", 18, "good", "danger", 0.30 },
+	--[[ v2 (12 Oct): ceilings, so a gain on one tier cannot be bought by reopening an
+		exploit on another. The first night's winner left the star at 17 studs/s alone
+		(the only speed scored) and at 20 let a W-holder escape 100% (was 5%) and a
+		BOOST spammer 100% (was 26%); chase.spec only checks the star at 17. "most" =
+		escape at most this; a shortfall here counts three times. ]]
+	{ "star @20 holding W (the exploit)", "star", 20, "straight", "most", 0.30 },
+	{ "star @20 spamming BOOST (the exploit)", "star", 20, "spammer", "most", 0.40 },
 }
 L.CUTS_MAX = 0.5
 --[[ The doctor's live robot holds W on a genius run and is caught in about 3 s; on
@@ -179,10 +186,15 @@ function L.measure(n, cutN)
 	local rows, score = {}, 0
 	for _, t in L.TARGETS do
 		local esc, _, danger = M.rate(R, rules(t[2], t[3]), opts(t[2], t[4], t[3]), n)
-		local v = t[5] == "escape" and esc or danger
-		local short = math.max(0, t[6] - v) * 100            -- percentage points under target
+		local v = t[5] == "danger" and danger or esc
+		local short
+		if t[5] == "most" then
+			short = math.max(0, v - t[6]) * 100 * 3          -- points OVER the ceiling, weighted: an exploit reopened
+		else
+			short = math.max(0, t[6] - v) * 100              -- percentage points under target
+		end
 		score += short * short
-		table.insert(rows, { what = t[1], value = v, target = t[6], short = short })
+		table.insert(rows, { what = t[1], value = v, target = t[6], short = short, most = t[5] == "most" })
 	end
 	local cps, nRuns = 0, 0
 	for _, c in L.CUT_RUNS do
