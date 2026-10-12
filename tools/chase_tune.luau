@@ -96,11 +96,21 @@ local b0Score, b0Rows, b0Cuts = L.measure(FULL_N, FULL_CUTS)
 -- the cleanup: keep only the knobs that matter, then the values a person would type
 log("pruning knobs that do not pull their weight")
 local pruned = L.prune(best, function(p) L.apply(p); return (L.measure(QUICK_N * 2, QUICK_CUTS)) end, 0.03)
-local landing = L.rounded(pruned)
-L.apply(landing)
-local okFinal, finalFails = L.contract()
+--[[ v2 (12 Oct): rounding can break the contract. The night of 11-12 Oct the best
+	tuning passed while searching, then rounded to 2 decimals it let a genius W-holder
+	escape 11%, and the run reported "nothing to land". Now: the tidiest rounding that
+	still passes (file style, then 3, then 4 decimals), else nothing. ]]
+local landing, okFinal, finalFails, digits
+for _, dg in { false, 3, 4 } do
+	landing = L.rounded(pruned, dg or nil)
+	L.apply(landing)
+	okFinal, finalFails = L.contract()
+	digits = dg
+	if okFinal then break end
+	log("rounded to %s, the contract fails; trying finer", dg and (dg .. " decimals") or "the files' style")
+end
 local b1Score, b1Rows, b1Cuts = L.measure(FULL_N, FULL_CUTS)
-local edits = L.diff(base, landing)
+local edits = L.diff(base, landing, digits or nil)
 L.restore()
 
 local improved = okFinal and b1Score < b0Score * 0.9 and #edits > 0

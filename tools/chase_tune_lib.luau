@@ -232,11 +232,13 @@ function L.neighbour(p, rnd, temp)
 end
 
 -- the edits a human makes to land a tuning: only what moved, rounded the way the files write them
-function L.diff(from, to)
+-- digits: nil = the way the files write them (1 decimal at 5 or more, else 2); a number = that many decimals
+function L.diff(from, to, digits)
 	local out = {}
 	for _, d in L.PARAMS do
 		local a, b = from[d.key], to[d.key]
-		local r = (math.abs(b) >= 5) and (math.floor(b * 10 + 0.5) / 10) or (math.floor(b * 100 + 0.5) / 100)
+		local k = digits and 10 ^ digits or ((math.abs(b) >= 5) and 10 or 100)
+		local r = math.floor(b * k + 0.5) / k
 		if math.abs(r - a) > 1e-9 then
 			local _, _, file, name = slot(d.key)
 			table.insert(out, { key = d.key, file = file, name = name, from = a, to = r })
@@ -265,9 +267,9 @@ function L.prune(p, measure, slack)
 	return q, score
 end
 
-function L.rounded(p)
+function L.rounded(p, digits)
 	local q = table.clone(p)
-	for _, e in L.diff(ORIGINAL, p) do q[e.key] = e.to end
+	for _, e in L.diff(ORIGINAL, p, digits) do q[e.key] = e.to end
 	for k, v in ORIGINAL do if q[k] == nil then q[k] = v end end
 	return q
 end
