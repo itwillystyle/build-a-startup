@@ -102,7 +102,7 @@ function D.markdown(report, findings, infos, diff, when)
 	local function add(s) table.insert(md, s) end
 	add(("# Game doctor: %s"):format(verdict(c)))
 	add("")
-	add(("%s · %s · %d new, %d still open, %d fixed since the last run"):format(when or "", countLine(c), #diff.new, #diff.still, #diff.fixed))
+	add(("%s · %s · %d new, %d still open, %d fixed since the last posted run"):format(when or "", countLine(c), #diff.new, #diff.still, #diff.fixed))
 	if report.start then
 		add(("Played as Wilz from HQ level %s; the save is restored afterwards."):format(str(report.start.hqLevel)))
 	end
@@ -116,7 +116,7 @@ function D.markdown(report, findings, infos, diff, when)
 			str(f.measured), str(f.expected), f.detail and (". " .. f.detail) or ""))
 	end
 	add("")
-	add("## Fixed since the last run")
+	add("## Fixed since the last posted run")
 	if #diff.fixed == 0 then add("- none") end
 	for _, k in ipairs(diff.fixed) do add("- " .. k) end
 	add("")
