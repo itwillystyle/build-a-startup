@@ -266,7 +266,7 @@ claimBtn.MouseButton1Click:Connect(function()
 		return
 	end
 	claimed = true
-	UIKit.sfx("coins")
+	-- v9: the coins end on the cha-ching as they land (HudClient coinStream)
 	local from = claimBtn.AbsolutePosition + claimBtn.AbsoluteSize / 2
 	if _G.SVCoinStream then pcall(_G.SVCoinStream, from, 14) end
 	claimRemote:FireServer()
@@ -276,7 +276,7 @@ claimBtn.MouseButton1Click:Connect(function()
 end)
 
 openEvent.Event:Connect(function() setOpen(true) end)
-railBtn.MouseButton1Click:Connect(function() setOpen(not gui.Enabled) end)
+UIKit.onRailPress(railBtn, function() setOpen(not gui.Enabled) end)   -- a click, a tap or its number key
 UIKit.bindRail(railBtn, gui)
 local function syncRail()
 	railBtn.Visible = unlocked()

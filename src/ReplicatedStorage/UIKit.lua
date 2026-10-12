@@ -437,6 +437,10 @@ UIKit.ART = {
 	check = "rbxassetid://73092520537968",
 	-- v5 (29 Sep UI pass): the two rail/corner buttons that were still flat glyphs
 	gift = "rbxassetid://101002817721964",      -- DAILY
+	-- v9 (12 Oct, the frameless rail): the last three tiles that were flat glyphs or drawn
+	build = "rbxassetid://126943084369880",     -- BUILD: a gold hard hat
+	more = "rbxassetid://108704449117094",      -- MORE: a 2 x 2 of the rail's accents
+	info = "rbxassetid://123981684632859",      -- TELL US: a pink speech bubble
 	trophy = "rbxassetid://110913338783631",    -- RANKS
 }
 
@@ -516,53 +520,110 @@ function UIKit.railButton(key, caption, accent, props, opts)
 	local b, t, ic = UIKit.iconButton(home, key, caption, UIKit.PAPER, props, opts)
 	accent = accent or UIKit.BLUE
 	b:SetAttribute("Accent", accent)
+	if opts.plotOnly then b:SetAttribute("PlotOnly", true) end
 
-	--[[ v7: a quiet accent at rest.
-
-	The rail was five identical paper tiles, so finding one meant reading five
-	captions. Military Tycoon floods each of its rail tiles with its own colour
-	and you can find Shop or Rebirth without reading anything -- but flooding
-	five tiles here would undo the reason they went paper in the first place
-	(DESIGN.md principle 1: one loud thing, and that is the next action).
-
-	So: a 3px underline in the tile's own colour. Enough to find a tile by
-	colour on the second visit, nowhere near loud enough to compete with the
-	button that is actually asking to be pressed. The accent still FLOODS when
-	the menu is open, which is what it has always meant.
-
-	Four of six accents were the same green, so the colour-coding was not coded.
-	They are distinct now: BUILD green, INDEX blue, BAG orange, PHONE red,
-	DECOR purple, DAILY gold. ]]
-	local line = Instance.new("Frame")
-	line.Name = "AccentLine"
-	line.AnchorPoint = Vector2.new(0.5, 1)
-	line.Position = UDim2.new(0.5, 0, 1, -3)
-	line.Size = UDim2.new(0, 26, 0, 3)
-	line.BackgroundColor3 = accent
-	line.BorderSizePixel = 0
-	line.ZIndex = b.ZIndex + 2
-	line.Parent = b
-	local lc = Instance.new("UICorner", line)
-	lc.CornerRadius = UDim.new(1, 0)
+	--[[ v9 (12 Oct) FRAMELESS. My Restaurant!'s hotbar is just its 3D icons, each
+		with a key number, the name only on the one you are on. The rail was paper
+		tiles with a caption on each: a menu's look, not a game's. Now the tile is its
+		rendered icon (every rail key has an ART render since 12 Oct), bigger; the
+		caption shows on hover or while open, and always on a touch screen (no
+		hover there, and a new player needs the word); open = a soft disc in the
+		tile's accent behind the icon. The v7 accent underline is gone with the box. ]]
+	b.BackgroundTransparency = 1
+	local st = b:FindFirstChildOfClass("UIStroke")
+	if st then st.Enabled = false end
+	local lip = b:FindFirstChild("Lip")
+	if lip then lip.Visible = false end
+	local glow = Instance.new("Frame")
+	glow.Name = "Glow"
+	glow.AnchorPoint = Vector2.new(0.5, 0.5)
+	glow.Position = UDim2.new(0.5, 0, 0.5, -4)
+	glow.Size = UDim2.new(0, 58, 0, 58)
+	glow.BackgroundColor3 = UIKit.light(accent)
+	glow.BorderSizePixel = 0
+	glow.Visible = false
+	glow.ZIndex = b.ZIndex
+	glow.Parent = b
+	Instance.new("UICorner", glow).CornerRadius = UDim.new(1, 0)
+	local gs = Instance.new("UIStroke", glow)
+	gs.Color = UIKit.deep(accent)
+	gs.Thickness = 2
+	if ic and ic:IsA("ImageLabel") then
+		ic.AnchorPoint = Vector2.new(0.5, 0.5)
+		ic.Position = UDim2.new(0.5, 0, 0.5, -4)
+		ic.Size = UDim2.new(0, 56, 0, 56)
+		ic.ZIndex = b.ZIndex + 1
+	end
+	if t then
+		t.AnchorPoint = Vector2.new(0.5, 0)
+		t.Position = UDim2.new(0.5, 0, 1, -16)
+		t.Size = UDim2.new(1, 16, 0, 18)
+		t.ZIndex = b.ZIndex + 2
+		t.TextColor3 = UIKit.TEXT
+		b:SetAttribute("FixedText", UIKit.TEXT)
+		local ts = t:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke", t)
+		ts.Enabled = true
+		ts.Color = UIKit.INK
+		ts.Thickness = 2
+		ts.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+	end
+	local UIS = game:GetService("UserInputService")
+	local touchOnly = UIS.TouchEnabled and not UIS.MouseEnabled
+	local hovered = false
+	local function syncCaption()
+		if t then t.Visible = touchOnly or hovered or b:GetAttribute("RailActive") == true end
+	end
+	b.MouseEnter:Connect(function() hovered = true; syncCaption() end)
+	b.MouseLeave:Connect(function() hovered = false; syncCaption() end)
+	b:GetAttributeChangedSignal("RailActive"):Connect(syncCaption)
+	syncCaption()
+	-- the number key (desktop): the tile's place in the column, set by UIKit.rail
+	if not opts.tray and not touchOnly then
+		local cap = UIKit.panel(b, { Name = "NumKey", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, 8, 0, 8),
+			Size = UDim2.new(0, 22, 0, 22), ZIndex = b.ZIndex + 4, Visible = false },
+			{ radius = UIKit.RADIUS.sm, color = UIKit.PAPER, stroke = UIKit.INK_SOFT, strokeWidth = 2 })
+		UIKit.label(cap, "", UIKit.TYPE.caption, UIKit.INK, { Name = "N", Size = UDim2.new(1, 0, 1, 0),
+			TextXAlignment = Enum.TextXAlignment.Center, ZIndex = b.ZIndex + 5 }, UIKit.HEAD)
+	end
+	-- a key press opens it the same way a click does (UIKit.onRailPress)
+	local press = Instance.new("BindableEvent")
+	press.Name = "Press"
+	press.Parent = b
 
 	return b, t, ic
 end
 
 function UIKit.setRailActive(b, on)
 	if not b then return end
-	local accent = b:GetAttribute("Accent") or UIKit.BLUE
 	b:SetAttribute("RailActive", on == true)
-	UIKit.setButtonColor(b, on and UIKit.light(accent) or UIKit.PAPER)
-	local st = b:FindFirstChildOfClass("UIStroke")
-	if st then st.Color = on and UIKit.deep(accent) or UIKit.INK_SOFT end
-	-- the caption stays ink: the tint and the outline say "open" (a deep-orange
-	-- caption on light orange measured 4.3:1)
-	local t = b:FindFirstChild("Label")
-	if t then t.TextColor3 = UIKit.INK end
-	-- the open tile is already flooded with the accent; the underline would
-	-- just be a second copy of the same signal
-	local line = b:FindFirstChild("AccentLine")
-	if line then line.Visible = not on end
+	-- v9 frameless: open = the accent disc behind the icon, the name shown, the icon up a touch
+	local glow = b:FindFirstChild("Glow")
+	if glow then glow.Visible = on == true end
+	local ic = b:FindFirstChild("Icon")
+	if ic and ic:IsA("ImageLabel") then
+		game:GetService("TweenService"):Create(ic, TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+			{ Size = on and UDim2.new(0, 62, 0, 62) or UDim2.new(0, 56, 0, 56) }):Play()
+	end
+end
+
+-- connect a rail tile's action: a click or tap, and its number key (both fire fn)
+function UIKit.onRailPress(b, fn)
+	b.MouseButton1Click:Connect(fn)
+	local press = b:FindFirstChild("Press")
+	if press then press.Event:Connect(fn) end
+end
+
+-- a plot-only tile (railButton opts.plotOnly) shows when its script wants it AND you
+-- are on your lot (LotClient's OnLot); scripts call this instead of setting Visible
+function UIKit.setRailVisible(b, want)
+	b:SetAttribute("Want", want == true)
+	local player = game:GetService("Players").LocalPlayer
+	local onLot = not b:GetAttribute("PlotOnly") or player:GetAttribute("OnLot") == true
+	b.Visible = want == true and onLot
+	if not b:GetAttribute("LotWired") and b:GetAttribute("PlotOnly") then
+		b:SetAttribute("LotWired", true)
+		player:GetAttributeChangedSignal("OnLot"):Connect(function() UIKit.setRailVisible(b, b:GetAttribute("Want")) end)
+	end
 end
 
 -- the tile shows "open" exactly while its menu is (every close path, including
@@ -652,6 +713,7 @@ local function railLayout(g, f)
 	end
 end
 
+local numbered, relabel   -- set when the rail is made (UIKit.rail)
 function UIKit.rail()
 	local pg = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
 	local g = pg:FindFirstChild("Rail")
@@ -688,6 +750,25 @@ function UIKit.rail()
 			end)
 		end
 		f.ChildAdded:Connect(watch)
+		-- the column's visible tiles in the order they are drawn, and their number keys
+		function numbered()
+			local tiles = {}
+			for _, c in ipairs(f:GetChildren()) do
+				if c:IsA("GuiButton") and c.Visible then table.insert(tiles, c) end
+			end
+			table.sort(tiles, function(a, b) return a.LayoutOrder < b.LayoutOrder end)
+			return tiles
+		end
+		function relabel()
+			for i, c in ipairs(numbered()) do
+				local k = c:FindFirstChild("NumKey")
+				if k then
+					k.Visible = i <= 9
+					local lbl = k:FindFirstChild("N")
+					if lbl then lbl.Text = tostring(i) end
+				end
+			end
+		end
 		-- the single column still shrinks as one piece if it runs out of room (never below 0.8);
 		-- the grid never needs to
 		local sc = Instance.new("UIScale")
@@ -709,8 +790,20 @@ function UIKit.rail()
 				elseif sc.Scale ~= 1 then
 					sc.Scale = 1
 				end
+				relabel()
 				task.wait(0.5)
 			end
+		end)
+		-- v9 (12 Oct): the number keys open the column's tiles in order (My Restaurant!'s
+		-- hotbar); a key fires the tile's Press, the same action as a click (onRailPress)
+		local KEYS = { [Enum.KeyCode.One] = 1, [Enum.KeyCode.Two] = 2, [Enum.KeyCode.Three] = 3, [Enum.KeyCode.Four] = 4,
+			[Enum.KeyCode.Five] = 5, [Enum.KeyCode.Six] = 6, [Enum.KeyCode.Seven] = 7, [Enum.KeyCode.Eight] = 8, [Enum.KeyCode.Nine] = 9 }
+		game:GetService("UserInputService").InputBegan:Connect(function(input, processed)
+			local n = KEYS[input.KeyCode]
+			if processed or not n or not g.Enabled then return end
+			local tile = numbered()[n]
+			local press = tile and tile:FindFirstChild("Press")
+			if press then press:Fire() end
 		end)
 	end
 	return g:WaitForChild("Column")
@@ -884,14 +977,7 @@ local function setOpenTray(on)
 	-- and the quest card steps aside (on a phone the tray reaches across it)
 	g.DisplayOrder = tray.Visible and 11 or 5
 	game:GetService("Players").LocalPlayer:SetAttribute("RailTrayOpen", tray.Visible or nil)
-	if more then
-		UIKit.setRailActive(more, tray.Visible)
-		local ic = more:FindFirstChild("Icon")
-		if ic then
-			game:GetService("TweenService"):Create(ic, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-				{ Rotation = tray.Visible and 90 or 0 }):Play()      -- the dots stand up: open
-		end
-	end
+	if more then UIKit.setRailActive(more, tray.Visible) end
 	arbitrate()
 end
 UIKit.setTrayOpen = setOpenTray
@@ -915,34 +1001,11 @@ function UIKit.railTray()
 	row.Padding = UDim.new(0, 14)   -- a badge pokes 8 px right of a tile, DECOR's key cap 6 px left
 	row.SortOrder = Enum.SortOrder.LayoutOrder
 
-	local more = UIKit.railButton("plus", "MORE", UIKit.INK_SOFT, {
+	local more = UIKit.railButton("more", "MORE", UIKit.INK_SOFT, {
 		Name = "MoreButton", LayoutOrder = 90, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
 	})
-	-- three ink dots, drawn (the Kenney plus never loaded: measured IsLoaded false),
-	-- named Icon so the nudge wiggles it and the open state turns it upright
-	local glyph = more:FindFirstChild("Icon")
-	if glyph then glyph:Destroy() end
-	local dots = Instance.new("Frame")
-	dots.Name = "Icon"
-	dots.AnchorPoint = Vector2.new(0.5, 0)
-	dots.Position = UDim2.new(0.5, 0, 0, 14)
-	dots.Size = UDim2.new(0, 30, 0, 30)
-	dots.BackgroundTransparency = 1
-	dots.ZIndex = more.ZIndex + 1
-	dots.Parent = more
-	for i = -1, 1 do
-		local d = Instance.new("Frame")
-		d.AnchorPoint = Vector2.new(0.5, 0.5)
-		d.Position = UDim2.new(0.5, i * 10, 0.5, 0)
-		d.Size = UDim2.new(0, 7, 0, 7)
-		d.BackgroundColor3 = UIKit.INK
-		d.BorderSizePixel = 0
-		d.ZIndex = more.ZIndex + 1
-		d.Parent = dots
-		Instance.new("UICorner", d).CornerRadius = UDim.new(1, 0)
-	end
 	moreBadge, moreBadgeText = UIKit.badge(more)
-	more.Activated:Connect(function() setOpenTray(not tray.Visible) end)
+	UIKit.onRailPress(more, function() setOpenTray(not tray.Visible) end)
 
 	-- MORE shows while any tile in the tray does; a tile tapped closes the tray
 	local function syncMore()

@@ -221,7 +221,7 @@ local function setOpen(v)
 	end
 	refresh()
 end
-railBtn.MouseButton1Click:Connect(function() setOpen(not gui.Enabled) end)
+UIKit.onRailPress(railBtn, function() setOpen(not gui.Enabled) end)   -- a click, a tap or its number key
 if closeBtn then closeBtn.MouseButton1Click:Connect(function() setOpen(false) end) end
 UserInputService.InputBegan:Connect(function(input, processed)
 	if processed then return end

@@ -1304,7 +1304,7 @@ for _, a in ipairs({ "PhoneUnread", "DailyReady", "Shipped", "HQLevel", "Returni
 gui:GetPropertyChangedSignal("Enabled"):Connect(refreshBadge)
 refreshBadge()
 
-railBtn.MouseButton1Click:Connect(function()
+UIKit.onRailPress(railBtn, function()   -- a click, a tap or its number key
 	if not gui.Enabled then
 		-- open where it matters: the live chat, then an incoming call, then the list
 		if call.state then view.app = "calls"

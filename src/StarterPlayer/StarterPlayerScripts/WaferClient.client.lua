@@ -36,9 +36,11 @@ local function cash()
 end
 
 -- ============ THE RAIL TILE ============
+--[[ v9 (12 Oct): plot-only (it shows on your lot, LotClient), and LAST in the column, so
+	coming and going never moves BAG, PHONE or MORE (a tile you have learned never moves). ]]
 local railBtn = UIKit.railButton("build", "BUILD", UIKit.GREEN, {
-	Name = "WaferButton", LayoutOrder = 0, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
-}, { iconSize = 28 })
+	Name = "WaferButton", LayoutOrder = 95, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
+}, { iconSize = 28, plotOnly = true })
 
 -- ============ THE CARD ============
 local gui = Instance.new("ScreenGui")
@@ -415,16 +417,16 @@ buildBtn.MouseButton1Click:Connect(function()
 	gui.Enabled = false
 end)
 if closeBtn then closeBtn.MouseButton1Click:Connect(function() gui.Enabled = false end) end
-railBtn.MouseButton1Click:Connect(function() setOpen(not gui.Enabled) end)
+UIKit.onRailPress(railBtn, function() setOpen(not gui.Enabled) end)   -- a click, a tap or its number key
 UIKit.bindRail(railBtn, gui)
 
 -- the tile shows once there is a next floor to build; the card follows the server
 local function refresh()
-	railBtn.Visible = a("Shipped") == true and (a("WaferNext") or 0) > 0
+	UIKit.setRailVisible(railBtn, a("Shipped") == true and (a("WaferNext") or 0) > 0)
 	if not railBtn.Visible then gui.Enabled = false end
 	if gui.Enabled then render() end
 end
-for _, k in ipairs({ "Shipped", "WaferNext", "WaferLast", "WaferPrice", "WaferRec", "WaferAllowed", "WaferNeed" }) do
+for _, k in ipairs({ "Shipped", "WaferNext", "WaferLast", "WaferPrice", "WaferRec", "WaferAllowed", "WaferNeed", "OnLot" }) do
 	player:GetAttributeChangedSignal(k):Connect(refresh)
 end
 task.spawn(function()

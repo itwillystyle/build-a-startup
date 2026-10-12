@@ -37,9 +37,16 @@ local Moment = require(ReplicatedStorage:WaitForChild("Moment"))
 local remotes = ReplicatedStorage:WaitForChild("SVRemotes")
 
 -- hide the default leaderboard (retry: CoreGui can refuse for the first frames)
+-- v9 (12 Oct): and Roblox's tool hotbar. The game has no Tools (Backpack and
+-- StarterPack measured empty), but the hotbar still owns the number keys 1-9, and
+-- those now open the rail's tiles (UIKit.rail): measured, a 1 sent to Studio was
+-- refused as "bound to a CoreGUI core action"
 task.spawn(function()
 	for _ = 1, 20 do
-		local ok = pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false) end)
+		local ok = pcall(function()
+			StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)
+			StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false)
+		end)
 		if ok then break end
 		task.wait(0.25)
 	end
@@ -510,6 +517,7 @@ end)
 local shown = 0
 local target = 0
 local pendingOffline = 0      -- welcome-back money held back until COLLECT
+local held = 0                -- money in flight (coinStream): the counter takes it coin by coin
 local lastRate = ""
 
 local function ls() return player:FindFirstChild("leaderstats") end
@@ -519,9 +527,12 @@ RunService.RenderStepped:Connect(function(dt)
 	if not l then return end
 	local cash = l:FindFirstChild("Cash")
 	local rate = l:FindFirstChild("Per Sec")
-	if cash then target = math.max(0, cash.Value - pendingOffline) end
+	if cash then target = math.max(0, cash.Value - pendingOffline - held) end
 	-- ease toward the real number so gains feel like counting, not popping
 	local diff = target - shown
+	-- coins in flight: never count DOWN to take them back (the server's payday can land
+	-- a frame before the event that starts the coins; the counter just waits for them)
+	if diff < 0 and held > 0 then diff = 0 end
 	if math.abs(diff) < 1 then shown = target else shown += diff * math.min(1, dt * 6) end
 	cashText.Text = UIKit.money(shown)
 	if rate then
@@ -597,29 +608,51 @@ end)
 
 -- ============ COINS INTO THE CASH ============
 -- n coins fly from a screen point into the coin icon; each arrival bumps the cash
-local function coinStream(fromAbs, n, done)
+--[[ v9 (12 Oct) THE CASH MOMENT, after My Restaurant!'s dish collect (his recording,
+	12 Oct: about 8 bills burst off the table and fly into the counter, 280 -> 296, a
+	cha-ching; "maybe a little too fast": the whole flight was about 0.25 s).
+	Ours, about 1.1 s for 12 coins:
+	  BURST  the game's rendered coins pop out of where you earned it (Quint out, 0.24 s)
+	  HOLD   a beat, staggered, so they leave one after another
+	  FLY    each one accelerates into the money counter (Quad in, 0.42 s)
+	  LAND   the counter jumps, a tick that rises in pitch coin by coin, and the
+	         amount moves into the number with that coin (`held`), so it COUNTS UP
+	         as they arrive instead of jumping before they get there
+	  CHING  the last coin: a bright high ping and the coin sound, a bigger bump
+	The ping and the coins are the game's licensed sounds (no unverified uploads). ]]
+local function coinStream(fromAbs, n, done, amount)
+	n = math.max(1, n or 12)
+	amount = tonumber(amount) or 0
+	held += amount
+	local per, given = amount / n, 0
 	local base = fx.AbsolutePosition
 	local to = coin.AbsolutePosition + coin.AbsoluteSize / 2 - base
 	local from = fromAbs - base
 	for k = 1, n do
-		task.delay((k - 1) * 0.05, function()
-			local c = Instance.new("Frame")
-			c.AnchorPoint = Vector2.new(0.5, 0.5)
-			c.Size = UDim2.new(0, 22, 0, 22)
-			c.BackgroundColor3 = UIKit.GOLD
-			c.BorderSizePixel = 0
-			c.Position = UDim2.new(0, from.X + math.random(-30, 30), 0, from.Y + math.random(-20, 20))
-			c.Parent = fx
-			Instance.new("UICorner", c).CornerRadius = UDim.new(1, 0)
-			local st = Instance.new("UIStroke", c)
-			st.Color = UIKit.INK
-			st.Thickness = 2
-			local t = 0.45 + math.random() * 0.25
-			tween(c, t, { Position = UDim2.new(0, to.X, 0, to.Y), Size = UDim2.new(0, 14, 0, 14) }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+		local c = UIKit.art(fx, "coin", 30, { AnchorPoint = Vector2.new(0.5, 0.5), ZIndex = 30,
+			Position = UDim2.new(0, from.X, 0, from.Y), Size = UDim2.new(0, 16, 0, 16), Rotation = math.random(-40, 40) })
+		local ang = math.random() * math.pi * 2
+		local r = 46 + math.random() * 50
+		local out = UDim2.new(0, from.X + math.cos(ang) * r, 0, from.Y + math.sin(ang) * r * 0.7 - 28)
+		tween(c, 0.24, { Position = out, Size = UDim2.new(0, 34, 0, 34) })
+		local leave = 0.24 + 0.08 + (k - 1) * 0.045
+		task.delay(leave, function()
+			if not c.Parent then return end
+			local t = 0.42 + math.random() * 0.08
+			tween(c, t, { Position = UDim2.new(0, to.X, 0, to.Y), Size = UDim2.new(0, 22, 0, 22), Rotation = 0 },
+				Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 			task.delay(t, function()
 				c:Destroy()
-				bumpCash(1.06)
-				if k == n and done then done() end
+				local give = (k == n) and (amount - given) or per
+				given += give
+				held = math.max(0, held - give)
+				bumpCash(k == n and 1.14 or 1.06)
+				UIKit.sfx("tap", 1 + 0.6 * (k / n), 0.28)
+				if k == n then
+					UIKit.sfx("ding", 1.65, 0.5)
+					UIKit.sfx("coins", 1.05, 0.5)
+					if done then done() end
+				end
 			end)
 		end)
 	end
@@ -939,13 +972,12 @@ if celebrate then
 		if type(e) ~= "table" then return end
 		if e.kind == "launch" then
 			quietUntil = os.clock() + 2
-			UIKit.sfx("coins")
 			local vp = fx.AbsoluteSize
 			-- the coins fly out of the button you just pressed (they used to burst
 			-- out of the top-right corner, over the goal card)
 			local slot = gui:FindFirstChild("WriteCode")
 			local from = slot and (slot.AbsolutePosition + slot.AbsoluteSize / 2) or (fx.AbsolutePosition + Vector2.new(vp.X / 2, vp.Y - 60))
-			coinStream(from, 12)
+			coinStream(from, 12, nil, e.payday)     -- the payday counts in as the coins land
 			popUnderCash("+" .. UIKit.money(e.payday or 0), UIKit.GOLD, 1.4)
 			if e.auto then task.delay(0.4, function() popUnderCash("Auto-launched: half pay", UIKit.ORANGE, 1.6) end) end
 		elseif e.kind == "hq" then
@@ -1043,12 +1075,12 @@ task.spawn(function()
 		local function collect()
 			if done then return end
 			done = true
-			UIKit.sfx("coins")
 			local from = btn.AbsolutePosition + btn.AbsoluteSize / 2
 			card:Destroy()
 			quietUntil = os.clock() + 2
-			coinStream(from, 14, function() end)
-			task.delay(0.3, function() pendingOffline = 0 end)
+			-- the held money rides the coins in (it used to be released 0.3 s in, all at once)
+			pendingOffline = 0
+			coinStream(from, 14, nil, away)
 			popUnderCash("+" .. UIKit.money(away), UIKit.MONEY, 1.4)
 			player:SetAttribute("WelcomeDone", true)
 			finished()

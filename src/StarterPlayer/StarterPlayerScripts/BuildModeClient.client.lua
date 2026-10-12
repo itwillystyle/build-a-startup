@@ -112,7 +112,7 @@ gui.Parent = player:WaitForChild("PlayerGui")
 -- the rail button. Home icon + one word; desktop gets a small key cap.
 local toggle = UIKit.railButton("home", "DECOR", UIKit.PURPLE, {
 	Name = "BuildToggle", LayoutOrder = 4, Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
-}, { iconSize = 28, tray = true })   -- v8: in the MORE tray
+}, { iconSize = 28, tray = true, plotOnly = true })   -- v8: in the MORE tray; v9: on your lot only
 if not isTouch then
 	-- v5: a paper keycap at the top-LEFT (the top-right corner is where red count
 	-- badges live, and a dark "B" there read as a notification)
@@ -151,7 +151,8 @@ end
 local announced = unlocked()
 local function syncToggle()
 	local v = unlocked()
-	toggle.Visible = v
+	UIKit.setRailVisible(toggle, v)
+	v = toggle.Visible
 	if v and not announced then
 		announced = true
 		pulse(10)
@@ -882,7 +883,12 @@ local function setOpen(v)
 	end
 end
 
-toggle.MouseButton1Click:Connect(function() setOpen(not open) end)
+UIKit.onRailPress(toggle, function() setOpen(not open) end)
+-- v9: leaving your lot puts decor away (the tile is plot-only)
+player:GetAttributeChangedSignal("OnLot"):Connect(function()
+	syncToggle()
+	if open and player:GetAttribute("OnLot") ~= true then setOpen(false) end
+end)
 
 -- an HQ upgrade replaces the floor part and a room adds one: rescan on change;
 -- placing or removing decor moves the bonus
