@@ -500,7 +500,43 @@ def icon_trophy():
     group([cup, knob, stem, base, plate, h1, h2], rot=(0, 0, math.radians(-12)))
 
 
+PINK = (236, 120, 170)
+
+
+def icon_build():
+    """BUILD (12 Oct, the frameless rail): a gold hard hat. The rail lost its paper
+    tiles, so every tile needs a render; BUILD was the last flat Kenney glyph."""
+    gold = mat(GOLD, 0.35, coat=0.6)
+    dome = K.lathe("Dome", [(0.0, 1.55), (0.3, 1.52), (0.62, 1.38), (0.86, 1.1), (0.98, 0.72), (1.0, 0.5), (0.0, 0.5)], segments=48)
+    put(dome, gold)
+    brim = cyl(1.1, 0.1, (0, -0.14, 0.5), mat((236, 176, 44), 0.35, coat=0.6), verts=64, bev=0.04)
+    brim.scale = (1.0, 1.24, 1.0)                     # a short brim, the peak out front
+    ridge = rbox((0.2, 1.5, 0.16), (0, 0, 1.47), gold, bev=0.07)
+    band = cyl(1.005, 0.14, (0, 0, 0.62), mat(INK, 0.45), verts=64, bev=0.02)
+    dome.scale = (1.0, 1.0, 1.12)
+    group([dome, brim, ridge, band], rot=(math.radians(6), 0, math.radians(-34)))
+
+
+def icon_more():
+    """MORE: a 2 x 2 of rounded tiles in the rail's accents (what is in the tray)."""
+    parts = []
+    for (x, z, col) in [(-0.56, 1.56, BLUE), (0.56, 1.56, PURPLE), (-0.56, 0.44, GOLD), (0.56, 0.44, PINK)]:
+        parts.append(rbox((0.94, 0.3, 0.94), (x, 0, z), mat(col, 0.38, coat=0.45), bev=0.18))
+        parts.append(rbox((0.5, 0.04, 0.12), (x, -0.16, z + 0.2), mat(PAPER, 0.4, emit=0.15), bev=0.05))
+    group(parts, rot=(0, 0, math.radians(-16)))
+
+
+def icon_info():
+    """TELL US: a pink speech bubble with three dots."""
+    pink = mat(PINK, 0.4, coat=0.5)
+    bubble = rbox((2.0, 0.5, 1.36), (0, 0, 1.2), pink, bev=0.42)
+    tail = rbox((0.44, 0.48, 0.44), (-0.5, 0, 0.5), pink, bev=0.12, rot=(0, math.radians(38), 0))
+    dots = [ball(0.15, (x, -0.27, 1.2), mat(PAPER, 0.35, emit=0.15)) for x in (-0.5, 0, 0.5)]
+    group([bubble, tail] + dots, rot=(0, 0, math.radians(-16)))
+
+
 ICONS = {
+    "build": icon_build, "more": icon_more, "info": icon_info,
     "phone": icon_phone, "bag": icon_bag, "grid": icon_grid, "home": icon_home, "musicOn": icon_musicOn,
     "code": icon_code, "rocket": icon_rocket, "target": icon_target, "coin": icon_coin,
     "hire": icon_hire, "hq": icon_hq, "key": icon_key, "car": icon_car, "office": icon_office,

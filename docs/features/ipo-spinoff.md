@@ -4,15 +4,15 @@
 1. Build to the top floor allowed. The cap rises with spin-offs: 18, 30, 43, 55, 68, 80, 93, 100 (`src/ServerScriptService/WaferPlan.lua:19,146`).
 2. The quest card says "GO PUBLIC!" (`src/ServerScriptService/Journey.lua:94-97`) and a gold GO PUBLIC button shows when `CanGoPublic` is true (`src/StarterPlayer/StarterPlayerScripts/IpoClient.client.lua:24-47`, attribute set at `SiliconCore.server.lua:1846-1848`).
 3. Tap it. The client fires `GoPublic` (`IpoClient.client.lua:40`). The server runs `goPublic` (`SiliconCore.server.lua:3588`). The HQ pad at the top calls it too (`wafersBuild` :2076). The bell card is `moment` (`IpoClient.client.lua:87`).
-4. The pad now reads "SPIN OFF $X revenue xN forever" (`refreshHqPad` :2024). Tap the pad, or the guide's "Spin off!". The first tap arms it and sends a `spinAsk` card (`SiliconCore.server.lua:2951-2978`, `HudClient.client.lua:757`).
-5. On the card, pick who comes along if more people qualify than the home has seats, then HOLD TO SPIN OFF (`HudClient.client.lua:852`). That fires `SpinConfirm {pick}` (:889) and the server runs `spinOff` again. NOT YET fires `SpinCancel` (:870).
-6. `Celebrate` kind `spin` plays the ceremony (`HudClient.client.lua:903`).
+4. The pad now reads "SPIN OFF $X revenue xN forever" (`refreshHqPad` :2024). Tap the pad, or the guide's "Spin off!". The first tap arms it and sends a `spinAsk` card (`SiliconCore.server.lua:2951-2978`, `HudClient.client.lua:790`).
+5. On the card, pick who comes along if more people qualify than the home has seats, then HOLD TO SPIN OFF (`HudClient.client.lua:885`). That fires `SpinConfirm {pick}` (:922) and the server runs `spinOff` again. NOT YET fires `SpinCancel` (:903).
+6. `Celebrate` kind `spin` plays the ceremony (`HudClient.client.lua:936`).
 **Files:**
 - `src/ServerScriptService/SiliconCore.server.lua`: price helpers :112-120, `refreshHqPad` :1984, `SpinConfirm` :2703, `SpinCancel` :2724, `spinOff` :2938-3041, `goPublic` :3588-3609, `GoPublic` remote :556 and :3610, `checkIPO` :3615 (old), `pushTicker` :3626.
 - `src/ServerScriptService/Progression.lua`: `SPIN_STEP` :23, `SPIN_CAP` :24, `spinMult` :33, `spinCost` :38, `runScale` :63, `CAPS` :59, `capWindfall` :92, `KEEP_SLOTS` :126, `rankKeepers` :146, `chooseKeepers` :164.
 - `src/ServerScriptService/RoomEconomy.lua`: `SPINOFF_BASE` 4,000,000 :235, `KEEP_TALENT` 3 (Star+) :236.
 - `src/ServerScriptService/Journey.lua`: `IPO_RAISE` 60 s :31, `milestone` :136-139.
-- `src/StarterPlayer/StarterPlayerScripts/IpoClient.client.lua` (button, bell) and `HudClient.client.lua` (`spinAsk` :757, `spinCeremony` :903).
+- `src/StarterPlayer/StarterPlayerScripts/IpoClient.client.lua` (button, bell) and `HudClient.client.lua` (`spinAsk` :790, `spinCeremony` :936).
 **State:**
 - Session: `s.listed` (this company is public; saved), `s.ipo` (set by `goPublic`, never reset), `s.ticker`, `s.spinoffs` (0-20; saved), `s.apt` (seats).
 - Plot (temporary): `plot.spinArmed` (clock time, valid 30 s), `plot.spinOffer` ({byId, choose}), `plot.spinSerial`, `plot.spinPickIds`, `plot.spinFromCard`, `plot.busy` (:2938, cleared 1.5 s later :2986).
