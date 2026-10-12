@@ -764,6 +764,7 @@ end
 local Playtest = require("./playtest_lib")
 local PLAYTESTS = "../playtests"                 -- silicon-startup/playtests: outside the repo (frames are big)
 local LEDGER = PLAYTESTS .. "/reviewed.json"     -- name -> { verdict, at, note }
+local PLAYTEST_BOOKMARK = PLAYTESTS .. "/bookmark.json"   -- { at }: the last `prep --new` that prepared everything
 
 local function videoDir() return flag("--dir") or (HOME .. "/Videos") end
 
@@ -895,14 +896,20 @@ local function cmdPlaytest()
 		return result("playtest list", checks)
 	elseif sub == "prep" then
 		local want, checks = pos[3], {}
-		local days = tonumber(flag("--days")) or 3
+		--[[ v2 (12 Oct): --new reads from a BOOKMARK (the last --new run that finished
+			cleanly), not a fixed 3-day window. Scheduled runs stall on permission prompts
+			(10 Oct), and a stall longer than 3 days silently skipped every recording in
+			the gap. One day of overlap; the ledger stops repeats. --days still overrides. ]]
+		local mark = readJson(PLAYTEST_BOOKMARK)
+		local since = tonumber(flag("--days")) and (os.time() - tonumber(flag("--days")) * 86400)
+			or (mark and mark.at and mark.at - 86400) or (os.time() - 3 * 86400)
 		for _, rec in recordings() do
 			local pick
 			if want then
 				pick = rec.name == want or rec.name:gsub("%.%w+$", "") == want
 			else
-				-- --new: the last --days (3) of recordings not yet in the ledger, made while our game ran
-				pick = rec.startUnix >= os.time() - days * 86400 and not ledger[rec.name]
+				-- --new: recordings since the bookmark, not yet in the ledger, made while our game ran
+				pick = rec.startUnix >= since and not ledger[rec.name]
 					and select(3, gameLines(rec, duration(rec.path) or 0)) ~= nil
 			end
 			if pick then table.insert(checks, prep(rec)) end
@@ -910,6 +917,14 @@ local function cmdPlaytest()
 		if #checks == 0 then
 			table.insert(checks, { name = "prep", ok = want == nil, ms = 0,
 				detail = want and ("no recording called " .. want .. " in " .. videoDir()) or "nothing new to review" })
+		end
+		if not want then
+			local allOk = true
+			for _, c in checks do if not c.ok then allOk = false end end
+			-- the bookmark moves only when every recording in the gap was prepared
+			if allOk then ensureDir(PLAYTESTS); writeJson(PLAYTEST_BOOKMARK, { at = os.time() }) end
+			table.insert(checks, 1, { name = "since", ok = true, ms = 0, detail = "recordings since " .. unixToLocal(since)
+				.. (allOk and "" or "; a prep failed, so the bookmark did not move") })
 		end
 		return result("playtest prep", checks)
 	elseif sub == "done" then
@@ -931,7 +946,11 @@ end
 local Doctor = require("./doctor_lib")
 local DOCTOR_MD = "../DOCTOR.md"                  -- silicon-startup/DOCTOR.md: outside the repo, like HEALTH.md
 local DOCTOR_TXT = "../DOCTOR-discord.txt"
-local DOCTOR_LAST = ".bas/doctor.json"           -- the last run's finding keys, for "new" and "fixed"
+local DOCTOR_LAST = ".bas/doctor.json"           -- the last POSTED run's finding keys, for "new" and "fixed"
+--[[ v2 (12 Oct): the memory moves only when Discord says the post landed. v1 wrote
+	doctor.json at report time, so a failed post meant tomorrow's report called those
+	findings "still open": they were never announced as new to anyone. ]]
+local DOCTOR_PENDING = ".bas/doctor-pending.json"
 local WEBHOOK = "../.discord-webhook"             -- one line, the channel's webhook URL; never in the repo
 
 -- one place posts to Discord, and only to Discord's own webhook endpoint: this file
@@ -968,7 +987,7 @@ local function cmdCheckup()
 		fs.writeFile(DOCTOR_TXT, Doctor.discord(findings, diff, when))
 		local keys = {}
 		for _, f in ipairs(findings) do table.insert(keys, f.key) end
-		writeJson(DOCTOR_LAST, { at = os.time(), keys = keys })
+		writeJson(DOCTOR_PENDING, { at = os.time(), keys = keys })
 		local c = Doctor.counts(findings)
 		return result("checkup report", { { name = "DOCTOR.md", ok = c.BLOCKER == 0, ms = 0,
 			detail = ("%d BLOCKER, %d BUG, %d MISSING, %d FEEL; %d new, %d fixed -> %s"):format(c.BLOCKER, c.BUG, c.MISSING, c.FEEL,
@@ -978,7 +997,13 @@ local function cmdCheckup()
 			return result("checkup post", { { name = "summary", ok = false, ms = 0, detail = "nothing to post: run `bas checkup report` first" } })
 		end
 		local fine, detail = postDiscord(fs.readFile(DOCTOR_TXT))
-		return result("checkup post", { { name = "discord", ok = fine, ms = 0, detail = detail } })
+		local pending = fine and readJson(DOCTOR_PENDING)
+		if pending then
+			writeJson(DOCTOR_LAST, pending)
+			fs.removeFile(DOCTOR_PENDING)
+		end
+		return result("checkup post", { { name = "discord", ok = fine, ms = 0,
+			detail = fine and detail or (detail .. "; the doctor's memory did not move, so tomorrow still reports these as new") } })
 	end
 	return nil
 end
@@ -987,6 +1012,7 @@ end
 -- (the tuner itself is `lune run tools/chase_tune -- --minutes N`; routine.sh starts it at night)
 local TUNE_TXT = "../tuning/chase-discord.txt"
 local TUNE_PROGRESS = "../tuning/chase-progress.json"
+local TUNE_POSTED = "../tuning/chase-posted.json"   -- { reportAt, postedAt }: the report Discord confirmed
 local function cmdTune()
 	if pos[2] ~= "post" then return nil end
 	--[[ v2 (12 Oct): the NEWEST FINISHED report, saying when that run finished. v1
@@ -999,9 +1025,18 @@ local function cmdTune()
 		local ok, m = pcall(fs.metadata, f)
 		return ok and m and m.modifiedAt and m.modifiedAt.unixTimestamp or nil
 	end
+	--[[ v3 (12 Oct): a ledger of the report already posted. A night run that never
+		started or never finished used to re-post yesterday's report under a small
+		"(run finished ...)" line, which reads like a fresh result. Now that is said
+		out loud, and the ledger moves only when Discord confirms the post. ]]
 	local lines = {}
 	local doneAt = fs.isFile(TUNE_TXT) and mtime(TUNE_TXT)
-	if doneAt then
+	local posted = readJson(TUNE_POSTED)
+	local stale = doneAt and posted and posted.reportAt == doneAt
+	if stale then
+		table.insert(lines, ("**Chase tuning, %s: NO NEW RUN.** The newest finished report (%s) was already posted. Last night's run did not start or did not finish: check ../tuning/chase-night.err."):format(
+			os.date("%a %d %b"), os.date("%a %d %b, %H:%M", doneAt)))
+	elseif doneAt then
 		table.insert(lines, ("_(run finished %s)_"):format(os.date("%a %d %b, %H:%M", doneAt)))
 		table.insert(lines, fs.readFile(TUNE_TXT))
 	else
@@ -1020,8 +1055,10 @@ local function cmdTune()
 		return result("tune post", { { name = "dry run", ok = true, ms = 0, detail = "printed, not posted" } })
 	end
 	local fine, detail = postDiscord(text)
+	if fine and doneAt then writeJson(TUNE_POSTED, { reportAt = doneAt, postedAt = os.time() }) end
 	return result("tune post", { { name = "discord", ok = fine, ms = 0, detail = detail },
-		{ name = "report", ok = doneAt ~= nil, ms = 0, detail = doneAt and ("finished " .. os.date("%a %H:%M", doneAt)) or "no finished run" } })
+		{ name = "report", ok = doneAt ~= nil and not stale, ms = 0, detail = (stale and "NO NEW RUN: already posted the one that finished " or "finished ")
+			.. (doneAt and os.date("%a %H:%M", doneAt) or "never") } })
 end
 
 local HELP = [[
