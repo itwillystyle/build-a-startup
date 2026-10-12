@@ -4,7 +4,7 @@
 1. Ship the first app. The DAILY rail tile shows for a returning player, or at HQ 2 after the first drive downtown (`src/StarterPlayer/StarterPlayerScripts/DailyClient.client.lua:151-157`).
 2. With a gift waiting, the card opens once by itself at a calm moment (`DailyClient.client.lua:299-324`). The tile also wiggles and shows a "!".
 3. Tap CLAIM. The client fires `ClaimDaily` (:273). The server pays cash and grants the day's item (`src/ServerScriptService/DailyReward.lua:70-85`).
-4. A "you got" card flies into the BAG tile (`src/StarterPlayer/StarterPlayerScripts/InventoryClient.client.lua:425-432`). Opening the bag fires `ItemsSeen` and clears the red count (:215).
+4. A "you got" card flies into the BAG tile (`src/StarterPlayer/StarterPlayerScripts/InventoryClient.client.lua:427-434`). Opening the bag fires `ItemsSeen` and clears the red count (:215).
 5. Use an item: pick it in the bag and tap USE (fires `UseItem`, :204). Shortcuts: a COFFEE button beside WRITE CODE (:276-288) and a rescue button under the headhunter warning (:291-294).
 **Files:**
 - `src/ServerScriptService/DailyReward.lua`: `SECONDS` :26, `FLOOR` :27, `ITEMS` :30, `today` :34, `nextDay` :37, `amountFor` :48, `refresh` :54, `claim` :70, `init` :87 (re-checks every 60 s :94).
@@ -37,4 +37,4 @@
 - Armed Scout and Front Page are attributes, not saved. Leaving after arming loses an item that was already spent.
 - Stale: `DailyClient.client.lua:34-35` says there is no rail tile and the phone opens the card. There is a DAILY tile (:226), and the `SVOpenDaily` event (:37) is never fired in `src`.
 - Tips find `Rail.Column.BagButton` and `Rail.Column.DailyButton` by name (`Journey.lua:164, 173`). Do not rename them.
-**Last verified:** 2026-10-12 a066540
+**Last verified:** 2026-10-12 4dcf6b3

@@ -328,10 +328,12 @@ gui.Parent = player:WaitForChild("PlayerGui")
 
 -- the CAR button, bottom-right, left of where a phone's jump button sits
 -- v5: a paper tile like the rail's (green was a second "loud" next to WRITE CODE)
-local carBtn = UIKit.iconButton(gui, "car", "CAR", UIKit.PAPER, {
+local carBtn, carLabel, carIcon = UIKit.iconButton(gui, "car", "CAR", UIKit.PAPER, {
 	Name = "CarButton", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0.5, 162, 1, -20),   -- v5: 44 px right of the bottom slot (at 1,-190 it was 27 px from LAUNCH on a phone)
 	Size = UDim2.new(0, UIKit.RAIL, 0, UIKit.RAIL), Visible = false,
 }, { iconSize = 28, dark = true, stroke = UIKit.INK_SOFT, captionSize = 14 })
+-- v9 (12 Oct): frameless like the rail; the C key it always had now shows on a key cap
+UIKit.frameless(carBtn, carLabel, carIcon, UIKit.GREEN, { key = "C" })
 local function call()
 	if driving then return end
 	callCar:FireServer()

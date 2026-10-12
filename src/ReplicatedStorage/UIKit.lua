@@ -504,31 +504,18 @@ function UIKit.iconButton(parent, key, caption, color, props, opts)
 	return b, t, ic
 end
 
---[[ v5 A RAIL BUTTON: a paper tile with an ink outline, the full-colour
-rendered icon popping above it and an ink caption (Run a Restaurant!'s rail).
-The rail used to be five saturated tiles in five colours, all as loud as the
-one thing you should do next (DESIGN.md principle 1). The accent colour now
-means one thing: this menu is open (UIKit.setRailActive). ]]
-function UIKit.railButton(key, caption, accent, props, opts)
+--[[ v9 (12 Oct) FRAMELESS. My Restaurant!'s hotbar is just its 3D icons, each with a
+	key, the name only on the one you are on. Our tiles were paper boxes with a caption
+	each: a menu's look, not a game's. A frameless tile is its icon (a render, or a
+	ViewportFrame model), bigger; the name shows on hover or while active, and always
+	on a touch screen (no hover there, and a new player needs the word); active = a
+	soft disc in the tile's accent behind the icon. Used by the rail (railButton) and
+	the bottom row (COFFEE, CAR). b: the button (UIKit.button / iconButton), t: its
+	name label, ic: its icon. opts.key: a keyboard letter shown on a key cap. ]]
+function UIKit.frameless(b, t, ic, accent, opts)
 	opts = opts or {}
-	opts.dark = true
-	opts.stroke = opts.stroke or UIKit.INK_SOFT
-	opts.iconSize = opts.iconSize or 30
-	opts.captionSize = opts.captionSize or 14
-	-- v8: a tile you open now and then lives in the MORE tray (UIKit.railTray)
-	local home = opts.tray and UIKit.railTray() or UIKit.rail()
-	local b, t, ic = UIKit.iconButton(home, key, caption, UIKit.PAPER, props, opts)
 	accent = accent or UIKit.BLUE
 	b:SetAttribute("Accent", accent)
-	if opts.plotOnly then b:SetAttribute("PlotOnly", true) end
-
-	--[[ v9 (12 Oct) FRAMELESS. My Restaurant!'s hotbar is just its 3D icons, each
-		with a key number, the name only on the one you are on. The rail was paper
-		tiles with a caption on each: a menu's look, not a game's. Now the tile is its
-		rendered icon (every rail key has an ART render since 12 Oct), bigger; the
-		caption shows on hover or while open, and always on a touch screen (no
-		hover there, and a new player needs the word); open = a soft disc in the
-		tile's accent behind the icon. The v7 accent underline is gone with the box. ]]
 	b.BackgroundTransparency = 1
 	local st = b:FindFirstChildOfClass("UIStroke")
 	if st then st.Enabled = false end
@@ -548,11 +535,12 @@ function UIKit.railButton(key, caption, accent, props, opts)
 	local gs = Instance.new("UIStroke", glow)
 	gs.Color = UIKit.deep(accent)
 	gs.Thickness = 2
-	if ic and ic:IsA("ImageLabel") then
+	if ic and ic:IsA("GuiObject") then
 		ic.AnchorPoint = Vector2.new(0.5, 0.5)
 		ic.Position = UDim2.new(0.5, 0, 0.5, -4)
 		ic.Size = UDim2.new(0, 56, 0, 56)
 		ic.ZIndex = b.ZIndex + 1
+		if ic.Name ~= "Icon" and ic:IsA("ViewportFrame") then ic.Name = "Icon" end
 	end
 	if t then
 		t.AnchorPoint = Vector2.new(0.5, 0)
@@ -577,6 +565,37 @@ function UIKit.railButton(key, caption, accent, props, opts)
 	b.MouseLeave:Connect(function() hovered = false; syncCaption() end)
 	b:GetAttributeChangedSignal("RailActive"):Connect(syncCaption)
 	syncCaption()
+	if opts.key and not touchOnly then
+		local cap = UIKit.panel(b, { Name = "LetterKey", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, 8, 0, 8),
+			Size = UDim2.new(0, 22, 0, 22), ZIndex = b.ZIndex + 4 },
+			{ radius = UIKit.RADIUS.sm, color = UIKit.PAPER, stroke = UIKit.INK_SOFT, strokeWidth = 2 })
+		UIKit.label(cap, opts.key, UIKit.TYPE.caption, UIKit.INK, { Name = "N", Size = UDim2.new(1, 0, 1, 0),
+			TextXAlignment = Enum.TextXAlignment.Center, ZIndex = b.ZIndex + 5 }, UIKit.HEAD)
+	end
+end
+
+--[[ v5 A RAIL BUTTON: a paper tile with an ink outline, the full-colour
+rendered icon popping above it and an ink caption (Run a Restaurant!'s rail).
+The rail used to be five saturated tiles in five colours, all as loud as the
+one thing you should do next (DESIGN.md principle 1). The accent colour now
+means one thing: this menu is open (UIKit.setRailActive). ]]
+function UIKit.railButton(key, caption, accent, props, opts)
+	opts = opts or {}
+	opts.dark = true
+	opts.stroke = opts.stroke or UIKit.INK_SOFT
+	opts.iconSize = opts.iconSize or 30
+	opts.captionSize = opts.captionSize or 14
+	-- v8: a tile you open now and then lives in the MORE tray (UIKit.railTray)
+	local home = opts.tray and UIKit.railTray() or UIKit.rail()
+	local b, t, ic = UIKit.iconButton(home, key, caption, UIKit.PAPER, props, opts)
+	accent = accent or UIKit.BLUE
+	b:SetAttribute("Accent", accent)
+	if opts.plotOnly then b:SetAttribute("PlotOnly", true) end
+
+	-- v9: the frameless look (UIKit.frameless), shared with the bottom row
+	UIKit.frameless(b, t, ic, accent)
+	local UIS = game:GetService("UserInputService")
+	local touchOnly = UIS.TouchEnabled and not UIS.MouseEnabled
 	-- the number key (desktop): the tile's place in the column, set by UIKit.rail
 	if not opts.tray and not touchOnly then
 		local cap = UIKit.panel(b, { Name = "NumKey", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, 8, 0, 8),
