@@ -280,8 +280,10 @@ brewVpf.Size = UDim2.new(1, -16, 1, -24)
 brewVpf.ZIndex = brew.ZIndex + 1
 brewVpf.Parent = brew
 Items.icon("coffee", brewVpf)
-UIKit.label(brew, "COFFEE", UIKit.TYPE.caption, UIKit.INK, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -7),
+local brewLabel = UIKit.label(brew, "COFFEE", UIKit.TYPE.caption, UIKit.INK, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -7),
 	Size = UDim2.new(1, 0, 0, 16), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = brew.ZIndex + 2 }, UIKit.HEAD)
+-- v9 (12 Oct): frameless like the rail (UIKit.frameless): the 3D coffee, its name on hover
+UIKit.frameless(brew, brewLabel, brewVpf, UIKit.ORANGE)
 local brewBadge, brewCount = UIKit.badge(brew)
 brewBadge.Visible = true
 -- v8: how many you hold is a count, not news: an ink pill (red means "act now", and
