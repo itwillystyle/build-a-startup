@@ -83,6 +83,7 @@ while now() < deadline do
 		end
 	end
 	if evals % 250 == 0 then
+		saveProgress()     -- a heartbeat: `bas tune post` reads a recent file as "still going"
 		log("%d tries, %d moves, best %.0f (start %.0f), %d tries broke the contract", evals, accepted, bestScore, baseScore, contractFails)
 	end
 	if bestScore <= 0 and now() - t0 > 60 then break end   -- every target met
