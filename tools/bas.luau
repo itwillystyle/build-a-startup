@@ -989,21 +989,39 @@ local TUNE_TXT = "../tuning/chase-discord.txt"
 local TUNE_PROGRESS = "../tuning/chase-progress.json"
 local function cmdTune()
 	if pos[2] ~= "post" then return nil end
-	local today = os.date("%Y-%m-%d")
-	local fresh = fs.isFile("../tuning/chase-" .. today .. ".json")
-	local text
-	if fresh and fs.isFile(TUNE_TXT) then
-		text = fs.readFile(TUNE_TXT)
+	--[[ v2 (12 Oct): the NEWEST FINISHED report, saying when that run finished. v1
+		only posted a report dated today, so a run started in the evening (finished
+		21:54) read as "did not finish" after midnight. chase-discord.txt is written
+		only when a run finishes, so it always is the newest finished one. A run
+		still going (its progress file written in the last 15 min, after that report)
+		gets one extra line. --dry prints the message instead of posting it. ]]
+	local function mtime(f)
+		local ok, m = pcall(fs.metadata, f)
+		return ok and m and m.modifiedAt and m.modifiedAt.unixTimestamp or nil
+	end
+	local lines = {}
+	local doneAt = fs.isFile(TUNE_TXT) and mtime(TUNE_TXT)
+	if doneAt then
+		table.insert(lines, ("_(run finished %s)_"):format(os.date("%a %d %b, %H:%M", doneAt)))
+		table.insert(lines, fs.readFile(TUNE_TXT))
 	else
-		-- the night run did not finish: say so, with the best it had, instead of last night's news
+		table.insert(lines, ("**Chase tuning, %s**: no finished run yet."):format(os.date("%a %d %b")))
+	end
+	local progAt = fs.isFile(TUNE_PROGRESS) and mtime(TUNE_PROGRESS)
+	local running = progAt and (os.time() - progAt) < 15 * 60 and (not doneAt or progAt > doneAt)
+	if running then
 		local prog = readJson(TUNE_PROGRESS)
-		text = ("**Chase tuning, %s**: the night run did not finish (no report for today).%s"):format(os.date("%a %d %b"),
-			prog and (" Best so far: score %s (start %s) after %s tries, at %s."):format(
-				tostring(math.floor(prog.bestScore or 0)), tostring(math.floor(prog.baseScore or 0)), tostring(prog.evals), tostring(prog.at)) or "")
+		table.insert(lines, ("A newer run is still going: best score %s so far (start %s) after %s tries."):format(
+			tostring(math.floor(prog and prog.bestScore or 0)), tostring(math.floor(prog and prog.baseScore or 0)), tostring(prog and prog.evals or "?")))
+	end
+	local text = table.concat(lines, string.char(10))
+	if table.find(A, "--dry") then
+		print(text)
+		return result("tune post", { { name = "dry run", ok = true, ms = 0, detail = "printed, not posted" } })
 	end
 	local fine, detail = postDiscord(text)
 	return result("tune post", { { name = "discord", ok = fine, ms = 0, detail = detail },
-		{ name = "report", ok = fresh, ms = 0, detail = fresh and "tonight's report" or "no report for today" } })
+		{ name = "report", ok = doneAt ~= nil, ms = 0, detail = doneAt and ("finished " .. os.date("%a %H:%M", doneAt)) or "no finished run" } })
 end
 
 local HELP = [[
@@ -1029,7 +1047,7 @@ bas -- one command for every check this game has. Run from the game folder.
   lune run tools/bas checkup report <report.json>   judge a game-doctor run -> ../DOCTOR.md
   lune run tools/bas checkup post          post the summary to Discord (../.discord-webhook)
   lune run tools/chase_tune -- --minutes N  the chase tuner (judge: chase.spec + chasecam.spec + the design spec)
-  lune run tools/bas tune post             post the night's chase tuning to Discord
+  lune run tools/bas tune post [--dry]     post the newest finished chase tuning to Discord
 
   --json   one JSON object on stdout     --save   also file it in the evidence folder
   exit 0 ok, 1 a check failed, 2 usage error]]
