@@ -192,6 +192,17 @@ function B.lowTable(p, M, pivot)
 	part(M, "Leaves", Vector3.new(0.7, 0.55, 0.7), pivot * CFrame.new(p.x + 0.1, F + p.h + 0.7, p.z - 0.8), C.leaf, { Shape = Enum.PartType.Ball })
 end
 
+-- v2: our own floor lamp. The Kenney one is a single mesh tinted as its shade, so
+-- the whole thing glowed: a yellow pillar beside the sofa
+function B.floorLamp(p, M, pivot)
+	cyl(M, "LampBase", 0.12, 0.9, pivot * CFrame.new(p.x, F + 0.06, p.z), C.ink, { Material = Enum.Material.Metal })
+	part(M, "LampPole", Vector3.new(0.1, p.h - 1.3, 0.1), pivot * CFrame.new(p.x, F + (p.h - 1.3) / 2, p.z), C.ink)
+	cyl(M, "LampShade", 1.1, p.w, pivot * CFrame.new(p.x, F + p.h - 0.6, p.z), Color3.fromRGB(246, 232, 204), { Transparency = 0.1 })
+	local bulb = part(M, "LampBulb", Vector3.new(0.4, 0.4, 0.4), pivot * CFrame.new(p.x, F + p.h - 0.7, p.z), C.warm,
+		neon({ Shape = Enum.PartType.Ball }))
+	if p.light then light(bulb, 12, 0.9) end
+end
+
 -- a thin glowing frame on the floor round a pad (the pad itself is not touched)
 function B.padGlow(p, M, pivot)
 	local t = 0.22
@@ -205,11 +216,13 @@ end
 function B.slats(p, f, M)
 	local h = p.y1 - p.y0
 	local mid = p.y0 + h / 2
-	part(M, "Backing", Vector3.new(p.w, h, 0.1), at(f, 0, mid, 0.06), C.oakDark, { Material = Enum.Material.Wood })
+	-- v2: walnut, not oak. Oak renders gold (hq2.py found the same), and beside the
+	-- orange Kenney bookcases the whole back wall read as one orange curtain
+	part(M, "Backing", Vector3.new(p.w, h, 0.1), at(f, 0, mid, 0.06), Color3.fromRGB(70, 50, 34), { Material = Enum.Material.Wood })
 	local n = math.floor((p.w - 0.4) / 0.72)
 	for k = 0, n do
 		local a = -p.w / 2 + 0.35 + k * ((p.w - 0.7) / n)
-		part(M, "Slat", Vector3.new(0.4, h, p.depth - 0.1), at(f, a, mid, 0.1 + (p.depth - 0.1) / 2), C.oak, { Material = Enum.Material.Wood })
+		part(M, "Slat", Vector3.new(0.4, h, p.depth - 0.1), at(f, a, mid, 0.1 + (p.depth - 0.1) / 2), Color3.fromRGB(128, 88, 56), { Material = Enum.Material.Wood })
 	end
 	local outer = (p.u < 0) and -1 or 1
 	part(M, "Uplight", Vector3.new(0.14, h - 0.6, 0.14), at(f, outer * (p.w / 2 + 0.12), mid, 0.12), C.warm, neon())
@@ -218,9 +231,14 @@ end
 -- the dark panel above the back window, the game's rocket glowing on it
 function B.sign(p, f, M)
 	local h = p.y1 - p.y0
-	local panel = part(M, "SignPanel", Vector3.new(p.w, h, p.depth), at(f, 0, p.y0 + h / 2, p.depth / 2 + 0.02), C.ink)
+	-- v2: a dark NEON face. Measured 12 Oct: a shaded ink panel 6 studs from the desk
+	-- pendants and the ceiling bulb rendered tan, and the rocket washed out on it. A
+	-- backlit sign is not lit by the room; Neon ignores the room's lights.
+	local panel = part(M, "SignPanel", Vector3.new(p.w, h, p.depth), at(f, 0, p.y0 + h / 2, p.depth / 2 + 0.02),
+		Color3.fromRGB(22, 26, 34), neon())
 	for _, s in { -1, 1 } do
-		part(M, "SignRim", Vector3.new(p.w - 0.3, 0.08, 0.05), at(f, 0, p.y0 + h / 2 + s * (h / 2 - 0.15), p.depth + 0.05), C.warm, neon())
+		part(M, "SignRim", Vector3.new(p.w - 0.3, 0.1, 0.05), at(f, 0, p.y0 + h / 2 + s * (h / 2 - 0.15), p.depth + 0.05), C.warm, neon())
+		part(M, "SignRim", Vector3.new(0.1, h - 0.3, 0.05), at(f, s * (p.w / 2 - 0.15), p.y0 + h / 2, p.depth + 0.05), C.warm, neon())
 	end
 	local sg = Instance.new("SurfaceGui")
 	sg.Face = Enum.NormalId.Front
@@ -233,7 +251,7 @@ function B.sign(p, f, M)
 	img.BackgroundTransparency = 1
 	img.AnchorPoint = Vector2.new(0.5, 0.5)
 	img.Position = UDim2.fromScale(0.5, 0.5)
-	img.Size = UDim2.fromScale(0.78, 0.78)
+	img.Size = UDim2.fromScale(0.92, 0.92)
 	img.Image = ROCKET
 	img.ImageColor3 = Color3.fromRGB(255, 204, 120)
 	img.ScaleType = Enum.ScaleType.Fit
@@ -438,7 +456,7 @@ end
 function B.duct(p, M, pivot)
 	local y = (p.y0 + p.y1) / 2
 	local dia = p.y1 - p.y0
-	part(M, "Duct", Vector3.new(p.d, dia, dia), pivot * CFrame.new(p.x, y, p.z) * CFrame.Angles(0, math.rad(90), 0), C.concrete,
+	part(M, "Duct", Vector3.new(p.d, dia, dia), pivot * CFrame.new(p.x, y, p.z) * CFrame.Angles(0, math.rad(90), 0), Color3.fromRGB(150, 152, 156),
 		{ Shape = Enum.PartType.Cylinder, Material = Enum.Material.Metal })
 	local n = math.floor(p.d / 4)
 	for k = 0, n do

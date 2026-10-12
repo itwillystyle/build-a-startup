@@ -810,8 +810,10 @@ local function buildShell(plot, level, animate)
 	-- v5: 6 studs thick, top still at 1.0. There is no ground under a plot (void to
 	-- the -500 kill height), and a 1-stud slab is thin enough for the solver to
 	-- push a character through ("stuck in the floor and die" on an HQ upgrade)
+	-- v8 (12 Oct): the garage gets a warm mid concrete (his image 5 has a light floor; a
+	-- pale one would blow out against the white walls, the v3.0.3 lobby lesson)
 	shellPart(plot, { Name = "GarageFloor", Size = Vector3.new(w, 6, d), CFrame = g(0, -2, 0),
-		Color = CFG.FLOOR, Material = Enum.Material.Concrete })
+		Color = level == 1 and Color3.fromRGB(164, 154, 140) or CFG.FLOOR, Material = Enum.Material.Concrete })
 	shellPart(plot, { Name = "WallBack", Size = Vector3.new(w, h, 1), CFrame = g(0, h / 2, -d / 2), Color = CFG.WALL })
 	shellPart(plot, { Name = "WallL", Size = Vector3.new(1, h, d), CFrame = g(-w / 2, h / 2, 0), Color = CFG.WALL })
 	shellPart(plot, { Name = "WallR", Size = Vector3.new(1, h, d), CFrame = g(w / 2, h / 2, 0), Color = CFG.WALL })

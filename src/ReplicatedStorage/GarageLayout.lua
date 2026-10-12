@@ -25,6 +25,7 @@
 	  ceil   hangs from the ceiling: footprint and y0..y1
 	  fixed  already in the garage (built elsewhere): checked, never built here
 	`backdrop` marks a wall piece that things may stand in front of (the slatted wall).
+	`coversWindow` marks the one piece allowed over a window (the rocket sign, deliberately).
 	`may` lists the KEEP zones a piece is allowed in (a rug may lie under the desk). ]]
 local L = {}
 
@@ -68,7 +69,7 @@ L.PIECES = {
 	{ id = "deskRug", kind = "rug", build = "rug", x = 0, z = -9.3, w = 11, d = 5.4, may = { "desk", "walkway" },
 		color = { 192, 138, 85 } },
 	{ id = "loungeRug", kind = "rug", build = "rug", x = 13.2, z = -0.6, w = 6.4, d = 6.6,
-		color = { 62, 110, 158 } },
+		color = { 214, 170, 120 } },
 	{ id = "meetingRug", kind = "rug", build = "rug", x = -12.5, z = -9.2, w = 6.6, d = 6.4,
 		color = { 207, 198, 182 } },
 
@@ -93,7 +94,7 @@ L.PIECES = {
 	{ id = "beanA", kind = "floor", build = "beanbag", x = 11.0, z = -2.9, w = 2.4, d = 2.4, h = 1.7, color = { 224, 182, 90 } },
 	{ id = "beanB", kind = "floor", build = "beanbag", x = 11.2, z = 1.4, w = 2.4, d = 2.4, h = 1.7, color = { 62, 110, 158 } },
 	{ id = "lowTable", kind = "floor", build = "lowTable", x = 13.4, z = -0.6, w = 1.6, d = 3.2, h = 1.4 },
-	{ id = "lamp", kind = "floor", build = "kit", key = "lampSquareFloor", x = 14.3, z = 2.55, w = 0.75, d = 0.75, h = 5.1, light = true },
+	{ id = "lamp", kind = "floor", build = "floorLamp", x = 14.3, z = 2.4, w = 1.1, d = 1.1, h = 5.2, light = true },
 
 	-- plants: either side of the slatted wall, and a tall one inside the door
 	{ id = "plantL", kind = "floor", build = "kit", key = "pottedPlant", scale = 1.6, x = -7.2, z = -13.2, w = 2.0, d = 2.3, h = 6.2 },
@@ -108,7 +109,8 @@ L.PIECES = {
 	-- back: the slatted oak wall either side of the window, the rocket above it
 	{ id = "slatsL", kind = "wall", build = "slats", wall = "back", u = -6.6, w = 5.2, y0 = 1.0, y1 = 13.0, depth = 0.35, backdrop = true },
 	{ id = "slatsR", kind = "wall", build = "slats", wall = "back", u = 6.6, w = 5.2, y0 = 1.0, y1 = 13.0, depth = 0.35, backdrop = true },
-	{ id = "rocket", kind = "wall", build = "sign", wall = "back", u = 0, w = 6.4, y0 = 10.3, y1 = 12.9, depth = 0.3 },
+	-- v2: the sign covers the back window on purpose (it is the room's hero, image 5); 2.6 tall it read as a sticker
+	{ id = "rocket", kind = "wall", build = "sign", wall = "back", u = 0, w = 7.4, y0 = 5.6, y1 = 12.9, depth = 0.3, coversWindow = true },
 	{ id = "trophies", kind = "wall", build = "trophyShelf", wall = "back", u = -14.65, w = 5.2, y0 = 6.4, y1 = 9.9, depth = 1.0 },
 	{ id = "framesBack", kind = "wall", build = "frames", wall = "back", u = 13.6, w = 6.0, y0 = 6.4, y1 = 10.0, depth = 0.15 },
 	-- left: the whiteboard over the meeting table, a shelf over the coffee bar, a pinboard
@@ -123,7 +125,7 @@ L.PIECES = {
 	-- ---------------------------------------------------------- the ceiling
 	{ id = "deskLamps", kind = "ceil", build = "pendants", x = 0, z = -8.6, w = 6.4, d = 1.2, y0 = 10.2, y1 = 13.1, n = 2, light = true },
 	{ id = "meetingLamps", kind = "ceil", build = "pendants", x = -12.5, z = -9.0, w = 3.4, d = 1.2, y0 = 10.2, y1 = 13.1, n = 2, light = true },
-	{ id = "duct", kind = "ceil", build = "duct", x = -9.5, z = -1.0, w = 1.2, d = 26, y0 = 11.7, y1 = 12.9 },
+	{ id = "duct", kind = "ceil", build = "duct", x = -9.5, z = -7.2, w = 0.9, d = 14, y0 = 12.0, y1 = 12.9 },
 	{ id = "track", kind = "ceil", build = "track", x = 0, z = 4.2, w = 16, d = 0.6, y0 = 12.1, y1 = 12.9 },
 }
 
@@ -158,7 +160,7 @@ function L.check(pieces)
 			if p.u - p.w / 2 < mid - half or p.u + p.w / 2 > mid + half then bad(p.id .. ": runs off the end of the " .. p.wall .. " wall") end
 			if p.y0 < L.FLOOR or p.y1 > L.CEIL then bad(p.id .. ": above the beams or below the floor") end
 			local win = L.WINDOWS[p.wall]
-			if win and overlap(p.u - p.w / 2, p.u + p.w / 2, win.u0, win.u1) and overlap(p.y0, p.y1, win.y0, win.y1) then
+			if win and not p.coversWindow and overlap(p.u - p.w / 2, p.u + p.w / 2, win.u0, win.u1) and overlap(p.y0, p.y1, win.y0, win.y1) then
 				bad(p.id .. ": covers the " .. p.wall .. " window")
 			end
 		else
