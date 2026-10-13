@@ -5,6 +5,7 @@ SiliconCore calls this once, at the same point in its load order the code
 used to run, passing the SiliconCore locals it needs in `core`. Every one of
 them is assigned before this point and never reassigned, so aliasing is safe. ]]
 local Telemetry = require(script.Parent:WaitForChild("Telemetry"))   -- the player loop: cash in and out
+local StaffStats = require(game:GetService("ReplicatedStorage"):WaitForChild("StaffStats"))   -- v8 Manage Staff
 
 return function(core)
 	local CFG = core.CFG
@@ -108,6 +109,13 @@ return function(core)
 				for i, r in ipairs(s.rigs or {}) do t[i] = r.talent or 1 end
 				return t
 			end)(),
+			-- v8 (13 Oct) MANAGE STAFF: per person, beside tiers/talents/people
+			ids = (function() local t = {} for i, r in ipairs(s.rigs or {}) do t[i] = r.id or 0 end return t end)(),
+			skill = (function() local t = {} for i, r in ipairs(s.rigs or {}) do t[i] = r.skill or 0 end return t end)(),
+			speed = (function() local t = {} for i, r in ipairs(s.rigs or {}) do t[i] = r.speed or 0 end return t end)(),
+			loyalty = (function() local t = {} for i, r in ipairs(s.rigs or {}) do t[i] = r.loyalty or 0 end return t end)(),
+			pin = (function() local t = {} for i, r in ipairs(s.rigs or {}) do t[i] = r.pin or "" end return t end)(),
+			nsid = s.nextStaffId or 0,
 			index = (function()
 				local t = {}
 				for k in pairs(s.index or {}) do table.insert(t, k) end
@@ -321,6 +329,7 @@ return function(core)
 		s.indexQuiet = true
 		local staffN = clampInt(data.staff, 0, 200, 0)
 		s.hireCost = CFG.HIRE_BASE
+		s.nextStaffId = clampInt(data.nsid, 0, 1e9, 0)   -- v8 Manage Staff: ids continue from the save
 		for i = 1, staffN do
 			s.staff = i
 			if i > 1 then s.hireCost = math.floor(s.hireCost * hireGrowthAt(i)) end
@@ -339,7 +348,31 @@ return function(core)
 				r.tier = tier
 				r.seatedTime = (tier - 1) * CFG.PROMOTE_EVERY
 				StaffRig.setTitle(r.rig, titleOf(r))
+				-- v8 (13 Oct) MANAGE STAFF: the saved id (kept if valid; uniqueness is fixed
+				-- below), the three stats clamped (a save cannot mint levels), the pin
+				local function at(t) return type(t) == "table" and t[i] or nil end
+				local sid = clampInt(at(data.ids), 0, 1e9, 0)
+				if sid > 0 then r.id = sid end
+				r.skill = StaffStats.clampLevel(at(data.skill))
+				r.speed = StaffStats.clampLevel(at(data.speed))
+				r.loyalty = StaffStats.clampLevel(at(data.loyalty))
+				local pn = at(data.pin)
+				r.pin = (type(pn) == "string" and #pn <= 12 and pn:match("^%a*$")) and pn or ""
 			end
+		end
+		-- ids must be unique: a duplicate or tampered id gets a fresh one past the highest
+		-- (the counter restarts from the SAVED one, not from the temporary ids spawnStaff
+		-- handed out during this load: measured 13 Oct, those pushed it up by the staff
+		-- count on every join)
+		do
+			local seen, top = {}, clampInt(data.nsid, 0, 1e9, 0)
+			for _, r in ipairs(s.rigs or {}) do if not seen[r.id] and (r.id or 0) > 0 then top = math.max(top, r.id) end seen[r.id or 0] = true end
+			seen = {}
+			for _, r in ipairs(s.rigs or {}) do
+				if not r.id or r.id <= 0 or seen[r.id] then top += 1; r.id = top end
+				seen[r.id] = true
+			end
+			s.nextStaffId = top
 		end
 		s.indexQuiet = false
 		if Econ and Econ.publishIndex then Econ.publishIndex(player, s) end

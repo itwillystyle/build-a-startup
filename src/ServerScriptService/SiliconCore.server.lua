@@ -1506,6 +1506,13 @@ local function spawnStaff(player, plot, n, talent, who)
 	StaffRig.animate(rig, hum, home, Vector3.new(1.5, 0, 1.5))
 	local entry = { rig = rig, hum = hum, tier = 1, seatedTime = 0, talent = talent or 1,
 		who = (who and who.role and who.seed) and { role = who.role, seed = who.seed } or nil }
+	-- v8 (13 Oct) MANAGE STAFF: a permanent id (list position is not one) and the three
+	-- trained stats (StaffStats); 0 until the TEAM screen trains them
+	if s then
+		s.nextStaffId = (s.nextStaffId or 0) + 1
+		entry.id = s.nextStaffId
+	end
+	entry.skill, entry.speed, entry.loyalty, entry.pin = 0, 0, 0, ""
 	-- v3.0 TALENT INDEX: every role x talent you have ever hired (25 entries)
 	if s and Econ and Econ.publishIndex then
 		s.index = s.index or {}

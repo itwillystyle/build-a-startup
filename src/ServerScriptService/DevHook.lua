@@ -522,7 +522,21 @@ return function(core)
 				name = s.name, valuation = s.valuation, ipo = s.ipo, launches = s.launches,
 				boost = boostOf(s), loaded = loaded[player.UserId] == true,
 				work = s.work, workNeed = s.workNeed, pendingOffer = s.pendingOffer ~= nil,
-				tiers = (function() local t = {} for i, r in ipairs(s.rigs or {}) do t[i] = r.tier end return table.concat(t, ",") end)() }
+				tiers = (function() local t = {} for i, r in ipairs(s.rigs or {}) do t[i] = r.tier end return table.concat(t, ",") end)(),
+				-- v8 Manage Staff: id:skill/speed/loyalty:pin per person, in list order
+				staffStats = (function() local t = {} for i, r in ipairs(s.rigs or {}) do
+					t[i] = ("%s:%s/%s/%s:%s"):format(tostring(r.id), tostring(r.skill), tostring(r.speed), tostring(r.loyalty), tostring(r.pin)) end
+					return table.concat(t, ",") end)(),
+				nextStaffId = s.nextStaffId }
+		elseif action == "staffstat" then
+			-- v8 Manage Staff (Studio): "i:stat:level" sets person i's stat (list order), then recomputes.
+			-- No cap or price: this is the test hook the doctor step and the live checks use.
+			local i, stat, lv = tostring(arg):match("^(%d+):(%a+):(%d+)$")
+			local r = i and s.rigs and s.rigs[tonumber(i)]
+			if not (r and (stat == "skill" or stat == "speed" or stat == "loyalty")) then return "usage: staffstat i:skill|speed|loyalty:level" end
+			r[stat] = tonumber(lv)
+			recompute(player)
+			return { id = r.id, [stat] = r[stat], rate = s.rate }
 		end
 		return "unknown"
 	end
