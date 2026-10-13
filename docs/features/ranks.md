@@ -39,4 +39,4 @@
 - `RanksClient` header says the button is on the left rail. It was moved top right in v5 (`RanksClient.client.lua:34-43`).
 - The Journey tip finds `RanksCorner.RanksButton` by name (`Journey.lua:170`). Renaming either breaks the tip.
 - If `Ranks` fails to load, the road board and `pushTicker` fall back to the old IPO-only ticker (`SiliconCore.server.lua:3733, 3628`).
-**Last verified:** 2026-10-13 418cbb6
+**Last verified:** 2026-10-13 13a511a

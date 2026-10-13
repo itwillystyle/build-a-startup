@@ -36,7 +36,7 @@
 - Wages are not charged under V3 (:1237). `Econ.WAGE` is unused for income now.
 - Launch boost is dead under V3: `launchProduct` sets `s.launch = nil` (:3206). A launch is a payday only.
 - Auto-launch after 60 s only happens once you have launched by hand (:3288-3293).
-- SaveLoad sets `s.momentum` on load (`SaveLoad.lua:397`) but no code sets the `Momentum` attribute then (only :1962, :2102, :3210). The HUD may show 0 after a rejoin until the next change. Not run to confirm.
+- SaveLoad sets `s.momentum` on load (`SaveLoad.lua:391`) but no code sets the `Momentum` attribute then (only :1962, :2102, :3210). The HUD may show 0 after a rejoin until the next change. Not run to confirm.
 - The HUD copies momentum math: `math.min(mom, 12) * 3` (`HudClient.client.lua:554`). Changing `Momentum.SPEND_CAP` or `PER_POINT` will not change it.
 - `SiliconCore` is at Luau's 200 local limit (:2659, :3786). New code goes in a module or a `do` block.
 - The objective attributes refresh every 0.4 s (:3845-3857). Tests that read them right after an action can see the old value (`DevHook.lua:235`).
