@@ -15,6 +15,7 @@
 	  - one Model per piece, named by its layout id: SVCheck treats a Model as one
 	    object, so a piece's own parts may touch, two pieces may not ]]
 local RS = game:GetService("ReplicatedStorage")
+local CollectionService = game:GetService("CollectionService")
 local L = require(RS:WaitForChild("GarageLayout"))
 
 local GarageDress = {}
@@ -450,7 +451,10 @@ end
 -- v3: image 2's sage band, an oak rail on top, a dark skirting under it
 function B.wainscot(p, f, M)
 	local h = p.y1 - p.y0
-	part(M, "Band", Vector3.new(p.w, h, 0.05), at(f, 0, p.y0 + h / 2, 0.07), Color3.fromRGB(146, 170, 136))
+	-- the one deliberate palette exemption in the room (Palette.exempt reads the tag):
+	-- measured 12 Oct, the sweep pulled this sage onto CampusLawn and it read as grass
+	local band = part(M, "Band", Vector3.new(p.w, h, 0.05), at(f, 0, p.y0 + h / 2, 0.07), Color3.fromRGB(146, 170, 136))
+	CollectionService:AddTag(band, "SVNoPalette")
 	part(M, "Rail", Vector3.new(p.w, 0.2, 0.12), at(f, 0, p.y1, 0.1), C.oak, { Material = Enum.Material.Wood })
 	part(M, "Skirting", Vector3.new(p.w, 0.3, 0.1), at(f, 0, p.y0 + 0.15, 0.1), C.asphalt)
 end
