@@ -37,6 +37,26 @@ account's save. The doctor changes Wilz's save; it is ALWAYS restored at the end
    BLOCKER and BUG with what a player would see, the FEELs in one line, what got
    fixed since the last run, and that the save was restored.
 
+## PR mode: the doctor as a gate before merge (12 Oct)
+Use when a PR changes game code (anything under `src/`) and is about to be called
+ready. The daily run tests main AFTER merge; this tests the PR's own code BEFORE.
+1. The game folder must be on the PR's branch with nothing uncommitted under `src/`
+   (Rojo serves the folder, so that is what Studio runs). Studio in Edit, as above.
+2. Fingerprint, in the EDIT datamodel (a running game cannot read Source):
+   `local H = require(game.ReplicatedStorage.SourceHash:Clone())`
+   `return game:GetService("HttpService"):JSONEncode({ at = os.time(), studio = H.collect({ game.ServerScriptService, game.ReplicatedStorage, game.StarterPlayer, game.StarterGui, game.ServerStorage, game.Workspace }) })`
+   Write it, exactly, to `silicon-startup/doctor/fingerprint-<branch>.json`.
+3. Steps 3-6 above (Play, run, write the report EXACTLY to `doctor/report-<branch>.json`,
+   stop, restore). Never trim the report: the gate judges what is in the file.
+4. From the game folder: `lune run tools/bas checkup pr ../doctor/report-<branch>.json ../doctor/fingerprint-<branch>.json`
+   It checks the tree is clean, every src file's hash matches what Studio ran, both
+   files are newer than the commit, and the verdict (no BLOCKER, no BUG main lacks).
+   Add `--post` to comment on the PR and set the `doctor` commit status.
+5. FAIL: fix on the branch, push, and run the whole gate again (new fingerprint too).
+   A branch with no `src/` change passes as "not needed" without Studio.
+First live use, PR #48: the gate failed the garage on a non-solid meeting table
+(`sinking surfaces`) that every other check had passed; fixed, re-run, passed.
+
 ## Reading it
 BLOCKER = the loop breaks. BUG = wrong, playable. MISSING = an animation, sound or
 feedback is not there. FEEL = works, feels janky. Thresholds marked provisional in

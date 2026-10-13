@@ -12,6 +12,7 @@
 	    lune run tools/bas ship | world | health   the morning run (Phase 2)
     lune run tools/bas playtest list | prep <video>|--new | done <video>   review a screen recording
     lune run tools/bas checkup report <json> | post   judge a game-doctor run, post it to Discord
+    lune run tools/bas checkup pr <report> <fingerprint> [--post]   the doctor as a gate on a pull request
 	Add --json to any command for one machine-readable object on stdout.
 	Add --save to check / sim / baseline diff to file the result in the current evidence folder.
 	Exit codes: 0 ok, 1 a check failed, 2 usage error.
@@ -969,6 +970,97 @@ local function postDiscord(text)
 	return fine, fine and "posted" or ("failed: " .. (ok and (tostring(res.statusCode) .. " " .. tostring(res.body):sub(1, 120)) or tostring(res)))
 end
 
+--[[ v3 (12 Oct): `checkup pr` -- the doctor as a gate BEFORE merge. The daily doctor
+	tests main after the fact; this judges a run made on a pull request's own code.
+	  lune run tools/bas checkup pr <report.json> <fingerprint.json> [--post]
+	It counts only when ALL of these hold, each checked here, not taken on trust:
+	  1. the src tree is clean (Studio, via Rojo, cannot be running uncommitted code)
+	  2. every src file's hash matches a script Studio ran (SourceHash, taken by the
+	     routine in Edit mode before Play: the fingerprint file)
+	  3. the fingerprint and the report are newer than the commit
+	  4. doctor_lib.prVerdict: no BLOCKER, no BUG that main's last posted run lacked
+	A branch that changes no file under src/ passes as "not needed" with no Studio run.
+	--post comments the verdict on the PR and sets a "doctor" commit status. ]]
+local SourceHash = require("../src/ReplicatedStorage/SourceHash")
+
+local function srcFiles(dir, out)
+	out = out or {}
+	for _, name in fs.readDir(dir) do
+		local path = dir .. "/" .. name
+		if fs.isDir(path) then srcFiles(path, out)
+		elseif name:match("%.luau?$") then table.insert(out, { path = path, text = fs.readFile(path) }) end
+	end
+	return out
+end
+
+local function cmdCheckupPr()
+	local checks, md = {}, {}
+	local function add(name, ok, detail) table.insert(checks, { name = name, ok = ok, ms = 0, detail = detail }) end
+	local sha = git({ "rev-parse", "HEAD" })
+	local branch = git({ "rev-parse", "--abbrev-ref", "HEAD" })
+	local changed = git({ "diff", "--name-only", "origin/main...HEAD" }) or ""
+	local gameCode = changed:find("src/", 1, true) ~= nil
+	local pass, summary
+	if not gameCode then
+		pass, summary = true, "not needed: this branch changes no game code (nothing under src/)"
+		add("game code", true, summary)
+	else
+		local dirty = git({ "status", "--porcelain", "--", "src" }) or "?"
+		add("clean src tree", dirty == "", dirty == "" and "Studio can only be running committed code" or ("uncommitted: " .. dirty:sub(1, 120)))
+		local reportPath, fpPath = pos[3], pos[4]
+		local report, fp = reportPath and readJson(reportPath), fpPath and readJson(fpPath)
+		add("files given", report ~= nil and fp ~= nil, "report " .. tostring(reportPath) .. ", fingerprint " .. tostring(fpPath))
+		local commitAt = tonumber(git({ "log", "-1", "--format=%ct" }) or "") or 0
+		if report and fp then
+			local files = srcFiles("src")
+			local bad = SourceHash.compare(files, fp.studio or {})
+			add("Studio ran this code", #bad == 0, #bad == 0 and ("all " .. #files .. " src files match")
+				or (#bad .. " differ: " .. table.concat(bad, "; "):sub(1, 300)))
+			add("newer than the commit", (fp.at or 0) >= commitAt and (report.startedAt or 0) >= commitAt,
+				("commit %s, fingerprint %s, report %s"):format(os.date("%H:%M", commitAt), os.date("%H:%M", fp.at or 0),
+					os.date("%H:%M", report.startedAt or 0)))
+			local findings = Doctor.findings(report)
+			local base = readJson("../game-health/.bas/doctor.json") or readJson(DOCTOR_LAST) or {}
+			local v = Doctor.prVerdict(findings, base.keys)
+			add("doctor verdict", v.pass, table.concat(v.why, "; "))
+			local c = Doctor.counts(findings)
+			table.insert(md, ("Findings: %d BLOCKER, %d BUG, %d MISSING, %d FEEL (main's last posted run is the baseline)."):format(
+				c.BLOCKER, c.BUG, c.MISSING, c.FEEL))
+			for _, f in ipairs(findings) do
+				local why = (f.detail and f.detail ~= "") and (" (" .. tostring(f.detail):sub(1, 160) .. ")") or ""
+				table.insert(md, ("- **%s** %s: measured %s, expected %s%s"):format(f.severity, f.key, tostring(f.measured or "-"),
+					tostring(f.expected or "-"), why))
+			end
+		end
+		pass = true
+		for _, ch in checks do if not ch.ok then pass = false end end
+		summary = pass and "passed on this exact commit" or "FAILED"
+	end
+	local body = { ("## Game doctor on this PR: %s"):format(pass and "PASS" or "FAIL"), "", ("Commit `%s` on `%s`: %s."):format(
+		(sha or "?"):sub(1, 7), tostring(branch), summary), "" }
+	for _, ch in checks do table.insert(body, ("- %s %s: %s"):format(ch.ok and "pass" or "**FAIL**", ch.name, ch.detail)) end
+	if #md > 0 then table.insert(body, "") for _, l in md do table.insert(body, l) end end
+	table.insert(body, "")
+	table.insert(body, "_Posted by `bas checkup pr`. Not checked by the doctor: cars, phones, two players, how anything looks._")
+	ensureDir("../doctor")
+	local out = ("../doctor/pr-%s.md"):format((tostring(branch):gsub("[^%w%-]", "-")))
+	fs.writeFile(out, table.concat(body, string.char(10)) .. string.char(10))
+	if table.find(A, "--post") and sha then
+		local gh = run("gh", { "pr", "view", "--json", "number", "-q", ".number" })
+		local num = gh.ok and trim(gh.stdout) or nil
+		if num and num ~= "" then
+			local cm = run("gh", { "pr", "comment", num, "--body-file", out })
+			add("PR comment", cm.ok, cm.ok and ("on #" .. num) or trim(cm.stderr):sub(1, 160))
+			local st = run("gh", { "api", "-X", "POST", "repos/{owner}/{repo}/statuses/" .. sha, "-f", "state=" .. (pass and "success" or "failure"),
+				"-f", "context=doctor", "-f", "description=" .. summary:sub(1, 130) })
+			add("doctor status", st.ok, st.ok and ("set to " .. (pass and "success" or "failure")) or trim(st.stderr):sub(1, 160))
+		else
+			add("PR", false, "no open PR for " .. tostring(branch))
+		end
+	end
+	return result("checkup pr", checks, { pass = pass, file = out })
+end
+
 local function cmdCheckup()
 	local sub = pos[2]
 	if sub == "report" then
@@ -1004,6 +1096,8 @@ local function cmdCheckup()
 		end
 		return result("checkup post", { { name = "discord", ok = fine, ms = 0,
 			detail = fine and detail or (detail .. "; the doctor's memory did not move, so tomorrow still reports these as new") } })
+	elseif sub == "pr" then
+		return cmdCheckupPr()
 	end
 	return nil
 end
