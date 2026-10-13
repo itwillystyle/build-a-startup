@@ -59,36 +59,51 @@ say("model: Leads in fit rooms, a full team (WaferPlan.CAP), the talent mix abov
 say("")
 
 -- ---------------------------------------------------------------- G1
+-- v2 (13 Oct, independent review): v1 measured one fixed talent mix and passed at
+-- 1.995; one extra Unicorn made it 2.064. A team's trained/untrained ratio is an
+-- income-weighted average of its people's, so it can never beat its best person's:
+-- the true worst case is a team of only the top talent, at stage 5. That is the gate.
 do
-	local worst, at = 0, 0
+	local worst, at = 0, ""
 	for st = 1, 5 do
-		local L = STAGE_FROM[st]
-		local un, tr = 0, 0
-		for _, t in team(st, W.CAP[L]) do
-			local v = personRate(t, L)
-			un += v
-			tr += v * S.mult("skill", S.cap(st, t))
+		for t = 1, #CFG.TALENT do
+			local r = S.mult("skill", S.cap(st, t))
+			if r > worst then worst, at = r, ("stage %d, all %s"):format(st, CFG.TALENT[t].name) end
 		end
-		if tr / un > worst then worst, at = tr / un, st end
 	end
-	gate("G1", worst <= 2.0, ("trained/untrained income, worst %.3f (stage %d); limit 2.0"):format(worst, at))
+	local L = STAGE_FROM[5]
+	local un, tr = 0, 0
+	for _, t in team(5, W.CAP[L]) do
+		local v = personRate(t, L)
+		un += v
+		tr += v * S.mult("skill", S.cap(5, t))
+	end
+	say(("      G1 the modelled stage-5 team: %.3f (for reference; the gate is the worst team)"):format(tr / un))
+	gate("G1", worst <= 2.0, ("trained/untrained income, worst possible team %.3f (%s); limit 2.0"):format(worst, at))
 end
 
 -- ---------------------------------------------------------------- G2
+-- v2 (review): every seniority, fit or not, every spin-off count (v1: Leads in fit rooms only)
 do
 	local lo, hi, where = math.huge, 0, ""
-	for st = 1, 5 do
-		local L = STAGE_FROM[st]
-		for t = 1, #CFG.TALENT do
-			local v = personRate(t, L)
-			for lv = 0, S.cap(st, t) - 1 do
-				local sec = S.price(lv, v, 1) / (v * S.step("skill"))
-				if sec < lo then lo = sec end
-				if sec > hi then hi, where = sec, ("stage %d talent %d level %d"):format(st, t, lv) end
+	for spins = 0, P.SPIN_CAP do
+		for tier = 1, #CFG.TIER_RATE do
+			for _, fit in { 1, FIT } do
+				for st = 1, 5 do
+					local L = STAGE_FROM[st]
+					for t = 1, #CFG.TALENT do
+						local v = CFG.TIER_RATE[tier] * CFG.TALENT[t].mult * fit * W.MULT[L] * P.spinMult(spins)
+						for lv = 0, S.cap(st, t) - 1 do
+							local sec = S.price(lv, v) / (v * S.step("skill"))
+							if sec < lo then lo = sec end
+							if sec > hi then hi, where = sec, ("spins %d, tier %d, fit %s, stage %d, talent %d, level %d"):format(spins, tier, tostring(fit > 1), st, t, lv) end
+						end
+					end
+				end
 			end
 		end
 	end
-	gate("G2", lo >= 180 and hi <= 1800, ("Skill payback %.1f..%.1f min (slowest: %s); limits 3..30 min"):format(lo / 60, hi / 60, where))
+	gate("G2", lo >= 180 and hi <= 1800, ("Skill payback %.1f..%.1f min over every tier, room, run and level (slowest: %s); limits 3..30 min"):format(lo / 60, hi / 60, where))
 end
 
 -- ---------------------------------------------------------------- G3 / G4: time to climb
@@ -124,7 +139,7 @@ local function climb(a, b, opts)
 			for _, p in people do
 				if S.canTrain(p.skill, W.stage(level), p.talent) then
 					local v = personRate(p.talent, level, tierRate)
-					local pr = S.price(p.skill, v, scale)
+					local pr = S.price(p.skill, v)
 					if pr / (v * S.step("skill")) <= 1800 and (not bestPrice or pr < bestPrice) then best, bestPrice = p, pr end
 				end
 			end

@@ -329,7 +329,6 @@ return function(core)
 		s.indexQuiet = true
 		local staffN = clampInt(data.staff, 0, 200, 0)
 		s.hireCost = CFG.HIRE_BASE
-		s.nextStaffId = clampInt(data.nsid, 0, 1e9, 0)   -- v8 Manage Staff: ids continue from the save
 		for i = 1, staffN do
 			s.staff = i
 			if i > 1 then s.hireCost = math.floor(s.hireCost * hireGrowthAt(i)) end
@@ -351,26 +350,21 @@ return function(core)
 				-- v8 (13 Oct) MANAGE STAFF: the saved id (kept if valid; uniqueness is fixed
 				-- below), the three stats clamped (a save cannot mint levels), the pin
 				local function at(t) return type(t) == "table" and t[i] or nil end
-				local sid = clampInt(at(data.ids), 0, 1e9, 0)
-				if sid > 0 then r.id = sid end
+				r.saveIndex = i   -- the id itself is settled after the loop (StaffStats.fixIds)
 				r.skill = StaffStats.clampLevel(at(data.skill))
 				r.speed = StaffStats.clampLevel(at(data.speed))
 				r.loyalty = StaffStats.clampLevel(at(data.loyalty))
 				local pn = at(data.pin)
-				r.pin = (type(pn) == "string" and #pn <= 12 and pn:match("^%a*$")) and pn or ""
+				r.pin = StaffStats.validPin(pn) and pn or ""   -- only real room types (review, 13 Oct)
 			end
 		end
-		-- ids must be unique: a duplicate or tampered id gets a fresh one past the highest
-		-- (the counter restarts from the SAVED one, not from the temporary ids spawnStaff
-		-- handed out during this load: measured 13 Oct, those pushed it up by the staff
-		-- count on every join)
+		-- ids: the saved ones where valid and unique, fresh ones past the highest for the
+		-- rest, and the counter from the save (StaffStats.fixIds, tested offline: old saves,
+		-- duplicates, junk, and a second load changing nothing)
 		do
-			local seen, top = {}, clampInt(data.nsid, 0, 1e9, 0)
-			for _, r in ipairs(s.rigs or {}) do if not seen[r.id] and (r.id or 0) > 0 then top = math.max(top, r.id) end seen[r.id or 0] = true end
-			seen = {}
+			local ids, top = StaffStats.fixIds(data.ids, data.nsid, staffN)
 			for _, r in ipairs(s.rigs or {}) do
-				if not r.id or r.id <= 0 or seen[r.id] then top += 1; r.id = top end
-				seen[r.id] = true
+				if r.saveIndex then r.id = ids[r.saveIndex]; r.saveIndex = nil end
 			end
 			s.nextStaffId = top
 		end

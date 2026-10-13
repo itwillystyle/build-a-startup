@@ -534,7 +534,7 @@ return function(core)
 			local i, stat, lv = tostring(arg):match("^(%d+):(%a+):(%d+)$")
 			local r = i and s.rigs and s.rigs[tonumber(i)]
 			if not (r and (stat == "skill" or stat == "speed" or stat == "loyalty")) then return "usage: staffstat i:skill|speed|loyalty:level" end
-			r[stat] = tonumber(lv)
+			r[stat] = math.clamp(tonumber(lv), 0, 30)   -- StaffStats.MAX_LEVEL (review: state printed 999)
 			recompute(player)
 			return { id = r.id, [stat] = r[stat], rate = s.rate }
 		end
