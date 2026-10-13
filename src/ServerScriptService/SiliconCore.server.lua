@@ -810,8 +810,10 @@ local function buildShell(plot, level, animate)
 	-- v5: 6 studs thick, top still at 1.0. There is no ground under a plot (void to
 	-- the -500 kill height), and a 1-stud slab is thin enough for the solver to
 	-- push a character through ("stuck in the floor and die" on an HQ upgrade)
+	-- v8 (12 Oct): the garage gets a warm mid concrete (his image 5 has a light floor; a
+	-- pale one would blow out against the white walls, the v3.0.3 lobby lesson)
 	shellPart(plot, { Name = "GarageFloor", Size = Vector3.new(w, 6, d), CFrame = g(0, -2, 0),
-		Color = CFG.FLOOR, Material = Enum.Material.Concrete })
+		Color = level == 1 and Color3.fromRGB(164, 154, 140) or CFG.FLOOR, Material = Enum.Material.Concrete })
 	shellPart(plot, { Name = "WallBack", Size = Vector3.new(w, h, 1), CFrame = g(0, h / 2, -d / 2), Color = CFG.WALL })
 	shellPart(plot, { Name = "WallL", Size = Vector3.new(1, h, d), CFrame = g(-w / 2, h / 2, 0), Color = CFG.WALL })
 	shellPart(plot, { Name = "WallR", Size = Vector3.new(1, h, d), CFrame = g(w / 2, h / 2, 0), Color = CFG.WALL })
@@ -1079,8 +1081,7 @@ local function buildPlot(index, def)
 	local garage = plot.garage
 	-- y 3.0 not 2.5: at 2.5 its base was 0.50 and the floor top is 1.00, so it
 	-- stood half a stud inside the floor (measured 5 Oct)
-	part({ Name = "Shelf", Size = Vector3.new(6, 4, 1.2), CFrame = g(-14, 3.0, -13.5),
-		Color = Color3.fromRGB(120, 92, 60), Material = Enum.Material.WoodPlanks }, garage)
+	-- (the 6x4 "Shelf" block that stood here is gone: GarageDress puts two bookcases in that corner)
 	part({ Name = "Boxes", Size = Vector3.new(3, 3, 3), CFrame = g(14.5, 2, -13),
 		Color = Color3.fromRGB(150, 118, 80), Material = Enum.Material.Cardboard }, garage)
 	local desk = part({ Name = "Desk", Size = Vector3.new(7, 0.4, 3.4), CFrame = g(0, 3.2, -9),
@@ -1104,6 +1105,16 @@ local function buildPlot(index, def)
 		-- the kit lays the lit panel flush on the laptop's own screen and hands
 		-- it back; that part is what writeCode() flashes from here on
 		if swapped.screen then screen = swapped.screen end
+
+		--[[ v8 (12 Oct): the garage dressed like a real startup, his "image 5":
+			GarageLayout says where (and its test proves nothing blocks the walkway,
+			the desk, the pads or the door), GarageDress builds it. Only with the
+			one-building HQ: there the garage stays a garage for the whole game. ]]
+		local GD = tryRequire(ServerScriptService, "GarageDress")
+		if GD and Econ and Econ.WAFERS then
+			local okD, nD = pcall(GD.dress, garage, g, FurnitureKit)
+			if not okD then warn("[SV] garage dress failed: " .. tostring(nD)) end
+		end
 
 		--[[ NO OUTLINE ON THE GARAGE FURNITURE, and it is not for want of trying.
 			Measured 5 Oct: a Highlight on these imported furniture meshes does not
