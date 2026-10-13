@@ -1197,7 +1197,7 @@ local function cmdRisk()
 		detail = r.needsLuke and "NEEDS LUKE: no auto-merge; review the intent card (CONSTRAINTS.md rule 5)"
 			or "routine: docs and tooling only",
 	})
-	if flag("--label") then
+	if table.find(A, "--label") ~= nil then   -- a bare switch: flag() reads the value AFTER a flag
 		local branch = git({ "rev-parse", "--abbrev-ref", "HEAD" }) or ""
 		if r.needsLuke then
 			run("gh", { "label", "create", "needs-luke", "--color", "D93F0B", "--description", "bas risk: Luke reviews before merge", "--force" })
