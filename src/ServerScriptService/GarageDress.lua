@@ -111,7 +111,7 @@ end
 local B = {}
 
 function B.kit(p, M, pivot, FK)
-	local m = FK.put(p.key, pivot * CFrame.new(p.x, F, p.z), M, { yaw = p.yaw, scale = p.scale })
+	local m = FK.put(p.key, pivot * CFrame.new(p.x, F, p.z), M, { yaw = p.yaw, scale = p.scale, canCollide = p.solid })
 	if m and p.light then
 		local host = FK.body(m)
 		if host then light(host, 12, 0.9) end

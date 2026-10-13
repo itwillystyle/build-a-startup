@@ -75,7 +75,8 @@ L.PIECES = {
 		color = { 207, 198, 182 } },
 
 	-- the meeting corner (back left): a round table, three chairs, two bookcases
-	{ id = "table", kind = "floor", build = "kit", key = "tableRound", x = -12.5, z = -9.0, w = 4.1, d = 4.7, h = 2.2 },
+	-- solid: a 4-stud table top you can jump on must hold you (the doctor's "sinking surfaces", 12 Oct)
+	{ id = "table", kind = "floor", build = "kit", key = "tableRound", x = -12.5, z = -9.0, w = 4.1, d = 4.7, h = 2.2, solid = true },
 	{ id = "seatFront", kind = "floor", build = "kit", key = "chairModernCushion", yaw = 180, x = -12.5, z = -5.85, w = 1.2, d = 1.2, h = 2.7 },
 	{ id = "seatLeft", kind = "floor", build = "kit", key = "chairModernCushion", yaw = 90, x = -15.4, z = -9.0, w = 1.2, d = 1.2, h = 2.7 },
 	{ id = "seatRight", kind = "floor", build = "kit", key = "chairModernCushion", yaw = -90, x = -9.6, z = -9.0, w = 1.2, d = 1.2, h = 2.7 },

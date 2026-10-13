@@ -23,6 +23,7 @@
 - The rocket sign's face is dark NEON on purpose. A shaded ink panel six studs from the desk pendants rendered tan and washed the rocket out.
 - The Kenney `lampSquareFloor` is one mesh tinted as its shade, so the whole lamp glows. The garage lamp is built from parts (`B.floorLamp`).
 - The sign covers the back window deliberately (`coversWindow`). The wall skin is cut round the windows (`cutsWindow`). Every other wall piece may not cover a window.
+- The meeting table is solid (`solid = true` in the layout): the doctor's "sinking surfaces" check failed it on the PR gate run, 12 Oct, as a 4-stud surface you would fall through.
 - Not measured: phone frame rate with the dressing, and whether the gold rocket pulls a new player's eye off the blue laptop screen at 0:00 (the opening depends on the laptop).
 - Night (the client clock) is dim: four lights do not carry the room. Not addressed yet.
 **Last verified:** 2026-10-12 b29cc81
