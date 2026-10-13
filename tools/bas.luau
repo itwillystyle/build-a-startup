@@ -1027,7 +1027,9 @@ local function cmdCheckupPr()
 			table.insert(md, ("Findings: %d BLOCKER, %d BUG, %d MISSING, %d FEEL (main's last posted run is the baseline)."):format(
 				c.BLOCKER, c.BUG, c.MISSING, c.FEEL))
 			for _, f in ipairs(findings) do
-				table.insert(md, ("- **%s** %s: measured %s, expected %s"):format(f.severity, f.key, tostring(f.measured or "-"), tostring(f.expected or "-")))
+				local why = (f.detail and f.detail ~= "") and (" (" .. tostring(f.detail):sub(1, 160) .. ")") or ""
+				table.insert(md, ("- **%s** %s: measured %s, expected %s%s"):format(f.severity, f.key, tostring(f.measured or "-"),
+					tostring(f.expected or "-"), why))
 			end
 		end
 		pass = true
