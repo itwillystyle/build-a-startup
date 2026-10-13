@@ -66,7 +66,7 @@
 - `chaseaudio.spec.luau`: `ChaseAudio` endpoints, monotone, smooth, and the loudness caps.
 - `lune run tools/chase_threat` (add `-- --json --n 500`; same as `lune run tools/bas sim chase_threat`): escape % by tier, scooter speed and 9 behaviours. Route lengths come from `R.bandMid(tier) - 40` plus the model's 40-stud turn (`tools/chase_threat.luau:23-25`). On 9 Oct at n=200 a straight W-holder escaped 100% on skilled (16), 10% on star (17) and 0% on genius (18).
 - `tools/chase_sim.luau`: old hunter vs new, 5 runs including VIP. `tools/chase_edit.luau`: prints the camera cut list with reasons (`lune run tools/chase_edit -- genius good`). `tools/turn_probe.luau`: a steady mouse turn through `direct`, `solveLocked` and `follow` (`lune run tools/turn_probe 150 0`). `chase_sim`, `chase_edit`, `turn_probe` and `chase_threat` all exited 0 on 9 Oct (before v4.6; only `chase_threat` was rerun after).
-- `lune run tools/bas baseline diff`: reruns tests, `chase_threat` (2000 runs) and `late_game`, then flags any escape % that moved more than 5 points (`tools/bas.luau:286-310, 360`). Against the old baseline efeec28 it now reports 20 numbers moved. That is expected after v4.6. I did not re-save the baseline.
+- `lune run tools/bas baseline diff`: reruns tests, `chase_threat` (2000 runs) and `late_game`, then flags any escape % that moved more than 5 points (`tools/bas.luau:300-326`, in `diffBaseline` :288). Against the old baseline efeec28 it now reports 20 numbers moved. That is expected after v4.6. I did not re-save the baseline.
 - Measured live on 9 Oct (DevRecorder runs): candidates spawned at walking distances 142-173 (skilled), 219-249 (star) and 320-357 (genius), all inside their bands. A straight-running genius robot was caught by a lunge, which the sim contract expects. Known limit: Studio ran at 2.6-6 FPS during these runs (Edit mode 169 ms/frame, Studio-wide), so live dodge and BOOST results are not valid yet.
 - No automated check covers `TalentDrop` or any client script. Camera feel and sound are only judged in Play.
 
@@ -94,4 +94,4 @@
 - `chaseCfg` is built once per carry (`TalentDrop.lua:532-543`). A poach moves the hunter's home stretch, the timer and `CarryHome` to the thief's doorstep, but keeps the first player's speed (`TalentDrop.lua:625-662`). Read, not run.
 - Stale numbers: `chasecam.spec.luau:125` uses LUNGE_TIME 0.8, but `ChaseRules.lua:53` is 1.0 (the header at :20 also says 0.8). Windup plus lunge is 1.5 s, `DIR.MIN_HOLD` is 1.35 (`ChaseCam.lua:953`), and the test still passes. `tools/anim/hunter.luau:1-2` also says 0.8.
 - The hunter's height is fixed at the pickup height (`TalentDrop.lua:521, 531, 736`). Candidates now stand within 10 studs of the door height (:175), which limits the error. Unclear if every route is flat.
-**Last verified:** 2026-10-13 13a511a
+**Last verified:** 2026-10-13 1d8e280

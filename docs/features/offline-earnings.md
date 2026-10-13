@@ -23,7 +23,7 @@
 **Prove it:**
 - `tests/offline/home.spec.luau:36-75`: no home pays the old 10 min, Penthouse covers a spin-off, 2 h pays less than 8, Studio window is 2 h, never two steps, 3,000 random returns.
 - `tests/offline/progression.spec.luau:59-73`: a Penthouse night pays any spin-off; at the cap a Studio night pays under 30% and a Loft under 60%.
-- `tools/late_game.luau` and `tools/bas baseline diff` track `nightCover` (`tools/bas.luau:311-345`).
+- `tools/late_game.luau` and `tools/bas baseline diff` track `nightCover` (`tools/bas.luau:328-340`, in `diffBaseline` :288).
 - No automated check for the `applySave` wiring or the HUD card.
 **Gotchas:**
 - The old formula at `SaveLoad.lua:195-198` is overwritten by the home rule at :217 whenever `Econ.Apt` has both `offline` and `ladder`. The 600 s cap is only a fallback.
@@ -33,4 +33,4 @@
 - `WelcomeDone` is only set after 12 s when no offline pay came (`HudClient.client.lua:1018-1021`). `TalentRevealClient` (:357), `NameClient` (:160) and `DailyClient` (:364) wait for it.
 - The server adds the money first. The HUD subtracts `pendingOffline` from the shown cash until COLLECT (`HudClient.client.lua:1035,530`). If the card cannot show for 45 s the money is released (:1041-1046).
 - A Studio Play, stop, Play loop pays almost nothing, because `lastSeen` is only seconds old.
-**Last verified:** 2026-10-13 13a511a
+**Last verified:** 2026-10-13 1d8e280

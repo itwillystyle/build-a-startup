@@ -24,7 +24,7 @@
 - No scenario builds "more Star staff than seats" to test the pick card yet.
 **Prove it:**
 - `tests/offline/progression.spec.luau`: cost, multiplier, wait cap (:26-75) and `chooseKeepers` (:109-200). `clock.spec.luau:44` GO PUBLIC raise cap 10%. `home.spec.luau:83` keeper slots. `journey.spec.luau:80,95` GO PUBLIC before spin-off.
-- `lune run tools/late_game` (also `tools/bas sim late_game`) prints price and wait per spin. `bas baseline diff` flags changes (`tools/bas.luau:286-347`).
+- `lune run tools/late_game` (also `tools/bas sim late_game`) prints price and wait per spin. `bas baseline diff` flags changes (`diffBaseline` `tools/bas.luau:288-349`).
 - `tests/smoke_core.luau:58-62` runs `gopublic` then `spinoff` in Play and snapshots the result.
 - No automated check for `goPublic`, `spinOff` or `IpoClient`.
 **Gotchas:**
@@ -37,4 +37,4 @@
 - `checkIPO` (valuation at `IPO_AT` 250,000, `CoreConfig.lua:115`) is only reached from SVDev `valuation` (`DevHook.lua:186`). The real path is `goPublic`.
 - At 20 spin-offs `s.spinoffs` stops growing (:2973), so price and multiplier stop too (`Progression.lua:24,28-30`).
 - The keep list is built only when `Econ.V3` is on (:2941).
-**Last verified:** 2026-10-13 418cbb6
+**Last verified:** 2026-10-13 1d8e280
