@@ -28,7 +28,7 @@ local CFG = require("../src/ServerScriptService/CoreConfig")
 local P = require("../src/ServerScriptService/Progression")
 
 local JSON = table.find(process.args, "--json") ~= nil
-local say = JSON and function(...) end or print
+local say = JSON and function(_) end or print
 local LEAD, FIT = CFG.TIER_RATE[#CFG.TIER_RATE], 1.5
 local STAGE_FROM = { 1, 5, 9, 13, 18 }
 local RARE = { {}, { 3 }, { 4, 3, 3 }, { 4, 4, 3, 3, 3 }, { 4, 4, 4, 3, 3, 3, 3 } }
