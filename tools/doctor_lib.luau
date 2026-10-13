@@ -164,4 +164,31 @@ function D.discord(findings, diff, when)
 	return text
 end
 
+--[[ v2 (12 Oct): the pull-request gate. A PR passes when the doctor ran on its exact
+	code (checked elsewhere: SourceHash) and found no BLOCKER at all, and no BUG that
+	main's last posted run did not already have. MISSING and FEEL never block: they
+	are listed. A BUG that is already on main is not this PR's fault, so it is
+	reported as "still open", not counted against it.
+	-> { pass = bool, why = { lines }, newBugs = { finding }, blockers = { finding } } ]]
+function D.prVerdict(findings, mainKeys)
+	local diff = D.diff(mainKeys or {}, findings)
+	local out = { pass = true, why = {}, newBugs = {}, blockers = {} }
+	for _, f in ipairs(findings) do
+		if f.severity == "BLOCKER" then table.insert(out.blockers, f) end
+	end
+	for _, f in ipairs(diff.new) do
+		if f.severity == "BUG" then table.insert(out.newBugs, f) end
+	end
+	if #out.blockers > 0 then
+		out.pass = false
+		table.insert(out.why, ("%d BLOCKER: %s"):format(#out.blockers, out.blockers[1].key))
+	end
+	if #out.newBugs > 0 then
+		out.pass = false
+		table.insert(out.why, ("%d new BUG (not on main): %s"):format(#out.newBugs, out.newBugs[1].key))
+	end
+	if out.pass then table.insert(out.why, "no BLOCKER, no new BUG") end
+	return out
+end
+
 return D
