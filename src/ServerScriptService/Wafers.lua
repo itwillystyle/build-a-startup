@@ -424,6 +424,39 @@ local function serverFan(model, cf, size, rpm)
 	return blades
 end
 
+--[[ THE SERVERS RACKS (13 Oct 2026). The imported rack (ServerRack: the wafer crown,
+	walnut slats, rails and patch cables, art/blender/rack_v6.py) where the place has
+	the mesh; the plain box and its pulsing light strip where it does not (the TEST
+	experience, a place without the import). Same four slots either way. ]]
+local ServerRack = require(RS:WaitForChild("ServerRack"))
+local function serverRacks(model, base, rm)
+	local lib = RS:FindFirstChild("SVMeshes")
+	local tpl = lib and lib:FindFirstChild(ServerRack.MESH)
+	local mesh = tpl and (tpl:IsA("MeshPart") and tpl or tpl:FindFirstChildWhichIsA("MeshPart", true))
+	if mesh and not ServerRack.fits(mesh.Size) then mesh = nil end     -- a wrong import: keep the boxes
+	for _, x in ipairs(ServerRack.XS) do
+		if mesh then
+			local mp = mesh:Clone()
+			mp.Name = ServerRack.NAME
+			mp.Anchored = true
+			mp.CanCollide = true
+			mp.CanTouch = false
+			mp.CastShadow = false
+			mp.Color = Color3.new(1, 1, 1)       -- vertex colour shows as authored
+			mp.CFrame = base * ServerRack.pose(x, rm, mp.Size.Y)
+			mp.Parent = model
+		else
+			add(model, { Name = "Rack", Size = ServerRack.SLOT, CFrame = base * CFrame.new(x, 3.5, rm + ServerRack.BACK),
+				Color = Color3.fromRGB(38, 42, 52), Material = Enum.Material.Metal, CastShadow = false })
+			local lit = add(model, { Name = "RackLight", Size = Vector3.new(2.2, 0.2, 0.1), CFrame = base * CFrame.new(x, 5.6, rm + 1.85),
+				Color = Color3.fromRGB(120, 240, 200), Material = Enum.Material.Neon, CanCollide = false, CanQuery = false, CastShadow = false })
+			CollectionService:AddTag(lit, "SVPulse")
+			lit:SetAttribute("Hz", 0.35)
+			lit:SetAttribute("Depth", 0.30)
+		end
+	end
+end
+
 local function roomMid(r)
 	local inset = P.INSET[CUR] or 0
 	local rin = r - G.DEPTH
@@ -559,19 +592,12 @@ local function domeFurnish(model, anchor, dept, r, L)
 		place("pottedPlant", -9.5, rm + 1.0, 0)
 	elseif dept == "servers" then
 		-- still a machine room, but screened in timber rather than left raw
-		for _, x in ipairs({ -6, -2, 2, 6 }) do
-			add(model, { Name = "Rack", Size = Vector3.new(3, 7, 2.2), CFrame = base * CFrame.new(x, 3.5, rm + 3),
-				Color = Color3.fromRGB(38, 42, 52), Material = Enum.Material.Metal, CastShadow = false })
-			local lit = add(model, { Name = "RackLight", Size = Vector3.new(2.2, 0.2, 0.1), CFrame = base * CFrame.new(x, 5.6, rm + 1.85),
-				Color = Color3.fromRGB(120, 240, 200), Material = Enum.Material.Neon, CanCollide = false, CanQuery = false, CastShadow = false })
-			CollectionService:AddTag(lit, "SVPulse")
-			lit:SetAttribute("Hz", 0.35)
-			lit:SetAttribute("Depth", 0.30)
-		end
+		serverRacks(model, base, rm)
 		for _, x in ipairs({ -9, 9 }) do
 			serverFan(model, base * CFrame.new(x, 6.2, rm + 3.1), 3.0, 170)
 		end
-		add(model, { Name = "Screen", Size = Vector3.new(20, 5.2, 0.4), CFrame = base * CFrame.new(0, 3.1, rm - 2.2),
+		-- 2.5 tall (was 5.2, 13 Oct): at 5.2 it hid the racks' fronts; now it is a rail you see over
+		add(model, { Name = "Screen", Size = Vector3.new(20, 2.5, 0.4), CFrame = base * CFrame.new(0, 1.75, rm - 2.2),
 			Color = TIMBER, Material = Enum.Material.WoodPlanks, CanCollide = false, CanQuery = false, CastShadow = false })
 		place("pottedPlant", -11, rm - 4.0, 0)
 	elseif dept == "board" then
@@ -830,15 +856,7 @@ local function furnish(model, anchor, dept, r, L)
 			table.insert(seats, CFrame.lookAt(pos, look))
 		end
 	elseif dept == "servers" then
-		for _, x in ipairs({ -6, -2, 2, 6 }) do
-			add(model, { Name = "Rack", Size = Vector3.new(3, 7, 2.2), CFrame = base * CFrame.new(x, 3.5, rm + 3),
-				Color = Color3.fromRGB(38, 42, 52), Material = Enum.Material.Metal, CastShadow = false })
-			local lit = add(model, { Name = "RackLight", Size = Vector3.new(2.2, 0.2, 0.1), CFrame = base * CFrame.new(x, 5.6, rm + 1.85),
-				Color = Color3.fromRGB(120, 240, 200), Material = Enum.Material.Neon, CanCollide = false, CanQuery = false, CastShadow = false })
-			CollectionService:AddTag(lit, "SVPulse")
-			lit:SetAttribute("Hz", 0.35)
-			lit:SetAttribute("Depth", 0.30)
-		end
+		serverRacks(model, base, rm)
 		for _, x in ipairs({ -9, 9 }) do
 			serverFan(model, base * CFrame.new(x, 6.2, rm + 3.1), 3.0, 170)
 		end
