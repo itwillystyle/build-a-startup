@@ -26,6 +26,7 @@
 	  fixed  already in the garage (built elsewhere): checked, never built here
 	`backdrop` marks a wall piece that things may stand in front of (the slatted wall).
 	`coversWindow` marks the one piece allowed over a window (the rocket sign, deliberately).
+	`cutsWindow` marks a wall skin that is built with the window cut out of it.
 	`may` lists the KEEP zones a piece is allowed in (a rug may lie under the desk). ]]
 local L = {}
 
@@ -106,6 +107,23 @@ L.PIECES = {
 	{ id = "hqGlow", kind = "rug", build = "padGlow", x = 13, z = 8, w = 6.9, d = 6.9, may = { "hqPad" } },
 
 	-- ---------------------------------------------------------- the walls
+	-- v3 (12 Oct, the second pass): the walls themselves. The first screenshots were
+	-- right about the props and wrong about the room: big flat white walls. A warm
+	-- cream skin (cut round the windows) and image 2's sage band under an oak rail.
+	{ id = "skinLeft", kind = "wall", build = "cladding", wall = "left", u = 0, w = 29, y0 = 1.0, y1 = 13.1, depth = 0.05, backdrop = true, cutsWindow = true },
+	{ id = "skinRight", kind = "wall", build = "cladding", wall = "right", u = 0, w = 29, y0 = 1.0, y1 = 13.1, depth = 0.05, backdrop = true, cutsWindow = true },
+	{ id = "skinBack", kind = "wall", build = "cladding", wall = "back", u = 0, w = 35, y0 = 1.0, y1 = 13.1, depth = 0.05, backdrop = true, cutsWindow = true },
+	{ id = "bandLeft", kind = "wall", build = "wainscot", wall = "left", u = 0, w = 29, y0 = 1.0, y1 = 3.75, depth = 0.12, backdrop = true },
+	{ id = "bandRight", kind = "wall", build = "wainscot", wall = "right", u = 0, w = 29, y0 = 1.0, y1 = 3.75, depth = 0.12, backdrop = true },
+	{ id = "bandBack", kind = "wall", build = "wainscot", wall = "back", u = 0, w = 35, y0 = 1.0, y1 = 3.75, depth = 0.12, backdrop = true },
+	-- and the upper walls, which were empty above head height
+	{ id = "plantShelfL", kind = "wall", build = "plantShelf", wall = "left", u = -9.85, w = 4.4, y0 = 9.9, y1 = 11.8, depth = 1.0 },
+	{ id = "menuBoard", kind = "wall", build = "menuBoard", wall = "left", u = -5.0, w = 3.2, y0 = 6.4, y1 = 8.6, depth = 0.12 },
+	{ id = "posterL", kind = "wall", build = "poster", wall = "left", u = 7.0, w = 3.0, y0 = 8.6, y1 = 11.8, depth = 0.15 },
+	{ id = "tvShelf", kind = "wall", build = "tvShelf", wall = "right", u = -5.5, w = 3.8, y0 = 9.0, y1 = 10.6, depth = 0.9 },
+	{ id = "rackFrames", kind = "wall", build = "frames", wall = "right", u = -11.0, w = 3.4, y0 = 8.4, y1 = 11.0, depth = 0.15 },
+	{ id = "printBack", kind = "wall", build = "poster", wall = "back", u = -14.65, w = 3.0, y0 = 10.4, y1 = 12.7, depth = 0.15 },
+	{ id = "plantShelfB", kind = "wall", build = "plantShelf", wall = "back", u = 13.6, w = 4.4, y0 = 10.5, y1 = 12.4, depth = 1.0 },
 	-- back: the slatted oak wall either side of the window, the rocket above it
 	{ id = "slatsL", kind = "wall", build = "slats", wall = "back", u = -6.6, w = 5.2, y0 = 1.0, y1 = 13.0, depth = 0.35, backdrop = true },
 	{ id = "slatsR", kind = "wall", build = "slats", wall = "back", u = 6.6, w = 5.2, y0 = 1.0, y1 = 13.0, depth = 0.35, backdrop = true },
@@ -120,7 +138,7 @@ L.PIECES = {
 	-- right: the wall TV over the lounge, pictures and a neon bolt over the HQ pad
 	{ id = "tv", kind = "wall", build = "tv", wall = "right", u = -5.5, w = 4.2, y0 = 5.0, y1 = 7.6, depth = 0.3 },
 	{ id = "framesRight", kind = "wall", build = "frames", wall = "right", u = 6.0, w = 4.6, y0 = 6.6, y1 = 9.6, depth = 0.15 },
-	{ id = "bolt", kind = "wall", build = "bolt", wall = "right", u = 10.4, w = 1.8, y0 = 6.4, y1 = 9.8, depth = 0.2 },
+	{ id = "neonRocket", kind = "wall", build = "neonRocket", wall = "right", u = 10.5, w = 2.8, y0 = 6.6, y1 = 10.4, depth = 0.1 },
 
 	-- ---------------------------------------------------------- the ceiling
 	{ id = "deskLamps", kind = "ceil", build = "pendants", x = 0, z = -8.6, w = 6.4, d = 1.2, y0 = 10.2, y1 = 13.1, n = 2, light = true },
@@ -160,7 +178,7 @@ function L.check(pieces)
 			if p.u - p.w / 2 < mid - half or p.u + p.w / 2 > mid + half then bad(p.id .. ": runs off the end of the " .. p.wall .. " wall") end
 			if p.y0 < L.FLOOR or p.y1 > L.CEIL then bad(p.id .. ": above the beams or below the floor") end
 			local win = L.WINDOWS[p.wall]
-			if win and not p.coversWindow and overlap(p.u - p.w / 2, p.u + p.w / 2, win.u0, win.u1) and overlap(p.y0, p.y1, win.y0, win.y1) then
+			if win and not p.coversWindow and not p.cutsWindow and overlap(p.u - p.w / 2, p.u + p.w / 2, win.u0, win.u1) and overlap(p.y0, p.y1, win.y0, win.y1) then
 				bad(p.id .. ": covers the " .. p.wall .. " window")
 			end
 		else

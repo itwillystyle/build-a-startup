@@ -428,13 +428,103 @@ function B.tv(p, f, M)
 	part(M, "TvMount", Vector3.new(0.8, 0.8, 0.12), at(f, 0, cy, 0.03), C.asphalt)
 end
 
--- a neon lightning bolt, no backing
-function B.bolt(p, f, M)
-	local y0, h = p.y0, p.y1 - p.y0
-	local pts = { { 0.35, 1.0 }, { -0.35, 0.48 }, { 0.3, 0.52 }, { -0.4, 0.0 } }
-	for i = 1, #pts - 1 do
-		stroke(M, f, pts[i][1] * p.w / 1.4, y0 + pts[i][2] * h, pts[i + 1][1] * p.w / 1.4, y0 + pts[i + 1][2] * h, 0.12, 0.2, C.gold, neon())
+-- along-the-wall offset du (u - the piece's own u) -> "a" (to the right as you face it)
+local function aOf(wall, du) return (wall == "left") and -du or du end
+
+-- v3: the wall's own skin, warm cream, cut round the window (the mesh is a flat white)
+function B.cladding(p, f, M)
+	local col = Color3.fromRGB(238, 226, 204)
+	local u0, u1 = p.u - p.w / 2, p.u + p.w / 2
+	local win = L.WINDOWS[p.wall]
+	local function slab(a0, a1, y0, y1)
+		if a1 - a0 < 0.05 or y1 - y0 < 0.05 then return end
+		local da = aOf(p.wall, (a0 + a1) / 2 - p.u)
+		part(M, "Skin", Vector3.new(a1 - a0, y1 - y0, 0.04), at(f, da, (y0 + y1) / 2, 0.025), col)
 	end
+	slab(u0, win.u0, p.y0, p.y1)
+	slab(win.u1, u1, p.y0, p.y1)
+	slab(win.u0, win.u1, p.y0, win.y0)
+	slab(win.u0, win.u1, win.y1, p.y1)
+end
+
+-- v3: image 2's sage band, an oak rail on top, a dark skirting under it
+function B.wainscot(p, f, M)
+	local h = p.y1 - p.y0
+	part(M, "Band", Vector3.new(p.w, h, 0.05), at(f, 0, p.y0 + h / 2, 0.07), Color3.fromRGB(146, 170, 136))
+	part(M, "Rail", Vector3.new(p.w, 0.2, 0.12), at(f, 0, p.y1, 0.1), C.oak, { Material = Enum.Material.Wood })
+	part(M, "Skirting", Vector3.new(p.w, 0.3, 0.1), at(f, 0, p.y0 + 0.15, 0.1), C.asphalt)
+end
+
+local function pot(M, f, a, y, o, size, leafCol)
+	part(M, "Pot", Vector3.new(size * 0.85, size * 0.75, size * 0.85), at(f, a, y + size * 0.375, o), C.concrete)
+	part(M, "Leaves", Vector3.new(size * 1.3, size * 1.1, size * 1.3), at(f, a, y + size * 1.15, o), leafCol or C.leaf,
+		{ Shape = Enum.PartType.Ball })
+end
+
+function B.plantShelf(p, f, M)
+	shelfPlank(M, f, p.w, p.y0 + 0.1, p.depth)
+	local top = p.y0 + 0.2
+	pot(M, f, -p.w / 2 + 0.7, top, p.depth / 2, 0.6)
+	pot(M, f, 0.1, top, p.depth / 2, 0.75, C.lawn)
+	pot(M, f, p.w / 2 - 0.7, top, p.depth / 2, 0.55)
+	-- a trailing vine over the edge
+	for k = 0, 4 do
+		part(M, "Vine", Vector3.new(0.32, 0.32, 0.32), at(f, -p.w / 2 + 0.75 + (k % 2) * 0.12, top - 0.2 - k * 0.32, p.depth - 0.15), C.leaf,
+			{ Shape = Enum.PartType.Ball })
+	end
+end
+
+-- a chalkboard menu over the coffee bar: lines of chalk and a cup, no words
+function B.menuBoard(p, f, M)
+	local h = p.y1 - p.y0
+	local cy = p.y0 + h / 2
+	part(M, "MenuFrame", Vector3.new(p.w, h, 0.1), at(f, 0, cy, 0.06), C.oakDark, { Material = Enum.Material.Wood })
+	part(M, "Chalkboard", Vector3.new(p.w - 0.25, h - 0.25, 0.04), at(f, 0, cy, 0.12), Color3.fromRGB(40, 54, 50))
+	for k = 0, 3 do
+		local y = p.y1 - 0.55 - k * 0.42
+		stroke(M, f, -p.w / 2 + 0.4, y, -p.w / 2 + 0.4 + 1.1 + (k % 2) * 0.35, y, 0.15, 0.06, C.paper)
+		stroke(M, f, p.w / 2 - 1.0, y, p.w / 2 - 0.45, y, 0.15, 0.06, C.calGold)
+	end
+	-- the cup
+	local ca, cyb = 0.05, p.y0 + 0.45
+	stroke(M, f, ca - 0.3, cyb + 0.55, ca - 0.22, cyb, 0.15, 0.07, C.paper)
+	stroke(M, f, ca + 0.3, cyb + 0.55, ca + 0.22, cyb, 0.15, 0.07, C.paper)
+	stroke(M, f, ca - 0.22, cyb, ca + 0.22, cyb, 0.15, 0.07, C.paper)
+	stroke(M, f, ca + 0.3, cyb + 0.45, ca + 0.5, cyb + 0.3, 0.15, 0.06, C.paper)
+end
+
+function B.poster(p, f, M)
+	local h = p.y1 - p.y0
+	picture(M, f, 0, p.y0 + h / 2, p.w, h, (p.wall == "back") and 2 or 1)
+end
+
+function B.tvShelf(p, f, M)
+	shelfPlank(M, f, p.w, p.y0 + 0.1, p.depth)
+	local top = p.y0 + 0.2
+	books(M, f, -p.w / 2 + 0.3, -0.2, top, p.depth, 3)
+	trophy(M, f, 0.45, top, p.depth / 2)
+	pot(M, f, p.w / 2 - 0.6, top, p.depth / 2, 0.6)
+end
+
+-- v3: a neon rocket on the right wall, no backing (image 5's corner sign)
+function B.neonRocket(p, f, M)
+	local h = p.y1 - p.y0
+	local host = part(M, "NeonRocket", Vector3.new(p.w, h, 0.05), at(f, 0, p.y0 + h / 2, 0.08), C.paper, { Transparency = 1 })
+	local sg = Instance.new("SurfaceGui")
+	sg.Face = Enum.NormalId.Front
+	sg.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	sg.PixelsPerStud = 40
+	sg.LightInfluence = 0
+	sg.Brightness = 2
+	sg.MaxDistance = 120
+	sg.Parent = host
+	local img = Instance.new("ImageLabel")
+	img.BackgroundTransparency = 1
+	img.Size = UDim2.fromScale(1, 1)
+	img.Image = ROCKET
+	img.ImageColor3 = Color3.fromRGB(255, 196, 96)
+	img.ScaleType = Enum.ScaleType.Fit
+	img.Parent = sg
 end
 
 -- pendant lamps in a row along x: cord, shade, bulb; the first one lights the room
