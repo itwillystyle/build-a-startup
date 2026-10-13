@@ -4,7 +4,7 @@
 1. Join: you spawn in your garage (see core-loop.md). The dressing is built once per plot in `buildPlot`, right after the garage furniture (`src/ServerScriptService/SiliconCore.server.lua:1113`).
 2. Walk in through the door. The client warms the colour grade while the camera is inside any garage, and eases it back out when you leave (`src/StarterPlayer/StarterPlayerScripts/GarageMoodClient.client.lua:26`).
 **Files:**
-- `src/ReplicatedStorage/GarageLayout.lua`: the room as data, pure. `WINDOWS` :40, `KEEP` (walkway, desk, both pads, door) :54, `PIECES` :62, `check` :167 (every reason a piece would block the game), `lights` :236.
+- `src/ReplicatedStorage/GarageLayout.lua`: the room as data, pure. `WINDOWS` :40, `KEEP` (walkway, desk, both pads, door) :54, `PIECES` :62, `check` :168 (every reason a piece would block the game), `lights` :237.
 - `src/ServerScriptService/GarageDress.lua`: builds from the layout. `wallFrame` :91, `at` :100, one builder per look (`B.slats` :217, `B.sign` :233, `B.whiteboard` :329, `B.tv` :393, `B.cladding` :436, `B.wainscot` :452, `B.pendants` :535, ...), `dress` :586 (refuses to build if `check` finds a problem).
 - `src/StarterPlayer/StarterPlayerScripts/GarageMoodClient.client.lua`: the warm grade (`WARM` :22, `cameraInGarage` :26).
 - The garage floor colour: `SiliconCore.server.lua:815` (warm mid concrete at level 1).
@@ -26,4 +26,4 @@
 - The meeting table is solid (`solid = true` in the layout): the doctor's "sinking surfaces" check failed it on the PR gate run, 12 Oct, as a 4-stud surface you would fall through.
 - Not measured: phone frame rate with the dressing, and whether the gold rocket pulls a new player's eye off the blue laptop screen at 0:00 (the opening depends on the laptop).
 - Night (the client clock) is dim: four lights do not carry the room. Not addressed yet.
-**Last verified:** 2026-10-12 b29cc81
+**Last verified:** 2026-10-12 23ffd2a
