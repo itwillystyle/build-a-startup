@@ -11,7 +11,10 @@
 	  pose  the mesh's FRONT is its +Z (measured 13 Oct: the export turns it so), while a
 	        room's racks face local -Z, toward the room (rm + 3 is the back, the light
 	        strip sat at rm + 1.85). So the mesh is turned half a circle. The first import
-	        faced the wrong way and showed its cables; this is that lesson, pinned. ]]
+	        faced the wrong way and showed its cables; this is that lesson, pinned.
+	The plain rack's pulsing light strip is NOT built with the mesh, on purpose: at y 5.6
+	it would cross the mesh's porthole and stickers, and the mesh carries its own
+	department-colour light lines. The room's fans still turn. ]]
 local ServerRack = {}
 
 ServerRack.MESH = "SV_Rack_servers"
@@ -27,10 +30,14 @@ function ServerRack.pose(x, rm, meshHeight)
 	return CFrame.new(x, meshHeight / 2, rm + ServerRack.BACK) * CFrame.Angles(0, math.pi, 0)
 end
 
--- does a mesh of this size fit the plain rack's slot?
+-- does a mesh of this size fit the plain rack's slot? Too big would poke into the fans
+-- and the glass; too SMALL is a wrong-scale import (review, 13 Oct: four specks a room
+-- and no fallback), so it must also stand at least MIN_HEIGHT of the slot
+ServerRack.MIN_HEIGHT = 0.8
 function ServerRack.fits(size)
 	local s = ServerRack.SLOT
 	return size.X <= s.X + 1e-3 and size.Y <= s.Y + 1e-3 and size.Z <= s.Z + 1e-3
+		and size.Y >= s.Y * ServerRack.MIN_HEIGHT
 end
 
 return ServerRack

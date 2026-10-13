@@ -19,7 +19,8 @@ test("it stands on the floor, at the plain rack's spot (x, rm + 3)", function()
 		assert(near(cf.Position.Y - MEASURED.Y / 2, 0), "bottom off the floor at x " .. x)
 		assert(near(cf.Position.X, x) and near(cf.Position.Z, 13), "moved off the old spot at x " .. x)
 	end
-	assert(#R.XS == 4, "four racks a room, as before")
+	-- pinned, not looped: the fans stand at x +-9 (housing 7.5..10.5), the outer racks must stay inside
+	assert(table.concat(R.XS, ",") == "-6,-2,2,6", "the four slots moved: " .. table.concat(R.XS, ","))
 end)
 
 test("the measured mesh fits the plain rack's slot, and a bigger one would not", function()
@@ -27,6 +28,7 @@ test("the measured mesh fits the plain rack's slot, and a bigger one would not",
 	assert(not R.fits(Vector3.new(3.5, 6.7, 2.1)), "too wide must fail (the winged rack was 10.6)")
 	assert(not R.fits(Vector3.new(2.7, 7.4, 2.1)), "too tall must fail")
 	assert(not R.fits(Vector3.new(2.7, 6.7, 2.4)), "too deep must fail")
+	assert(not R.fits(Vector3.new(0.0274, 0.0671, 0.0218)), "a wrong-scale import (specks) must fail, so the boxes build")
 end)
 
 test("its in-game name carries a prefix Palette leaves alone (or the sweep washes it warm)", function()
