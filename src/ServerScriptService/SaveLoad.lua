@@ -5,6 +5,7 @@ SiliconCore calls this once, at the same point in its load order the code
 used to run, passing the SiliconCore locals it needs in `core`. Every one of
 them is assigned before this point and never reassigned, so aliasing is safe. ]]
 local Telemetry = require(script.Parent:WaitForChild("Telemetry"))   -- the player loop: cash in and out
+local StaffStats = require(game:GetService("ReplicatedStorage"):WaitForChild("StaffStats"))   -- v8 Manage Staff
 
 return function(core)
 	local CFG = core.CFG
@@ -108,6 +109,13 @@ return function(core)
 				for i, r in ipairs(s.rigs or {}) do t[i] = r.talent or 1 end
 				return t
 			end)(),
+			-- v8 (13 Oct) MANAGE STAFF: per person, beside tiers/talents/people
+			ids = (function() local t = {} for i, r in ipairs(s.rigs or {}) do t[i] = r.id or 0 end return t end)(),
+			skill = (function() local t = {} for i, r in ipairs(s.rigs or {}) do t[i] = r.skill or 0 end return t end)(),
+			speed = (function() local t = {} for i, r in ipairs(s.rigs or {}) do t[i] = r.speed or 0 end return t end)(),
+			loyalty = (function() local t = {} for i, r in ipairs(s.rigs or {}) do t[i] = r.loyalty or 0 end return t end)(),
+			pin = (function() local t = {} for i, r in ipairs(s.rigs or {}) do t[i] = r.pin or "" end return t end)(),
+			nsid = s.nextStaffId or 0,
 			index = (function()
 				local t = {}
 				for k in pairs(s.index or {}) do table.insert(t, k) end
@@ -339,7 +347,26 @@ return function(core)
 				r.tier = tier
 				r.seatedTime = (tier - 1) * CFG.PROMOTE_EVERY
 				StaffRig.setTitle(r.rig, titleOf(r))
+				-- v8 (13 Oct) MANAGE STAFF: the saved id (kept if valid; uniqueness is fixed
+				-- below), the three stats clamped (a save cannot mint levels), the pin
+				local function at(t) return type(t) == "table" and t[i] or nil end
+				r.saveIndex = i   -- the id itself is settled after the loop (StaffStats.fixIds)
+				r.skill = StaffStats.clampLevel(at(data.skill))
+				r.speed = StaffStats.clampLevel(at(data.speed))
+				r.loyalty = StaffStats.clampLevel(at(data.loyalty))
+				local pn = at(data.pin)
+				r.pin = StaffStats.validPin(pn) and pn or ""   -- only real room types (review, 13 Oct)
 			end
+		end
+		-- ids: the saved ones where valid and unique, fresh ones past the highest for the
+		-- rest, and the counter from the save (StaffStats.fixIds, tested offline: old saves,
+		-- duplicates, junk, and a second load changing nothing)
+		do
+			local ids, top = StaffStats.fixIds(data.ids, data.nsid, staffN)
+			for _, r in ipairs(s.rigs or {}) do
+				if r.saveIndex then r.id = ids[r.saveIndex]; r.saveIndex = nil end
+			end
+			s.nextStaffId = top
 		end
 		s.indexQuiet = false
 		if Econ and Econ.publishIndex then Econ.publishIndex(player, s) end

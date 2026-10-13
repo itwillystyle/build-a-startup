@@ -1,7 +1,7 @@
 # Cars (company car, dealer, driving, ambient traffic)
 **What:** At HQ stage 2 the company gives the player a free hatchback. Valley Motors sells five faster cars. The player drives with a VehicleSeat that the client steers. Separate from that, ambient traffic is scenery that each client moves on its own.
 **How a player reaches it:**
-1. Build to stage 2 (wafer level 5). The server calls `Cars.grant(player, "hatch", "COMPANY CAR!")` after 3.5 s (`src/ServerScriptService/SiliconCore.server.lua:2173-2174`). The car parks in the plot's bay (`src/ServerScriptService/Cars.lua:227-229`).
+1. Build to stage 2 (wafer level 5). The server calls `Cars.grant(player, "hatch", "COMPANY CAR!")` after 3.5 s (`src/ServerScriptService/SiliconCore.server.lua:2183-2184`). The car parks in the plot's bay (`src/ServerScriptService/Cars.lua:227-229`).
 2. Walk up and press the "Drive" prompt (owner only), or tap the CAR button or press C to call the car (`CallCar`, `Cars.lua:272`).
 3. Move with WASD or thumbstick. Jump to get out. Shift is nitro, H is the horn (`src/StarterPlayer/StarterPlayerScripts/CarClient.client.lua:167-192`).
 4. Buy more at the campus showroom car (prompt "Cars", `Cars.lua:560`) or the dealership display pads (prompt "Look", `Cars.lua:580`). `DealerMenu` opens the list, `BuyCar` buys or switches (`Cars.lua:305-334`, `CarClient.client.lua:557-622`).
@@ -15,7 +15,7 @@
 - Player attributes: `CarOwned`, `CarId`, `CarName`, `CarTop` (`Cars.lua:217-222, 261`). Client only: `BuildModeOpen` hides the CAR button (`CarClient.client.lua:350`).
 - Car model: tag `SVCar`, attributes `Owner`, `CarId`, `Speed`, `Accel` (`Cars.lua:196-200`). One unanchored `Chassis`, owned by the driver's client.
 - Traffic model: tag `TrafficCar`, attributes `LaneA`, `LaneB`, `LaneId`, `Speed`, `Phase`, `CrossAt` or `RingR`, `RingDir`.
-- Saved: `cars`, `car` (`src/ServerScriptService/SaveLoad.lua:140-141`). Load keeps only known ids (`Cars.lua:597-617`).
+- Saved: `cars`, `car` (`src/ServerScriptService/SaveLoad.lua:148-149`). Load keeps only known ids (`Cars.lua:597-617`).
 **Drive it:**
 - `dev:Invoke("scenario", p, "tp:car")` goes to the spawned car (`DevScenarios.lua:235`). It fails with "no position" if no car exists yet.
 - `hq:<n>` does NOT grant the car. `wlevel` sets the stage directly (`DevHook.lua:65-81`) and skips the grant. Untested recipe from the code: `wlevel 4`, then `upgrade` across level 5 (`DevHook.lua:62`).
@@ -34,6 +34,6 @@
 - Old saves past HQ 2 with no cars get the hatchback on load (`Cars.lua:611-615`).
 - Lifts: `LiftGo` stands you up first, because moving a seated player drags the car (`HQFloors.lua:115-129`).
 - The CAR button pulses only while the Journey objective is "car" (`CarClient.client.lua:365-372`).
-- The header comment says "HQ 2". In Wafers mode that means wafer level 5 (`Wafers.lua:166-171`).
+- The header comment says "HQ 2". In Wafers mode that means wafer level 5 (`Wafers.lua:166-169`).
 - Security (9 Oct exploit check): `CallCar`, and `BuyCar` on a car you already own, respawn the car for every client, so both share a 2 s gate (`Cars.lua:284, 312`).
-**Last verified:** 2026-10-12 b29cc81
+**Last verified:** 2026-10-13 13a511a

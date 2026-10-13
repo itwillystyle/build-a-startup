@@ -164,9 +164,7 @@ end
 
 -- the old HQ level (1-5) this level stands for: recruit tiers, homes, the journey
 function Wafers.stage(level)
-	if level >= 18 then return 5 elseif level >= 13 then return 4 elseif level >= 9 then return 3
-	elseif level >= 5 then return 2 end
-	return 1
+	return P.stage(level)   -- v8 (13 Oct): one table, WaferPlan.STAGE_AT (StaffStats caps read it too)
 end
 
 -- a wafer's centre (plot-local)
