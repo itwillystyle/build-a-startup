@@ -9,7 +9,7 @@
 6. At the company's level cap the pad becomes GO PUBLIC, then spin-off (`SiliconCore.server.lua:2095-2099`).
 **Files:**
 - `src/ServerScriptService/Wafers.lua`: placer. `pathOf` :111, `stage` :166, `anchor` :177, `stateOf` :225, `furnish` :817 (`domeFurnish` :467, `fabFurnish` :667), `buildSegment` :955, `buildCore` :1491, `buildPiece` :1557, `buildUpTo` :1622, `clear` :1635, `nextBuild` :1678. A deck's mesh is squashed to fit the 13-stud gap under the next wafer (`Wafers.lua:1203`): the Dome deck's own tent was 18.4 tall and stood 3.9 studs into floors 3 and 7 (11 Oct).
-- `src/ReplicatedStorage/ServerRack.lua`: the Servers room's rack, pure. `MESH`/`NAME` :17-20, `SLOT` :21, `XS` :22, `pose` :26 (the half turn: the mesh's front is +Z, a room's racks face -Z), `fits` :31. Used by `serverRacks` in `Wafers.lua:432` (both `domeFurnish` and `furnish`): the imported `SV_Rack_servers` (ReplicatedStorage.SVMeshes, made by `silicon-startup/art/blender/rack_v6.py`, judged by `rack_check.luau`) where the place has it, the plain box and light strip where it does not.
+- `src/ReplicatedStorage/ServerRack.lua`: the Servers room's rack, pure. `MESH`/`NAME` :20-23, `SLOT` :24, `XS` :25, `pose` :29 (the half turn: the mesh's front is +Z, a room's racks face -Z), `fits` :37 (too big OR shorter than `MIN_HEIGHT` of the slot is refused). Used by `serverRacks` in `Wafers.lua:432` (both `domeFurnish` and `furnish`): the imported `SV_Rack_servers` (ReplicatedStorage.SVMeshes, made by `silicon-startup/art/blender/rack_v6.py`, judged by `rack_check.luau`) where the place has it, the plain box and light strip where it does not.
 - `src/ServerScriptService/WaferPlan.lua`: pure plan. `MAX` :18, `BLUEPRINT` :19, `GEO` :44, `DEPTS` :104, `INSET` :187, `price` :197, `rebuildLast` :206.
 - `src/ServerScriptService/SiliconCore.server.lua`: `wafersNext` :136, path sync in `recompute` :1284-1289, pad attributes :2010-2031, `wafersBuild` :2093, `tryUpgrade` :2206, `releasePlot` :2937.
 - `src/ServerScriptService/HQFloors.lua`: lift remotes :82, `register` :647, `menu` :650. The floor builders (`build` :515) are the old HQ and are not used by Wafers.
@@ -30,14 +30,14 @@
 - Choosing a path: none yet. `wlevel` skips the picker, and `WaferPath` is refused above level 1 (`SiliconCore.server.lua:2893-2896`). Untested idea: fire `WaferPath` from the client at level 1.
 **Prove it:**
 - `tests/offline/wafer.spec.luau` with `tests/offline/wafer_golden.json`: WaferPlan matches the sim (100 pieces, prices, caps, departments, effects, rebuild share, blueprint).
-- `tests/offline/serverrack.spec.luau`: the rack faces the room (a planted no-turn fails it, 13 Oct), stands on the floor at the old four spots, fits the slot (and too big fails), and its name is one Palette leaves alone.
+- `tests/offline/serverrack.spec.luau`: the rack faces the room (a planted no-turn fails it, 13 Oct), stands on the floor at the old four spots, fits the slot (too big and too small both fail), the four slots are pinned (clear of the fans), and its name is one Palette leaves alone.
 - `tests/offline/hqmeta.spec.luau`: every `W_` name the placer asks for has a META entry in all three kits, the kits list the same pieces (Terrafab has no PodiumGlass on purpose), sizes are real, Podium and Crown exist. It does not check V1 or V2.
 - `SVCheck` (Studio, client, `src/ReplicatedStorage/SVCheck.lua:700-750`): furniture inside the glass line, using `WaferPlan.INSET`. See the Gotchas: it may silently skip on the client.
 - `tests/smoke_core.luau`: Studio before/after diff of `upgrade`. It changes the save.
 - No automated check yet for the path picker, the lift, the car grant or the rocket.
 **Gotchas:**
 - The BUILD tile is plot-only and last in the rail column (12 Oct, LayoutOrder 95): on the street it hides and the BUILD menu closes; key 4 on desktop when it shows.
-- The Servers rack mesh lives in the PLACE (ReplicatedStorage.SVMeshes), not in git. A place without it (the TEST experience) builds the plain boxes, silently. A mesh that does not fit the slot is refused the same way. The Dome room's timber screen is 2.5 studs (was 5.2: it hid the racks).
+- The Servers rack mesh lives in the PLACE (ReplicatedStorage.SVMeshes), not in git. A place without it (the TEST experience) builds the plain boxes, silently. A mesh that does not fit the slot, or is a wrong-scale speck, is refused the same way. With the mesh, the plain rack's pulsing light strip is not built (on purpose: it would cross the porthole and stickers; the mesh has its own department-colour lines; the fans still turn). The Dome room's timber screen is 2.5 studs (was 5.2: it hid the racks).
 - A missing META entry is silent. The placer builds primitives instead (`Wafers.lua:304-311`, `HQMeta/init.lua:14-16`).
 - `CUR` is one module variable. `Wafers.anchor` resets it at the start of every build function (`Wafers.lua:109, 179-181`). An unknown path falls back to `W_` (:111-114).
 - On load, `plot.hqPath` must be set before the rebuild. Otherwise a Dome player gets Wafers meshes with Dome collision, an invisible wall in the doorway (`SaveLoad.lua:230-246`).
@@ -49,4 +49,4 @@
 - `LiftGo` needs you within 16 studs of a stop, blocks while Carrying, has a 1.2 s cooldown and stands you up from a car first (`HQFloors.lua:96-128`).
 - In Wafers mode `buildShell` runs only for the level 1 garage (`SiliconCore.server.lua:1075`). By the code, `skinHQ` only skins the level 1 garage and the V2 meshes are never used while Wafers is on (`SaveLoad.lua:269-271`, `SiliconCore.server.lua:2210`).
 - Rocket position uses `CFG.HQ_LEVELS[stage].h`, not the tower (`SiliconCore.server.lua:3317-3320`). Unclear if it matches a tall tower's roof.
-**Last verified:** 2026-10-13 65512bf
+**Last verified:** 2026-10-13 e807717
