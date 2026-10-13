@@ -43,6 +43,7 @@ local NAN = 0 / 0
 local ATOMS = {
 	0, 1, -1, 0.5, -0.5, 1.5, 29.9, 30, 31, 100, 1e9, 1e9 + 1, 1e12, -1e12, math.huge, -math.huge, NAN,
 	"", "0", "1", "30", "1e9", "-5", "nan", "abc", "hq", "cafe", "servers", "board", "HQ", " hq",
+	"launch", "bag", "LAUNCH",   -- real tip ids (and a near miss), or cleanTips only ever sees junk
 	true, false,
 }
 local function fmt(v, depth)
@@ -123,6 +124,18 @@ test("fixIds: n distinct whole ids, the counter covers them, and a reload change
 			assert(v <= top, ("id %s above the counter %s: the next hire could reuse it"):format(tostring(v), tostring(top)))
 		end
 		assert(ids[c.n + 1] == nil, "more ids than staff")
+		-- a GOOD saved id stays put (a fixIds that renumbered everyone passed the rules above;
+		-- review of #52): the first time a whole number 1..1e9 appears, it is kept
+		if type(c.saved) == "table" then
+			local first = {}
+			for i = 1, c.n do
+				local v = tonumber(c.saved[i])
+				if v and v == v and v >= 1 and v <= 1e9 and v == math.floor(v) and not first[v] then
+					first[v] = true
+					assert(ids[i] == v, ("valid saved id %s at %d was renumbered to %s"):format(tostring(v), i, tostring(ids[i])))
+				end
+			end
+		end
 		local ids2, top2 = S.fixIds(ids, top, c.n)
 		for i = 1, c.n do assert(ids2[i] == ids[i], ("reload moved id %d: %s -> %s"):format(i, tostring(ids[i]), tostring(ids2[i]))) end
 		assert(top2 == top, ("reload moved the counter: %s -> %s"):format(tostring(top), tostring(top2)))
@@ -165,9 +178,9 @@ test("Journey.cleanTips: only real tip ids, only true; tipList returns them as s
 end)
 
 -- ---------------------------------------------------------------- the fuzzer itself
-test("the fuzzer reaches the nasty cases (NaN, infinities, strings, nested tables, nil)", function()
+test("the fuzzer reaches the nasty cases (NaN, infinities, strings, nested tables, nil) and real tip ids", function()
 	local rng = Random.new(SEED)
-	local saw = { nan = false, inf = false, str = false, nested = false, nilv = false }
+	local saw = { nan = false, inf = false, str = false, nested = false, nilv = false, tipKept = false }
 	for _ = 1, N do
 		local v = gen(rng)
 		if v ~= v then saw.nan = true end
@@ -176,6 +189,7 @@ test("the fuzzer reaches the nasty cases (NaN, infinities, strings, nested table
 		if v == nil then saw.nilv = true end
 		if type(v) == "table" then
 			for _, x in v do if type(x) == "table" then saw.nested = true end end
+			if next(J.cleanTips(v)) ~= nil then saw.tipKept = true end
 		end
 	end
 	for k, ok in saw do assert(ok, "the generator never produced: " .. k) end

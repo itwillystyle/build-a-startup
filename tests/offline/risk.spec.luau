@@ -28,8 +28,16 @@ local CASES = {
 	{ "src/ServerScriptService/Wafers.lua", "gameplay" },
 	{ "src/ReplicatedStorage/ServerRack.lua", "gameplay" },
 	{ "src/StarterPlayer/StarterPlayerScripts/HudClient.client.lua", "gameplay" },
+	-- review of #52: shipped packages, the sims and the style spec are not routine
+	{ "Packages/_Index/foo/init.lua", "ci" },
+	{ "wally.toml", "ci" },
+	{ "tools/chase_threat.luau", "judge" },
+	{ "tools/late_game.luau", "judge" },
+	{ "tools/ui_audit.luau", "judge" },
+	{ "art/STYLE-SPEC.md", "judge" },
+	{ "somewhere/new.thing", "unknown" },
 	-- routine
-	{ "tools/ui_audit.luau", "tooling" },
+	{ "tools/playtest_speech.py", "tooling" },
 	{ "docs/features/hq-paths.md", "docs" },
 	{ "README.md", "docs" },
 	{ "TOMORROW.md", "docs" },
@@ -47,8 +55,9 @@ test("Windows backslash paths classify the same", function()
 	assert(R.kindOf("src\\ServerScriptService\\SaveLoad.lua") == "save", "backslash save path")
 end)
 
-test("docs-only and tooling-only branches do not need Luke; one judge, save or game file does", function()
-	assert(not R.classify({ "docs/features/garage.md", "README.md", "tools/ui_audit.luau" }).needsLuke, "routine branch flagged")
+test("docs-only and tooling-only branches do not need Luke; one judge, save, game or unknown file does", function()
+	assert(not R.classify({ "docs/features/garage.md", "README.md", "tools/playtest_speech.py" }).needsLuke, "routine branch flagged")
+	assert(R.classify({ "docs/a.md", "somewhere/new.thing" }).needsLuke, "an unknown path must need Luke")
 	for _, p in { "tests/offline/x.spec.luau", "src/ServerScriptService/SaveLoad.lua", "src/ServerScriptService/Wafers.lua", ".github/workflows/ci.yml" } do
 		assert(R.classify({ "docs/a.md", p }).needsLuke, p .. " should need Luke")
 	end

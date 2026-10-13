@@ -14,14 +14,17 @@
 	  save      the save path. A bug here costs a player their progress.
 	  economy   the numbers (prices, rates, caps, gates).
 	  gameplay  any other game code: what players see and do.
-	  tooling   other tools/ scripts: routine.
+	  tooling   other tools/, art/ and blender/ scripts: routine.
 	  docs      docs and markdown: routine.
-	needs Luke = any judge, ci, save, economy or gameplay file. Matches CONSTRAINTS.md
+	  unknown   a path no rule knows. Needs Luke: a new kind of file is blocked by
+	            default, not waved through (review of #52: Packages/, which ships to
+	            every player, and the sims used to fall through to "tooling").
+	needs Luke = any judge, ci, save, economy, gameplay or unknown file. Matches CONSTRAINTS.md
 	rule 5 (no auto-merge for gameplay, look, economy, save, judge or CI changes). ]]
 local R = {}
 
 R.ORDER = { "judge", "ci", "save", "economy", "gameplay", "tooling", "docs" }
-R.NEEDS_LUKE = { judge = true, ci = true, save = true, economy = true, gameplay = true }
+R.NEEDS_LUKE = { judge = true, ci = true, save = true, economy = true, gameplay = true, unknown = true }
 R.WHY = {
 	judge = "a test or judge: a change here can make a broken game pass",
 	ci = "CI, hooks or project config: what runs the judges",
@@ -30,6 +33,7 @@ R.WHY = {
 	gameplay = "game code: what players see and do",
 	tooling = "a tool script (routine)",
 	docs = "docs (routine)",
+	unknown = "no rule knows this path: Luke decides",
 }
 
 -- each rule: a Lua pattern on the forward-slash path, anchored by the caller
@@ -39,9 +43,14 @@ local RULES = {
 		"^tools/fuzz_[%w_]*%.luau$", "^tools/cloud_smoke%.luau$", "^tools/smoke_[%w_]*%.luau$",
 		"/GameDoctor[%w_.]*%.lua$", "/DoctorProbes%.lua$", "/DoctorClient[%w_.]*%.lua$",
 		"/SVCheck%.lua$", "/SourceHash%.lua$", "^CONSTRAINTS%.md$",
+		-- the seeded sims `bas sim` and `baseline diff` judge, and the Studio audits
+		"^tools/chase_threat%.luau$", "^tools/late_game%.luau$", "^tools/chase_sim%.luau$",
+		"^tools/curve_check%.luau$", "^tools/algo_check%.luau$", "^tools/world_overlap%.luau$",
+		"^tools/ui_audit%.luau$", "^tools/ui_overlap%.luau$", "^art/STYLE%-SPEC%.md$",
 	},
 	ci = { "^%.github/", "^hooks/", "^selene%.toml$", "^stylua%.toml$", "^rokit%.toml$",
-		"^default%.project%.json$", "^smoke%.project%.json$", "^tools/routine%.sh$", "^tools/bas%.luau$" },
+		"^default%.project%.json$", "^smoke%.project%.json$", "^tools/routine%.sh$", "^tools/bas%.luau$",
+		"^Packages/", "^wally%.toml$", "^wally%.lock$", "^%.gitattributes$", "^%.gitignore$", "^serve%.cmd$" },
 	save = { "/SaveLoad%.lua$", "/DataStore", "/Save[%w_]*%.lua$" },
 	economy = { "/RoomEconomy%.lua$", "/Progression%.lua$", "/CoreConfig%.lua$", "/WaferPlan%.lua$",
 		"/StaffStats%.lua$", "/Momentum%.lua$", "/Inventory%.lua$", "/DailyReward%.lua$" },
@@ -49,6 +58,8 @@ local RULES = {
 	tooling = { "^tools/", "^art/", "^blender/" },
 	docs = { "^docs/", "%.md$" },
 }
+R.ORDER_ALL = table.clone(R.ORDER)
+table.insert(R.ORDER_ALL, "unknown")
 
 function R.kindOf(path)
 	path = (path or ""):gsub("\\", "/")
@@ -57,14 +68,14 @@ function R.kindOf(path)
 			if path:find(pat) then return kind end
 		end
 	end
-	return "tooling"
+	return "unknown"
 end
 
 -- paths -> { needsLuke, files = { {path, kind, why} } (most serious first), counts }
 function R.classify(paths)
 	local files, counts, needs = {}, {}, false
 	local rank = {}
-	for i, k in R.ORDER do rank[k] = i end
+	for i, k in R.ORDER_ALL do rank[k] = i end
 	for _, p in paths or {} do
 		if p ~= "" then
 			local k = R.kindOf(p)

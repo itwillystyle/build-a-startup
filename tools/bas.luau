@@ -1172,12 +1172,14 @@ local function cmdRisk()
 			if p ~= "" and not seen[p] then seen[p] = true; table.insert(paths, p) end
 		end
 	end
-	local committed = git({ "diff", "--name-only", base .. "...HEAD" })
+	-- --no-renames: with rename detection git lists only the NEW path, so a test moved
+	-- out of tests/ (it silently stops running) read as "tooling" (review of #52)
+	local committed = git({ "diff", "--name-only", "--no-renames", base .. "...HEAD" })
 	if committed == nil then
 		return result("risk", { { name = "base", ok = false, detail = "git cannot diff against " .. base } })
 	end
 	addAll(committed)
-	addAll(git({ "diff", "--name-only", "HEAD" }) or "")              -- uncommitted, tracked
+	addAll(git({ "diff", "--name-only", "--no-renames", "HEAD" }) or "")   -- uncommitted, tracked
 	for _, l in lines(git({ "status", "--porcelain" }) or "") do      -- untracked
 		if l:sub(1, 2) == "??" then addAll(l:sub(4)) end
 	end
