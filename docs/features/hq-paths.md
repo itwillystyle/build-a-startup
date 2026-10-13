@@ -1,32 +1,32 @@
 # HQ paths (Wafers, Terrafab, Dome)
-**What:** The HQ is one tower of up to 100 pieces ("levels"). Each BUILD tap adds the next piece. The first tap above the garage asks the player to pick a style: Wafers (`W_`), Terrafab (`T_`) or Dome (`D_`). All three styles use one placer and one plan, only the mesh prefix changes (`src/ServerScriptService/Wafers.lua:108-125`). The old "HQ 1-5" is now a stage worked out from the level (`Wafers.lua:166-171`: 5, 9, 13, 18).
+**What:** The HQ is one tower of up to 100 pieces ("levels"). Each BUILD tap adds the next piece. The first tap above the garage asks the player to pick a style: Wafers (`W_`), Terrafab (`T_`) or Dome (`D_`). All three styles use one placer and one plan, only the mesh prefix changes (`src/ServerScriptService/Wafers.lua:108-125`). The old "HQ 1-5" is now a stage worked out from the level (`Wafers.lua:166-169`: 5, 9, 13, 18).
 **How a player reaches it:**
-1. Ship a product and hire one person (`src/ServerScriptService/SiliconCore.server.lua:2091-2092`).
-2. Tap BUILD (rail tile, HQ pad prompt "UPGRADE" at `SiliconCore.server.lua:2921`). The card fires `WaferBuild` (`:2861`) into `tryUpgrade` (`:2196`) then `wafersBuild` (`:2083`).
-3. First build only: no `s.hqPath` and level 1 or less. The server fires `AskPath` and builds nothing (`:2085-2090`). The picker fires `WaferPath` (`WaferClient.client.lua:354`). The server saves the path and calls `tryUpgrade` again (`:2814-2833`).
+1. Ship a product and hire one person (`src/ServerScriptService/SiliconCore.server.lua:2101-2102`).
+2. Tap BUILD (rail tile, HQ pad prompt "UPGRADE" at `SiliconCore.server.lua:2931`). The card fires `WaferBuild` (`:2871`) into `tryUpgrade` (`:2206`) then `wafersBuild` (`:2093`).
+3. First build only: no `s.hqPath` and level 1 or less. The server fires `AskPath` and builds nothing (`:2095-2100`). The picker fires `WaferPath` (`WaferClient.client.lua:354`). The server saves the path and calls `tryUpgrade` again (`:2814-2833`).
 4. Stage 2 (level 5) gives the company car (`:2139-2140`). A new stage, or level 43, 68, 93 or 100, plays the level-up banner (`:2051`, `:2137-2155`).
-5. Lifts: the glass core in the courtyard. Prompt "Take the lift" (`Wafers.lua:1428-1436`) opens `LiftMenu`. Tapping a stop fires `LiftGo` (`src/ServerScriptService/HQFloors.lua:82-137`). A storey gets a stop only once there is a floor at its door, segment 5 or a whole deck (`landable` `Wafers.lua:1379`): before that, the half-built top storey's stop dropped you 13 studs to the one below.
-6. At the company's level cap the pad becomes GO PUBLIC, then spin-off (`SiliconCore.server.lua:2085-2089`).
+5. Lifts: the glass core in the courtyard. Prompt "Take the lift" (`Wafers.lua:1426-1434`) opens `LiftMenu`. Tapping a stop fires `LiftGo` (`src/ServerScriptService/HQFloors.lua:82-137`). A storey gets a stop only once there is a floor at its door, segment 5 or a whole deck (`landable` `Wafers.lua:1377`): before that, the half-built top storey's stop dropped you 13 studs to the one below.
+6. At the company's level cap the pad becomes GO PUBLIC, then spin-off (`SiliconCore.server.lua:2095-2099`).
 **Files:**
-- `src/ServerScriptService/Wafers.lua`: placer. `pathOf` :111, `stage` :166, `anchor` :179, `stateOf` :227, `furnish` :793 (`domeFurnish` :436, `fabFurnish` :643), `buildSegment` :939, `buildCore` :1475, `buildPiece` :1541, `buildUpTo` :1606, `clear` :1619, `nextBuild` :1662. A deck's mesh is squashed to fit the 13-stud gap under the next wafer (`Wafers.lua:1187`): the Dome deck's own tent was 18.4 tall and stood 3.9 studs into floors 3 and 7 (11 Oct).
-- `src/ServerScriptService/WaferPlan.lua`: pure plan. `MAX` :18, `BLUEPRINT` :19, `GEO` :37, `DEPTS` :97, `INSET` :180, `price` :190, `rebuildLast` :199.
-- `src/ServerScriptService/SiliconCore.server.lua`: `wafersNext` :134, path sync in `recompute` :1281-1286, pad attributes :2000-2021, `wafersBuild` :2083, `tryUpgrade` :2196, `releasePlot` :2927.
+- `src/ServerScriptService/Wafers.lua`: placer. `pathOf` :111, `stage` :166, `anchor` :177, `stateOf` :225, `furnish` :791 (`domeFurnish` :434, `fabFurnish` :641), `buildSegment` :937, `buildCore` :1473, `buildPiece` :1539, `buildUpTo` :1604, `clear` :1617, `nextBuild` :1660. A deck's mesh is squashed to fit the 13-stud gap under the next wafer (`Wafers.lua:1185`): the Dome deck's own tent was 18.4 tall and stood 3.9 studs into floors 3 and 7 (11 Oct).
+- `src/ServerScriptService/WaferPlan.lua`: pure plan. `MAX` :18, `BLUEPRINT` :19, `GEO` :44, `DEPTS` :104, `INSET` :187, `price` :197, `rebuildLast` :206.
+- `src/ServerScriptService/SiliconCore.server.lua`: `wafersNext` :136, path sync in `recompute` :1284-1289, pad attributes :2010-2031, `wafersBuild` :2093, `tryUpgrade` :2206, `releasePlot` :2937.
 - `src/ServerScriptService/HQFloors.lua`: lift remotes :82, `register` :647, `menu` :650. The floor builders (`build` :515) are the old HQ and are not used by Wafers.
 - `src/ServerScriptService/HQMeta/init.lua`: merges the five kit tables (:17-22). Children: `HQMeta/Wafers.lua` (`W_`, 43 pieces), `HQMeta/Terrafab.lua` (`T_`, 42), `HQMeta/Dome.lua` (`D_`, 43), `HQMeta/V1.lua` (`HQ_n`, old garage HQ), `HQMeta/V2.lua` (`HQv2_n`, old HQ 2-5). All generated by Blender. Do not hand edit.
 - `src/ServerScriptService/CampusArch.lua`: `skinHQ` :1383 reads HQMeta V1/V2 for the old shell. `dressHQ` :756, `grounds` :1006.
 - `src/StarterPlayer/StarterPlayerScripts/WaferClient.client.lua`: BUILD tile and card :95-432, style picker :186-219, `AskPath` listener :392.
 - `src/StarterPlayer/StarterPlayerScripts/LiftClient.client.lua`: floor picker :93, ride and fade :71.
-- `src/StarterPlayer/StarterPlayerScripts/RocketClient.client.lua`: launch rocket off a roof (`RocketLaunch`, :254). Server sends it at `SiliconCore.server.lua:3306-3310`.
+- `src/StarterPlayer/StarterPlayerScripts/RocketClient.client.lua`: launch rocket off a roof (`RocketLaunch`, :254). Server sends it at `SiliconCore.server.lua:3317-3321`.
 **State:**
 - Session: `s.hqPath`, `s.record`, `s.blueprint`, `s.hqLevel` (the stage), `s.spinoffs`.
-- Plot: `plot.hqPath`, `plot.wafer` = level, depts, pieces, folder, core, stops (`Wafers.lua:227-233`), `plot.hq.level` (the stage), `plot.busy`.
-- Player attributes: `HQPath`, `HQPathChosen` (`SiliconCore.server.lua:1284-1285`), `HQLevel` (:1865), `WaferLevel`, `WaferCap`, `WaferNext`, `WaferLast`, `WaferPrice`, `WaferRec`, `WaferAllowed`, `WaferNeed` (:2014-2021, `WaferNeed` always 0).
-- World: plot folder child `Wafers`, models `L###_kind_dept` tagged `WaferPiece` (`Wafers.lua:1541-1563`). Plots attribute `TowerSpec` (:2796).
-- Saved: `wl`, `wd`, `rec`, `bp`, `hq` (`src/ServerScriptService/SaveLoad.lua:82-87`), `hqPath` (:132).
+- Plot: `plot.hqPath`, `plot.wafer` = level, depts, pieces, folder, core, stops (`Wafers.lua:225-231`), `plot.hq.level` (the stage), `plot.busy`.
+- Player attributes: `HQPath`, `HQPathChosen` (`SiliconCore.server.lua:1287-1288`), `HQLevel` (:1875), `WaferLevel`, `WaferCap`, `WaferNext`, `WaferLast`, `WaferPrice`, `WaferRec`, `WaferAllowed`, `WaferNeed` (:2024-2031, `WaferNeed` always 0).
+- World: plot folder child `Wafers`, models `L###_kind_dept` tagged `WaferPiece` (`Wafers.lua:1539-1561`). Plots attribute `TowerSpec` (:2806).
+- Saved: `wl`, `wd`, `rec`, `bp`, `hq` (`src/ServerScriptService/SaveLoad.lua:83-88`), `hqPath` (:140).
 **Drive it:**
 - `dev:Invoke("scenario", p, "hq:<n>")` runs raw `wlevel n` (`DevScenarios.lua:209`, `DevHook.lua:65-81`). It builds free up to n, capped by the company's blueprint (18 for company one).
 - Raw `upgrade` calls `tryUpgrade` (`DevHook.lua:62`). `tp:hq` teleports to the HQ pad (`DevScenarios.lua:231`).
-- Choosing a path: none yet. `wlevel` skips the picker, and `WaferPath` is refused above level 1 (`SiliconCore.server.lua:2883-2886`). Untested idea: fire `WaferPath` from the client at level 1.
+- Choosing a path: none yet. `wlevel` skips the picker, and `WaferPath` is refused above level 1 (`SiliconCore.server.lua:2893-2896`). Untested idea: fire `WaferPath` from the client at level 1.
 **Prove it:**
 - `tests/offline/wafer.spec.luau` with `tests/offline/wafer_golden.json`: WaferPlan matches the sim (100 pieces, prices, caps, departments, effects, rebuild share, blueprint).
 - `tests/offline/hqmeta.spec.luau`: every `W_` name the placer asks for has a META entry in all three kits, the kits list the same pieces (Terrafab has no PodiumGlass on purpose), sizes are real, Podium and Crown exist. It does not check V1 or V2.
@@ -35,15 +35,15 @@
 - No automated check yet for the path picker, the lift, the car grant or the rocket.
 **Gotchas:**
 - The BUILD tile is plot-only and last in the rail column (12 Oct, LayoutOrder 95): on the street it hides and the BUILD menu closes; key 4 on desktop when it shows.
-- A missing META entry is silent. The placer builds primitives instead (`Wafers.lua:306-313`, `HQMeta/init.lua:14-16`).
+- A missing META entry is silent. The placer builds primitives instead (`Wafers.lua:304-311`, `HQMeta/init.lua:14-16`).
 - `CUR` is one module variable. `Wafers.anchor` resets it at the start of every build function (`Wafers.lua:109, 179-181`). An unknown path falls back to `W_` (:111-114).
-- On load, `plot.hqPath` must be set before the rebuild. Otherwise a Dome player gets Wafers meshes with Dome collision, an invisible wall in the doorway (`SaveLoad.lua:222-238`).
+- On load, `plot.hqPath` must be set before the rebuild. Otherwise a Dome player gets Wafers meshes with Dome collision, an invisible wall in the doorway (`SaveLoad.lua:230-246`).
 - The picker says "You can change it when you spin off" (`WaferClient.client.lua:212`). I found no code that clears `hqPath` on spin-off (`releasePlot` :2864 does not). Looks unfinished. Unverified in Studio.
 - `WaferPlan.lua:20-21` (`CAR_AT`, `APT_FROM` and kin) are read by nothing in src. The header at :15 ("Not wired into the game yet") is stale. Real gates use `Wafers.stage`.
 - The SVCheck glass pass requires `WaferPlan` from ReplicatedStorage or ServerScriptService (`SVCheck.lua:716-717`). `default.project.json:13-16` maps it only to ServerScriptService, which clients cannot see. The pcall probably fails and the pass reads "0 out, 0 in". Unclear. Not run.
-- The style gate is inside `wafersBuild`, because the card, pad prompt and click are three ways in (`SiliconCore.server.lua:2094-2104`).
-- Lift buttons must be tracked in `st.core`, or each rebuild leaves duplicate prompts (`Wafers.lua:1409-1421`).
+- The style gate is inside `wafersBuild`, because the card, pad prompt and click are three ways in (`SiliconCore.server.lua:2104-2114`).
+- Lift buttons must be tracked in `st.core`, or each rebuild leaves duplicate prompts (`Wafers.lua:1407-1419`).
 - `LiftGo` needs you within 16 studs of a stop, blocks while Carrying, has a 1.2 s cooldown and stands you up from a car first (`HQFloors.lua:96-128`).
-- In Wafers mode `buildShell` runs only for the level 1 garage (`SiliconCore.server.lua:1073`). By the code, `skinHQ` only skins the level 1 garage and the V2 meshes are never used while Wafers is on (`SaveLoad.lua:261-263`, `SiliconCore.server.lua:2200`).
-- Rocket position uses `CFG.HQ_LEVELS[stage].h`, not the tower (`SiliconCore.server.lua:3306-3309`). Unclear if it matches a tall tower's roof.
-**Last verified:** 2026-10-12 b29cc81
+- In Wafers mode `buildShell` runs only for the level 1 garage (`SiliconCore.server.lua:1075`). By the code, `skinHQ` only skins the level 1 garage and the V2 meshes are never used while Wafers is on (`SaveLoad.lua:269-271`, `SiliconCore.server.lua:2210`).
+- Rocket position uses `CFG.HQ_LEVELS[stage].h`, not the tower (`SiliconCore.server.lua:3317-3320`). Unclear if it matches a tall tower's roof.
+**Last verified:** 2026-10-13 418cbb6
