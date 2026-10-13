@@ -838,8 +838,8 @@ function FurnitureKit.dressGarage(garage, g, parts)
 				* CFrame.Angles(0, math.rad(14), 0), garage, { scale = 1.3 })
 	end
 
-	FurnitureKit.put("pottedPlant", g(-15.6, F, 2.4), garage)
-	FurnitureKit.put("lampSquareFloor", g(15.6, F, -4.4), garage)
+	-- (v8, 12 Oct: the plant and the floor lamp moved to GarageLayout, which places
+	-- them clear of the hire pad and the wall TV)
 
 	return #garage:GetChildren() - before
 end
