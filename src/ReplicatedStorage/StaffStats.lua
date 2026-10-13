@@ -16,7 +16,7 @@ S.TALENT_BONUS = { 0, 0, 1, 3, 5 }        -- Regular, Skilled, Star, Genius, Uni
 S.BASE, S.GROWTH = 50, 1.6                -- the early-game price (before income catches up)
 
 S.STATS = {
-	{ id = "skill", label = "Skill", blurb = "more money", step = 0.10 },
+	{ id = "skill", label = "Skill", blurb = "more money", step = 0.09 },
 	{ id = "speed", label = "Speed", blurb = "ships apps faster", step = 0.10 },
 	{ id = "loyalty", label = "Loyalty", blurb = "keeps their training when they follow you", step = 0.10 },
 }
@@ -68,6 +68,15 @@ end
 function S.carry(level, loyalty)
 	local share = math.min(1, S.step("loyalty") * S.clampLevel(loyalty))
 	return math.floor(S.clampLevel(level) * share + 1e-9)
+end
+
+--[[ what a keeper actually starts the new company with: the carry, clamped to the
+	new company's cap (the fallback declared before the simulator ran, G4: carried
+	unclamped, five max-loyal Genius keepers made the next run's first stage 2x
+	faster). Training above the cap is still never possible; this stops it
+	arriving that way too. ]]
+function S.carried(level, loyalty, newStage, talent)
+	return math.min(S.carry(level, loyalty), S.cap(newStage, talent))
 end
 
 return S

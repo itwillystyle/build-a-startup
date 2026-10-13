@@ -57,4 +57,11 @@ test("carry: no loyalty keeps nothing, full loyalty keeps all, never more than t
 	assert(S.carry(8, 5) == math.floor(8 * 5 * S.step("loyalty")), "half")
 end)
 
+test("carried: clamped to the new company's cap, never above what carry gives", function()
+	local full = math.ceil(1 / S.step("loyalty"))
+	assert(S.carried(13, full, 1, 4) == S.cap(1, 4), "a Genius keeper starts at the stage-1 cap")
+	assert(S.carried(3, full, 1, 4) == 3, "below the cap: everything carried")
+	assert(S.carried(13, 0, 5, 4) == 0, "no loyalty: nothing")
+end)
+
 return T

@@ -213,6 +213,7 @@ local SIMS = {
 	chase_edit = { file = "tools/chase_edit", about = "chase tuning probe, text" },
 	turn_probe = { file = "tools/turn_probe", about = "camera turn probe, text" },
 	curve_check = { file = "tools/curve_check", about = "home prices vs the spin-off, text" },
+	staff_sim = { file = "tools/staff_sim", json = true, about = "Manage Staff balance gates G1-G4 (fails the run on a FAIL)" },
 }
 local STUDIO_TOOLS = {
 	{ name = "SVCheck", how = "Play, CLIENT: return require(game.ReplicatedStorage.SVCheck).run()" },
@@ -222,7 +223,7 @@ local STUDIO_TOOLS = {
 	{ name = "world_overlap", how = "Play: paste tools/world_overlap.luau" },
 	{ name = "chase_lab", how = "EDIT command bar: paste tools/chase_lab.luau" },
 }
-local SIM_ORDER = { "chase_threat", "late_game", "chase_sim", "chase_edit", "turn_probe", "curve_check" }
+local SIM_ORDER = { "chase_threat", "late_game", "chase_sim", "chase_edit", "turn_probe", "curve_check", "staff_sim" }
 
 local function runSim(name, n)
 	local s = SIMS[name]
