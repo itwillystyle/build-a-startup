@@ -338,7 +338,7 @@ local function run()
 	-- v8 Manage Staff phase 2 (14 Oct): train and move through the REAL action code
 	-- (DevHook staffact -> Econ.staffAction). The setup snapshot restores the save after.
 	step("team", function()
-		local st = sv:Invoke("scenario", player, "state") or {}
+		local st = sv:Invoke("state", player) or {}   -- a direct DevHook action, not a scenario (caught live 14 Oct)
 		check("someone to train", (st.staff or 0) >= 1, "BLOCKER", st.staff or 0, ">= 1")
 		if (st.staff or 0) < 1 then return end
 		sv:Invoke("cash", player, 1e12)
