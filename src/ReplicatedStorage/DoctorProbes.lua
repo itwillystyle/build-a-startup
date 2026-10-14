@@ -309,22 +309,20 @@ function Probes.team()
 	end
 	open:Fire(1)
 	task.wait(0.6)
-	local rows, top = 0, nil
-	for _, r in ipairs(gui.Panel.Body.List:GetChildren()) do
-		if r:IsA("GuiButton") and r.Visible then
-			rows += 1
-			if r.LayoutOrder == 1 then top = r end
-		end
+	-- v2 layout (the redesign): the faces column, the person in the middle, TRAIN on the right
+	local rows = 0
+	local faces = gui:FindFirstChild("Faces", true)
+	for _, r in ipairs(faces and faces:GetChildren() or {}) do
+		if r:IsA("GuiButton") and r.Visible then rows += 1 end
 	end
-	local face = gui.Panel.Body.Card.Face
+	local person = gui:FindFirstChild("Person", true)
 	local out = Probes.ui()
 	out.rows = rows
-	out.cardOpen = face.Visible
-	local nameLabel = face:FindFirstChild("Name")   -- the child label (face.Name is the frame's own name)
+	out.cardOpen = person ~= nil and person.Visible
+	local nameLabel = person and person:FindFirstChild("PersonName")
 	out.name = nameLabel and nameLabel.Text
-	out.topName = top and top.PersonName.Text
-	local tb = face:FindFirstChild("Train_skill")
-	out.skillButton = tb and tb.Label.Text
+	local tb = gui:FindFirstChild("Train_skill", true)
+	out.skillButton = tb and tb:FindFirstChild("Label") and tb.Label.Text
 	-- live character views while open (spec §2: at most 9 on a phone)
 	local vpf = 0
 	for _, d in ipairs(gui:GetDescendants()) do

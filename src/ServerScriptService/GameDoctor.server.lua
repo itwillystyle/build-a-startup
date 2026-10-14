@@ -407,8 +407,7 @@ local function run()
 		local UIKit = require(RS:WaitForChild("UIKit"))
 		local ls = player:FindFirstChild("leaderstats")
 		local tr = View.train(sk, ls and ls:FindFirstChild("Cash") and ls.Cash.Value)
-		local wantBtn = not sk and "?" or (tr.state == "max" and "MAX") or (tr.state == "poor" and UIKit.money(tr.price))
-			or ("TRAIN " .. UIKit.money(tr.price))
+		local wantBtn = not sk and "?" or (tr.state == "max" and "MAX") or UIKit.money(tr.price)   -- v2: the price alone, in every state but MAX
 		check("card shows the server's price", ui.cardOpen and ui.name == (top and top.name) and ui.skillButton == wantBtn, "BUG",
 			("%s: %s"):format(tostring(ui.name), tostring(ui.skillButton)), ("%s: %s"):format(tostring(top and top.name), wantBtn))
 		check("cards over cards", #ui.overlaps == 0, "FEEL", #ui.overlaps, 0, short(ui.overlaps))
