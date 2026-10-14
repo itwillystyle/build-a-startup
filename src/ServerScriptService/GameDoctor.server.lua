@@ -335,6 +335,38 @@ local function run()
 		end)
 	end
 
+	-- v8 Manage Staff phase 2 (14 Oct): train and move through the REAL action code
+	-- (DevHook staffact -> Econ.staffAction). The setup snapshot restores the save after.
+	step("team", function()
+		local st = sv:Invoke("scenario", player, "state") or {}
+		check("someone to train", (st.staff or 0) >= 1, "BLOCKER", st.staff or 0, ">= 1")
+		if (st.staff or 0) < 1 then return end
+		sv:Invoke("cash", player, 1e12)
+		sv:Invoke("staffstat", player, "1:skill:0")
+		local t = sv:Invoke("staffact", player, "train:1:skill")
+		check("train charges and raises", type(t) == "table" and t.ok == true and t.skill == 1 and t.cashSpent == t.price and (t.price or 0) >= 10, "BUG",
+			type(t) == "table" and ("ok=%s skill=%s spent=%s price=%s"):format(tostring(t.ok), tostring(t.skill), tostring(t.cashSpent), tostring(t.price)) or tostring(t),
+			"ok, level 1, spent = price >= 10")
+		sv:Invoke("staffstat", player, "1:skill:30")
+		local m = sv:Invoke("staffact", player, "train:1:skill")
+		check("refused past the cap", type(m) == "table" and m.ok == false and m.why == "at max" and m.cashSpent == 0, "BUG",
+			type(m) == "table" and ("why=%s spent=%s"):format(tostring(m.why), tostring(m.cashSpent)) or tostring(m), "at max, nothing spent")
+		sv:Invoke("staffstat", player, "1:skill:0")
+		local u = sv:Invoke("staffact", player, "move:1:hq")
+		local back = sv:Invoke("staffact", player, "move:1:")
+		local moved = type(u) == "table" and ((u.ok == true and u.pin == "hq" and u.room == "hq") or u.why == "no free seat")
+		check("move pins and seats", moved and type(back) == "table" and back.pin == "", "BUG",
+			type(u) == "table" and ("ok=%s why=%s pin=%s room=%s, then pin=%s"):format(tostring(u.ok), tostring(u.why), tostring(u.pin), tostring(u.room), type(back) == "table" and tostring(back.pin) or "?") or tostring(u),
+			"pinned to hq and sitting there (or refused: no free seat), then unpinned")
+		local junk = sv:Invoke("staffact", player, "train:1:money")
+		check("junk refused", type(junk) == "table" and junk.ok == false and junk.cashSpent == 0, "BUG",
+			type(junk) == "table" and tostring(junk.why) or tostring(junk), "refused, nothing spent")
+		local data = player:GetAttribute("StaffData")
+		local okJson, rows = pcall(function() return game:GetService("HttpService"):JSONDecode(data) end)
+		check("StaffData published", okJson and type(rows) == "table" and #rows == (st.staff or 0) and rows[1].stats ~= nil, "BUG",
+			okJson and type(rows) == "table" and (#rows .. " rows") or "missing", (st.staff or 0) .. " rows with stats")
+	end)
+
 	step("errors", function()
 		task.wait(1)
 		local seen, uniq = {}, {}
