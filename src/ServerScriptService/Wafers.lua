@@ -429,6 +429,7 @@ end
 	the mesh; the plain box and its pulsing light strip where it does not (the TEST
 	experience, a place without the import). Same four slots either way. ]]
 local ServerRack = require(RS:WaitForChild("ServerRack"))
+local CoffeeBar = require(RS:WaitForChild("CoffeeBar"))      -- 14 Oct: the Dome cafe's bar
 local function serverRacks(model, base, rm)
 	local lib = RS:FindFirstChild("SVMeshes")
 	local tpl = lib and lib:FindFirstChild(ServerRack.MESH)
@@ -567,23 +568,33 @@ local function domeFurnish(model, anchor, dept, r, L)
 			Laid out from a measured left edge rather than by eye, so the run
 			is flush by construction and a different piece width cannot
 			silently reopen the gaps. ]]
-		local BAR_W, END_W, FRIDGE_W = 2.53, 0.60, 2.53
-		local BAR_TOP = 2.47                     -- the worktop height
-		local runW = BAR_W * 2 + END_W
-		local left = -runW / 2                   -- the run, centred on the wedge
-		local b1 = left + BAR_W / 2
-		local b2 = b1 + BAR_W
-		local cap = b2 + BAR_W / 2 + END_W / 2
+		-- the run's numbers live in CoffeeBar (tested offline); 14 Oct: the counters and the
+		-- coffee machine become the coffee bar mesh where the place has it
+		local RUN, Lay = CoffeeBar.RUN, CoffeeBar.layout()
 		-- ONE z for the whole run, set by its outermost corner (the fridge's far
 		-- edge) so the counter stays a straight line and still clears the arc
-		local fridgeX = cap + END_W / 2 + 0.2 + FRIDGE_W / 2
-		local z = wall(1.72, fridgeX, FRIDGE_W)
-		place("kitchenBar", b1, z, 0)
-		place("kitchenBar", b2, z, 0)
-		place("kitchenBarEnd", cap, z, 0)
-		onTop("kitchenCoffeeMachine", b1, z, 0, BAR_TOP)
+		local z = wall(RUN.DEPTH, Lay.fridgeX, RUN.FRIDGE_W)
+		local lib = RS:FindFirstChild("SVMeshes")
+		local tpl = lib and lib:FindFirstChild(CoffeeBar.MESH)
+		local bar = tpl and (tpl:IsA("MeshPart") and tpl or tpl:FindFirstChildWhichIsA("MeshPart", true))
+		if bar and CoffeeBar.fits(bar.Size) then
+			local mp = bar:Clone()
+			mp.Name = CoffeeBar.NAME
+			mp.Anchored = true
+			mp.CanCollide = true
+			mp.CanTouch = false
+			mp.CastShadow = false
+			mp.Color = Color3.new(1, 1, 1)       -- vertex colour shows as authored
+			mp.CFrame = base * CoffeeBar.pose(z, mp.Size)
+			mp.Parent = model
+		else
+			place("kitchenBar", Lay.b1, z, 0)
+			place("kitchenBar", Lay.b2, z, 0)
+			place("kitchenBarEnd", Lay.cap, z, 0)
+			onTop("kitchenCoffeeMachine", Lay.b1, z, 0, RUN.TOP)
+		end
 		-- the fridge closes the run, with a hand's width to open its door
-		place("kitchenFridge", cap + END_W / 2 + 0.2 + FRIDGE_W / 2, z, 0)
+		place("kitchenFridge", Lay.fridgeX, z, 0)
 		place("tableRound", 0, rm - 1.2, 0, { canCollide = true })
 		for _, o in ipairs({ { 0, 2.6, 180 }, { 0, -2.6, 0 }, { 2.4, 0, -90 }, { -2.4, 0, 90 } }) do
 			place("chairRounded", o[1], rm - 1.2 + o[2], o[3])
