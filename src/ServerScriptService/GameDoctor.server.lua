@@ -386,13 +386,21 @@ local function run()
 		local ui = probe(player, "team", {}, 15)
 		check("TEAM screen answered", type(ui) == "table" and ui.error == nil, "BUG", type(ui) == "table" and (ui.error or "ok") or "no answer", "ok")
 		if type(ui) ~= "table" or ui.error then return end
+		-- StaffData as the screen saw it: the probe waits up to 8 s for notices to clear, and a
+		-- promotion in that time changes prices (review: comparing the old copy was a false BUG)
+		okJson, rows = pcall(function() return game:GetService("HttpService"):JSONDecode(player:GetAttribute("StaffData")) end)
 		check("TEAM lists everyone", okJson and ui.rows == #rows, "BUG", ui.rows, okJson and #rows or "?")
-		-- the card shows the person on top of the list (most $/s) and the SERVER's price for their Skill
+		-- the card shows the person on top of the list (most $/s) and the SERVER's price for their
+		-- Skill, in whichever of the three states your cash puts it (MAX / dim price / TRAIN price)
 		local RS = game:GetService("ReplicatedStorage")
-		local top = okJson and require(RS:WaitForChild("TeamView")).sort(rows, "rate")[1]
+		local View = require(RS:WaitForChild("TeamView"))
+		local top = okJson and View.sort(rows, "rate")[1]
 		local sk = top and top.stats and top.stats.skill
 		local UIKit = require(RS:WaitForChild("UIKit"))
-		local wantBtn = sk and ((sk.level >= sk.cap) and "MAX" or ("TRAIN " .. UIKit.money(sk.price))) or "?"
+		local ls = player:FindFirstChild("leaderstats")
+		local tr = View.train(sk, ls and ls:FindFirstChild("Cash") and ls.Cash.Value)
+		local wantBtn = not sk and "?" or (tr.state == "max" and "MAX") or (tr.state == "poor" and UIKit.money(tr.price))
+			or ("TRAIN " .. UIKit.money(tr.price))
 		check("card shows the server's price", ui.cardOpen and ui.name == (top and top.name) and ui.skillButton == wantBtn, "BUG",
 			("%s: %s"):format(tostring(ui.name), tostring(ui.skillButton)), ("%s: %s"):format(tostring(top and top.name), wantBtn))
 		check("cards over cards", #ui.overlaps == 0, "FEEL", #ui.overlaps, 0, short(ui.overlaps))

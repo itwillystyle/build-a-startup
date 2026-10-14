@@ -22,6 +22,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
+local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
@@ -212,6 +213,7 @@ local rows, rooms = {}, {}
 local selectedId
 local pending = false
 local lastTrain   -- { id, rate } of the last TRAIN sent, for the count-up when it lands
+local ringAt      -- the TRAIN button pressed, for the ring when the server says yes
 local reply       -- { text, colour, at } shown in the note line for a few seconds
 
 local function decode(attr)
@@ -228,7 +230,24 @@ local function cash()
 end
 
 local function perSec(n) return UIKit.money(n) .. "/s" end
+
+-- the card's $/s counting up after a TRAIN lands (the small reward beat). Its own loop,
+-- not Moment.countUp, so tapping someone else stops it (review: it kept writing the
+-- last person's $/s under the new name)
+local countSerial = 0
+local function countRate(from, to)
+	countSerial += 1
+	local mine, t0 = countSerial, os.clock()
+	local conn
+	conn = RunService.RenderStepped:Connect(function()
+		if countSerial ~= mine or not rateL.Parent then conn:Disconnect() return end
+		local k = math.clamp((os.clock() - t0) / 0.7, 0, 1)
+		rateL.Text = perSec(from + (to - from) * (1 - (1 - k) ^ 5))
+		if k >= 1 then conn:Disconnect() end
+	end)
+end
 local refreshCard   -- assigned below (the card); say() and a row tap call it
+local refreshList   -- assigned below (the list); a row tap calls it
 
 local function say(text, colour)
 	reply = { text = text, colour = colour, at = os.clock() }
@@ -305,6 +324,9 @@ local function rowFrame(i)
 		UIKit.sfx("tap")
 		if r.id then
 			selectedId = r.id
+			reply = nil          -- the last person's "Trained!" or refusal is not this person's
+			countSerial += 1     -- nor is their count-up
+			refreshList()        -- the highlight moves to this row (review: it stayed on the first)
 			refreshCard()
 		end
 	end)
@@ -312,7 +334,7 @@ local function rowFrame(i)
 	return r
 end
 
-local function refreshList()
+refreshList = function()
 	local sorted = V.sort(rows, sortBy)
 	for i, row in ipairs(sorted) do
 		local r = rowFrame(i)
@@ -342,7 +364,7 @@ local function refreshList()
 		pool[i].frame.Visible = false
 		pool[i].id = nil
 	end
-	count.Text = ("%d people"):format(#rows)
+	count.Text = #rows == 1 and "1 person" or ("%d people"):format(#rows)
 	return sorted
 end
 
@@ -452,7 +474,8 @@ for _, b in ipairs(blocks) do
 			return
 		end
 		if send("train", row.id, b.stat.id) then
-			lastTrain = { id = row.id, rate = tonumber(row.rate) or 0, button = b.button }
+			lastTrain = { id = row.id, rate = tonumber(row.rate) or 0 }
+			ringAt = b.button
 		end
 	end)
 end
@@ -468,7 +491,7 @@ local function refresh()
 	-- a TRAIN landed: the new $/s counts up on the card (the small reward beat)
 	local now = lastTrain and V.find(rows, lastTrain.id)
 	if before and now and now.id == selectedId and (tonumber(now.rate) or 0) > lastTrain.rate then
-		Moment.countUp(rateL, lastTrain.rate, tonumber(now.rate) or 0, perSec, 0.7)
+		countRate(lastTrain.rate, tonumber(now.rate) or 0)
 		lastTrain = nil
 	end
 end
@@ -486,11 +509,16 @@ if remote then
 	remote.OnClientEvent:Connect(function(msg)
 		pending = false
 		if type(msg) ~= "table" then return end
+		-- StaffData can land before or after this reply: give the count-up a moment, then
+		-- forget the TRAIN (Speed and Loyalty never raise $/s, so nothing else clears it)
+		local lt = lastTrain
+		task.delay(1, function() if lastTrain == lt then lastTrain = nil end end)
+		local at = ringAt
+		ringAt = nil
 		if msg.ok then
 			if msg.kind == "train" then
 				UIKit.sfx("ding")
-				local at = lastTrain and lastTrain.button
-				if at and at.Parent then Moment.ring(gui, Moment.centreOf(at), UIKit.GREEN, 150) end
+				if at and at.Parent and at.Visible then Moment.ring(gui, Moment.centreOf(at), UIKit.GREEN, 150) end
 				say("Trained!", UIKit.GREEN_DEEP)
 			else
 				UIKit.sfx("thunk")
