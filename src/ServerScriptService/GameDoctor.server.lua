@@ -232,7 +232,10 @@ local function run()
 	for _, level in ipairs(LEVELS) do
 		step("hq:" .. level, function()
 			local r = sv:Invoke("scenario", player, "hq:" .. level)
-			check("built", r and r.ok, "BLOCKER", r and r.ok and "ok" or tostring(r and r.err), "ok")
+			-- the level it really reached (14 Oct: a save at 55 with a blueprint cap of 55 "checked"
+			-- levels 5, 9, 13, 18, 43 and 100 as 55, six times, and every one passed)
+			check("built", r and r.ok and r.level == level, "BLOCKER",
+				r and r.ok and ("level " .. tostring(r.level)) or tostring(r and r.err), "level " .. level)
 			task.wait(4)
 			-- the drop-off is on the forecourt's ground, not on whatever the HQ hangs over it
 			-- (11 Oct: from level 18 it sat 18.4 studs up, on the entrance arch)

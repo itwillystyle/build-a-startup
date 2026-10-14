@@ -259,8 +259,9 @@ function Scen.run(ctx, player, name)
 	elseif kind == "hq" then
 		local n = tonumber(rest)
 		if not n then return done(false, "usage: hq:<wafer level>") end
-		step("wlevel", n)
-		return done(true)
+		step("wlevel", n .. "!")
+		local plot = ctx.plotOf(player)
+		return done(true, nil, { level = plot and plot.wafer and plot.wafer.level })
 	elseif kind == "home" then
 		local n = tonumber(rest)
 		if not n then return done(false, "usage: home:<0-3>") end

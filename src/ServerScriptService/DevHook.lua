@@ -66,7 +66,13 @@ return function(core)
 			-- v4.6 test hook: build the Wafers free up to level n (the guide's departments)
 			local E = core.Econ
 			if not (plot and plot.wafer and E and E.Wafers) then return "no wafers" end
-			local n = math.clamp(math.floor(tonumber(arg) or 1), 1, E.Wafers.Plan.blueprint(s.spinoffs or 0))
+			-- "n!" = exactly n (the doctor's hq:<n>, 14 Oct): past the blueprint cap, and down by a
+			-- rebuild from the garage. A plain n keeps the old rules (up only, capped).
+			local raw = tostring(arg or "")
+			local exact = raw:sub(-1) == "!"
+			local cap = exact and E.Wafers.Plan.MAX or E.Wafers.Plan.blueprint(s.spinoffs or 0)
+			local n = math.clamp(math.floor(tonumber((raw:gsub("!$", ""))) or 1), 1, cap)
+			if exact and n < plot.wafer.level then E.Wafers.clear(plot) end
 			s.blueprint = s.blueprint or {}
 			E.Wafers.buildUpTo(plot, n, function(x)
 				local d = E.Wafers.Plan.recommend(x, E.Wafers.counts(plot), 3)
