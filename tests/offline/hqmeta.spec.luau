@@ -41,22 +41,6 @@ local function test(name, fn)
 	table.insert(T, { name = name, fn = fn })
 end
 
--- the piece names Wafers.lua actually asks for, read out of the placer itself.
--- Names built by concatenation ("W_Deck_" .. n) come out as a trailing-underscore
--- prefix, and are checked as "at least one key starts with this".
-local function requestedNames()
-	local src = fs.readFile("src/ServerScriptService/Wafers.lua")
-	local seen, out = {}, {}
-	for name in src:gmatch('"(W_[A-Za-z_0-9]+)"') do
-		if not seen[name] then
-			seen[name] = true
-			table.insert(out, name)
-		end
-	end
-	table.sort(out)
-	return out
-end
-
 local function suffixes(t, prefix)
 	local out = {}
 	for k in pairs(t) do
@@ -68,40 +52,10 @@ local function suffixes(t, prefix)
 	return out
 end
 
-test("every mesh name the placer asks for has a META entry in all three kits", function()
-	local names = requestedNames()
-	assert(#names > 20, ("only found %d names in Wafers.lua -- did the parse break?"):format(#names))
-
-	local missing = {}
-	for _, name in ipairs(names) do
-		local stem = name:sub(3) -- drop "W_"
-		for kitName, prefix in pairs(PREFIX) do
-			local gap = ALLOWED_GAPS[kitName] and ALLOWED_GAPS[kitName][stem]
-			if not gap then
-				local ok = false
-				if stem:sub(-1) == "_" then
-					-- built by concatenation: any numbered variant counts
-					for k in pairs(kit[kitName]) do
-						if k:sub(1, #prefix + #stem) == prefix .. stem then
-							ok = true
-							break
-						end
-					end
-				else
-					ok = kit[kitName][prefix .. stem] ~= nil
-				end
-				if not ok then
-					table.insert(missing, prefix .. stem)
-				end
-			end
-		end
-	end
-	table.sort(missing)
-	assert(
-		#missing == 0,
-		("no META entry (so these silently build the primitive fallback): %s"):format(table.concat(missing, ", "))
-	)
-end)
+--[[ RETIRED 14 Oct (HQ tower 1a): "every mesh name the placer asks for has a META entry".
+	The placer (Wafers.lua) builds the rectangular tower in plain parts and asks for no
+	W_ meshes; the round kit is kept on disk but unused. Part 1d adds the tower kit and a
+	name contract for it. The kit-shape tests below still check the old kit files. ]]
 
 test("the three kits describe the same pieces", function()
 	local ref = suffixes(kit.Wafers, "W_")
