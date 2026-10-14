@@ -19,4 +19,11 @@ test("a storey's own pieces and things that stop at the floor are not", function
 	assert(not W.pokes(77.5, 90.45, 92), "the deck squashed to fit under floor 7 was flagged")
 end)
 
+test("the tower lobby's entrance canopy is a roof, not a sinking floor", function()
+	-- 14 Oct (HQ tower 1a): Wafers builds a 22 x 10 CanCollide-false "Canopy" 10 studs over the
+	-- forecourt. It sits under MAX_Y, so the sinking check measured an 11.3 gap and called it a BUG.
+	local why = W.ALLOW.Canopy
+	assert(type(why) == "string" and #why > 0, "Canopy is not on WorldHealth.ALLOW with a reason")
+end)
+
 return T
