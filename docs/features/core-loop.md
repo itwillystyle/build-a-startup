@@ -1,7 +1,7 @@
 # Core loop (tap, hire, build, launch, climb)
 **What:** The main game. You tap WRITE CODE, ship an app, hire people, build HQ floors, and launch apps for paydays. Income per second comes from seated staff times a stack of multipliers. The server owns all of it. `SiliconCore` (`SiliconCore.server.lua`) holds the state and the handlers. `CoreConfig`, `RoomEconomy`, `Progression`, `Momentum` and `Journey` hold the numbers and rules. `HudClient` and `ProductClient` draw it.
 **How a player reaches it:**
-1. Join. `onJoin` gives you a plot and spawns you in the garage (`src/ServerScriptService/SiliconCore.server.lua:3966`, `assignPlot` :3147).
+1. Join. `onJoin` gives you a plot and spawns you in the garage (`src/ServerScriptService/SiliconCore.server.lua:3968`, `assignPlot` :3149).
 2. Tap the laptop prompt "WRITE CODE" (`wirePlot` :2930) or the HUD button (`HudClient.client.lua:261,449`). A tap pays max($5, 0.18 s of income) with a combo (`CoreConfig.lua:10-16`).
 3. Third tap ships the To-Do App (`CLICKS_TO_SHIP` `CoreConfig.lua:17`, `shipFirstProduct` :1291).
 4. Step on the HIRE pad for a free intern (`hire` :1865, see hiring-talent.md). The company name box follows, then the door opens and BUILD pads turn on (beat driver :3859-3901).
@@ -9,7 +9,7 @@
 6. Seated staff fill the product bar. When full, the WRITE CODE button turns into LAUNCH! (`HudClient.client.lua:387`; key L :440-443). Launch pays a payday (`launchProduct` :3170).
 7. The quest card walks you through each HQ level (`Journey.LADDER` `Journey.lua:37`). Top of the blueprint ends in GO PUBLIC and SPIN OFF (see ipo-spinoff.md).
 **Files:**
-- `src/ServerScriptService/SiliconCore.server.lua` (4,103 lines): `recompute` :1232 (rate = `base * F - wages`, :1276-1279), `writeCode` :1368, `journeyState` :1621, `refreshObjective` :1676, `refreshHqPad` :2038, `checkMilestones` :2108, income tick :3204, `offerProduct` :3424, `productLoop` :3501. Remotes `WriteCode` :2736, `PickMarket` :3413, `ProductReady` :549, `Celebrate` :2756.
+- `src/ServerScriptService/SiliconCore.server.lua` (4,103 lines): `recompute` :1232 (rate = `base * F - wages`, :1276-1279), `writeCode` :1370, `journeyState` :1623, `refreshObjective` :1678, `refreshHqPad` :2040, `checkMilestones` :2110, income tick :3206, `offerProduct` :3426, `productLoop` :3503. Remotes `WriteCode` :2738, `PickMarket` :3415, `ProductReady` :549, `Celebrate` :2758.
 - `src/ServerScriptService/CoreConfig.lua`: pure tuning data. `HQ_LEVELS` :46, `TALENT` :80, `MILESTONE_*` :61-63, `IPO_AT` :115.
 - `src/ServerScriptService/RoomEconomy.lua`: price ladder `V3` :223, `HQ_COST` :228, `CAP_BY_HQ` :229, `LAUNCH_PAY` :233, `SPINOFF_BASE` :235; stations :37, role fit :64, recruit tiers :353.
 - `src/ServerScriptService/Progression.lua`: `spinMult` :33, `spinCost` :38, `runScale` :63 (prices of company n+1), `capWindfall` :92.
@@ -36,9 +36,9 @@
 - Wages are not charged under V3 (:1242). `Econ.WAGE` is unused for income now.
 - Launch boost is dead under V3: `launchProduct` sets `s.launch = nil` (:3280). A launch is a payday only.
 - Auto-launch after 60 s only happens once you have launched by hand (:3362-3367).
-- SaveLoad sets `s.momentum` on load (`SaveLoad.lua:392`) and the `Momentum` attribute the HUD reads (:393); the game also sets it at `SiliconCore.server.lua:2026`, :2168, :3368. (An older note here said nothing set it on load; that is no longer true, checked 14 Oct.)
+- SaveLoad sets `s.momentum` on load (`SaveLoad.lua:392`) and the `Momentum` attribute the HUD reads (:393); the game also sets it at `SiliconCore.server.lua:2028`, :2170, :3370. (An older note here said nothing set it on load; that is no longer true, checked 14 Oct.)
 - The HUD copies momentum math: `math.min(mom, 12) * 3` (`HudClient.client.lua:554`). Changing `Momentum.SPEND_CAP` or `PER_POINT` will not change it.
 - `SiliconCore` is at Luau's 200 local limit (:2659, :3786). New code goes in a module or a `do` block.
 - The objective attributes refresh every 0.4 s (:3845-3857). Tests that read them right after an action can see the old value (`DevHook.lua:235`).
 - `Journey.task` returns nil while you carry a recruit, a product waits, or nothing shipped (`Journey.lua:72`).
-**Last verified:** 2026-10-14 a33e412
+**Last verified:** 2026-10-14 f0af482

@@ -1,9 +1,9 @@
 # The chase (Talent Row)
 **What:** Talent Row is where hires wait for you, the rarer ones farther away. You recruit one, ride a scooter home to your HQ doorstep with them, and a rival headhunter chases you. It stalks, crouches (the tell), then lunges down a line it picked. You live by steering off the line or hitting BOOST. The server owns the chase (`TalentDrop` runs `ChaseRules` at 20 Hz). The client only draws the camera, lane, sound and speed lines. The daily VIP run is the same chase with two hunters.
 **How a player reaches it:**
-1. Ship a product and have 1+ staff. The hire pad only gives the free first intern; every later hire is a recruit run (`SiliconCore.server.lua:1930-1946`, `TalentDrop.lua:603-604`).
+1. Ship a product and have 1+ staff. The hire pad only gives the free first intern; every later hire is a recruit run (`SiliconCore.server.lua:1932-1948`, `TalentDrop.lua:603-604`).
 2. Reach the tier's HQ level: SKILLED 1, STAR 2, GENIUS 3 (`RoomEconomy.lua:355-357`). A tier above your HQ is removed from the street (`TalentDrop.lua:826-833`).
-3. Go find them. Each restock puts a chase tier's candidate at a new random spot. The spot is a WALKING distance from your doorstep inside the tier's band: SKILLED 140-190 studs, STAR 210-270, GENIUS 290-370 (`ChaseRules.lua:85-89`, `TalentDrop.lua:159-188`). Look for the light pillar (:309-312). Only the free walk-in stays on your drive (`TalentDrop.lua:190-199`). The quest guide points at the best one you can afford (`SiliconCore.server.lua:1784-1789`).
+3. Go find them. Each restock puts a chase tier's candidate at a new random spot. The spot is a WALKING distance from your doorstep inside the tier's band: SKILLED 140-190 studs, STAR 210-270, GENIUS 290-370 (`ChaseRules.lua:85-89`, `TalentDrop.lua:159-188`). Look for the light pillar (:309-312). Only the free walk-in stays on your drive (`TalentDrop.lua:190-199`). The quest guide points at the best one you can afford (`SiliconCore.server.lua:1786-1791`).
 4. Hold the Recruit prompt (0.35 s, 10 studs). Only the plot owner has it enabled (`TalentDrop.lua:317-323, 596`, `TalentRowClient.client.lua:40`).
 5. `recruit()` passes its checks, then `startCarry` builds the scooter, starts the offer timer and spawns the hunter (`TalentDrop.lua:549-589, 591-623`). The timer is 14 s plus 0.11 s per stud of the route home (`RoomEconomy.lua:359-360`, `TalentDrop.lua:557-558`).
 6. Ride home. `ChaseCamClient` takes the camera, locks the mouse for steering, and Shift is BOOST (`ChaseCamClient.client.lua:327-335, 403-424`, `ChaseFxClient.client.lua:161-166`).
@@ -94,4 +94,4 @@
 - `chaseCfg` is built once per carry (`TalentDrop.lua:532-543`). A poach moves the hunter's home stretch, the timer and `CarryHome` to the thief's doorstep, but keeps the first player's speed (`TalentDrop.lua:625-662`). Read, not run.
 - Stale numbers: `chasecam.spec.luau:125` uses LUNGE_TIME 0.8, but `ChaseRules.lua:53` is 1.0 (the header at :20 also says 0.8). Windup plus lunge is 1.5 s, `DIR.MIN_HOLD` is 1.35 (`ChaseCam.lua:953`), and the test still passes. `tools/anim/hunter.luau:1-2` also says 0.8.
 - The hunter's height is fixed at the pickup height (`TalentDrop.lua:521, 531, 736`). Candidates now stand within 10 studs of the door height (:175), which limits the error. Unclear if every route is flat.
-**Last verified:** 2026-10-14 a33e412
+**Last verified:** 2026-10-14 f0af482
