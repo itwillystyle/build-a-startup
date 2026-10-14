@@ -1282,6 +1282,8 @@ local function recompute(player)
 		local rows = {}
 		for _, r in ipairs(s.rigs or {}) do
 			r.priceRate = (r.baseV or 0) * F
+			if r.rig and r.rig:GetAttribute("StaffId") ~= r.id then r.rig:SetAttribute("StaffId", r.id) end   -- phase 3b: the TEAM screen finds this rig
+			if r.rig and r.rig:GetAttribute("StaffOwner") ~= player.UserId then r.rig:SetAttribute("StaffOwner", player.UserId) end
 			local role = r.rig and r.rig:GetAttribute("Role")
 			local fits = {}   -- phase 3: the room kinds this role fits (the card's best-fit marks)
 			for k in pairs(Econ.FIT[role or "engineer"] or {}) do table.insert(fits, k) end

@@ -101,4 +101,35 @@ function V.find(rows, id)
 	return nil
 end
 
+-- phase 3b (the redesign, Luke's pick): the button's look. Only an affordable Skill is
+-- loud (DESIGN.md: one loud thing), because it is the buy that makes money.
+function V.look(statId, t)
+	local st = type(t) == "table" and t.state or "max"
+	if st == "max" then return "max" end
+	if st == "poor" then return "dim" end
+	return statId == "skill" and "go" or "paper"
+end
+
+-- the one line under the rooms row
+function V.roomLine(row)
+	local n = V.note(row)
+	if n then return n end
+	return (row.fit and "✓ " or "") .. V.label(row.room) .. (((row.pin or "") ~= "") and " · pinned" or "")
+end
+
+function V.glow(t)
+	t = tonumber(t)
+	return (t == 4 and "genius") or (t == 5 and "unicorn") or nil
+end
+
+-- the face tiles in view of the scrolling column, at most `cap` of them: only those show a
+-- live character (ViewportFrames are costly on phones; spec §2 budget)
+function V.visible(scrollY, viewH, tileH, gap, n, cap)
+	if n < 1 then return 1, 0 end
+	local step = tileH + gap
+	local per = math.min(cap, math.ceil(num(viewH) / step))
+	local first = math.clamp(math.floor(num(scrollY) / step) + 1, 1, math.max(1, n - per + 1))
+	return first, math.min(n, first + per - 1)
+end
+
 return V
