@@ -103,9 +103,9 @@ end)
 
 test("visible: which face tiles get a live character (never more than cap)", function()
 	local a, b = V.visible(0, 300, 56, 8, 20, 8)
-	assert(a == 1 and b == 5, ("top %d..%d"):format(a, b))
+	assert(a == 1 and b == 6, ("top %d..%d"):format(a, b))           -- 300 / 64 = 4.7 -> 5 in view, +1 partly
 	a, b = V.visible(640, 300, 56, 8, 20, 8)
-	assert(a == 11 and b == 15, ("scrolled %d..%d"):format(a, b))
+	assert(a == 11 and b == 16, ("scrolled %d..%d"):format(a, b))
 	a, b = V.visible(0, 2000, 56, 8, 20, 8)
 	assert(a == 1 and b == 8, "capped at 8")
 	a, b = V.visible(5000, 300, 56, 8, 3, 8)

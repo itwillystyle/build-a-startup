@@ -1,5 +1,6 @@
 -- sloprules.spec.luau: the composition checks the doctor runs on every screen (14 Oct 2026)
 local R = require("../../src/ReplicatedStorage/SlopRules")
+local V = require("../../src/ReplicatedStorage/TeamView")
 local T = {}
 local function test(name, fn) table.insert(T, { name = name, fn = fn }) end
 
@@ -34,6 +35,19 @@ test("cutOff: text that does not fit, or a button outside its clipping frame", f
 		{ path = "edge", rect = { 0, 0, 400.6, 320.6 }, clip = { 0, 0, 400, 320 } },
 	})
 	assert(#f == 2 and f[1].path == "t" and f[1].why == "text does not fit" and f[2].path == "chip" and f[2].why == "outside its frame", "two cut off")
+end)
+
+test("fitsOf: a text that does not fit is false (not nil), so cutOff can see it", function()
+	assert(R.fitsOf(true, "Noor Ramaswamy-Okonkwo", false) == false, "text that does not fit")
+	assert(R.fitsOf(true, "Noor", true) == true, "fits")
+	assert(R.fitsOf(true, "", false) == nil, "empty text is not judged")
+	assert(R.fitsOf(false, "x", false) == nil, "not a text object")
+	assert(#R.cutOff({ { path = "name", fits = R.fitsOf(true, "Noor Ramaswamy-Okonkwo", false), rect = { 0, 0, 10, 10 } } }) == 1, "end to end")
+end)
+
+test("visible: the partly scrolled extra tile is live too (6 in a 304 px column mid-scroll)", function()
+	local a, b = V.visible(32, 304, 56, 8, 20, 8)
+	assert(a == 1 and b == 6, ("mid-scroll %d..%d"):format(a, b))
 end)
 
 return T

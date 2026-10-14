@@ -64,4 +64,12 @@ function R.cutOff(items)
 	return out
 end
 
+-- the "fits" a probe reports for one GUI object: TextFits for a text object with text, else nil.
+-- (final review, 14 Oct: the probe wrote `isText and text ~= "" and o.TextFits or nil`, which is
+-- nil when TextFits is false, so "text does not fit" could never fire)
+function R.fitsOf(isText, text, textFits)
+	if not isText or text == nil or text == "" then return nil end
+	return textFits == true
+end
+
 return R

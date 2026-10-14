@@ -193,7 +193,8 @@ function Probes.ui()
 			table.insert(labels, { gui = it.gui.Name, path = path(o, it.gui), text = o.Text })
 		end
 		if o:IsA("TextLabel") or o:IsA("TextButton") or o:IsA("GuiButton") then
-			table.insert(cut, { path = path(o, it.gui), fits = (o:IsA("TextLabel") or o:IsA("TextButton")) and o.Text ~= "" and o.TextFits or nil,
+			local isText = o:IsA("TextLabel") or o:IsA("TextButton")
+			table.insert(cut, { path = path(o, it.gui), fits = Slop.fitsOf(isText, isText and o.Text or nil, isText and o.TextFits or nil),
 				rect = { it.p.X, it.p.Y, it.s.X, it.s.Y }, clip = o:IsA("GuiButton") and clipOf(o) or nil })
 		end
 	end

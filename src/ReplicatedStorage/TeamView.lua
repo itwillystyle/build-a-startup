@@ -127,7 +127,7 @@ end
 function V.visible(scrollY, viewH, tileH, gap, n, cap)
 	if n < 1 then return 1, 0 end
 	local step = tileH + gap
-	local per = math.min(cap, math.ceil(num(viewH) / step))
+	local per = math.min(cap, math.ceil(num(viewH) / step) + 1)   -- +1: mid-scroll a sixth tile is mostly on screen (final review)
 	local first = math.clamp(math.floor(num(scrollY) / step) + 1, 1, math.max(1, n - per + 1))
 	return first, math.min(n, first + per - 1)
 end
