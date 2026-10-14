@@ -1,19 +1,19 @@
 # Build mode (room picker, DECOR mode, FurnitureKit)
 **What:** Two builders live here. DECOR mode lets a player browse a furniture catalog, aim a ghost at the floor and buy pieces. The room picker (BuildClient) sells whole wings on empty lots. `FurnitureKit` holds the catalog, sizes and placement maths for both server and client. In Wafers mode the room picker is never reached (see Gotchas).
 **How a player reaches it:**
-1. DECOR needs `BuildOpen` and `HQLevel` 2 or more (`src/StarterPlayer/StarterPlayerScripts/BuildModeClient.client.lua:126-128`, set at `src/ServerScriptService/SiliconCore.server.lua:1874-1875`). In Wafers mode HQLevel is the stage, so wafer level 5.
+1. DECOR needs `BuildOpen` and `HQLevel` 2 or more (`src/StarterPlayer/StarterPlayerScripts/BuildModeClient.client.lua:126-128`, set at `src/ServerScriptService/SiliconCore.server.lua:1898-1899`). In Wafers mode HQLevel is the stage, so wafer level 5.
 2. Press B or the DECOR rail tile. Pick a card (the sheet hides). A see-through ghost follows the cursor. Green fits, red does not.
 3. R rotates, click or PLACE buys (`placeItem:FireServer`, `BuildModeClient.client.lua:633-639`). The trash tool fires `RemoveItem` and refunds half (:672-677, server :2598). Q or B leaves.
-4. Room picker: the "BUILD" prompt on an empty lot (`SiliconCore.server.lua:1001-1016`) fires `OpenBuild`. The picker fires `PlaceRoom` (`BuildClient.client.lua:140`, server :2414).
+4. Room picker: the "BUILD" prompt on an empty lot (`SiliconCore.server.lua:1006-1021`) fires `OpenBuild`. The picker fires `PlaceRoom` (`BuildClient.client.lua:140`, server :2414).
 **Files:**
 - `src/ReplicatedStorage/FurnitureKit.lua`: `CATALOG` :202 (33 pieces), `BY_KEY` :241, `templateFor` :268, `has` :283, `footprint` :302, `stand` :312, `blocked` :386, `put` :410, `priceFor` :860, `vibePoints` :877, `vibe` :890.
 - `src/StarterPlayer/StarterPlayerScripts/BuildModeClient.client.lua`: `unlocked` :126, `rescanFloors` :504, `previewLegal` :536, `aimGhost` :569, `commitPlace` :633, `aimDelete` :645, `setOpen` :821, keys :912.
 - `src/StarterPlayer/StarterPlayerScripts/BuildClient.client.lua`: the lot picker. `makeRow` :88, `OpenBuild` listener :161.
-- `src/ServerScriptService/SiliconCore.server.lua`: remotes :538-541, `buildWing` :2387, `floorRects` :2472, `roomBuilt` :2485, `placeAt` :2493, `PlaceItem` :2652, `RemoveItem` :2658, `furniturePriceOf` :185.
+- `src/ServerScriptService/SiliconCore.server.lua`: remotes :543-546, `buildWing` :2411, `floorRects` :2496, `roomBuilt` :2509, `placeAt` :2517, `PlaceItem` :2676, `RemoveItem` :2682, `furniturePriceOf` :190.
 - `src/ServerScriptService/SaveLoad.lua`: items saved :70-73, restored through `placeAt(..., free)` :312.
 **State:**
 - Session: `s.placed` (entries: model, key, price, x, z, w, d, y, yaw, surfaceTop, room, slot), `s.placedDesks`, `s.placedMorale`.
-- Placed model attributes: `owner`, `key`, `px`, `pz`, `pw`, `pd`, `py` (`SiliconCore.server.lua:2629-2633`), plus `FKItem` and `FKFlip` from the kit. The client reads these for its preview.
+- Placed model attributes: `owner`, `key`, `px`, `pz`, `pw`, `pd`, `py` (`SiliconCore.server.lua:2653-2657`), plus `FKItem` and `FKFlip` from the kit. The client reads these for its preview.
 - Player attributes: `BuildOpen`, `HQLevel`, `PriceMult`, `IncomeRate`, `VibeStars`, `VibeLuck`, `VibePoints`, `SVRefunded`. Client only: `BuildModeOpen` (`BuildModeClient.client.lua:827`).
 - Folders: plot `Placed` (all decor), `plot.fixed` (fixed furniture rects), `plot.slots` (lots).
 - Saved: `placed` as k, x, z (plot-local), y (yaw), p (price paid) and `wings` (`SaveLoad.lua:70-79`).
@@ -26,12 +26,12 @@
 - The DECOR tile is plot-only (12 Oct): it shows only on your lot (`OnLot`, `LotClient`), and leaving your lot closes decor mode (`BuildModeClient` OnLot watch).
 - Server rules in `placeAt`: must have shipped (:2449). Item must exist (:2452-2453). `needs` room must be built (:2454). Yaw snaps to 90 degrees, position to a 0.5 grid, and only X and Z of the client position are used (:2463-2466, :2595). Must fit inside a floor rect (:2473). Desks and tables only in their own room, up to its cap (:2475-2495). Surface items ride a desk (:2497-2512). No overlap unless tucking, stacking on a surface or on a rug (:2514-2533). Not on a seat, not inside room furniture (:2535-2547). Then pay (:2561-2565).
 - A refused saved piece is refunded, not lost (:2491-2493, :2548-2551).
-- Price: `base x HQ mult x (1 + 0.08 per piece) x scale`, rounded to two decimals. The client uses the same `FurnitureKit.priceFor` (`BuildModeClient.client.lua:87-92`, `SiliconCore.server.lua:185-193`).
-- Wafers mode has no lots: `plot.slots = {}` (`SiliconCore.server.lua:1076-1077`), so `OpenBuild`, `PlaceRoom` and BuildClient never fire. `roomBuilt` reads `plot.slots` (:2485-2491), so COMFORT and KITCHEN pieces that have `needs` cannot be placed. By the code only. Not run in Studio.
-- The client treats only `GarageFloor` and `Room_*/Floor` as floor (`BuildModeClient.client.lua:509-514`). The server floor is the old HQ rectangle for the stage plus built lots (`SiliconCore.server.lua:2472-2479`). The client is stricter.
+- Price: `base x HQ mult x (1 + 0.08 per piece) x scale`, rounded to two decimals. The client uses the same `FurnitureKit.priceFor` (`BuildModeClient.client.lua:87-92`, `SiliconCore.server.lua:190-198`).
+- Wafers mode has no lots: `plot.slots = {}` (`SiliconCore.server.lua:1081-1082`), so `OpenBuild`, `PlaceRoom` and BuildClient never fire. `roomBuilt` reads `plot.slots` (:2509-2515), so COMFORT and KITCHEN pieces that have `needs` cannot be placed. By the code only. Not run in Studio.
+- The client treats only `GarageFloor` and `Room_*/Floor` as floor (`BuildModeClient.client.lua:509-514`). The server floor is the old HQ rectangle for the stage plus built lots (`SiliconCore.server.lua:2496-2503`). The client is stricter.
 - The header of `FurnitureKit.lua` says "ModuleScript in ServerScriptService". It lives in ReplicatedStorage so the client ghost uses the same templates (:2 vs :56-61).
 - Pieces face a different way per kit. `FKFlip` fixes it, and `stand` and `put` both add it (`FurnitureKit.lua:246-258`, :312). Do not rotate templates by hand.
-- A missing template means no placement at all, never a hole (`FurnitureKit.has`, `SiliconCore.server.lua:2506`).
+- A missing template means no placement at all, never a hole (`FurnitureKit.has`, `SiliconCore.server.lua:2530`).
 - Rugs (`flat`) go under anything. Only the first 3 copies of a key count for vibe (`FurnitureKit.lua:872-886`).
-- Security (9 Oct exploit check): `placeAt` rejects a NaN or infinite x, z or angle (`SiliconCore.server.lua:2500`); before, one was charged, pivoted to nowhere and written into the save.
-**Last verified:** 2026-10-13 13a511a
+- Security (9 Oct exploit check): `placeAt` rejects a NaN or infinite x, z or angle (`SiliconCore.server.lua:2524`); before, one was charged, pivoted to nowhere and written into the save.
+**Last verified:** 2026-10-14 50e506d

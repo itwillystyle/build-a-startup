@@ -1,16 +1,16 @@
 # Saving, DataStores and voice report
 **What:** `SaveLoad` writes one record per player to the DataStore `SVSave_v1` and reads it on join. It saves every 120 s, on leave and on server close. Other stores hold the leaderboards (`SVTicker_v1`, `SVWeek_<id>`) and company names (`SVNames_v1`). `Telemetry`, `VoiceCheck` and `ClientInfoClient` save nothing. Telemetry sends funnel steps to Roblox Analytics. `VoiceCheck` publishes a voice status line. `ClientInfoClient` reports touch or desktop once.
-**How a player reaches it:** Invisible. Join: `onJoin` calls `SaveLoad.loadOnce` (`src/ServerScriptService/SiliconCore.server.lua:3906`). Play: autosave loop (`src/ServerScriptService/SaveLoad.lua:430-435`). Leave: `PlayerRemoving` runs `Telemetry.left`, `saveNow`, `pushTicker` (`SiliconCore.server.lua:4011-4015`). Server close: `BindToClose` (`SaveLoad.lua:426`). Typing a company name writes `SVNames_v1` (:3174). RANKS and the Valley Exchange board read the leaderboards.
+**How a player reaches it:** Invisible. Join: `onJoin` calls `SaveLoad.loadOnce` (`src/ServerScriptService/SiliconCore.server.lua:3980`). Play: autosave loop (`src/ServerScriptService/SaveLoad.lua:430-435`). Leave: `PlayerRemoving` runs `Telemetry.left`, `saveNow`, `pushTicker` (`SiliconCore.server.lua:4085-4089`). Server close: `BindToClose` (`SaveLoad.lua:426`). Typing a company name writes `SVNames_v1` (:3174). RANKS and the Valley Exchange board read the leaderboards.
 **Files:**
-- `src/ServerScriptService/SaveLoad.lua`: `serialize` :63, `saveNow` :153, `clampInt` :168, `applySave` :173, `loadOnce` :405. Wired at `SiliconCore.server.lua:3841`.
-- `src/ServerScriptService/SiliconCore.server.lua`: stores created :571-576, `loaded`/`loading` :577-578, `cleanName` :3208, `setName` :3227, `pushTicker` :3648, `refreshBoard` :3714, Ranks wiring :3767-3785.
+- `src/ServerScriptService/SaveLoad.lua`: `serialize` :63, `saveNow` :153, `clampInt` :168, `applySave` :173, `loadOnce` :405. Wired at `SiliconCore.server.lua:3915`.
+- `src/ServerScriptService/SiliconCore.server.lua`: stores created :576-581, `loaded`/`loading` :582-583, `cleanName` :3282, `setName` :3301, `pushTicker` :3722, `refreshBoard` :3788, Ranks wiring :3841-3859.
 - `src/ServerScriptService/Ranks.lua`: `weekId` :43, `push` :135 (all-time write :138-140, week write :141-147), `read` :151, `refresh` :161, `init` :195, store names :197-198.
 - `src/ServerScriptService/Telemetry.lua`: the funnel, events and cash flows now have their own page, [player-loop](player-loop.md).
 - `src/ServerScriptService/VoiceCheck.lua`: `report` :96, `init` :132. Started by `Phone.init` (`src/ServerScriptService/Phone.lua:569-576`).
-- `src/StarterPlayer/StarterPlayerScripts/ClientInfoClient.client.lua:16-17`: sends `TouchEnabled and not KeyboardEnabled`. Server: `SiliconCore.server.lua:4033-4038`.
+- `src/StarterPlayer/StarterPlayerScripts/ClientInfoClient.client.lua:16-17`: sends `TouchEnabled and not KeyboardEnabled`. Server: `SiliconCore.server.lua:4107-4112`.
 **State:**
 - DataStore `SVSave_v1` (normal store, key `tostring(UserId)`). The record: `v, layout, cash, hq, wings, wl, wd, rec, bp, placed, staff, shipped, name, valuation, weekId, weekBase, ipo, launches, rl, mo, rate, lastSeen, tiers, talents, index, people, playtime, muted, dailyDay, streak, alumni, work, spinoffs, hqPath, earned, items, apt, vipDay, jr, tips, listed, cars, car` (`SaveLoad.lua:79-150`). Studio plays as Wilz, so the key is `1688749216` (`DevScenarios.lua:34`).
-- `SVTicker_v1` (ordered): key UserId, value floor(valuation), from $1,000 up. Written by `Ranks` `push` (`Ranks.lua:138-140`). Old path `pushTicker` runs only if Ranks failed to load (`SiliconCore.server.lua:3648-3658`).
+- `SVTicker_v1` (ordered): key UserId, value floor(valuation), from $1,000 up. Written by `Ranks` `push` (`Ranks.lua:138-140`). Old path `pushTicker` runs only if Ranks failed to load (`SiliconCore.server.lua:3722-3732`).
 - `SVNames_v1` (normal): key UserId, value the company name. Written on `SetName` only.
 - `SVWeek_<weekId>` (ordered, one per week): key UserId, value valuation gained this week. Weeks start Monday 00:00 UTC (`Ranks.lua:43`, `push` :141-147).
 - `SVSnap_v1` (normal): test snapshots `{ at, rec }` of `SVSave_v1`. Test accounts in Studio only (`DevScenarios.lua:35,45-47,58-70`).
@@ -29,8 +29,8 @@
 - That guard is why `restore` sets `lastSeen = os.time()` (`DevScenarios.lua:79-80`). Restore must run after Play stops, because the stop's save-on-leave overwrites it (:18-19).
 - Compare saves with `compareSnapshot`, not two JSON strings: key order is not stable (`DevScenarios.lua:86-88`).
 - `wipe` has no test-account check (`DevHook.lua:131-133`). Only `scenario` does. It deletes whichever account is playing.
-- Names are filtered and a name containing `#` is refused (`SiliconCore.server.lua:3208-3218`).
+- Names are filtered and a name containing `#` is refused (`SiliconCore.server.lua:3282-3292`).
 - Telemetry gotchas (the funnel order, field limits, rate limits) are on [player-loop](player-loop.md).
 - A tablet with a keyboard counts as desktop (`ClientInfoClient.client.lua:1-8`).
 - Studio cannot test voice. The mic is always "not recording" there (`VoiceCheck.lua:27-33`). `VoiceCheck` only reads and changes nothing.
-**Last verified:** 2026-10-13 13a511a
+**Last verified:** 2026-10-14 50e506d
