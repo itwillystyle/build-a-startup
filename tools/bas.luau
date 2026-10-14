@@ -13,6 +13,7 @@
     lune run tools/bas playtest list | prep <video>|--new | done <video>   review a screen recording
     lune run tools/bas checkup report <json> | post   judge a game-doctor run, post it to Discord
     lune run tools/bas checkup pr <report> <fingerprint> [--post]   the doctor as a gate on a pull request
+    lune run tools/bas risk [base] [--label]   which changed files need Luke (tools/risk_lib.luau)
 	Add --json to any command for one machine-readable object on stdout.
 	Add --save to check / sim / baseline diff to file the result in the current evidence folder.
 	Exit codes: 0 ok, 1 a check failed, 2 usage error.
@@ -1156,6 +1157,61 @@ local function cmdTune()
 			.. (doneAt and os.date("%a %H:%M", doneAt) or "never") } })
 end
 
+-- ============ risk (13 Oct 2026) ============
+-- which files this branch changes, what kind each is, and whether Luke must look before a
+-- merge (tools/risk_lib.luau; the Anthropic source-control article's "approval rules by
+-- meaning"). Compares against origin/main by default, plus anything uncommitted.
+--   lune run tools/bas risk [base] [--label]   --label: tag the branch's open PR "needs-luke"
+local Risk = require("./risk_lib")
+local function cmdRisk()
+	local base = pos[2] or "origin/main"
+	local paths, seen = {}, {}
+	local function addAll(text)
+		for _, l in lines(text) do
+			local p = trim(l)
+			if p ~= "" and not seen[p] then seen[p] = true; table.insert(paths, p) end
+		end
+	end
+	-- --no-renames: with rename detection git lists only the NEW path, so a test moved
+	-- out of tests/ (it silently stops running) read as "tooling" (review of #52)
+	local committed = git({ "diff", "--name-only", "--no-renames", base .. "...HEAD" })
+	if committed == nil then
+		return result("risk", { { name = "base", ok = false, detail = "git cannot diff against " .. base } })
+	end
+	addAll(committed)
+	addAll(git({ "diff", "--name-only", "--no-renames", "HEAD" }) or "")   -- uncommitted, tracked
+	for _, l in lines(git({ "status", "--porcelain" }) or "") do      -- untracked
+		if l:sub(1, 2) == "??" then addAll(l:sub(4)) end
+	end
+	local r = Risk.classify(paths)
+	local checks = {}
+	local text = {}
+	for _, f in r.files do
+		table.insert(text, ("    %-9s %s  (%s)"):format(f.kind, f.path, f.why))
+	end
+	table.insert(checks, {
+		name = "files", ok = true,
+		detail = ("%d changed vs %s"):format(#r.files, base),
+		text = table.concat(text, "\n"),
+	})
+	table.insert(checks, {
+		name = "verdict", ok = true,
+		detail = r.needsLuke and "NEEDS LUKE: no auto-merge; review the intent card (CONSTRAINTS.md rule 5)"
+			or "routine: docs and tooling only",
+	})
+	if table.find(A, "--label") ~= nil then   -- a bare switch: flag() reads the value AFTER a flag
+		local branch = git({ "rev-parse", "--abbrev-ref", "HEAD" }) or ""
+		if r.needsLuke then
+			run("gh", { "label", "create", "needs-luke", "--color", "D93F0B", "--description", "bas risk: Luke reviews before merge", "--force" })
+			local lr = run("gh", { "pr", "edit", branch, "--add-label", "needs-luke" })
+			table.insert(checks, { name = "label", ok = lr.ok, detail = lr.ok and ("needs-luke on the PR for " .. branch) or trim(lr.stderr) })
+		else
+			table.insert(checks, { name = "label", ok = true, detail = "none needed" })
+		end
+	end
+	return result("risk", checks, { needsLuke = r.needsLuke, counts = r.counts })
+end
+
 local HELP = [[
 bas -- one command for every check this game has. Run from the game folder.
 
@@ -1178,6 +1234,7 @@ bas -- one command for every check this game has. Run from the game folder.
   lune run tools/bas playtest done <name> [--skip] [--note "..."]   file it as reviewed
   lune run tools/bas checkup report <report.json>   judge a game-doctor run -> ../DOCTOR.md
   lune run tools/bas checkup post          post the summary to Discord (../.discord-webhook)
+  lune run tools/bas risk [base] [--label]  what kind of change this branch is; does Luke need to look
   lune run tools/chase_tune -- --minutes N  the chase tuner (judge: chase.spec + chasecam.spec + the design spec)
   lune run tools/bas tune post [--dry]     post the newest finished chase tuning to Discord
 
@@ -1254,6 +1311,8 @@ elseif cmd == "checkup" then
 	res = cmdCheckup()
 elseif cmd == "tune" then
 	res = cmdTune()
+elseif cmd == "risk" then
+	res = cmdRisk()
 end
 
 if not res then
