@@ -43,4 +43,22 @@ function Seating.freeFor(people, homes, key, index)
 	return seats - taken
 end
 
+-- phase 3: every pin room the plot has, in the TEAM screen's order, with its seats and
+-- how many are free to pin to (freeFor with nobody excluded: what MOVE will accept)
+Seating.ORDER = { "hq", "lobby", "eng", "studio", "cafe", "labs" }
+function Seating.rooms(people, homes)
+	local seats, kind = {}, {}
+	for _, h in ipairs(homes) do
+		seats[h.key] = (seats[h.key] or 0) + 1
+		kind[h.key] = kind[h.key] or h.room
+	end
+	local out = {}
+	for _, key in ipairs(Seating.ORDER) do
+		if seats[key] then
+			table.insert(out, { key = key, room = kind[key], seats = seats[key], free = Seating.freeFor(people, homes, key, nil) })
+		end
+	end
+	return out
+end
+
 return Seating

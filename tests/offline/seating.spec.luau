@@ -123,4 +123,34 @@ test("freeFor: seats of that room minus OTHER people pinned there", function()
 	assert(Seat.freeFor(people, homes, "labs", 3) == 0, "no labs at all")
 end)
 
+
+-- phase 3: the free seats the TEAM card shows (what MOVE will accept)
+test("rooms: the pin rooms present, in the screen's order, free = seats - pins", function()
+	local homes = { { key = "hq", room = "hq" }, { key = "cafe", room = "cafe" }, { key = "eng", room = "office" },
+		{ key = "eng", room = "office" }, { key = "servers", room = "servers" }, { key = "cafe", room = "cafe" } }
+	local people = { { pin = "eng" }, { pin = "" }, { pin = "cafe" }, { pin = "labs" }, {} }
+	local rooms = Seat.rooms(people, homes)
+	local keys = {}
+	for _, r in ipairs(rooms) do table.insert(keys, r.key) end
+	assert(table.concat(keys, ",") == "hq,eng,cafe", "order and presence: " .. table.concat(keys, ","))
+	local by = {}
+	for _, r in ipairs(rooms) do by[r.key] = r end
+	assert(by.hq.seats == 1 and by.hq.free == 1 and by.hq.room == "hq", "garage")
+	assert(by.eng.seats == 2 and by.eng.free == 1 and by.eng.room == "office", "eng: one pinned")
+	assert(by.cafe.seats == 2 and by.cafe.free == 1, "cafe: one pinned")
+end)
+
+test("rooms: free always equals freeFor(nobody), on random worlds", function()
+	local g = rng(77)
+	for _ = 1, 300 do
+		local homes, people = {}, {}
+		for _ = 1, g:int(0, 12) do local k = KEYS[g:int(1, #KEYS)]; table.insert(homes, { key = k, room = ROOM_OF[k] }) end
+		for _ = 1, g:int(0, 10) do table.insert(people, { pin = g:int(1, 3) == 1 and KEYS[g:int(1, #KEYS)] or "" }) end
+		for _, r in ipairs(Seat.rooms(people, homes)) do
+			assert(r.free == Seat.freeFor(people, homes, r.key, nil), r.key)
+			assert(r.key ~= "servers", "servers is not a pin room")
+		end
+	end
+end)
+
 return T
