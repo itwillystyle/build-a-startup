@@ -23,6 +23,7 @@ return function(core)
 	local buildShell = core.buildShell
 	local buildWing = core.buildWing
 	local cashOf = core.cashOf
+	local assignDesks = core.assignDesks   -- v8 phase 2: re-seat once every pin is loaded
 	local hireGrowthAt = core.hireGrowthAt
 	local loaded = core.loaded
 	local loading = core.loading
@@ -396,7 +397,10 @@ return function(core)
 		s.listed = data.listed == true
 		if Econ and Econ.Apt then pcall(Econ.Apt.onLoad, player, s) end
 		if Econ and Econ.Cars then pcall(Econ.Cars.onLoad, player, s, data, plot) end
-		recompute(player)
+		-- v8 phase 2 (review, 14 Oct): each spawn seated people BEFORE their saved pin was set, and the
+		-- last person never got a second pass, so they sat as unpinned after every rejoin. Seat once
+		-- more now every pin is known (assignDesks ends in recompute).
+		if assignDesks then assignDesks(player) else recompute(player) end
 		refreshSign(plot)
 		refreshHqPad(plot)
 		updateHirePad(player)

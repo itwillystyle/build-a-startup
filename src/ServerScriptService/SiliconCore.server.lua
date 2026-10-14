@@ -3935,6 +3935,7 @@ local SaveLoad = require(ServerScriptService:WaitForChild("SaveLoad"))({
 	officeDesk = officeDesk,
 	placeAt = placeAt,
 	plotOf = plotOf,
+	assignDesks = assignDesks,   -- v8 phase 2: the loader re-seats once every pin is known
 	pushTicker = pushTicker,
 	recompute = recompute,
 	refreshHqPad = refreshHqPad,
