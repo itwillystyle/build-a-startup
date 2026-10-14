@@ -537,6 +537,18 @@ return function(core)
 			r[stat] = math.clamp(tonumber(lv), 0, 30)   -- StaffStats.MAX_LEVEL (review: state printed 999)
 			recompute(player)
 			return { id = r.id, [stat] = r[stat], rate = s.rate }
+		elseif action == "staffact" then
+			-- v8 phase 2 (Studio): "train:i:stat" or "move:i:dept" through the REAL action code
+			-- (Econ.staffAction), i = list position. The doctor's team step uses it.
+			local kind, i, x = tostring(arg):match("^(%a+):(%d+):(%a*)$")
+			local r = i and s.rigs and s.rigs[tonumber(i)]
+			if not (kind and r and Econ and Econ.staffAction) then return "usage: staffact train:i:stat | move:i:dept" end
+			local c = cashOf(player)
+			local cash0 = c and c.Value or 0
+			local ok, why, price = Econ.staffAction(player, kind, r.id, x)
+			return { ok = ok, why = why, price = price, cashSpent = cash0 - (c and c.Value or 0),
+				id = r.id, skill = r.skill, speed = r.speed, loyalty = r.loyalty, pin = r.pin, room = r.dept or r.room,
+				seated = r.seated, rate = s.rate }
 		end
 		return "unknown"
 	end

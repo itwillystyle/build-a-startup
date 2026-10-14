@@ -61,6 +61,11 @@ local CampusDistricts = tryRequire(ServerScriptService, "CampusDistricts")   -- 
 local Econ = tryRequire(ServerScriptService, "RoomEconomy")   -- v2.6.0 room economy (stations, caps, fit, wages)
 -- v8 (13 Oct) MANAGE STAFF: the stat rules ride on Econ (this script is at the 200-local limit)
 if Econ then Econ.StaffStats = require(game:GetService("ReplicatedStorage"):WaitForChild("StaffStats")) end
+-- v8 phase 2 (14 Oct): who sits where, and what a TRAIN / MOVE may do (both pure, tested offline)
+if Econ then
+	Econ.Seating = require(game:GetService("ReplicatedStorage"):WaitForChild("Seating"))
+	Econ.StaffAction = require(game:GetService("ReplicatedStorage"):WaitForChild("StaffAction")).with(Econ.StaffStats)
+end
 local Journey = require(ServerScriptService:WaitForChild("Journey"))   -- v4.3 the guided loop (pure, tested offline)
 local Prog = require(ServerScriptService:WaitForChild("Progression"))   -- v4.3 spin-off curve + offline rule (pure, tested offline)
 local Mom = require(ServerScriptService:WaitForChild("Momentum"))       -- v5.0 what you bring back from outside (pure, tested offline)
@@ -1253,6 +1258,9 @@ local function recompute(player)
 	local base, wages, perRoom, perSeg = 0, 0, {}, {}
 	for _, r in ipairs(s.rigs or {}) do
 		if not (Econ and Econ.V3) then wages += Econ and Econ.wageOf(r.tier) or 0 end
+		-- v8 phase 2: the UNTRAINED seated rate (x F below) prices this person's training (spec 3.3);
+		-- someone in the waiting line is priced at their unseated base
+		r.baseV = CFG.TIER_RATE[r.tier or 1] * talentMultOf(r) * ((r.seated and r.fit and Econ) and Econ.FIT_MULT or 1) * (r.seated and (r.eff or 1) or 1)
 		if r.seated then
 			local v = CFG.TIER_RATE[r.tier or 1] * talentMultOf(r) * ((r.fit and Econ) and Econ.FIT_MULT or 1) * (r.eff or 1)
 				* ((Econ and Econ.StaffStats) and Econ.StaffStats.mult("skill", r.skill) or 1)   -- v8: trained Skill
@@ -1269,6 +1277,19 @@ local function recompute(player)
 	local wageTotal = wages * hqMultOf(plot)
 	s.wages = wageTotal
 	s.rate = math.max(0, math.floor(base * F - wageTotal))   -- never negative: absence is never punished
+	-- v8 phase 2: each person's price rate, and StaffData (the TEAM screen, phase 3, reads it)
+	if Econ and Econ.StaffAction then
+		local rows = {}
+		for _, r in ipairs(s.rigs or {}) do
+			r.priceRate = (r.baseV or 0) * F
+			table.insert(rows, Econ.StaffAction.row({ id = r.id, name = r.rig and r.rig:GetAttribute("PersonName"), role = r.rig and r.rig:GetAttribute("Role"),
+				talent = r.talent, tier = r.tier, room = r.dept or r.room, fit = r.fit, skill = r.skill, speed = r.speed, loyalty = r.loyalty,
+				pin = r.pin, priceRate = r.priceRate,
+				rate = r.seated and math.floor((r.baseV or 0) * Econ.StaffStats.mult("skill", r.skill) * F + 0.5) or 0 }, s.hqLevel or 1))
+		end
+		local json = game:GetService("HttpService"):JSONEncode(rows)
+		if player:GetAttribute("StaffData") ~= json then player:SetAttribute("StaffData", json) end
+	end
 	if Econ then
 		for k, v in pairs(perRoom) do perRoom[k] = v * F end
 		player:SetAttribute("IncomeRooms", Econ.breakdown(perRoom, wageTotal))
@@ -1465,16 +1486,19 @@ local function assignDesks(player)
 	if not s or not plot or not StaffRig then return end
 	local homes = deskHomes(s, plot)
 	local waiting = 0
-	local used = {}
-	for _, r in ipairs(s.rigs) do
-		-- v2.6.0 ROLE FIT: take a free seat in a room that matches the job, else any free seat
-		local role = r.rig and r.rig:GetAttribute("Role") or "engineer"
+	-- v2.6.0 ROLE FIT: a free seat in a room that matches the job, else any free seat.
+	-- v8 phase 2: PINNED people first (Seating, tested offline: with no pins it is the
+	-- old seating, seat for seat). A pin whose room has no free seat sits as unpinned.
+	local people, keyed = {}, {}
+	for i, r in ipairs(s.rigs) do people[i] = { role = (r.rig and r.rig:GetAttribute("Role")) or "engineer", pin = r.pin } end
+	for k, h in ipairs(homes) do keyed[k] = { room = h.room, key = h.dept or h.room } end
+	local Seat = (Econ and Econ.Seating) or require(ReplicatedStorage:WaitForChild("Seating"))
+	local seatOf = Seat.assign(people, keyed, function(role, room) return ((Econ and Econ.FIT[role]) or {})[room] and true or false end)
+	for i, r in ipairs(s.rigs) do
+		local role = people[i].role
 		local fitSet = (Econ and Econ.FIT[role]) or {}
-		local pick
-		for k, h in ipairs(homes) do if not used[k] and fitSet[h.room] then pick = k break end end
-		if not pick then for k in ipairs(homes) do if not used[k] then pick = k break end end end
+		local pick = seatOf[i]
 		local h = pick and homes[pick]
-		if pick then used[pick] = true end
 		local home = h and h.cf
 		r.seated = home ~= nil
 		r.room = h and h.room or nil
@@ -2746,6 +2770,51 @@ if Econ then
 		local plot = plotOf(player)
 		if plot and plot.spinArmed then plot.spinArmed = nil; plot.spinOffer = nil; refreshHqPad(plot) end
 	end)
+	--[[ v8 MANAGE STAFF phase 2: TRAIN and MOVE. Every rule is StaffAction (pure; the plan's
+		abuse-case table is its tests). This only looks the person up in the CALLER's own
+		staff, validates, debits and applies, with no yield in between, so two TRAINs in
+		one frame see each other's debit. ]]
+	Econ.staffAction = function(player, kind, a, b)
+		local s, plot, cash = sessions[player.UserId], plotOf(player), cashOf(player)
+		if not s or not plot or not cash or not Econ.StaffAction then return false, "no plot" end
+		local act, why = Econ.StaffAction.parse(kind, a, b)
+		if not act then return false, why end
+		local idx
+		for i, r in ipairs(s.rigs or {}) do if r.id == act.id then idx = i break end end
+		local r = idx and s.rigs[idx]
+		local free
+		if act.kind == "move" and act.dept ~= "" then
+			local people, keyed = {}, {}
+			for i, rr in ipairs(s.rigs) do people[i] = { pin = rr.pin } end
+			for k, h in ipairs(deskHomes(s, plot)) do keyed[k] = { room = h.room, key = h.dept or h.room } end
+			free = Econ.Seating.freeFor(people, keyed, act.dept, idx)
+		end
+		local ok, reason, price = Econ.StaffAction.validate({ busy = plot.busy == true, cash = cash.Value,
+			stage = s.hqLevel or 1, person = r, freeSeats = free }, act)
+		if not ok then return false, reason, price end
+		if act.kind == "train" then
+			cash.Value -= price
+			Econ.StaffAction.apply(r, act)
+			Telemetry.money(player, "sink", price, "train_" .. act.stat)
+			Telemetry.mark(player, "trained")
+			recompute(player)
+		else
+			Econ.StaffAction.apply(r, act)
+			assignDesks(player)
+		end
+		return true, act.kind, price
+	end
+	local staffRemote = remote("StaffAction")
+	staffRemote.OnServerEvent:Connect(function(player, kind, a, b)
+		local s = sessions[player.UserId]
+		if not s or not Econ.StaffAction then return end
+		local pass
+		pass, s.staffBucket = Econ.StaffAction.allow(s.staffBucket, os.clock())
+		if not pass then return end
+		local ok, why = Econ.staffAction(player, kind, a, b)
+		staffRemote:FireClient(player, { ok = ok, why = (not ok) and why or nil, kind = ok and why or nil,
+			id = (type(a) == "number" and a == a) and a or nil })
+	end)
 	Econ.Daily = tryRequire(ServerScriptService, "DailyReward")
 	if Econ.Daily and Econ.Daily.init then
 		local ok, err = pcall(Econ.Daily.init, {
@@ -3015,7 +3084,7 @@ spinOff = function(player, plot)
 		-- recruiting makes Star+ common (the sim kept ~12), so the home you own decides how many come along,
 		-- and the player decides which: their pick is matched against the CURRENT staff (see Prog.chooseKeepers)
 		for _, r in ipairs(Prog.chooseKeepers(s.rigs, Econ.KEEP_TALENT, Prog.keepSlots(s.apt), plot.spinOffer, plot.spinPickIds)) do
-			table.insert(keep, { talent = r.talent, who = r.who })
+			table.insert(keep, { talent = r.talent, who = r.who, skill = r.skill, speed = r.speed, loyalty = r.loyalty })   -- v8: their training
 		end
 	end
 	plot.spinOffer = nil
@@ -3044,6 +3113,11 @@ spinOff = function(player, plot)
 		s.staff = i
 		if i > 1 then s.hireCost = math.floor(s.hireCost * hireGrowthAt(i)) end   -- same ladder the loader rebuilds
 		spawnStaff(player, plot, i, k.talent, k.who)
+		local e = s.rigs[#s.rigs]
+		if e and Econ and Econ.StaffAction then
+			local c = Econ.StaffAction.carryKeeper(k, 1)   -- v8: Loyalty keeps their training (StaffStats.carried), pins reset
+			e.skill, e.speed, e.loyalty, e.pin = c.skill, c.speed, c.loyalty, c.pin
+		end
 	end
 	if #keep > 0 then
 		task.delay(2.2, function() popup(plot.hirePad, ("%d rare hire%s came with you  ·  build %s to seat them"):format(#keep, #keep == 1 and "" or "s", (Econ and Econ.WAFERS) and "a floor" or "an office"), CFG.GOLD) end)
