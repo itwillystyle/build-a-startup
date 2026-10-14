@@ -31,4 +31,4 @@
 - `Valley.init` runs inside a `pcall`. A failure only warns, and the server runs without boards (`SiliconCore.server.lua:3878-3889`).
 - SiliconCore is at the 200 top-level local limit, so no handle to `Valley` is kept (:3807-3808). Tests must `require` it again.
 - The bell never opens in an empty server (`Valley.lua:181`).
-**Last verified:** 2026-10-14 f0af482
+**Last verified:** 2026-10-14 5079cec

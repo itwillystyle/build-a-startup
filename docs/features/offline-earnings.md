@@ -33,4 +33,4 @@
 - `WelcomeDone` is only set after 12 s when no offline pay came (`HudClient.client.lua:1018-1021`). `TalentRevealClient` (:357), `NameClient` (:160) and `DailyClient` (:364) wait for it.
 - The server adds the money first. The HUD subtracts `pendingOffline` from the shown cash until COLLECT (`HudClient.client.lua:1035,530`). If the card cannot show for 45 s the money is released (:1041-1046).
 - A Studio Play, stop, Play loop pays almost nothing, because `lastSeen` is only seconds old.
-**Last verified:** 2026-10-14 f0af482
+**Last verified:** 2026-10-14 5079cec

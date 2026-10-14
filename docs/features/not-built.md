@@ -18,4 +18,4 @@
 **Gotchas:**
 - The word "market" means three things here: product category, the bell, and the Exchange board. Read the file before assuming which.
 - If someone builds one of these shops, the plan says it must land on an existing beat (a launch or a hire), not add a trip (`../REFERENCE.md` E6).
-**Last verified:** 2026-10-14 f0af482
+**Last verified:** 2026-10-14 5079cec

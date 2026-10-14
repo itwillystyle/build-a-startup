@@ -36,4 +36,4 @@
 - The CAR button pulses only while the Journey objective is "car" (`CarClient.client.lua:365-372`).
 - The header comment says "HQ 2". In Wafers mode that means wafer level 5 (`Wafers.lua:166-169`).
 - Security (9 Oct exploit check): `CallCar`, and `BuyCar` on a car you already own, respawn the car for every client, so both share a 2 s gate (`Cars.lua:284, 312`).
-**Last verified:** 2026-10-14 f0af482
+**Last verified:** 2026-10-14 5079cec

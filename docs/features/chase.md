@@ -94,4 +94,4 @@
 - `chaseCfg` is built once per carry (`TalentDrop.lua:532-543`). A poach moves the hunter's home stretch, the timer and `CarryHome` to the thief's doorstep, but keeps the first player's speed (`TalentDrop.lua:625-662`). Read, not run.
 - Stale numbers: `chasecam.spec.luau:125` uses LUNGE_TIME 0.8, but `ChaseRules.lua:53` is 1.0 (the header at :20 also says 0.8). Windup plus lunge is 1.5 s, `DIR.MIN_HOLD` is 1.35 (`ChaseCam.lua:953`), and the test still passes. `tools/anim/hunter.luau:1-2` also says 0.8.
 - The hunter's height is fixed at the pickup height (`TalentDrop.lua:521, 531, 736`). Candidates now stand within 10 studs of the door height (:175), which limits the error. Unclear if every route is flat.
-**Last verified:** 2026-10-14 f0af482
+**Last verified:** 2026-10-14 5079cec

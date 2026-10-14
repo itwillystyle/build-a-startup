@@ -33,4 +33,4 @@
 - Telemetry gotchas (the funnel order, field limits, rate limits) are on [player-loop](player-loop.md).
 - A tablet with a keyboard counts as desktop (`ClientInfoClient.client.lua:1-8`).
 - Studio cannot test voice. The mic is always "not recording" there (`VoiceCheck.lua:27-33`). `VoiceCheck` only reads and changes nothing.
-**Last verified:** 2026-10-14 f0af482
+**Last verified:** 2026-10-14 5079cec
