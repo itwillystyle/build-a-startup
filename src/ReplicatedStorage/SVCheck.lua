@@ -712,61 +712,47 @@ local function checkPlacement(say)
 		glass of its own wafer -- no collision needed, and it is exact. ]]
 	local glassOut, glassIn, glassWorst, glassWorstN = 0, 0, 0, ""
 	do
+		--[[ v9 (14 Oct, HQ tower 1a): the rooms are rectangles (TowerPlan.room). A furniture
+			corner must stay GLASS_BAND inside every glass side of its own room; partitions are
+			the "buried in a wall" pass's job. There is no courtyard glass any more, so the "in"
+			count stays 0. ]]
 		local okP, WP = pcall(function()
 			return require(game:GetService("ReplicatedStorage"):FindFirstChild("WaferPlan")
 				or game:GetService("ServerScriptService"):FindFirstChild("WaferPlan"))
 		end)
+		local okT, TP = pcall(function() return require(game:GetService("ReplicatedStorage"):FindFirstChild("TowerPlan")) end)
 		local plots = sv:FindFirstChild("Plots")
-		if okP and WP and WP.INSET and plots then
+		if okP and WP and WP.PIECES and okT and TP and plots then
+			local band = WP.GLASS_BAND or 0.9
 			for _, plot in ipairs(plots:GetChildren()) do
 				local wf = plot:FindFirstChild("Wafers")
 				local pv = plot:GetAttribute("Pivot")
 				if wf and pv then
-					-- which path is this plot built in? read it off a shell mesh
-					local path
 					for _, seg in ipairs(wf:GetChildren()) do
-						for _, d in ipairs(seg:GetDescendants()) do
-							if d:IsA("MeshPart") and WP.INSET[d.Name:sub(1, 2)] then
-								path = d.Name:sub(1, 2)
-								break
-							end
-						end
-						if path then break end
-					end
-					if path then
-						for _, seg in ipairs(wf:GetChildren()) do
-							local L = tonumber(seg.Name:match("^L(%d+)"))
-							local pc = L and WP.PIECES[L]
-							if pc and pc.kind == "segment" then
-								local R = WP.GEO.WAFER[pc.wafer].r
-								local rout = R - WP.INSET[path] - WP.GLASS_BAND
-								local rin = R - WP.GEO.DEPTH + 0.6
-								for _, d in ipairs(seg:GetDescendants()) do
-									if d:IsA("MeshPart") and d.Name:sub(1, 2) ~= path
-										and d.Size.Y > 0.3
-										and math.max(d.Size.X, d.Size.Y, d.Size.Z) <= 10 then
-										local far, near = 0, math.huge
-										for ix = -1, 1, 2 do
-											for iz = -1, 1, 2 do
-												local q = pv:PointToObjectSpace(
-													d.CFrame * Vector3.new(ix * d.Size.X / 2, 0, iz * d.Size.Z / 2))
-												local rr = math.sqrt(q.X * q.X + q.Z * q.Z)
-												far = math.max(far, rr)
-												near = math.min(near, rr)
-											end
+						local L = tonumber(seg.Name:match("^L(%d+)"))
+						local pc = L and WP.PIECES[L]
+						if pc and pc.kind == "segment" then
+							local r = TP.room(pc.storey, pc.seg)
+							local lim = {
+								px = r.sides.px == "glass" and r.x1 - 0.4 - band or math.huge,
+								nx = r.sides.nx == "glass" and r.x0 + 0.4 + band or -math.huge,
+								pz = r.sides.pz == "glass" and r.z1 - 0.4 - band or math.huge,
+								nz = r.sides.nz == "glass" and r.z0 + 0.4 + band or -math.huge,
+							}
+							for _, d in ipairs(seg:GetDescendants()) do
+								if d:IsA("MeshPart") and d.Size.Y > 0.3 and math.max(d.Size.X, d.Size.Y, d.Size.Z) <= 10 then
+									local over = 0
+									for ix = -1, 1, 2 do
+										for iz = -1, 1, 2 do
+											local q = pv:PointToObjectSpace(d.CFrame * Vector3.new(ix * d.Size.X / 2, 0, iz * d.Size.Z / 2))
+											over = math.max(over, q.X - lim.px, lim.nx - q.X, q.Z - lim.pz, lim.nz - q.Z)
 										end
-										if far > rout + 0.05 then
-											glassOut += 1
-											if far - rout > glassWorst then
-												glassWorst = far - rout
-												glassWorstN = d.Name .. " out of " .. seg.Name
-											end
-										elseif near < rin - 0.05 then
-											glassIn += 1
-											if rin - near > glassWorst then
-												glassWorst = rin - near
-												glassWorstN = d.Name .. " through the courtyard glass in " .. seg.Name
-											end
+									end
+									if over > 0.05 then
+										glassOut += 1
+										if over > glassWorst then
+											glassWorst = over
+											glassWorstN = d.Name .. " out of " .. seg.Name
 										end
 									end
 								end

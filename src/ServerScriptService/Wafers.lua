@@ -93,7 +93,7 @@ yields.
 
 An unknown value falls back to W_, so a corrupt save can never make a player's
 whole HQ invisible. ]]
-local PATHS = { ["W_"] = "Wafers", ["T_"] = "Terrafab", ["D_"] = "Dome" }
+local PATHS = { ["W_"] = "Glass", ["T_"] = "Timber", ["D_"] = "Neon" }   -- v9: the finishes (spec §3)
 
 function Wafers.pathOf(plot)
 	local v = plot and plot.hqPath
@@ -101,7 +101,7 @@ function Wafers.pathOf(plot)
 end
 
 function Wafers.pathName(prefix)
-	return PATHS[prefix] or "Wafers"
+	return PATHS[prefix] or "Glass"
 end
 
 Wafers.PATHS = PATHS

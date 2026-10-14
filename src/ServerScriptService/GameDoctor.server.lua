@@ -44,7 +44,7 @@ local SSS = game:GetService("ServerScriptService")
 local WH = require(SSS:WaitForChild("WorldHealth"))
 local HQF = require(SSS:WaitForChild("HQFloors"))
 
-local LEVELS = { 5, 9, 13, 18 }
+local LEVELS = { 5, 9, 13, 18, 43, 100 }   -- v9 (14 Oct): the tower is checked at its top too (spec §8.2)
 local TIERS = { "skilled", "star", "genius" }
 local STAND_TOL = 0.35        -- studs: resting this far off a floor's top is standing in it (or floating)
 local CAMERA_BEHIND = 0       -- camera samples behind a wall: anything over this is a bug

@@ -184,12 +184,13 @@ building is the content, and a tile washed in colour buries it.
 `tag` is one word of character. A sentence is for reading; one word is for
 choosing, and this is a choice made in about two seconds. ]]
 local PATHS = {
-	{ key = "W_", name = "WAFERS",   tag = "GREEN",      blurb = "Stacked rings with garden floors between them",
-	  col = UIKit.PATH.W_ },
-	{ key = "T_", name = "TERRAFAB", tag = "INDUSTRIAL", blurb = "A chip fab. Your wafers ride the track outside",
-	  col = UIKit.PATH.T_ },
-	{ key = "D_", name = "DOME",     tag = "LIGHT",      blurb = "Layered canopies with a lit seam at every tier",
-	  col = UIKit.PATH.D_ },
+	-- v9 (14 Oct): one tower, three finishes (spec 2026-10-14-hq-tower-design §3); the keys stay
+	{ key = "W_", name = "GLASS",  tag = "SLEEK", blurb = "Blue glass and steel fins",
+	  col = UIKit.BLUE },
+	{ key = "T_", name = "TIMBER", tag = "WARM",  blurb = "Warm wood, cream and plants",
+	  col = UIKit.ORANGE },
+	{ key = "D_", name = "NEON",   tag = "BOLD",  blurb = "Dark glass with bright light lines",
+	  col = UIKit.PURPLE },
 }
 
 local pathGui = Instance.new("ScreenGui")
@@ -281,51 +282,24 @@ for i, def in ipairs(PATHS) do
 	end)
 	tile:SetAttribute("Accent", def.col)
 	task.spawn(function()
-		local lib = RS:WaitForChild("SVMeshes", 30)
-		local tpl = lib and lib:FindFirstChild(def.key .. "Seg_1")
-		if not tpl then return end
-		local src = tpl:IsA("Model") and tpl:FindFirstChildWhichIsA("MeshPart", true) or tpl
-		if not src then return end
-		--[[ A segment mesh is centred on its PIECE-LOCAL frame, about 48 studs
-		out along +Z -- the ring's radius. Rotating it about the origin without
-		pushing it out first stacks all eight segments on top of each other,
-		which is exactly what the first draft did: the preview was a speck.
-
-		HQMeta lives in ServerScriptService, so the client cannot read it. These
-		are the three Seg_1 offsets, and the camera frames whatever is actually
-		built rather than a guessed distance, so a wrong number shows as a badly
-		framed tower rather than an empty box. ]]
-		local RADIUS = { W_ = 48.414, T_ = 46.194, D_ = 45.577 }
+		--[[ v9 (14 Oct, HQ tower 1a): the preview is the tower itself, one box per section plus
+		the crown (TowerPlan.spec), in the finish's colour. The three finishes share the shape;
+		1d gives each its real materials. ]]
+		local TP = require(RS:WaitForChild("TowerPlan"))
+		local FINISH = {
+			W_ = Color3.fromRGB(120, 170, 220),  -- world colour: Glass
+			T_ = Color3.fromRGB(176, 128, 84),   -- world colour: Timber
+			D_ = Color3.fromRGB(44, 52, 74),     -- world colour: Neon
+		}
 		local world = Instance.new("Model")
-		for k = 0, 0 do
-			for seg = 1, 8 do
-				local c = src:Clone()
-				c.Anchored = true
-				c.CFrame = CFrame.Angles(0, math.rad((seg - 1) * 45), 0)
-					* CFrame.new(0, k * 13, RADIUS[def.key] or 48)
-				c.Parent = world
-			end
-		end
-
-		--[[ THE DECK IS THE WHOLE POINT.
-
-		The first version showed two storeys of plain wall and the three
-		previews came out identical -- three grey rings. Everything that tells
-		the paths apart lives on the DECK: the Wafers' garden, the Terrafab's
-		wafer track, the Dome's canopy. A preview without one is a preview of
-		the part they share, which is why it is ONE storey and then the deck:
-		two courses of wall only dilute the piece doing the work.
-
-		Deck meshes are centred on their own axis, so no radial push -- only the
-		height of the two storeys under them, plus the piece's own y. ]]
-		local DECK_Y = { W_ = 2.053, T_ = 5.650, D_ = 9.206 }
-		local dtpl = lib:FindFirstChild(def.key .. "Deck_1")
-		local dsrc = dtpl and (dtpl:IsA("Model") and dtpl:FindFirstChildWhichIsA("MeshPart", true) or dtpl)
-		if dsrc then
-			local dc = dsrc:Clone()
-			dc.Anchored = true
-			dc.CFrame = CFrame.new(0, 13 + (DECK_Y[def.key] or 2), 0)
-			dc.Parent = world
+		for _, bx in ipairs(TP.parseSpec(TP.spec())) do
+			local c = Instance.new("Part")
+			c.Anchored = true
+			c.Size = Vector3.new(bx.x1 - bx.x0, bx.y1 - bx.y0, bx.z1 - bx.z0)
+			c.CFrame = CFrame.new((bx.x0 + bx.x1) / 2, (bx.y0 + bx.y1) / 2, (bx.z0 + bx.z1) / 2)
+			c.Color = FINISH[def.key] or FINISH.W_
+			c.Material = Enum.Material.SmoothPlastic
+			c.Parent = world
 		end
 		world.Parent = vpf
 
