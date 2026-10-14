@@ -64,8 +64,8 @@ function P.show(vpf, rig, framing)
 	if framing == "body" then
 		local root = clone:FindFirstChild("HumanoidRootPart") or clone.PrimaryPart or head
 		local look = root.CFrame.LookVector
-		local target = root.Position + Vector3.new(0, 0.2, 0)
-		cam.CFrame = CFrame.lookAt(target + look * 10.5 + Vector3.new(0, 1.2, 0), target)
+		local target = root.Position + Vector3.new(0, 0.5, 0)   -- room above the head (the review saw it clipped)
+		cam.CFrame = CFrame.lookAt(target + look * 10.8 + Vector3.new(0, 0.9, 0), target)
 	else
 		local look = head.CFrame.LookVector
 		local target = head.Position - Vector3.new(0, 0.35, 0)

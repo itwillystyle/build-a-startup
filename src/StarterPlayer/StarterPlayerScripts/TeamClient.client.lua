@@ -38,10 +38,11 @@ local remote = ReplicatedStorage:WaitForChild("SVRemotes"):WaitForChild("StaffAc
 local ROLE = { engineer = "Engineer", designer = "Designer", sales = "Sales", recruiter = "Recruiter", research = "Researcher" }
 local STATS = {   -- StaffStats.STATS order; icons are UIKit art/icon keys
 	{ id = "skill", label = "Skill", icon = "coin", tint = UIKit.GOLD_DEEP, well = UIKit.GOLD_LIGHT },
-	{ id = "speed", label = "Speed", icon = "fast", tint = UIKit.BLUE_DEEP, well = UIKit.BLUE_LIGHT },
-	{ id = "loyalty", label = "Loyalty", icon = "medal", tint = UIKit.RED_DEEP, well = UIKit.light(UIKit.RED) },
+	{ id = "speed", label = "Speed", icon = "fast", tint = UIKit.BLUE, well = UIKit.BLUE_LIGHT },
+	{ id = "loyalty", label = "Loyalty", icon = "team", tint = UIKit.RED, well = UIKit.light(UIKit.RED) },
 }
 local ROOM_ICON = { hq = "hq", lobby = "office", eng = "code", studio = "studio", cafe = "cafe", labs = "zoom" }
+local ROOM_SHORT = { hq = "Garage", lobby = "Lobby", eng = "Eng", studio = "Studio", cafe = "Cafe", labs = "Labs" }   -- fits under a 52 px button
 
 -- ============ THE TILE (MORE tray, plot only) ============
 
@@ -126,7 +127,7 @@ UIKit.label(train, "TRAIN", UIKit.TYPE.caption, UIKit.MUTED_TEXT, { Name = "Head
 
 local blocks = {}
 for i, st in ipairs(STATS) do
-	local y = 26 + (i - 1) * 76
+	local y = 26 + (i - 1) * 92
 	local b = { stat = st }
 	local well = Instance.new("Frame")
 	well.Name = st.label .. "Icon"
@@ -139,7 +140,9 @@ for i, st in ipairs(STATS) do
 	local ws = Instance.new("UIStroke", well)
 	ws.Color = st.tint
 	ws.Thickness = 2
-	UIKit.art(well, st.icon, 24, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0) })
+	local centre = { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0) }
+	if UIKit.ART[st.icon] then UIKit.art(well, st.icon, 26, centre)
+	else UIKit.icon(well, st.icon, 22, st.tint, centre) end   -- art() falls back to a white glyph: Loyalty was invisible
 	UIKit.label(train, st.label, UIKit.TYPE.label, UIKit.INK, {
 		Name = st.label, Position = UDim2.new(0, 42, 0, y + 15), Size = UDim2.new(0, 80, 0, 22),
 	}, UIKit.HEAD)
@@ -154,8 +157,8 @@ for i, st in ipairs(STATS) do
 	local meter = Instance.new("Frame")
 	meter.Name = st.label .. "Meter"
 	meter.BackgroundTransparency = 1
-	meter.Position = UDim2.new(0, 0, 0, y + TAP + 6)
-	meter.Size = UDim2.new(1, 0, 0, 14)
+	meter.Position = UDim2.new(0, 0, 0, y + 42)
+	meter.Size = UDim2.new(1, -104, 0, 14)   -- under its own row, clear of the price button
 	meter.Parent = train
 	local ml = Instance.new("UIListLayout", meter)
 	ml.FillDirection = Enum.FillDirection.Horizontal
@@ -173,16 +176,22 @@ person.Position = UDim2.new(0, FACES_W + 2, 0, 0)
 person.Size = UDim2.new(1, -(FACES_W + 4 + TRAIN_W), 1, 0)
 person.Parent = body
 
-local glow = Instance.new("Frame")   -- a soft disc in the talent's light tint behind them
-glow.Name = "Glow"
-glow.AnchorPoint = Vector2.new(0.5, 0.5)
-glow.Position = UDim2.new(0.5, 0, 0, 84)
-glow.Size = UDim2.new(0, 170, 0, 170)
-glow.BackgroundColor3 = UIKit.PAPER
-glow.BackgroundTransparency = 0.35
-glow.BorderSizePixel = 0
-glow.Parent = person
-Instance.new("UICorner", glow).CornerRadius = UDim.new(1, 0)
+-- a soft glow in the talent's colour behind them: three discs fading outward, so no hard
+-- edge reads as a box (match-the-mock review, 14 Oct)
+local glows = {}
+for i, g in ipairs({ { 190, 0.86 }, { 150, 0.74 }, { 110, 0.6 } }) do
+	local f = Instance.new("Frame")
+	f.Name = "Glow" .. i
+	f.AnchorPoint = Vector2.new(0.5, 0.5)
+	f.Position = UDim2.new(0.5, 0, 0, 78)
+	f.Size = UDim2.new(0, g[1], 0, g[1])
+	f.BackgroundColor3 = UIKit.PAPER
+	f.BackgroundTransparency = g[2]
+	f.BorderSizePixel = 0
+	f.Parent = person
+	Instance.new("UICorner", f).CornerRadius = UDim.new(1, 0)
+	glows[i] = f
+end
 
 local function newViewport(parent, props)
 	local v = Instance.new("ViewportFrame")
@@ -195,20 +204,20 @@ local function newViewport(parent, props)
 	return v
 end
 local bodyView = newViewport(person, {
-	Name = "Figure", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 4), Size = UDim2.new(0, 150, 0, 156),
+	Name = "Figure", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 2), Size = UDim2.new(0, 150, 0, 148),
 })
 local bodyFallback = UIKit.icon(person, "person", 96, UIKit.INK_SOFT, {
-	Name = "BodyFallback", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, 84), Visible = false,
+	Name = "BodyFallback", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, 78), Visible = false,
 })
 
 local nameL = UIKit.label(person, "", UIKit.TYPE.headline, UIKit.INK, {
-	Name = "PersonName", Position = UDim2.new(0, 8, 0, 160), Size = UDim2.new(1, -16, 0, 30),
+	Name = "PersonName", Position = UDim2.new(0, 8, 0, 150), Size = UDim2.new(1, -16, 0, 30),
 	TextXAlignment = Enum.TextXAlignment.Center, TextTruncate = Enum.TextTruncate.AtEnd,
 }, UIKit.HEAD)
 local tagRow = Instance.new("Frame")
 tagRow.Name = "Tags"
 tagRow.BackgroundTransparency = 1
-tagRow.Position = UDim2.new(0, 0, 0, 191)
+tagRow.Position = UDim2.new(0, 0, 0, 180)
 tagRow.Size = UDim2.new(1, 0, 0, 20)
 tagRow.Parent = person
 local tl = Instance.new("UIListLayout", tagRow)
@@ -233,15 +242,15 @@ local roleL = UIKit.label(tagRow, "", UIKit.TYPE.caption, UIKit.MUTED_TEXT, {
 	Name = "Role", LayoutOrder = 2, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.new(0, 0, 1, 0),
 }, UIKit.BODY)
 local rateL = UIKit.outlined(person, "", UIKit.TYPE.title, UIKit.MONEY, {
-	Name = "Rate", Position = UDim2.new(0, 0, 0, 213), Size = UDim2.new(1, 0, 0, 26),
+	Name = "Rate", Position = UDim2.new(0, 0, 0, 200), Size = UDim2.new(1, 0, 0, 26),
 })
 rateL.TextXAlignment = Enum.TextXAlignment.Center
 
 local roomsRow = Instance.new("Frame")
 roomsRow.Name = "Rooms"
 roomsRow.BackgroundTransparency = 1
-roomsRow.Position = UDim2.new(0, 0, 0, 246)
-roomsRow.Size = UDim2.new(1, 0, 0, TAP)
+roomsRow.Position = UDim2.new(0, 0, 0, 230)
+roomsRow.Size = UDim2.new(1, 0, 0, TAP + 18)
 roomsRow.Parent = person
 local rl = Instance.new("UIListLayout", roomsRow)
 rl.FillDirection = Enum.FillDirection.Horizontal
@@ -392,14 +401,23 @@ local roomBtns = {}
 local function roomFor(i)
 	if roomBtns[i] then return roomBtns[i] end
 	local r = {}
+	r.cell = Instance.new("Frame")   -- the button and its name under it
+	r.cell.Name = "Room_" .. i
+	r.cell.BackgroundTransparency = 1
+	r.cell.LayoutOrder = i
+	r.cell.Size = UDim2.new(0, TAP, 0, TAP + 18)
+	r.cell.Parent = roomsRow
 	r.button = Instance.new("TextButton")
-	r.button.Name = "Room_" .. i
+	r.button.Name = "Button"
 	r.button.Text = ""
 	r.button.AutoButtonColor = false
-	r.button.LayoutOrder = i
 	r.button.Size = UDim2.new(0, TAP, 0, TAP)
 	r.button.BorderSizePixel = 0
-	r.button.Parent = roomsRow
+	r.button.Parent = r.cell
+	r.name = UIKit.label(r.cell, "", UIKit.TYPE.caption, UIKit.INK_SOFT, {
+		Name = "RoomName", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, TAP + 2), Size = UDim2.new(0, TAP + 8, 0, 16),
+		TextXAlignment = Enum.TextXAlignment.Center,
+	}, UIKit.HEAD)
 	Instance.new("UICorner", r.button).CornerRadius = UDim.new(0, UIKit.RADIUS.md)
 	r.stroke = Instance.new("UIStroke", r.button)
 	r.stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
@@ -434,7 +452,8 @@ refreshCard = function()
 		bodyFallback.Visible = not ok
 	end
 	local g = V.glow(row.talent)
-	glow.BackgroundColor3 = (g == "genius" and UIKit.light(UIKit.PURPLE)) or (g == "unicorn" and UIKit.GOLD_LIGHT) or UIKit.PAPER
+	local tint = (g == "genius" and UIKit.PURPLE) or (g == "unicorn" and UIKit.GOLD) or UIKit.LINE_LIGHT
+	for _, f in ipairs(glows) do f.BackgroundColor3 = tint end
 	nameL.Text = row.name or "?"
 	local tc = tierColour(row.talent)
 	pill.BackgroundColor3 = tc
@@ -447,7 +466,8 @@ refreshCard = function()
 	for i, chip in ipairs(chips) do
 		local r = roomFor(i)
 		r.chip = chip
-		r.button.Visible = true
+		r.cell.Visible = true
+		r.name.Text = ROOM_SHORT[chip.key] or chip.label
 		local key = ROOM_ICON[chip.key] or "home"
 		r.art.Visible = UIKit.ART[key] ~= nil
 		r.glyph.Visible = not r.art.Visible
@@ -461,13 +481,15 @@ refreshCard = function()
 		r.best.Visible = chip.best
 	end
 	for i = #chips + 1, #roomBtns do
-		roomBtns[i].button.Visible = false
+		roomBtns[i].cell.Visible = false
 		roomBtns[i].chip = nil
 	end
 	if reply then
 		lineL.Text, lineL.TextColor3 = reply.text, reply.colour
 	else
-		lineL.Text = V.roomLine(row)
+		-- the gold outline already says where they sit: the line adds only a note or the pin
+		local show = V.note(row) ~= nil or (row.pin or "") ~= ""
+		lineL.Text = show and V.roomLine(row) or ""
 		lineL.TextColor3 = V.note(row) and UIKit.ORANGE_DEEP or UIKit.INK_SOFT
 	end
 	-- training
