@@ -81,8 +81,11 @@ function StaffAction.with(S)
 		for _, st in S.STATS do
 			stats[st.id] = { level = S.clampLevel(p[st.id]), cap = S.cap(stage, p.talent), price = A.price(p, st.id) }
 		end
+		-- phase 3: the room kinds this role fits (the card marks those rooms best fit)
+		local fits = {}
+		for _, k in (type(p.fits) == "table" and p.fits or {}) do if type(k) == "string" then table.insert(fits, k) end end
 		return { id = p.id, name = p.name, role = p.role, talent = p.talent, tier = p.tier, room = p.room,
-			fit = p.fit == true, rate = p.rate, pin = p.pin or "", stats = stats }
+			fit = p.fit == true, rate = p.rate, pin = p.pin or "", stats = stats, fits = fits }
 	end
 
 	return A

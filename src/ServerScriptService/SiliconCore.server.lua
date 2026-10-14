@@ -1282,7 +1282,13 @@ local function recompute(player)
 		local rows = {}
 		for _, r in ipairs(s.rigs or {}) do
 			r.priceRate = (r.baseV or 0) * F
-			table.insert(rows, Econ.StaffAction.row({ id = r.id, name = r.rig and r.rig:GetAttribute("PersonName"), role = r.rig and r.rig:GetAttribute("Role"),
+			if r.rig and r.rig:GetAttribute("StaffId") ~= r.id then r.rig:SetAttribute("StaffId", r.id) end   -- phase 3b: the TEAM screen finds this rig
+			if r.rig and r.rig:GetAttribute("StaffOwner") ~= player.UserId then r.rig:SetAttribute("StaffOwner", player.UserId) end
+			local role = r.rig and r.rig:GetAttribute("Role")
+			local fits = {}   -- phase 3: the room kinds this role fits (the card's best-fit marks)
+			for k in pairs(Econ.FIT[role or "engineer"] or {}) do table.insert(fits, k) end
+			table.sort(fits)
+			table.insert(rows, Econ.StaffAction.row({ id = r.id, name = r.rig and r.rig:GetAttribute("PersonName"), role = role, fits = fits,
 				talent = r.talent, tier = r.tier, room = r.dept or r.room, fit = r.fit, skill = r.skill, speed = r.speed, loyalty = r.loyalty,
 				pin = r.pin, priceRate = r.priceRate,
 				rate = r.seated and math.floor((r.baseV or 0) * Econ.StaffStats.mult("skill", r.skill) * F + 0.5) or 0 }, s.hqLevel or 1))
@@ -1494,6 +1500,11 @@ local function assignDesks(player)
 	for k, h in ipairs(homes) do keyed[k] = { room = h.room, key = h.dept or h.room } end
 	local Seat = (Econ and Econ.Seating) or require(ReplicatedStorage:WaitForChild("Seating"))
 	local seatOf = Seat.assign(people, keyed, function(role, room) return ((Econ and Econ.FIT[role]) or {})[room] and true or false end)
+	-- phase 3: each room's free seats, for the TEAM card's MOVE chips (what MOVE accepts)
+	if Seat.rooms then
+		local json = game:GetService("HttpService"):JSONEncode(Seat.rooms(people, keyed))
+		if player:GetAttribute("StaffRooms") ~= json then player:SetAttribute("StaffRooms", json) end
+	end
 	for i, r in ipairs(s.rigs) do
 		local role = people[i].role
 		local fitSet = (Econ and Econ.FIT[role]) or {}

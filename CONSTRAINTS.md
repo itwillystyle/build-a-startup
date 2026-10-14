@@ -42,6 +42,15 @@ became saying "no". These are ours, short enough to check every time.
     when it is missing, and refuses one that does not fit its slot. After an import, move it
     out of Workspace before saving. Our meshes face +Z (`rack_export.py` turns them).
 
+**UI (14 Oct: the TEAM screen shipped sloppy because it was built straight in code)**
+17. **A new or changed screen goes references, then mocks, then Luke's pick, then code.**
+    A board of real games in `../ui/references/` (his picks), clickable mocks at 844 x 390 in
+    `../ui/<date>-<screen>/`, his pick written into the spec, then code. Before Luke sees it,
+    a fresh reviewer compares the built screen with the picked mock and the five rules (one
+    loud thing, show don't write, say it once, big and solid, space not boxes) and names each
+    difference. The PR shows the mock and the built screen side by side. The doctor measures
+    loud buttons, repeated facts and cut-off parts on every screen it opens (`SlopRules`).
+
 **Secrets and other people's things**
 14. **Never print or commit an API key or the Discord webhook token** (`../.discord-webhook`).
     Never use unverified Creator Store audio.

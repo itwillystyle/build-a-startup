@@ -128,4 +128,13 @@ test("fuzz: cash never negative, spent = sum of prices, no level past its cap, i
 	end
 end)
 
+
+test("row: fits (the room kinds this role fits) passes through, cleaned", function()
+	local r = A.row({ id = 1, talent = 1, fits = { "hq", "office" } }, 1)
+	assert(type(r.fits) == "table" and #r.fits == 2 and r.fits[1] == "hq" and r.fits[2] == "office", "fits kept")
+	assert(#A.row({ id = 1, talent = 1 }, 1).fits == 0, "missing fits = {}")
+	local bad = A.row({ id = 1, talent = 1, fits = { "cafe", 5, true } }, 1).fits
+	assert(#bad == 1 and bad[1] == "cafe", "non-strings dropped")
+end)
+
 return T

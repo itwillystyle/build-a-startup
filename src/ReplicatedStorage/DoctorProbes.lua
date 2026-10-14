@@ -165,8 +165,42 @@ function Probes.ui()
 			if m < Probes.MIN_TAP - 0.5 then table.insert(smallTaps, ("%s %dpx"):format(path(o, it.gui), m)) end
 		end
 	end
+	-- v8 (14 Oct) composition: SlopRules (pure) judges what is gathered here
+	local Slop = require(game:GetService("ReplicatedStorage"):WaitForChild("SlopRules"))
+	local okUI, UIKit = pcall(require, game:GetService("ReplicatedStorage"):WaitForChild("UIKit"))
+	local isMenu = {}
+	for _, n in ipairs(okUI and UIKit.MENUS or {}) do isMenu[n] = true end
+	local function rgb(c) return { math.floor(c.R * 255 + 0.5), math.floor(c.G * 255 + 0.5), math.floor(c.B * 255 + 0.5) } end
+	local function clipOf(o)
+		local n = o.Parent
+		while n and not n:IsA("ScreenGui") do
+			if n:IsA("GuiObject") and n.ClipsDescendants then
+				if n:IsA("ScrollingFrame") then return nil end
+				return { n.AbsolutePosition.X, n.AbsolutePosition.Y, n.AbsoluteSize.X, n.AbsoluteSize.Y }
+			end
+			n = n.Parent
+		end
+		return nil
+	end
+	local buttons, labels, cut = {}, {}, {}
+	for _, it in ipairs(items) do
+		local o = it.obj
+		if o:IsA("GuiButton") and o.Active and isMenu[it.gui.Name] then
+			local face = o:GetAttribute("Face")
+			table.insert(buttons, { menu = it.gui.Name, path = path(o, it.gui), rgb = rgb(typeof(face) == "Color3" and face or o.BackgroundColor3) })
+		end
+		if o:IsA("TextLabel") and not o:FindFirstAncestorWhichIsA("GuiButton") and o.TextTransparency < 0.9 then
+			table.insert(labels, { gui = it.gui.Name, path = path(o, it.gui), text = o.Text })
+		end
+		if o:IsA("TextLabel") or o:IsA("TextButton") or o:IsA("GuiButton") then
+			local isText = o:IsA("TextLabel") or o:IsA("TextButton")
+			table.insert(cut, { path = path(o, it.gui), fits = Slop.fitsOf(isText, isText and o.Text or nil, isText and o.TextFits or nil),
+				rect = { it.p.X, it.p.Y, it.s.X, it.s.Y }, clip = o:IsA("GuiButton") and clipOf(o) or nil })
+		end
+	end
 	return { painted = #items, overlaps = rows, blocked = blocked, smallText = smallText, smallTaps = smallTaps,
-		viewport = ("%dx%d"):format(viewport.X, viewport.Y), textFloor = floorText }
+		viewport = ("%dx%d"):format(viewport.X, viewport.Y), textFloor = floorText,
+		loud = Slop.loudButtons(buttons), twice = Slop.saidTwice(labels), cutOff = Slop.cutOff(cut) }
 end
 
 -- args.zoom (studs, default 12). From where the character stands now.
@@ -252,6 +286,52 @@ function Probes.chasecam(args)
 		cuts = cuts, cutsPerSec = math.floor(cuts / math.max(secs, 0.1) * 100) / 100,
 		behindWall = walls, hunterMovingFrames = moving, hunterNoRunFrames = noRun, hunterStutters = stutters,
 	}
+end
+
+--[[ v8 Manage Staff phase 3 (14 Oct): open the TEAM screen on the top row (TeamClient's
+	Open event, the same code a tap runs), read what it drew, run the screen probes on it
+	while it is open, and close it. ]]
+function Probes.team()
+	local pg = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+	local gui = pg:WaitForChild("Team", 10)
+	local open = gui and gui:FindFirstChild("Open")
+	if not open then return { error = "no TEAM screen" } end
+	-- measure the screen, not a notice still up from the step before (a LOST! card after
+	-- the chase, a toast): those are 3-4.5 s and sit over every menu alike
+	local Notify = require(game:GetService("ReplicatedStorage"):WaitForChild("Notify"))
+	local vp = workspace.CurrentCamera.ViewportSize
+	local t0 = os.clock()
+	while os.clock() - t0 < 8 do
+		local toast = pg:FindFirstChild("NotifyToast")
+		local pill = toast and toast:FindFirstChild("Toast", true)
+		local toastUp = pill and pill.Visible and pill.AbsolutePosition.Y < vp.Y
+		if not Notify.busy() and not toastUp then break end
+		task.wait(0.25)
+	end
+	open:Fire(1)
+	task.wait(0.6)
+	-- v2 layout (the redesign): the faces column, the person in the middle, TRAIN on the right
+	local rows = 0
+	local faces = gui:FindFirstChild("Faces", true)
+	for _, r in ipairs(faces and faces:GetChildren() or {}) do
+		if r:IsA("GuiButton") and r.Visible then rows += 1 end
+	end
+	local person = gui:FindFirstChild("Person", true)
+	local out = Probes.ui()
+	out.rows = rows
+	out.cardOpen = person ~= nil and person.Visible
+	local nameLabel = person and person:FindFirstChild("PersonName")
+	out.name = nameLabel and nameLabel.Text
+	local tb = gui:FindFirstChild("Train_skill", true)
+	out.skillButton = tb and tb:FindFirstChild("Label") and tb.Label.Text
+	-- live character views while open (spec §2: at most 9 on a phone)
+	local vpf = 0
+	for _, d in ipairs(gui:GetDescendants()) do
+		if d:IsA("ViewportFrame") and d:FindFirstChildWhichIsA("Model") then vpf += 1 end
+	end
+	out.viewports = vpf
+	open:Fire(false)
+	return out
 end
 
 return Probes
