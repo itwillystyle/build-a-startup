@@ -85,7 +85,9 @@ end)
 
 test("the garage's working spots stay clear of the shaft (desk, hire pad, build pad, spawn)", function()
 	local spots = {
-		{ x0 = -2.5, x1 = 2.5, z0 = -10.5, z1 = -7.5 },     -- the WRITE CODE desk at (0, -9)
+		{ x0 = -4.4, x1 = 4.4, z0 = -10.2, z1 = -7.8 },     -- the WRITE CODE desks (two, 4.3 wide at x -2.2 and 2.2, z -9), measured 14 Oct
+		{ x0 = 1.5, x1 = 3.5, z0 = -7.1, z1 = -5.3 },       -- the desk chair at (2.5, -6.2)
+		{ x0 = 1.7, x1 = 4.1, z0 = -9.8, z1 = -9.2 },       -- the monitor at (2.9, -9.5)
 		{ x0 = -14.5, x1 = -7.5, z0 = 0.5, z1 = 7.5 },      -- the hire pad, 7x7 at (-11, 4)
 		{ x0 = 10, x1 = 16, z0 = 5, z1 = 11 },               -- the build pad, 6x6 at (13, 8)
 		{ x0 = -1, x1 = 1, z0 = -1, z1 = 1 },                -- the spawn at (0, 0)

@@ -19,8 +19,8 @@ T.SECTIONS = {
 	{ from = 11, to = 14, hx = 40, zf = 34, zb = -40 },   -- deck 10: the front steps back 6; 14 = the roof garden
 }
 T.DECKS = { [2] = 1, [6] = 2, [10] = 3 }                  -- a garden storey -> the section below it
-T.SHAFT = { x0 = 3, x1 = 13, z0 = -12, z1 = -2 }          -- in every centre hall, clear of the garage's spots
-T.STAND = { x = 8, z = 1.5 }                              -- where the lift lets you off: in front of its +Z doors
+T.SHAFT = { x0 = 5, x1 = 13, z0 = -12, z1 = -2 }          -- in every centre hall, clear of the garage's desks (x -4.4..4.4, measured)
+T.STAND = { x = 9, z = 1.5 }                              -- where the lift lets you off: in front of its +Z doors
 T.TOP = 15
 
 function T.storeyH(s) return (s == 0) and T.LOBBY_H or T.H end
