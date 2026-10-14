@@ -18,9 +18,9 @@
 - Saved: `cars`, `car` (`src/ServerScriptService/SaveLoad.lua:149-150`). Load keeps only known ids (`Cars.lua:597-617`).
 **Drive it:**
 - `dev:Invoke("scenario", p, "tp:car")` goes to the spawned car (`DevScenarios.lua:235`). It fails with "no position" if no car exists yet.
-- `hq:<n>` does NOT grant the car. `wlevel` sets the stage directly (`DevHook.lua:65-81`) and skips the grant. Untested recipe from the code: `wlevel 4`, then `upgrade` across level 5 (`DevHook.lua:62`).
+- `hq:<n>` does NOT grant the car. `wlevel` sets the stage directly (`DevHook.lua:65-87`) and skips the grant. Untested recipe from the code: `wlevel 4`, then `upgrade` across level 5 (`DevHook.lua:62`).
 - No raw action buys or grants a car. "none yet".
-- The `bot` action fakes the car and drive steps by setting `s.jr.drove` (`DevHook.lua:292-301`). It never drives.
+- The `bot` action fakes the car and drive steps by setting `s.jr.drove` (`DevHook.lua:298-307`). It never drives.
 **Prove it:** no automated check yet. `tests/smoke_core.luau` only reads `cars` and `car` from the saved record. `SVCheck` skips `TrafficCar` models when it looks for overlaps (`src/ReplicatedStorage/SVCheck.lua:300`).
 **Gotchas:**
 - The CAR tile hides while you carry a hire (11 Oct): `callCar` refuses then ("Not during a recruit run!"), and on a phone BOOST takes that spot.
@@ -34,6 +34,6 @@
 - Old saves past HQ 2 with no cars get the hatchback on load (`Cars.lua:611-615`).
 - Lifts: `LiftGo` stands you up first, because moving a seated player drags the car (`HQFloors.lua:115-129`).
 - The CAR button pulses only while the Journey objective is "car" (`CarClient.client.lua:365-372`).
-- The header comment says "HQ 2". In Wafers mode that means wafer level 5 (`Wafers.lua:166-169`).
+- The header comment says "HQ 2". In Wafers mode that means wafer level 5 (`Wafers.lua:161-163`, `WaferPlan.STAGE_AT`).
 - Security (9 Oct exploit check): `CallCar`, and `BuyCar` on a car you already own, respawn the car for every client, so both share a 2 s gate (`Cars.lua:284, 312`).
-**Last verified:** 2026-10-14 5079cec
+**Last verified:** 2026-10-14 351d1e9

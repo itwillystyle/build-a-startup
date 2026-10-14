@@ -1,55 +1,54 @@
-# HQ paths (Wafers, Terrafab, Dome)
-**What:** The HQ is one tower of up to 100 pieces ("levels"). Each BUILD tap adds the next piece. The first tap above the garage asks the player to pick a style: Wafers (`W_`), Terrafab (`T_`) or Dome (`D_`). All three styles use one placer and one plan, only the mesh prefix changes (`src/ServerScriptService/Wafers.lua:108-125`). The old "HQ 1-5" is now a stage worked out from the level (`Wafers.lua:166-169`: 5, 9, 13, 18).
+# HQ paths (the tower: Glass, Timber, Neon)
+**What:** The HQ is one tower of up to 100 pieces ("levels"). Each BUILD tap adds the next piece. Since v9 (14 Oct, HQ tower 1a, branch `hq-tower`, not live until 1d) it is a rectangular glass spire with terraces: a 24-stud lobby, 18-stud office floors, 8 rooms per storey around a centre hall, setbacks at storeys 3, 7, 11, garden decks at storeys 2, 6, 10, a roof garden at 14 and a crown at 15. The shape lives in a pure plan, `src/ReplicatedStorage/TowerPlan.lua`. The first tap above the garage asks the player to pick a finish: Glass (saved as `W_`), Timber (`T_`) or Neon (`D_`) (`src/ServerScriptService/Wafers.lua:98-107`). In 1a the finish changes only tints: one shape, plain materials; 1d brings the art. The old "HQ 1-5" is a stage worked out from the level (`Wafers.lua:161`: 5, 9, 13, 18).
 **How a player reaches it:**
 1. Ship a product and hire one person (`src/ServerScriptService/SiliconCore.server.lua:2136-2137`).
 2. Tap BUILD (rail tile, HQ pad prompt "UPGRADE" at `SiliconCore.server.lua:3011`). The card fires `WaferBuild` (`:2951`) into `tryUpgrade` (`:2241`) then `wafersBuild` (`:2128`).
-3. First build only: no `s.hqPath` and level 1 or less. The server fires `AskPath` and builds nothing (`:2119-2124`). The picker fires `WaferPath` (`WaferClient.client.lua:354`). The server saves the path and calls `tryUpgrade` again (`:2814-2833`).
-4. Stage 2 (level 5) gives the company car (`:2139-2140`). A new stage, or level 43, 68, 93 or 100, plays the level-up banner (`:2051`, `:2137-2155`).
-5. Lifts: the glass core in the courtyard. Prompt "Take the lift" (`Wafers.lua:1455-1463`) opens `LiftMenu`. Tapping a stop fires `LiftGo` (`src/ServerScriptService/HQFloors.lua:82-137`). A storey gets a stop only once there is a floor at its door, segment 5 or a whole deck (`landable` `Wafers.lua:1406`): before that, the half-built top storey's stop dropped you 13 studs to the one below.
-6. At the company's level cap the pad becomes GO PUBLIC, then spin-off (`SiliconCore.server.lua:2130-2134`).
+3. First build only: no `s.hqPath` and level 1 or less. The server fires `AskPath` and builds nothing (`:2119-2124`). The picker (`WaferClient.client.lua`, the preview boxes from `TowerPlan.spec` at :286-295) fires `WaferPath`. The server saves the path and calls `tryUpgrade` again (`:2814-2833`).
+4. Level 2 hides the garage: everything in the plot's `Garage` except the working parts (Laptop, Desk, Chair, Monitor2, Keyboard, HQPad, HirePad, Spawn) moves to `ServerStorage.GarageStash_<plot>` (`Wafers.garage` :611, keep list :608). `clear` (spin-off, release) brings it back. 1c replaces this with the garage-to-lobby moment.
+5. Stage 2 (level 5) gives the company car (`:2139-2140`). A new stage, or level 43, 68, 93 or 100, plays the level-up banner (`:2051`, `:2137-2155`).
+6. Lifts: a shaft in every centre hall (`TowerPlan.SHAFT`, x 5..13, clear of the garage desks). One call button per landable storey on the shaft's +Z face, prompt "Take the lift" (`liftButton` `Wafers.lua:541`), opens `LiftMenu`; tapping a stop fires `LiftGo` (`src/ServerScriptService/HQFloors.lua:82-137`). A storey is landable once any piece on it is built (`landable` :533); a storey with no room in its centre cell gets a landing floor there (`buildCore` :576). 1b replaces this with doors in the core wall and a cab ride.
+7. At the company's level cap the pad becomes GO PUBLIC, then spin-off (`SiliconCore.server.lua:2130-2134`).
 **Files:**
-- `src/ServerScriptService/Wafers.lua`: placer. `pathOf` :111, `stage` :166, `anchor` :177, `stateOf` :225, `furnish` :828 (`domeFurnish` :468, `fabFurnish` :678), `buildSegment` :966, `buildCore` :1502, `buildPiece` :1568, `buildUpTo` :1633, `clear` :1646, `nextBuild` :1689. A deck's mesh is squashed to fit the 13-stud gap under the next wafer (`Wafers.lua:1214`): the Dome deck's own tent was 18.4 tall and stood 3.9 studs into floors 3 and 7 (11 Oct).
-- `src/ReplicatedStorage/ServerRack.lua`: the Servers room's rack, pure. `MESH`/`NAME` :20-23, `SLOT` :24, `XS` :25, `pose` :29 (the half turn: the mesh's front is +Z, a room's racks face -Z), `fits` :37 (too big OR shorter than `MIN_HEIGHT` of the slot is refused). Used by `serverRacks` in `Wafers.lua:433` (both `domeFurnish` and `furnish`): the imported `SV_Rack_servers` (ReplicatedStorage.SVMeshes, made by `silicon-startup/art/blender/rack_v6.py`, judged by `rack_check.luau`) where the place has it, the plain box and light strip where it does not.
-- `src/ReplicatedStorage/CoffeeBar.lua`: the Dome cafe's coffee bar, pure. `MESH`/`NAME` :19-20, `SLOT` :21, `RUN` :24 (the kitchenette's numbers, moved here from the inline code), `layout` :27, `pose` :40 (half turn to face the room; back flush with the run's back, so it clears the glass as the run did), `fits` :45. Used in `domeFurnish`'s cafe (`Wafers.lua:432`, `CoffeeBar.pose` at :588): the imported `SV_CoffeeBar_cafe` (made by `silicon-startup/art/blender/cafe_v3.py` on a measured 7,000-triangle budget) replaces the two kitchenBars, the end cap and the small coffee machine; the fridge stays. No mesh: the run builds as before.
-- `src/ServerScriptService/WaferPlan.lua`: pure plan. `MAX` :18, `BLUEPRINT` :19, `GEO` :44, `DEPTS` :104, `INSET` :187, `price` :197, `rebuildLast` :206.
+- `src/ReplicatedStorage/TowerPlan.lua`: the shape, pure. `FLOOR_Y`/`LOBBY_H`/`H`/`SLAB` :14, `SECTIONS` :15 (four, each a rectangle that steps back), `DECKS` :21, `SHAFT` :22, `STAND` :23, `floorY` :28, `section` :34, `CELL`/`YAW` :58-59 (segment -> cell and the way its furniture faces), `room` :61 (rectangle, centre, yaw, sides: glass, or a wall with an 8 or 6 stud door), `centre` :78, `deck` :80, `pavilion` :85, `lantern` :92, `frame` :98 (piece -> storey, cell, CFrame), `label` :112, `spec`/`parseSpec` :120-131 (the boxes the intro ghost and picker draw).
+- `src/ServerScriptService/Wafers.lua`: the builder on TowerPlan. `pathOf` :98, `floorY` :110, `anchor` :113, `slabBox` :126, `wallSide` :136, `stage` :161, `clearFootprint` :169, `stateOf` :190, `station` :310, `furnish` :350 (rectangular rooms; same seat counts as before), `sign` :393, `deckColumns` :422, `buildSegment` :435, `buildGarden` :478, `buildPavilion` :496, `buildCrown` :510, `buildCore` :576, `garage` :611, `buildPiece` :631, `buildUpTo` :696, `clear` :710, `seats` :720, `nextBuild` :754.
+- `src/ReplicatedStorage/ServerRack.lua`: the Servers room's rack, pure. `MESH`/`NAME` :20-23, `SLOT` :24, `XS` :25, `pose` :29, `fits` :37. Used by `serverRacks` in `Wafers.lua:259`: the imported `SV_Rack_servers` where the place has it, the plain box where it does not.
+- `src/ReplicatedStorage/CoffeeBar.lua`: the Dome cafe's coffee bar, pure. Not placed by the tower in 1a (the round Dome furnish is gone); 1d decides.
+- `src/ServerScriptService/WaferPlan.lua`: the economy, pure. `MAX` :18, `BLUEPRINT` :19, `DEPTS` :104, `price` :197, `rebuildLast` :206. Its `GEO`/`PIECES`/`INSET` still describe the round tower; the builder uses only `PIECES[L].kind` from it.
 - `src/ServerScriptService/SiliconCore.server.lua`: `wafersNext` :141, path sync in `recompute` :1311-1316, pad attributes :2045-2066, `wafersBuild` :2128, `tryUpgrade` :2241, `releasePlot` :3017.
-- `src/ServerScriptService/HQFloors.lua`: lift remotes :82, `register` :647, `menu` :650. The floor builders (`build` :515) are the old HQ and are not used by Wafers.
-- `src/ServerScriptService/HQMeta/init.lua`: merges the five kit tables (:17-22). Children: `HQMeta/Wafers.lua` (`W_`, 43 pieces), `HQMeta/Terrafab.lua` (`T_`, 42), `HQMeta/Dome.lua` (`D_`, 43), `HQMeta/V1.lua` (`HQ_n`, old garage HQ), `HQMeta/V2.lua` (`HQv2_n`, old HQ 2-5). All generated by Blender. Do not hand edit.
-- `src/ServerScriptService/CampusArch.lua`: `skinHQ` :1383 reads HQMeta V1/V2 for the old shell. `dressHQ` :756, `grounds` :1006.
-- `src/StarterPlayer/StarterPlayerScripts/WaferClient.client.lua`: BUILD tile and card :95-432, style picker :186-219, `AskPath` listener :392.
+- `src/ServerScriptService/HQFloors.lua`: lift remotes :82, `register` :647, `menu` :650.
+- `src/ServerScriptService/HQMeta/init.lua` and its children `HQMeta/Wafers.lua` (`W_`), `HQMeta/Terrafab.lua` (`T_`), `HQMeta/Dome.lua` (`D_`), `HQMeta/V1.lua`, `HQMeta/V2.lua`: the round kits, generated by Blender. The tower asks for none of the `W_`/`T_`/`D_` pieces in 1a; 1d adds the tower kit and its name contract.
+- `src/ServerScriptService/CampusArch.lua`: `skinHQ` reads HQMeta V1/V2 for the level 1 garage shell.
+- `src/StarterPlayer/StarterPlayerScripts/RocketClient.client.lua`: launch rocket off a roof (`RocketLaunch`). Server sends it at `SiliconCore.server.lua:3402-3406`.
+- `src/StarterPlayer/StarterPlayerScripts/WaferClient.client.lua`: BUILD tile and card, finish picker (GLASS / TIMBER / NEON cards, preview boxes :286-295).
+- `src/StarterPlayer/StarterPlayerScripts/IntroClient.client.lua`: the tower ghost, one box per `TowerPlan.spec` section (:231-233).
 - `src/StarterPlayer/StarterPlayerScripts/LiftClient.client.lua`: floor picker :93, ride and fade :71.
-- `src/StarterPlayer/StarterPlayerScripts/RocketClient.client.lua`: launch rocket off a roof (`RocketLaunch`, :254). Server sends it at `SiliconCore.server.lua:3402-3406`.
 **State:**
 - Session: `s.hqPath`, `s.record`, `s.blueprint`, `s.hqLevel` (the stage), `s.spinoffs`.
-- Plot: `plot.hqPath`, `plot.wafer` = level, depts, pieces, folder, core, stops (`Wafers.lua:225-231`), `plot.hq.level` (the stage), `plot.busy`.
-- Player attributes: `HQPath`, `HQPathChosen` (`SiliconCore.server.lua:1314-1315`), `HQLevel` (:1910), `WaferLevel`, `WaferCap`, `WaferNext`, `WaferLast`, `WaferPrice`, `WaferRec`, `WaferAllowed`, `WaferNeed` (:2059-2066, `WaferNeed` always 0).
-- World: plot folder child `Wafers`, models `L###_kind_dept` tagged `WaferPiece` (`Wafers.lua:1568-1590`). Plots attribute `TowerSpec` (`SiliconCore.server.lua:2946`).
-- Saved: `wl`, `wd`, `rec`, `bp`, `hq` (`src/ServerScriptService/SaveLoad.lua:84-89`), `hqPath` (:141).
+- Plot: `plot.hqPath`, `plot.wafer` = level, depts, pieces, folder, core, stops (`Wafers.lua:190-200`), `plot.hq.level` (the stage), `plot.busy`.
+- Player attributes: `HQPath`, `HQPathChosen` (`SiliconCore.server.lua:1314-1315`), `HQLevel` (:1910), `WaferLevel`, `WaferCap`, `WaferNext`, `WaferLast`, `WaferPrice`, `WaferRec`, `WaferAllowed`, `WaferNeed` (:2059-2066).
+- World: plot folder child `Wafers`, models `L###_kind_dept` tagged `WaferPiece` (`buildPiece` `Wafers.lua:631`); parts named `Floor` (rooms and landings) and `Deck` (gardens) are what the doctor stands on. Plots attribute `TowerSpec` = `TowerPlan.spec()`. `ServerStorage.GarageStash_<plot>` holds the hidden garage.
+- Saved: `wl`, `wd`, `rec`, `bp`, `hq` (`src/ServerScriptService/SaveLoad.lua:84-89`), `hqPath` (:141). No saved field changed meaning: the tower rebuilds from level and path.
 **Drive it:**
-- `dev:Invoke("scenario", p, "hq:<n>")` runs raw `wlevel n` (`DevScenarios.lua:209`, `DevHook.lua:65-81`). It builds free up to n, capped by the company's blueprint (18 for company one).
-- Raw `upgrade` calls `tryUpgrade` (`DevHook.lua:62`). `tp:hq` teleports to the HQ pad (`DevScenarios.lua:231`).
-- Choosing a path: none yet. `wlevel` skips the picker, and `WaferPath` is refused above level 1 (`SiliconCore.server.lua:2973-2976`). Untested idea: fire `WaferPath` from the client at level 1.
+- `dev:Invoke("scenario", p, "hq:<n>")` builds exactly n (`DevScenarios.lua:259`, raw `wlevel n!` at `DevHook.lua:65`): past the blueprint cap, and down by a rebuild from the garage; it returns `level`. A plain `wlevel n` keeps the old rules (up only, capped by the blueprint: 18 for company one, 55 after 3 spin-offs).
+- Raw `upgrade` calls `tryUpgrade` (`DevHook.lua:62`). `tp:hq` teleports to the HQ pad.
+- `spinoff` (needs `snapshot` first) clears the tower and brings the garage back.
 **Prove it:**
-- `tests/offline/wafer.spec.luau` with `tests/offline/wafer_golden.json`: WaferPlan matches the sim (100 pieces, prices, caps, departments, effects, rebuild share, blueprint).
-- `tests/offline/serverrack.spec.luau`: the rack faces the room (a planted no-turn fails it, 13 Oct), stands on the floor at the old four spots, fits the slot (too big and too small both fail), the four slots are pinned (clear of the fans), and its name is one Palette leaves alone.
-- `tests/offline/coffeebar.spec.luau`: the bar faces the room (a planted no-turn fails it, 14 Oct), sits on the floor with its back where the run's back was, the run layout matches the 5 Oct numbers, the bar (and its slot) clears the fridge, fits refuses too big and specks, SV name.
-- `tests/offline/hqmeta.spec.luau`: every `W_` name the placer asks for has a META entry in all three kits, the kits list the same pieces (Terrafab has no PodiumGlass on purpose), sizes are real, Podium and Crown exist. It does not check V1 or V2.
-- `SVCheck` (Studio, client, `src/ReplicatedStorage/SVCheck.lua:700-750`): furniture inside the glass line, using `WaferPlan.INSET`. See the Gotchas: it may silently skip on the client.
-- `tests/smoke_core.luau`: Studio before/after diff of `upgrade`. It changes the save.
-- No automated check yet for the path picker, the lift, the car grant or the rocket.
+- `tests/offline/tower.spec.luau`: heights (24 lobby, 18 offices), every room inside its section, no overlaps, clear of the shaft, at least 20 x 20, 8 per storey; shaft and stand inside every centre hall; setbacks; balance (centre within 4 studs); doors; yaw; garage spots (desks, chair, monitor, hire pad, build pad, spawn, measured 14 Oct) clear of the shaft; frames; labels; spec round trip.
+- `tests/offline/wafer.spec.luau` with `wafer_golden.json`: the economy (100 pieces, prices, caps, departments, effects, rebuild share, blueprint). Geometry is not in it.
+- `tests/offline/worldfloors.spec.luau`: the lobby canopy is on `WorldHealth.ALLOW` (a roof walked under).
+- `tests/offline/hqmeta.spec.luau`: the round kits' files agree. Its "every mesh name the placer asks for" test is retired (the tower asks for none).
+- The doctor (`GameDoctor`, `hq:5/9/13/18/43/100`): `built` checks the level reached, then stand on every storey, the lift lands you on a floor, the camera behind a wall, drop-off on the ground, meshes through a floor. Report `silicon-startup/doctor/report-hq-tower-1a.json`.
+- `SVCheck` (Studio, client): furniture inside the glass line, per room rectangle.
 **Gotchas:**
-- The BUILD tile is plot-only and last in the rail column (12 Oct, LayoutOrder 95): on the street it hides and the BUILD menu closes; key 4 on desktop when it shows.
-- The Servers rack mesh lives in the PLACE (ReplicatedStorage.SVMeshes), not in git. A place without it (the TEST experience) builds the plain boxes, silently. A mesh that does not fit the slot, or is a wrong-scale speck, is refused the same way. With the mesh, the plain rack's pulsing light strip is not built (on purpose: it would cross the porthole and stickers; the mesh has its own department-colour lines; the fans still turn). The Dome room's timber screen is 2.5 studs (was 5.2: it hid the racks).
-- The coffee bar mesh, like the rack, lives in the place, not git; without it the Dome cafe builds the Kenney run. Only `domeFurnish` has the bar: the Wafers-path and fab cafes are unchanged (14 Oct).
-- A missing META entry is silent. The placer builds primitives instead (`Wafers.lua:304-311`, `HQMeta/init.lua:14-16`).
-- `CUR` is one module variable. `Wafers.anchor` resets it at the start of every build function (`Wafers.lua:109, 179-181`). An unknown path falls back to `W_` (:111-114).
-- On load, `plot.hqPath` must be set before the rebuild. Otherwise a Dome player gets Wafers meshes with Dome collision, an invisible wall in the doorway (`SaveLoad.lua:231-247`).
-- The picker says "You can change it when you spin off" (`WaferClient.client.lua:212`). I found no code that clears `hqPath` on spin-off (`releasePlot` :2864 does not). Looks unfinished. Unverified in Studio.
-- `WaferPlan.lua:20-21` (`CAR_AT`, `APT_FROM` and kin) are read by nothing in src. The header at :15 ("Not wired into the game yet") is stale. Real gates use `Wafers.stage`.
-- The SVCheck glass pass requires `WaferPlan` from ReplicatedStorage or ServerScriptService (`SVCheck.lua:716-717`). `default.project.json:13-16` maps it only to ServerScriptService, which clients cannot see. The pcall probably fails and the pass reads "0 out, 0 in". Unclear. Not run.
-- The style gate is inside `wafersBuild`, because the card, pad prompt and click are three ways in (`SiliconCore.server.lua:2139-2149`).
-- Lift buttons must be tracked in `st.core`, or each rebuild leaves duplicate prompts (`Wafers.lua:1436-1448`).
+- Branch only until 1d. Plain boxes would look worse than the live round tower.
+- The garage hide is by name: anything new added to the garage that must keep working needs adding to `GARAGE_KEEP` (`Wafers.lua:608`), or level 2 stashes it.
+- The lobby's "Take the lift" button (one stop until storey 1 has a piece) is about 10 studs from the laptop and the build pad. All three are E prompts with OnePerButton: the one the camera faces wins. Facing the laptop or the pad shows WRITE CODE / UPGRADE (measured 14 Oct). 1b should offer the lift only with two or more stops.
+- The entrance `Canopy` is CanCollide false 10 studs over the forecourt; it is on `WorldHealth.ALLOW`.
+- The hire pad does not hire: in V3 hiring happens on the street, and the pad shows that note.
+- On load, `plot.hqPath` must be set before the rebuild (`SaveLoad.lua:231-247`).
+- The picker says "You can change it when you spin off". No code clears `hqPath` on spin-off (`releasePlot` does not). Unverified.
+- `WaferPlan.lua:20-21` (`CAR_AT`, `APT_FROM` and kin) are read by nothing in src. Real gates use `Wafers.stage`.
+- Lift buttons must be tracked in `st.core`, or each rebuild leaves duplicate prompts (`liftButton` `Wafers.lua:541`).
 - `LiftGo` needs you within 16 studs of a stop, blocks while Carrying, has a 1.2 s cooldown and stands you up from a car first (`HQFloors.lua:96-128`).
-- In Wafers mode `buildShell` runs only for the level 1 garage (`SiliconCore.server.lua:1080`). By the code, `skinHQ` only skins the level 1 garage and the V2 meshes are never used while Wafers is on (`SaveLoad.lua:270-272`, `SiliconCore.server.lua:2245`).
-- Rocket position uses `CFG.HQ_LEVELS[stage].h`, not the tower (`SiliconCore.server.lua:3402-3405`). Unclear if it matches a tall tower's roof.
-**Last verified:** 2026-10-14 5079cec
+- Rocket position uses `CFG.HQ_LEVELS[stage].h`, not the tower (`SiliconCore.server.lua:3402-3405`). The tower is now 258 studs plus the crown; unchecked.
+**Last verified:** 2026-10-14 351d1e9

@@ -49,8 +49,8 @@
 - `dev:Invoke("scenario", p, "chase:skilled")`, `"chase:star"`, `"chase:genius"`: ship, cash, first hire, HQ level, find the candidate, teleport beside it, recruit, count `Headhunter` models (`DevScenarios.lua:219-247`). Read `ok`, `err`, `did`, `hunters`, `pathLen` (the candidate's walk home). A failure names its step, for example a candidate still restocking.
 - `"geo"`: returns your `door` (home) and each standing candidate's `pos` and `pathLen` (`DevScenarios.lua:184-193`). `"restock"`: every tier respawns at a new spot within 1 s (:192-210). `"tp:door"`: teleport to your doorstep (:279-280).
 - `"vip-chase"`: `apt 1`, spawn the VIP, walk to it, pick it up (`DevScenarios.lua:248-258`). Two hunters.
-- `"tp:candidate:genius"`: teleport only, no recruit (`DevScenarios.lua:289-292`). Also `"tp:vip"` and `"list"`.
-- SVDev `recruit <1-4>` (1 walk-in, 2 skilled, 3 star, 4 genius): the real `recruit()` with no teleport (`DevHook.lua:501-505`).
+- `"tp:candidate:genius"`: teleport only, no recruit (`DevScenarios.lua:290-293`). Also `"tp:vip"` and `"list"`.
+- SVDev `recruit <1-4>` (1 walk-in, 2 skilled, 3 star, 4 genius): the real `recruit()` with no teleport (`DevHook.lua:507-511`).
 - Client knobs on `LocalPlayer`: `ChaseCam` = "A", "B" or "off". `ChaseCamDebug` = true shows why each cut happened. `ChaseSteer` = rad/s turns you without a mouse (`ChaseCamClient.client.lua:349, 452, 549`).
 - DevRobot and DevRecorder (a scripted player, recorded; Studio only): check the frame rate first, then in the Server datamodel run `game.ServerScriptService.DevRecorder:SetAttribute("Request", "genius/dodger/" .. os.clock())` (`DevRecorder.server.lua:6-14, 101-104`). Do not Fire its `Run` event from the MCP bridge: the handler then runs in the bridge's slow thread. It restocks, waits 9 s for the new spots, hands DevRobot its goal and start, runs `chase:<tier>`, and samples every 0.1 s (:76-104); a refused scenario writes `result = "error"` (:68-75). Read the JSON in `game.ServerStorage.ChaseRun.Value` when it is not empty. DevRobot is a LocalScript that rides the pathfinding route home the moment `Carrying` is set. Profiles: `straight`, `dodger`, `spammer`, `idle` (`DevRobot.client.lua:13-17`). The full steps are in `.claude/skills/verify-game/SKILL.md:69-81`.
 - Edit mode: paste `tools/chase_lab.luau` into the command bar, then set attributes on `workspace.ChaseLab`: `Mode`, `Dist`, `Windup`, `Speed`, `Turning`, `Run` (`tools/chase_lab.luau:14-38`).
@@ -94,4 +94,4 @@
 - `chaseCfg` is built once per carry (`TalentDrop.lua:532-543`). A poach moves the hunter's home stretch, the timer and `CarryHome` to the thief's doorstep, but keeps the first player's speed (`TalentDrop.lua:625-662`). Read, not run.
 - Stale numbers: `chasecam.spec.luau:125` uses LUNGE_TIME 0.8, but `ChaseRules.lua:53` is 1.0 (the header at :20 also says 0.8). Windup plus lunge is 1.5 s, `DIR.MIN_HOLD` is 1.35 (`ChaseCam.lua:953`), and the test still passes. `tools/anim/hunter.luau:1-2` also says 0.8.
 - The hunter's height is fixed at the pickup height (`TalentDrop.lua:521, 531, 736`). Candidates now stand within 10 studs of the door height (:175), which limits the error. Unclear if every route is flat.
-**Last verified:** 2026-10-14 5079cec
+**Last verified:** 2026-10-14 351d1e9

@@ -17,7 +17,7 @@
 - Attributes: `Returning`, `OfflineEarned` (only when pay > 0), `OfflineApt` (set whenever the home rule runs), `WelcomeDone` (set by HudClient), `Away` (in-session AFK).
 - Formula: `min(rate x 0.25 x min(away, WINDOW[apt]), max(rate x 600, nextStep), next + after - cash - 1)`. `away` is capped at 8 h. WINDOW is 40 min with no home, then 2 h, 4 h, 8 h for Studio, Loft, Penthouse.
 **Drive it:**
-- None yet. No SVDev action ages `lastSeen`. `peek` shows the record (`DevHook.lua:128`), `save` writes it (:100). A manual test needs a lower `lastSeen` written to `SVSave_v1` while Play is stopped.
+- None yet. No SVDev action ages `lastSeen`. `peek` shows the record (`DevHook.lua:134`), `save` writes it (:100). A manual test needs a lower `lastSeen` written to `SVSave_v1` while Play is stopped.
 - For the numbers only: `lune run tools/late_game` (the `nightCover` columns call `P.offline`).
 - `DevScenarios.restore` sets `lastSeen = now` on purpose so a restore never pays offline money (`DevScenarios.lua:79-80`).
 **Prove it:**
@@ -33,4 +33,4 @@
 - `WelcomeDone` is only set after 12 s when no offline pay came (`HudClient.client.lua:1018-1021`). `TalentRevealClient` (:357), `NameClient` (:160) and `DailyClient` (:364) wait for it.
 - The server adds the money first. The HUD subtracts `pendingOffline` from the shown cash until COLLECT (`HudClient.client.lua:1035,530`). If the card cannot show for 45 s the money is released (:1041-1046).
 - A Studio Play, stop, Play loop pays almost nothing, because `lastSeen` is only seconds old.
-**Last verified:** 2026-10-14 5079cec
+**Last verified:** 2026-10-14 351d1e9

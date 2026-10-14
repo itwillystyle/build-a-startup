@@ -19,9 +19,9 @@
 - Saved: `placed` as k, x, z (plot-local), y (yaw), p (price paid) and `wings` (`SaveLoad.lua:71-80`).
 **Drive it:**
 - `ship` sets `shipped` and `buildUnlocked` (`DevHook.lua:54-57`). `cash <n>` adds money. `hq:5` reaches stage 2 so DECOR shows.
-- No action or scenario places or removes a piece. "none yet". The `bot` places decor through `placeAt` (`DevHook.lua:412`).
-- `wingup <slot>` needs a built wing, so in Wafers mode it answers "no wing there" (`DevHook.lua:120-122`).
-**Prove it:** no automated check yet for the buy flow. `SVCheck` (Studio, client, `src/ReplicatedStorage/SVCheck.lua:373-795`) checks furniture inside furniture, buried in walls, and through the glass for plot `Garage`, `Rooms`, `Placed`, `Wafers` and `Apt_` folders. The server writes `SVRefunded` when a saved piece is refused on load.
+- No action or scenario places or removes a piece. "none yet". The `bot` places decor through `placeAt` (`DevHook.lua:418`).
+- `wingup <slot>` needs a built wing, so in Wafers mode it answers "no wing there" (`DevHook.lua:126-128`).
+**Prove it:** no automated check yet for the buy flow. `SVCheck` (Studio, client, `src/ReplicatedStorage/SVCheck.lua:373-781`) checks furniture inside furniture, buried in walls, and through the glass for plot `Garage`, `Rooms`, `Placed`, `Wafers` and `Apt_` folders. The server writes `SVRefunded` when a saved piece is refused on load.
 **Gotchas:**
 - The DECOR tile is plot-only (12 Oct): it shows only on your lot (`OnLot`, `LotClient`), and leaving your lot closes decor mode (`BuildModeClient` OnLot watch).
 - Server rules in `placeAt`: must have shipped (:2449). Item must exist (:2452-2453). `needs` room must be built (:2454). Yaw snaps to 90 degrees, position to a 0.5 grid, and only X and Z of the client position are used (:2463-2466, :2595). Must fit inside a floor rect (:2473). Desks and tables only in their own room, up to its cap (:2475-2495). Surface items ride a desk (:2497-2512). No overlap unless tucking, stacking on a surface or on a rug (:2514-2533). Not on a seat, not inside room furniture (:2535-2547). Then pay (:2561-2565).
@@ -34,4 +34,4 @@
 - A missing template means no placement at all, never a hole (`FurnitureKit.has`, `SiliconCore.server.lua:2541`).
 - Rugs (`flat`) go under anything. Only the first 3 copies of a key count for vibe (`FurnitureKit.lua:872-886`).
 - Security (9 Oct exploit check): `placeAt` rejects a NaN or infinite x, z or angle (`SiliconCore.server.lua:2535`); before, one was charged, pivoted to nowhere and written into the save.
-**Last verified:** 2026-10-14 5079cec
+**Last verified:** 2026-10-14 351d1e9

@@ -35,7 +35,7 @@
 - Session: `s.name`, `s.ticker`, `s.nameSkipped` (not saved), `s.tips`, `s.muted`.
 - Saved: `name` (`SaveLoad.lua:93`), `tips` (:147), `muted` (:132). Name is also in DataStore `SVNames_v1`, key = userId (`SiliconCore.server.lua:580, 3238`).
 **Drive it:**
-- `name <s>` sets name, ticker and sign with no box (`DevHook.lua:181-183`).
+- `name <s>` sets name, ticker and sign with no box (`DevHook.lua:187-189`).
 - None opens the naming box, a tip or the flyover. `dev:Invoke("scenario", p, "ready")` hires one person, which may start the name ask on a fresh save (not verified).
 - Studio SERVER datamodel, likely works, not run: `game.ReplicatedStorage.SVRemotes.AskName:FireClient(p, "")`. See how `tests/notify_live_server.luau` fires remotes.
 **Prove it:**
@@ -61,4 +61,4 @@
 - The colour rule lives in `Palette.compliant`. `SVStyle.classify` calls it (`SVStyle.lua:71-77`). Change it in `Palette` only.
 - Two sound tables: `UIKit.SOUNDS` (:892) for UI, `Sfx.ID` for the world. A bad id plays silence (`Sfx.lua:5-8`).
 - Security (9 Oct exploit check): `SetName` only works while the company has no name, one attempt in flight and one a second (`SiliconCore.server.lua:3323`). Each attempt costs a text filter and a DataStore write from the server's shared budget; spammed renames drained it (280 throttled writes) before the fix. Refusal popups are capped at one per anchor every 0.3 s (`popup`, `SiliconCore.server.lua:446`).
-**Last verified:** 2026-10-14 5079cec
+**Last verified:** 2026-10-14 351d1e9
