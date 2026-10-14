@@ -381,6 +381,26 @@ local function run()
 		local okJson, rows = pcall(function() return game:GetService("HttpService"):JSONDecode(data) end)
 		check("StaffData published", okJson and type(rows) == "table" and #rows == (st.staff or 0) and rows[1].stats ~= nil, "BUG",
 			okJson and type(rows) == "table" and (#rows .. " rows") or "missing", (st.staff or 0) .. " rows with stats")
+
+		-- phase 3: the TEAM screen, opened the way a tap opens it, measured on the player's screen
+		local ui = probe(player, "team", {}, 15)
+		check("TEAM screen answered", type(ui) == "table" and ui.error == nil, "BUG", type(ui) == "table" and (ui.error or "ok") or "no answer", "ok")
+		if type(ui) ~= "table" or ui.error then return end
+		check("TEAM lists everyone", okJson and ui.rows == #rows, "BUG", ui.rows, okJson and #rows or "?")
+		-- the card shows the person on top of the list (most $/s) and the SERVER's price for their Skill
+		local RS = game:GetService("ReplicatedStorage")
+		local top = okJson and require(RS:WaitForChild("TeamView")).sort(rows, "rate")[1]
+		local sk = top and top.stats and top.stats.skill
+		local UIKit = require(RS:WaitForChild("UIKit"))
+		local wantBtn = sk and ((sk.level >= sk.cap) and "MAX" or ("TRAIN " .. UIKit.money(sk.price))) or "?"
+		check("card shows the server's price", ui.cardOpen and ui.name == (top and top.name) and ui.skillButton == wantBtn, "BUG",
+			("%s: %s"):format(tostring(ui.name), tostring(ui.skillButton)), ("%s: %s"):format(tostring(top and top.name), wantBtn))
+		check("cards over cards", #ui.overlaps == 0, "FEEL", #ui.overlaps, 0, short(ui.overlaps))
+		check("buttons something covers", #ui.blocked == 0, "BUG", #ui.blocked, 0, short(ui.blocked))
+		check("text under 14 px on screen", #(ui.smallText or {}) == 0, "FEEL", #(ui.smallText or {}), 0,
+			("at %s (floor %s px): %s"):format(tostring(ui.viewport), tostring(ui.textFloor or 14), short(ui.smallText or {}, 4)))
+		check("taps under 44 px on screen", #(ui.smallTaps or {}) == 0, "BUG", #(ui.smallTaps or {}), 0,
+			("at %s: %s"):format(tostring(ui.viewport), short(ui.smallTaps or {}, 4)))
 	end)
 
 	step("errors", function()

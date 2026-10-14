@@ -254,4 +254,46 @@ function Probes.chasecam(args)
 	}
 end
 
+--[[ v8 Manage Staff phase 3 (14 Oct): open the TEAM screen on the top row (TeamClient's
+	Open event, the same code a tap runs), read what it drew, run the screen probes on it
+	while it is open, and close it. ]]
+function Probes.team()
+	local pg = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+	local gui = pg:WaitForChild("Team", 10)
+	local open = gui and gui:FindFirstChild("Open")
+	if not open then return { error = "no TEAM screen" } end
+	-- measure the screen, not a notice still up from the step before (a LOST! card after
+	-- the chase, a toast): those are 3-4.5 s and sit over every menu alike
+	local Notify = require(game:GetService("ReplicatedStorage"):WaitForChild("Notify"))
+	local vp = workspace.CurrentCamera.ViewportSize
+	local t0 = os.clock()
+	while os.clock() - t0 < 8 do
+		local toast = pg:FindFirstChild("NotifyToast")
+		local pill = toast and toast:FindFirstChild("Toast", true)
+		local toastUp = pill and pill.Visible and pill.AbsolutePosition.Y < vp.Y
+		if not Notify.busy() and not toastUp then break end
+		task.wait(0.25)
+	end
+	open:Fire(1)
+	task.wait(0.6)
+	local rows, top = 0, nil
+	for _, r in ipairs(gui.Panel.Body.List:GetChildren()) do
+		if r:IsA("GuiButton") and r.Visible then
+			rows += 1
+			if r.LayoutOrder == 1 then top = r end
+		end
+	end
+	local face = gui.Panel.Body.Card.Face
+	local out = Probes.ui()
+	out.rows = rows
+	out.cardOpen = face.Visible
+	local nameLabel = face:FindFirstChild("Name")   -- the child label (face.Name is the frame's own name)
+	out.name = nameLabel and nameLabel.Text
+	out.topName = top and top.PersonName.Text
+	local tb = face:FindFirstChild("Train_skill")
+	out.skillButton = tb and tb.Label.Text
+	open:Fire(false)
+	return out
+end
+
 return Probes

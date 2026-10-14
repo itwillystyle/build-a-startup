@@ -448,14 +448,20 @@ function Notify.toast(text, opts)
 	opts = opts or {}
 	local TweenService = game:GetService("TweenService")
 	local player = Players.LocalPlayer
+	-- v8 (14 Oct): parked below the screen it is also hidden. With its UIScale (0.86 on
+	-- a phone-height screen) a parked pill still reported an on-screen AbsolutePosition,
+	-- and the doctor counted it as a card over the TEAM screen.
 	local function away(pill)
+		local mine = toastSerial
 		TweenService:Create(pill, TweenInfo.new(0.25), { Position = UDim2.new(0.5, 0, 1, 60) }):Play()
+		task.delay(0.3, function() if toastSerial == mine then pill.Visible = false end end)
 	end
 	return Notify.show({ lane = "bottom", priority = opts.priority or 2, key = "toast",
 		close = function() if toastPill then toastSerial += 1; away(toastPill) end end,
 		open = function(done)
 			local pill = toastParts()
 			toastSerial += 1
+			pill.Visible = true
 			local mine = toastSerial
 			pill.Text = tostring(text)
 			-- v5: the icon says whose news it is (it was one blue "i" for everything)
