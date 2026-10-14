@@ -132,4 +132,24 @@ for i = FROM, math.min(TO, #remotes) do
 	report.remotes += 1
 	task.wait(0.1)
 end
+
+-- v8 (14 Oct): StaffAction with REAL-shaped actions: real kinds, ids that are not ours, junk
+-- stats and rooms, then spam. Expected: cash falls by at most one burst (4) of real prices.
+do
+	local sa = RS:FindFirstChild("SVRemotes") and RS.SVRemotes:FindFirstChild("StaffAction")
+	if sa then
+		local replies = {}
+		local conn = sa.OnClientEvent:Connect(function(msg) table.insert(replies, msg) end)
+		local before = cash()
+		local calls = { { "train", 1, "skill" }, { "train", 999999, "skill" }, { "train", 1, "money" }, { "move", 1, "servers" },
+			{ "move", 1, "board" }, { "train", 0 / 0, "skill" }, { "train", -1, "speed" }, { "move", 1.5, "cafe" }, { "train", "1", "skill" } }
+		for _, c in ipairs(calls) do sa:FireServer(c[1], c[2], c[3]) end
+		for _ = 1, SPAM do sa:FireServer("train", 1, "skill") end
+		task.wait(WATCH + 0.5)
+		conn:Disconnect()
+		local okN = 0
+		for _, m in ipairs(replies) do if type(m) == "table" and m.ok then okN += 1 end end
+		report.staffAction = { cashBefore = before, cashAfter = cash(), fired = #calls + SPAM, replies = #replies, accepted = okN }
+	end
+end
 return report

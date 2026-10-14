@@ -335,6 +335,54 @@ local function run()
 		end)
 	end
 
+	-- v8 Manage Staff phase 2 (14 Oct): train and move through the REAL action code
+	-- (DevHook staffact -> Econ.staffAction). The setup snapshot restores the save after.
+	step("team", function()
+		local st = sv:Invoke("state", player) or {}   -- a direct DevHook action, not a scenario (caught live 14 Oct)
+		check("someone to train", (st.staff or 0) >= 1, "BLOCKER", st.staff or 0, ">= 1")
+		if (st.staff or 0) < 1 then return end
+		sv:Invoke("cash", player, 1e12)
+		sv:Invoke("staffstat", player, "1:skill:0")
+		-- strengthened 14 Oct (final review): a lost price rate makes every level cost MIN_PRICE,
+		-- which ">= 10" passed; and the income rise the spec's gate names (x mult(skill, 1), +-1%)
+		local SS = require(game:GetService("ReplicatedStorage"):WaitForChild("StaffStats"))
+		local function rateOf(id)
+			local ok, rows = pcall(function() return HttpService:JSONDecode(player:GetAttribute("StaffData") or "[]") end)
+			for _, row in ipairs(ok and rows or {}) do if row.id == id then return row.rate end end
+			return nil
+		end
+		local firstId = (sv:Invoke("staffact", player, "move:1:") or {}).id   -- a no-op read of person 1's id
+		local before = rateOf(firstId)
+		local t = sv:Invoke("staffact", player, "train:1:skill")
+		local after = rateOf(firstId)
+		local want = SS.mult("skill", 1)
+		local ratio = (before and after and before > 0) and after / before or nil
+		check("train charges and raises", type(t) == "table" and t.ok == true and t.skill == 1 and t.cashSpent == t.price and (t.price or 0) > SS.MIN_PRICE, "BUG",
+			type(t) == "table" and ("ok=%s skill=%s spent=%s price=%s"):format(tostring(t.ok), tostring(t.skill), tostring(t.cashSpent), tostring(t.price)) or tostring(t),
+			"ok, level 1, spent = price > " .. SS.MIN_PRICE .. " (the person's own rate, not the floor)")
+		check("income rises by the Skill step", ratio ~= nil and math.abs(ratio - want) <= want * 0.01, "BUG",
+			ratio and ("x%.4f ($%s -> $%s/s)"):format(ratio, tostring(before), tostring(after)) or "no rate", ("x%.4f +-1%%"):format(want))
+		sv:Invoke("staffstat", player, "1:skill:30")
+		local m = sv:Invoke("staffact", player, "train:1:skill")
+		check("refused past the cap", type(m) == "table" and m.ok == false and m.why == "at max" and m.cashSpent == 0, "BUG",
+			type(m) == "table" and ("why=%s spent=%s"):format(tostring(m.why), tostring(m.cashSpent)) or tostring(m), "at max, nothing spent")
+		sv:Invoke("staffstat", player, "1:skill:0")
+		local u = sv:Invoke("staffact", player, "move:1:hq")
+		local back = sv:Invoke("staffact", player, "move:1:")
+		-- the garage bench is always a seat (deskHomes), so "no free seat" is not an acceptable answer (final review)
+		local moved = type(u) == "table" and u.ok == true and u.pin == "hq" and u.room == "hq"
+		check("move pins and seats", moved and type(back) == "table" and back.pin == "", "BUG",
+			type(u) == "table" and ("ok=%s why=%s pin=%s room=%s, then pin=%s"):format(tostring(u.ok), tostring(u.why), tostring(u.pin), tostring(u.room), type(back) == "table" and tostring(back.pin) or "?") or tostring(u),
+			"pinned to hq and sitting there, then unpinned")
+		local junk = sv:Invoke("staffact", player, "train:1:money")
+		check("junk refused", type(junk) == "table" and junk.ok == false and junk.cashSpent == 0, "BUG",
+			type(junk) == "table" and tostring(junk.why) or tostring(junk), "refused, nothing spent")
+		local data = player:GetAttribute("StaffData")
+		local okJson, rows = pcall(function() return game:GetService("HttpService"):JSONDecode(data) end)
+		check("StaffData published", okJson and type(rows) == "table" and #rows == (st.staff or 0) and rows[1].stats ~= nil, "BUG",
+			okJson and type(rows) == "table" and (#rows .. " rows") or "missing", (st.staff or 0) .. " rows with stats")
+	end)
+
 	step("errors", function()
 		task.wait(1)
 		local seen, uniq = {}, {}
