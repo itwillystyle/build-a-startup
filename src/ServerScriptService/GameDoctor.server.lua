@@ -164,6 +164,13 @@ local function short(list, n)
 	return table.concat(out, "; ")
 end
 
+-- v8 (14 Oct) composition (SlopRules): what the TEAM screen got wrong while passing every size check
+local function slopChecks(ui)
+	check("loud buttons in one menu", #(ui.loud or {}) == 0, "FEEL", #(ui.loud or {}), 0, short(ui.loud or {}))
+	check("the same fact twice", #(ui.twice or {}) == 0, "FEEL", #(ui.twice or {}), 0, short(ui.twice or {}))
+	check("cut off", #(ui.cutOff or {}) == 0, "BUG", #(ui.cutOff or {}), 0, short(ui.cutOff or {}, 4))
+end
+
 -- ---------------------------------------------------------------- the journey
 local function run()
 	report = { version = 1, startedAt = os.time(), placeId = game.PlaceId, steps = {}, notChecked = {
@@ -243,6 +250,7 @@ local function run()
 						short(ui.smallText or {}, 4)))
 				check("taps under 44 px on screen", #(ui.smallTaps or {}) == 0, "BUG", #(ui.smallTaps or {}), 0,
 					("at %s: %s"):format(tostring(ui.viewport), short(ui.smallTaps or {}, 4)))
+				slopChecks(ui)
 			else
 				check("ui probe answered", false, "BUG", "no answer", "answer")
 			end
@@ -409,6 +417,8 @@ local function run()
 			("at %s (floor %s px): %s"):format(tostring(ui.viewport), tostring(ui.textFloor or 14), short(ui.smallText or {}, 4)))
 		check("taps under 44 px on screen", #(ui.smallTaps or {}) == 0, "BUG", #(ui.smallTaps or {}), 0,
 			("at %s: %s"):format(tostring(ui.viewport), short(ui.smallTaps or {}, 4)))
+		slopChecks(ui)
+		check("live character views", (ui.viewports or 0) <= 9, "FEEL", ui.viewports or 0, "<= 9")
 	end)
 
 	step("errors", function()
