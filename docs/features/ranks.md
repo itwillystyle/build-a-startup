@@ -11,7 +11,7 @@
 - `src/ServerScriptService/Ranks.lua`: constants :36-40, `weekId` :43, `rollWeek` :49, `merge` :58, `mine` :82, `newBoard` :117 (`nameFor` :120, `push` :135, `read` :151, `refresh` :161), `init` :195 (`GetRanks` :205), `pushPlayer` :221 (skips every board write in Studio, so test saves never reach the live boards, :228).
 - `src/StarterPlayer/StarterPlayerScripts/RanksClient.client.lua`: corner button :34-43, panel :60, `render` :166, `fetch` :213, `setOpen` :225, `sync` :248.
 - Wiring in `src/ServerScriptService/SiliconCore.server.lua`: stores :578-580, `pushTicker` :3722 (hands off to `Ranks.pushPlayer`; its own fallback write is skipped in Studio), road board `refreshBoard` :3788, `Econ.Ranks` init :3837-3858 (rivals closure).
-- Save fields: `src/ServerScriptService/SaveLoad.lua:94-95` (write), `:185-186` (load).
+- Save fields: `src/ServerScriptService/SaveLoad.lua:95-96` (write), `:186-187` (load).
 **State:**
 - Session: `s.valuation`, `s.weekId`, `s.weekBase` (value at week start), `s.ranksToastWeek` (not saved, so a rejoin can toast again).
 - Saved: `weekId`, `weekBase`. `Ranks.rollWeek` resets a stale or impossible base (`Ranks.lua:49`).
@@ -39,4 +39,4 @@
 - `RanksClient` header says the button is on the left rail. It was moved top right in v5 (`RanksClient.client.lua:34-43`).
 - The Journey tip finds `RanksCorner.RanksButton` by name (`Journey.lua:170`). Renaming either breaks the tip.
 - If `Ranks` fails to load, the road board and `pushTicker` fall back to the old IPO-only ticker (`SiliconCore.server.lua:3807, 3628`).
-**Last verified:** 2026-10-14 50e506d
+**Last verified:** 2026-10-14 682aec6

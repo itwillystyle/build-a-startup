@@ -13,7 +13,7 @@
 - Per plot folder (`Plots/PlotN`): `OwnerId`, `Company`, `Valuation`, `Listed`, `Rank`, `Level`, `BellGain` (`Valley.lua:92-98`). Cleared when nobody owns the plot (:103-109). Refresh every 2 s (:44).
 - On the `Plots` folder: `BellOn`, `BellSeconds`, `BellWinner` (a plot folder name, e.g. "Plot3") (`Valley.lua:121-122, 150, 160-161`).
 - Module state: `bell` = `on`, `startedAt`, `base` (valuation per user at open), `nextAt` (:46). A player whose save is still loading gets no `base` and sits that bell out (`settled` :62, used at :118 and :132), so a join-time 0 cannot "grow" into a win.
-- Session: `s.valuation`, `s.rate`, `s.ipo`, `s.name`. Nothing new is saved. The valuation itself is saved (`SaveLoad.lua:184`).
+- Session: `s.valuation`, `s.rate`, `s.ipo`, `s.name`. Nothing new is saved. The valuation itself is saved (`SaveLoad.lua:185`).
 - Client only: `boards[folder]` parts named `SVFounderBoard`, a ball named `SVRoundCrown` (`ValleyClient.client.lua:75, 184`).
 **Drive it:**
 - Raw `bell` opens the bell at the next 1 s tick. `bell end` closes it (`DevHook.lua:102-110`). It needs a player in the server.
@@ -31,4 +31,4 @@
 - `Valley.init` runs inside a `pcall`. A failure only warns, and the server runs without boards (`SiliconCore.server.lua:3867-3878`).
 - SiliconCore is at the 200 top-level local limit, so no handle to `Valley` is kept (:3807-3808). Tests must `require` it again.
 - The bell never opens in an empty server (`Valley.lua:181`).
-**Last verified:** 2026-10-14 50e506d
+**Last verified:** 2026-10-14 682aec6

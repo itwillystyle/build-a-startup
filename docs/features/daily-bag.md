@@ -12,11 +12,11 @@
 - `src/ServerScriptService/Inventory.lua`: `load` :36, `save` :49, `grant` :56, `use` :74, `codeMult` :115, `scooterBonus` :119, `launchMult` :123, `onHire` :132, `onLaunch` :143, `init` :153 (makes `ItemEvent`, `UseItem`, `ItemsSeen`).
 - `src/ReplicatedStorage/Items.lua`: `LIST` :31 (ids `coffee`, `energy`, `noncompete`, `scout`, `frontpage`), `MAX` 99 :45, `encode` :48, `decode` :56, 3D icons `icon` :135.
 - `src/StarterPlayer/StarterPlayerScripts/InventoryClient.client.lua`: BAG tile :48, gui `Bag` :56, `WHERE` text :35-41, boost rows :234, `setOpen` :211.
-- Callers in `src/ServerScriptService/SiliconCore.server.lua`: `Econ.Daily` init :2818, `Econ.Inv` init :2855, `codeMult` :1373, `onHire` :1956, `launchMult` :3374, `onLaunch` :3377. Also `TalentDrop.lua:295, 892` (`scooterBonus`) and `SaveLoad.lua:422-423`.
+- Callers in `src/ServerScriptService/SiliconCore.server.lua`: `Econ.Daily` init :2818, `Econ.Inv` init :2855, `codeMult` :1373, `onHire` :1956, `launchMult` :3374, `onLaunch` :3377. Also `TalentDrop.lua:295, 892` (`scooterBonus`) and `SaveLoad.lua:426-427`.
 **State:**
 - Session: `s.dailyDay` (UTC day number), `s.streak` (0 to 7), `s.items` (id to count), `s.lastUse`, `s.gotFirstCoffee`.
 - Attributes: `DailyReady`, `DailyStreak`, `DailyLast`, `DailyAmounts`, `DailyItems` (`DailyReward.lua:58-67`). `Items` as `coffee=2;energy=1`, `ItemsNew`, `BoostCode`, `BoostEnergy`, `ArmedScout`, `ArmedPress` (`Inventory.lua:1-12`).
-- Saved: `dailyDay`, `streak` (`SaveLoad.lua:132-133`, clamped :385-386). Item counts only (:142, load :422).
+- Saved: `dailyDay`, `streak` (`SaveLoad.lua:133-134`, clamped :386-387). Item counts only (:143, load :426).
 - Not saved: boost timers, armed flags, `gotFirstCoffee`.
 **Drive it:**
 - `item <id>` puts one in the bag (`DevHook.lua:479`).
@@ -37,4 +37,4 @@
 - Armed Scout and Front Page are attributes, not saved. Leaving after arming loses an item that was already spent.
 - Stale: `DailyClient.client.lua:34-35` says there is no rail tile and the phone opens the card. There is a DAILY tile (:226), and the `SVOpenDaily` event (:37) is never fired in `src`.
 - Tips find `Rail.Column.BagButton` and `Rail.Column.DailyButton` by name (`Journey.lua:164, 173`). Do not rename them.
-**Last verified:** 2026-10-14 50e506d
+**Last verified:** 2026-10-14 682aec6

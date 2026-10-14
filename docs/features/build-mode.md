@@ -10,13 +10,13 @@
 - `src/StarterPlayer/StarterPlayerScripts/BuildModeClient.client.lua`: `unlocked` :126, `rescanFloors` :504, `previewLegal` :536, `aimGhost` :569, `commitPlace` :633, `aimDelete` :645, `setOpen` :821, keys :912.
 - `src/StarterPlayer/StarterPlayerScripts/BuildClient.client.lua`: the lot picker. `makeRow` :88, `OpenBuild` listener :161.
 - `src/ServerScriptService/SiliconCore.server.lua`: remotes :543-546, `buildWing` :2411, `floorRects` :2496, `roomBuilt` :2509, `placeAt` :2517, `PlaceItem` :2676, `RemoveItem` :2682, `furniturePriceOf` :190.
-- `src/ServerScriptService/SaveLoad.lua`: items saved :70-73, restored through `placeAt(..., free)` :312.
+- `src/ServerScriptService/SaveLoad.lua`: items saved :71-74, restored through `placeAt(..., free)` :313.
 **State:**
 - Session: `s.placed` (entries: model, key, price, x, z, w, d, y, yaw, surfaceTop, room, slot), `s.placedDesks`, `s.placedMorale`.
 - Placed model attributes: `owner`, `key`, `px`, `pz`, `pw`, `pd`, `py` (`SiliconCore.server.lua:2653-2657`), plus `FKItem` and `FKFlip` from the kit. The client reads these for its preview.
 - Player attributes: `BuildOpen`, `HQLevel`, `PriceMult`, `IncomeRate`, `VibeStars`, `VibeLuck`, `VibePoints`, `SVRefunded`. Client only: `BuildModeOpen` (`BuildModeClient.client.lua:827`).
 - Folders: plot `Placed` (all decor), `plot.fixed` (fixed furniture rects), `plot.slots` (lots).
-- Saved: `placed` as k, x, z (plot-local), y (yaw), p (price paid) and `wings` (`SaveLoad.lua:70-79`).
+- Saved: `placed` as k, x, z (plot-local), y (yaw), p (price paid) and `wings` (`SaveLoad.lua:71-80`).
 **Drive it:**
 - `ship` sets `shipped` and `buildUnlocked` (`DevHook.lua:54-57`). `cash <n>` adds money. `hq:5` reaches stage 2 so DECOR shows.
 - No action or scenario places or removes a piece. "none yet". The `bot` places decor through `placeAt` (`DevHook.lua:412`).
@@ -34,4 +34,4 @@
 - A missing template means no placement at all, never a hole (`FurnitureKit.has`, `SiliconCore.server.lua:2530`).
 - Rugs (`flat`) go under anything. Only the first 3 copies of a key count for vibe (`FurnitureKit.lua:872-886`).
 - Security (9 Oct exploit check): `placeAt` rejects a NaN or infinite x, z or angle (`SiliconCore.server.lua:2524`); before, one was charged, pivoted to nowhere and written into the save.
-**Last verified:** 2026-10-14 50e506d
+**Last verified:** 2026-10-14 682aec6

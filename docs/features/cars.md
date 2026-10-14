@@ -15,7 +15,7 @@
 - Player attributes: `CarOwned`, `CarId`, `CarName`, `CarTop` (`Cars.lua:217-222, 261`). Client only: `BuildModeOpen` hides the CAR button (`CarClient.client.lua:350`).
 - Car model: tag `SVCar`, attributes `Owner`, `CarId`, `Speed`, `Accel` (`Cars.lua:196-200`). One unanchored `Chassis`, owned by the driver's client.
 - Traffic model: tag `TrafficCar`, attributes `LaneA`, `LaneB`, `LaneId`, `Speed`, `Phase`, `CrossAt` or `RingR`, `RingDir`.
-- Saved: `cars`, `car` (`src/ServerScriptService/SaveLoad.lua:148-149`). Load keeps only known ids (`Cars.lua:597-617`).
+- Saved: `cars`, `car` (`src/ServerScriptService/SaveLoad.lua:149-150`). Load keeps only known ids (`Cars.lua:597-617`).
 **Drive it:**
 - `dev:Invoke("scenario", p, "tp:car")` goes to the spawned car (`DevScenarios.lua:235`). It fails with "no position" if no car exists yet.
 - `hq:<n>` does NOT grant the car. `wlevel` sets the stage directly (`DevHook.lua:65-81`) and skips the grant. Untested recipe from the code: `wlevel 4`, then `upgrade` across level 5 (`DevHook.lua:62`).
@@ -36,4 +36,4 @@
 - The CAR button pulses only while the Journey objective is "car" (`CarClient.client.lua:365-372`).
 - The header comment says "HQ 2". In Wafers mode that means wafer level 5 (`Wafers.lua:166-169`).
 - Security (9 Oct exploit check): `CallCar`, and `BuyCar` on a car you already own, respawn the car for every client, so both share a 2 s gate (`Cars.lua:284, 312`).
-**Last verified:** 2026-10-14 50e506d
+**Last verified:** 2026-10-14 682aec6

@@ -18,7 +18,7 @@
 - Session: `s.apt` (0-3), `s.vipDay` (UTC day number), `s.lastBuy`. Price reads `s.spinoffs` (`Apartments.lua:50-53`).
 - Player attribute: `Apt` (`Apartments.lua:460`). I found no reader in `src`. Unclear if it is used.
 - Unit model `Apt_<userId>` has attributes `Owner`, `Tier`, `Stand`, `View` (`Apartments.lua:367-368, 404-406`).
-- Saved: `apt`, `vipDay` (`src/ServerScriptService/SaveLoad.lua:143-144`). Load clamps `apt` to 0-3 (`SaveLoad.lua:388`).
+- Saved: `apt`, `vipDay` (`src/ServerScriptService/SaveLoad.lua:144-145`). Load clamps `apt` to 0-3 (`SaveLoad.lua:389`).
 - Plot, temporary: `plot.spinArmed`, `spinOffer`, `spinPickIds`. The card is armed for 30 s.
 **Drive it:**
 - `dev:Invoke("scenario", p, "home:<0-3>")` runs raw `apt <n>` (`src/ServerScriptService/DevScenarios.lua:264-268`, `DevHook.lua:488`).
@@ -41,4 +41,4 @@
 - If the Residences mesh is missing, no sales desk or lift exists. `init` waits 30 s, then gives up silently (`Apartments.lua:557-561`, `Downtown.lua:265`).
 - While a keeper choice is pending, the pad's second tap cannot confirm. Only the card can (`SiliconCore.server.lua:3075-3078`). Picks are opaque ids matched to staff entries, never positions (`Progression.lua:140-145`).
 - `SPINOFF_BASE` is asserted at load. A missing base would sell homes for $1 (`Apartments.lua:44-45`).
-**Last verified:** 2026-10-14 50e506d
+**Last verified:** 2026-10-14 682aec6

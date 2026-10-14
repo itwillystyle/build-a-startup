@@ -17,7 +17,7 @@
 - In memory only, per player: threads (up to 6), active thread, `nextAt` (`Phone.lua:259`, :446). Not saved.
 - Session: `s.board` (Boardroom floors, makes investors keener, max 2, `:438`), `s.jr.seriesA`, `s.seriesAt`.
 - Player attributes: `PhoneUnread`, `Company`, `HasVoice`, `InCall`, `CallSince`.
-- Saved: only the Series A flag, inside `jr` (`SaveLoad.lua:145`). A spin-off clears it (`SiliconCore.server.lua:3102`). Item gifts go to the bag (see daily-bag.md).
+- Saved: only the Series A flag, inside `jr` (`SaveLoad.lua:146`). A spin-off clears it (`SiliconCore.server.lua:3102`). Item gifts go to the bag (see daily-bag.md).
 **Drive it:**
 - `phone`: returns the live thread (id, firm, status, offer). Studio only (`DevHook.lua:160`, `Phone.lua:726`).
 - `phoneoffer <n>`: sets interest n (default 8) and makes the term sheet through the real `makeOffer` (`DevHook.lua:164`, `Phone.lua:734`). Needs a live thread.

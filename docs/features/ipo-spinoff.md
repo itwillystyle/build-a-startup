@@ -37,4 +37,4 @@
 - `checkIPO` (valuation at `IPO_AT` 250,000, `CoreConfig.lua:115`) is only reached from SVDev `valuation` (`DevHook.lua:186`). The real path is `goPublic`.
 - At 20 spin-offs `s.spinoffs` stops growing (`SiliconCore.server.lua:3107`), so price and multiplier stop too (`Progression.lua:24,28-30`).
 - The keep list is built only when `Econ.V3` is on (:2941).
-**Last verified:** 2026-10-14 50e506d
+**Last verified:** 2026-10-14 682aec6

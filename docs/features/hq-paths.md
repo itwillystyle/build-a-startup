@@ -24,7 +24,7 @@
 - Plot: `plot.hqPath`, `plot.wafer` = level, depts, pieces, folder, core, stops (`Wafers.lua:225-231`), `plot.hq.level` (the stage), `plot.busy`.
 - Player attributes: `HQPath`, `HQPathChosen` (`SiliconCore.server.lua:1308-1309`), `HQLevel` (:1899), `WaferLevel`, `WaferCap`, `WaferNext`, `WaferLast`, `WaferPrice`, `WaferRec`, `WaferAllowed`, `WaferNeed` (:2048-2055, `WaferNeed` always 0).
 - World: plot folder child `Wafers`, models `L###_kind_dept` tagged `WaferPiece` (`Wafers.lua:1568-1590`). Plots attribute `TowerSpec` (`SiliconCore.server.lua:2935`).
-- Saved: `wl`, `wd`, `rec`, `bp`, `hq` (`src/ServerScriptService/SaveLoad.lua:83-88`), `hqPath` (:140).
+- Saved: `wl`, `wd`, `rec`, `bp`, `hq` (`src/ServerScriptService/SaveLoad.lua:84-89`), `hqPath` (:141).
 **Drive it:**
 - `dev:Invoke("scenario", p, "hq:<n>")` runs raw `wlevel n` (`DevScenarios.lua:209`, `DevHook.lua:65-81`). It builds free up to n, capped by the company's blueprint (18 for company one).
 - Raw `upgrade` calls `tryUpgrade` (`DevHook.lua:62`). `tp:hq` teleports to the HQ pad (`DevScenarios.lua:231`).
@@ -43,13 +43,13 @@
 - The coffee bar mesh, like the rack, lives in the place, not git; without it the Dome cafe builds the Kenney run. Only `domeFurnish` has the bar: the Wafers-path and fab cafes are unchanged (14 Oct).
 - A missing META entry is silent. The placer builds primitives instead (`Wafers.lua:304-311`, `HQMeta/init.lua:14-16`).
 - `CUR` is one module variable. `Wafers.anchor` resets it at the start of every build function (`Wafers.lua:109, 179-181`). An unknown path falls back to `W_` (:111-114).
-- On load, `plot.hqPath` must be set before the rebuild. Otherwise a Dome player gets Wafers meshes with Dome collision, an invisible wall in the doorway (`SaveLoad.lua:230-246`).
+- On load, `plot.hqPath` must be set before the rebuild. Otherwise a Dome player gets Wafers meshes with Dome collision, an invisible wall in the doorway (`SaveLoad.lua:231-247`).
 - The picker says "You can change it when you spin off" (`WaferClient.client.lua:212`). I found no code that clears `hqPath` on spin-off (`releasePlot` :2864 does not). Looks unfinished. Unverified in Studio.
 - `WaferPlan.lua:20-21` (`CAR_AT`, `APT_FROM` and kin) are read by nothing in src. The header at :15 ("Not wired into the game yet") is stale. Real gates use `Wafers.stage`.
 - The SVCheck glass pass requires `WaferPlan` from ReplicatedStorage or ServerScriptService (`SVCheck.lua:716-717`). `default.project.json:13-16` maps it only to ServerScriptService, which clients cannot see. The pcall probably fails and the pass reads "0 out, 0 in". Unclear. Not run.
 - The style gate is inside `wafersBuild`, because the card, pad prompt and click are three ways in (`SiliconCore.server.lua:2128-2138`).
 - Lift buttons must be tracked in `st.core`, or each rebuild leaves duplicate prompts (`Wafers.lua:1436-1448`).
 - `LiftGo` needs you within 16 studs of a stop, blocks while Carrying, has a 1.2 s cooldown and stands you up from a car first (`HQFloors.lua:96-128`).
-- In Wafers mode `buildShell` runs only for the level 1 garage (`SiliconCore.server.lua:1080`). By the code, `skinHQ` only skins the level 1 garage and the V2 meshes are never used while Wafers is on (`SaveLoad.lua:269-271`, `SiliconCore.server.lua:2234`).
+- In Wafers mode `buildShell` runs only for the level 1 garage (`SiliconCore.server.lua:1080`). By the code, `skinHQ` only skins the level 1 garage and the V2 meshes are never used while Wafers is on (`SaveLoad.lua:270-272`, `SiliconCore.server.lua:2234`).
 - Rocket position uses `CFG.HQ_LEVELS[stage].h`, not the tower (`SiliconCore.server.lua:3391-3394`). Unclear if it matches a tall tower's roof.
-**Last verified:** 2026-10-14 50e506d
+**Last verified:** 2026-10-14 682aec6
