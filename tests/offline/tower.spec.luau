@@ -115,4 +115,77 @@ test("silhouette: spec() round-trips through parseSpec, one box per section plus
 	assert(#T.parseSpec("junk") == 0 and #T.parseSpec(nil) == 0, "bad input gives nothing")
 end)
 
+-- the final review (14 Oct): I5 -- the landing rule lives in TowerPlan and is tested at every level
+local function surfaceAtStand(s)
+	local pt = { x0 = T.STAND.x, x1 = T.STAND.x, z0 = T.STAND.z, z1 = T.STAND.z }
+	local land = T.landing(s)
+	if land and inside(pt, land) then return true end
+	if T.DECKS[s] or s >= 14 then return inside(pt, T.deck(s)) end
+	return false
+end
+
+test("every lift stop at every level stands on a landing or a deck, and nothing above the top is a stop", function()
+	for level = 2, W.MAX do
+		local top = T.topStorey(W.PIECES, level)
+		for s = 0, T.TOP do
+			local stop = T.landable(W.PIECES, level, s)
+			if stop then
+				assert(s <= top, ("level %d: storey %d is a stop above the top storey %d"):format(level, s, top))
+				assert(surfaceAtStand(s), ("level %d: storey %d is a stop with nothing under the stand"):format(level, s))
+			end
+		end
+		assert(T.landable(W.PIECES, level, 0), ("level %d: the lobby is not a stop"):format(level))
+	end
+	-- the crown pieces (halo, lantern, mast) never make storey 15 a stop
+	assert(not T.landable(W.PIECES, W.MAX, 15), "the crown storey became a stop")
+	assert(T.topStorey(W.PIECES, W.MAX) == 14, "the top storey at 100 is the roof garden")
+end)
+
+-- I1 -- the Servers room's racks and fans stay inside the glass band of the smallest room
+test("the server racks stand inside the glass band in every room (they poked 0.6 out of the facade)", function()
+	local R = require("../../src/ReplicatedStorage/ServerRack")
+	for _, pc in ipairs(W.PIECES) do
+		if pc.kind == "segment" then
+			local r = T.room(pc.storey, pc.seg)
+			local lim = T.inner(r)
+			local rm = R.midlineFor(lim.z)
+			local back = rm + R.BACK + R.SLOT.Z / 2
+			assert(back <= lim.z + 1e-6, ("L%d: rack back %.2f past the glass band %.2f"):format(pc.level, back, lim.z))
+			assert(rm + R.BACK - R.SLOT.Z / 2 >= -r.d / 2, ("L%d: the racks left the room"):format(pc.level))
+			for _, x in ipairs(R.XS) do
+				assert(math.abs(x) + R.SLOT.X / 2 <= lim.x + 1e-6, ("L%d: rack at x %d past the side band"):format(pc.level, x))
+			end
+			assert(T.fanZ(r) + 0.35 / 2 <= r.d / 2 - T.WALL_T + 1e-6, ("L%d: the fan is in the glass"):format(pc.level))
+		end
+	end
+end)
+
+-- I4 -- a room's door toward a cell that is not built yet is glazed until that cell is built
+test("no built room above the lobby has a door open to an unbuilt room, at any level", function()
+	local levelAt = {}
+	for _, pc in ipairs(W.PIECES) do
+		if pc.kind == "segment" then levelAt[pc.storey .. ":" .. pc.seg] = pc.level end
+	end
+	for level = 2, W.MAX do
+		for L = 2, level do
+			local pc = W.PIECES[L]
+			if pc.kind == "segment" and pc.storey >= 1 then
+				local edges = T.edges(W.PIECES, L)
+				local r = T.room(pc.storey, pc.seg)
+				for side, kind in pairs(r.sides) do
+					if kind == 6 then
+						local nseg = T.neighbour(pc.seg, side)
+						assert(nseg, ("L%d: a 6-stud door on %s with no neighbour"):format(L, side))
+						local M = levelAt[pc.storey .. ":" .. nseg]
+						if not M or M > level then
+							assert(edges[side] and edges[side] == (M or math.huge),
+								("level %d: L%d's %s door is open to an unbuilt room"):format(level, L, side))
+						end
+					end
+				end
+			end
+		end
+	end
+end)
+
 return TT

@@ -132,7 +132,7 @@ local function slabBox(model, plot, name, x0, x1, z0, z1, y0, y1, props)
 end
 
 -- one wall on a room side: `kind` "glass", or a door width (6, 8, 14) centred on the side
-local WALL_T = 0.4
+local WALL_T = T.WALL_T
 local function wallSide(model, plot, r, side, kind, y0, h, glassProps, partProps)
 	local props = (kind == "glass") and glassProps or partProps
 	local name = (kind == "glass") and "Wall" or "Partition"
@@ -192,7 +192,7 @@ local function stateOf(plot)
 		local folder = Instance.new("Folder")
 		folder.Name = "Wafers"
 		folder.Parent = plot.folder
-		plot.wafer = { level = 1, depts = {}, pieces = {}, folder = folder, core = {}, stops = {} }
+		plot.wafer = { level = 1, depts = {}, pieces = {}, folder = folder, core = {}, stops = {}, edges = {} }
 		clearFootprint(plot)
 	end
 	return plot.wafer
@@ -380,8 +380,10 @@ local function furnish(model, anchor, dept, r)
 			table.insert(seats, CFrame.lookAt((anchor * CFrame.new(o[1], 2.4, o[2])).Position, (anchor * CFrame.new(0, 2.4, 0)).Position))
 		end
 	elseif dept == "servers" then
-		serverRacks(model, anchor, r.d / 2 - 3.5)       -- ServerRack.pose puts the racks at rm + 3: against the facade
-		for _, x in ipairs({ -9, 9 }) do serverFan(model, anchor * CFrame.new(x, 6.2, r.d / 2 - 0.4), 3.0, 170) end
+		-- the racks' backs on the glass band, the fans just inside the glass (final review I1: the backs
+		-- stood 0.6 outside the facade, rm had been reused as an offset from it)
+		serverRacks(model, anchor, ServerRack.midlineFor(T.inner(r).z))
+		for _, x in ipairs({ -9, 9 }) do serverFan(model, anchor * CFrame.new(x, 6.2, T.fanZ(r)), 3.0, 170) end
 	elseif dept == "board" then
 		pcall(FK.onFloor, "tableCross", anchor, -2.2, 0, 0, model)
 		pcall(FK.onFloor, "tableCross", anchor, 2.2, 0, 0, model)
@@ -459,7 +461,7 @@ local function buildSegment(plot, L, dept, model)
 		end
 	end
 	if lobby then   -- the entrance canopy over the forecourt
-		slabBox(model, plot, "Canopy", r.cx - 11, r.cx + 11, r.z1, r.z1 + 10, y + 10, y + 11,
+		slabBox(model, plot, "LobbyCanopy", r.cx - 11, r.cx + 11, r.z1, r.z1 + 10, y + 10, y + 11,
 			{ Color = PAPER, Material = Enum.Material.SmoothPlastic, CanCollide = false })
 	end
 	if pc.seg == 1 then deckColumns(model, plot, pc.storey) end
@@ -530,14 +532,6 @@ end
 
 -- ---------------------------------------------------------------- the lift
 -- can the lift let you off on storey s? (the landing is part of the core; any built piece there will do)
-local function landable(st, s)
-	for L = 2, st.level do
-		local pc = P.PIECES[L]
-		if pc.storey == s and pc.kind ~= "halo" and pc.kind ~= "lantern" and pc.kind ~= "mast" then return true end
-	end
-	return false
-end
-
 local function liftButton(plot, st, s)
 	local HQ = api.HQFloors
 	local y = T.floorY(s)
@@ -563,15 +557,6 @@ local function liftButton(plot, st, s)
 	table.insert(st.stops, { id = id, name = s == 0 and "LOBBY" or tostring(s), sub = T.label(s), stand = stand })
 end
 
-local function topStorey(st)
-	local top = 0
-	for L = 2, st.level do
-		local pc = P.PIECES[L]
-		if pc.kind ~= "halo" and pc.kind ~= "lantern" and pc.kind ~= "mast" then top = math.max(top, pc.storey) end
-	end
-	return top
-end
-
 -- (re)build the shaft, each storey's landing hall floor and its lift stop
 local function buildCore(plot)
 	local st = stateOf(plot)
@@ -581,7 +566,7 @@ local function buildCore(plot)
 		if api.HQFloors and api.HQFloors.register then api.HQFloors.register(plot.index, plot, {}) end
 		return
 	end
-	local top = topStorey(st)
+	local top = T.topStorey(P.PIECES, st.level)
 	local S = T.SHAFT
 	local shaft = { Color = Color3.fromRGB(190, 214, 226), Material = Enum.Material.Glass, Transparency = 0.45, CastShadow = false }
 	for s = 0, top do
@@ -591,12 +576,12 @@ local function buildCore(plot)
 			{ S.x0, (S.x0 + S.x1) / 2 - 3, S.z1 - 0.4, S.z1 }, { (S.x0 + S.x1) / 2 + 3, S.x1, S.z1 - 0.4, S.z1 } }) do
 			table.insert(st.core, slabBox(st.folder, plot, "LiftShaft", w[1], w[2], w[3], w[4], y - SLAB, y + h - SLAB, shaft))
 		end
-		if not T.DECKS[s] and s < 14 then   -- the landing hall's floor (gardens and the roof have their decks)
-			local c = T.centre(s)
+		local c = T.landing(s)   -- the landing hall's floor (gardens and the roof stand on their decks)
+		if c then
 			table.insert(st.core, slabBox(st.folder, plot, "Floor", c.x0, c.x1, c.z0, c.z1, y - SLAB, y,
 				{ Color = PAPER, Material = Enum.Material.SmoothPlastic }))
 		end
-		if landable(st, s) or s == 0 then liftButton(plot, st, s) end
+		if T.landable(P.PIECES, st.level, s) then liftButton(plot, st, s) end
 	end
 	if api.HQFloors and api.HQFloors.register then api.HQFloors.register(plot.index, plot, st.stops) end
 end
@@ -635,6 +620,8 @@ local function buildPiece(plot, L, dept, animate)
 	model.Name = ("L%03d_%s%s"):format(L, pc.kind, dept and ("_" .. dept) or "")
 	model:SetAttribute("Level", L)
 	model:SetAttribute("Dept", dept)
+	model:SetAttribute("Storey", pc.storey)        -- SVCheck's glass pass reads these on the client
+	if pc.kind == "segment" then model:SetAttribute("Seg", pc.seg) end
 	model.Parent = st.folder
 	local seats, label = {}, nil
 	if pc.kind == "segment" then
@@ -646,6 +633,24 @@ local function buildPiece(plot, L, dept, animate)
 		buildPavilion(plot, L, model)
 	elseif pc.kind == "halo" or pc.kind == "lantern" or pc.kind == "mast" then
 		buildCrown(plot, L, model)
+	end
+	-- this room's doorways onto rooms not built yet get glass; this level's own neighbours lose theirs
+	for _, e in ipairs(st.edges[L] or {}) do if e.Parent then e:Destroy() end end
+	st.edges[L] = nil
+	if pc.kind == "segment" then
+		local r = T.room(pc.storey, pc.seg)
+		local y, h = T.floorY(pc.storey), T.storeyH(pc.storey) - SLAB
+		for side, M in pairs(T.edges(P.PIECES, L)) do
+			local alongX = (side == "pz" or side == "nz")
+			local at = (side == "pz" and r.z1 - T.WALL_T / 2) or (side == "nz" and r.z0 + T.WALL_T / 2)
+				or (side == "px" and r.x1 - T.WALL_T / 2) or (r.x0 + T.WALL_T / 2)
+			local mid = alongX and (r.x0 + r.x1) / 2 or (r.z0 + r.z1) / 2
+			local props = { Color = facadeTint(st.depts[L]), Material = Enum.Material.Glass, Transparency = 0.45, CastShadow = false }
+			local e = alongX and slabBox(model, plot, "EdgeGlass", mid - 3, mid + 3, at - T.WALL_T / 2, at + T.WALL_T / 2, y, y + h, props)
+				or slabBox(model, plot, "EdgeGlass", at - T.WALL_T / 2, at + T.WALL_T / 2, mid - 3, mid + 3, y, y + h, props)
+			st.edges[M] = st.edges[M] or {}
+			table.insert(st.edges[M], e)
+		end
 	end
 	CollectionService:AddTag(model, "WaferPiece")
 	st.pieces[L] = { model = model, seats = seats, label = label, dept = dept }
@@ -711,7 +716,7 @@ function Wafers.clear(plot)
 	local st = plot.wafer
 	if not st then return end
 	for _, c in ipairs(st.folder:GetChildren()) do c:Destroy() end
-	st.level, st.depts, st.pieces, st.core, st.stops = 1, {}, {}, {}, {}
+	st.level, st.depts, st.pieces, st.core, st.stops, st.edges = 1, {}, {}, {}, {}, {}
 	if api and api.HQFloors and api.HQFloors.register then api.HQFloors.register(plot.index, plot, {}) end
 	Wafers.garage(plot, true)
 end

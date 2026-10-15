@@ -109,6 +109,81 @@ function T.frame(pc)
 	return { x = 0, z = (r.z0 + r.z1) / 2, yaw = 0 }
 end
 
+-- ---------------------------------------------------------------- walls, the lift, edges (final review, 14 Oct)
+T.WALL_T = 0.4          -- every wall and the facade glass, inside the room's rectangle
+T.GLASS_BAND = 0.9      -- furniture keeps this far in from the glass (mullions; SVCheck's glass pass)
+
+-- how far furniture may reach from a room's centre, in the room's own frame (x across w, z across d)
+function T.inner(r)
+	return { x = r.w / 2 - T.WALL_T - T.GLASS_BAND, z = r.d / 2 - T.WALL_T - T.GLASS_BAND }
+end
+
+-- the Servers room's wall fans (0.35 deep): just inside the facade glass, room frame
+function T.fanZ(r) return r.d / 2 - T.WALL_T - 0.3 end
+
+local CROWN = { halo = true, lantern = true, mast = true }
+
+-- the highest storey with a piece that is not the crown, at this level (`pieces` = WaferPlan.PIECES)
+function T.topStorey(pieces, level)
+	local top = 0
+	for L = 2, level do
+		local pc = pieces[L]
+		if pc and not CROWN[pc.kind] then top = math.max(top, pc.storey) end
+	end
+	return top
+end
+
+-- does the lift stop at storey s? the lobby always (once there is a tower), any other storey
+-- once a piece that is not the crown stands on it
+function T.landable(pieces, level, s)
+	if level < 2 then return false end
+	if s == 0 then return true end
+	for L = 2, level do
+		local pc = pieces[L]
+		if pc and pc.storey == s and not CROWN[pc.kind] then return true end
+	end
+	return false
+end
+
+-- the landing hall floor of storey s (the centre cell), or nil where a deck carries the stand
+function T.landing(s)
+	if T.DECKS[s] or s >= 14 then return nil end
+	return T.centre(s)
+end
+
+-- the room in the cell on `side` of seg's cell, or nil (the outside or the centre hall)
+local SIDE = { px = { 1, 0 }, nx = { -1, 0 }, pz = { 0, 1 }, nz = { 0, -1 } }
+function T.neighbour(seg, side)
+	local c, d = T.CELL[seg], SIDE[side]
+	local nc, nr = c[1] + d[1], c[2] + d[2]
+	for k, v in ipairs(T.CELL) do
+		if v[1] == nc and v[2] == nr then return k end
+	end
+	return nil
+end
+
+--[[ the doors of room L that open onto a room not built yet when L is built: side -> the level
+	that builds it (math.huge if no piece ever does). The builder glazes those doorways and
+	takes the glass out when that level is built; before this, storeys 1+ had an open door
+	onto an 18-stud drop (final review I4). ]]
+function T.edges(pieces, L)
+	local pc = pieces[L]
+	local out = {}
+	if not pc or pc.kind ~= "segment" then return out end
+	local levelAt = {}
+	for _, q in ipairs(pieces) do
+		if q.kind == "segment" and q.storey == pc.storey then levelAt[q.seg] = q.level end
+	end
+	for side, kind in pairs(T.room(pc.storey, pc.seg).sides) do
+		if kind == 6 then
+			local n = T.neighbour(pc.seg, side)
+			local M = n and levelAt[n] or math.huge
+			if M > L then out[side] = M end
+		end
+	end
+	return out
+end
+
 function T.label(s)
 	if s == 0 then return "LOBBY" end
 	if T.DECKS[s] then return "SKY GARDEN" end
