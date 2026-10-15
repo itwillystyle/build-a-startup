@@ -2972,6 +2972,7 @@ if Econ then
 			prompt = prompt, popup = popup, session = function(pl) return sessions[pl.UserId] end,
 			grant = function(pl, id, n) return Econ.Inv and Econ.Inv.grant(pl, id, n, "floor") end,
 			plotOf = plotOf,
+			LiftCab = tryRequire(ServerScriptService, "LiftCab"),   -- v9 (1b): the lift's cab
 		})
 		if ok then Econ.WAFERS = true else warn("[SV] Wafers init failed: " .. tostring(err)); Econ.Wafers = nil end
 		-- v4.9: the finished tower's massing, for the opening flyover's ghost.

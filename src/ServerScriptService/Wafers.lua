@@ -629,24 +629,25 @@ end
 -- ---------------------------------------------------------------- the lift
 -- can the lift let you off on storey s? (the landing is part of the core; any built piece there will do)
 local function liftButton(plot, st, s)
-	local HQ = api.HQFloors
 	local y = T.floorY(s)
 	local bx = (T.SHAFT.x0 + T.SHAFT.x1) / 2 + 3.2
 	local btn = add(st.folder, { Name = "LiftCall", Size = Vector3.new(1.2, 2, 0.4),
 		CFrame = plot.pivot * CFrame.new(bx, y + 4.2, T.SHAFT.z1 + 0.2), Color = CHARCOAL, CanCollide = false, CastShadow = false })
 	table.insert(st.core, btn)
-	table.insert(st.core, add(st.folder, { Name = "LiftCallLit", Shape = Enum.PartType.Ball, Size = Vector3.new(0.5, 0.5, 0.5),
-		CFrame = btn.CFrame * CFrame.new(0, 0.3, 0.25), Color = GOLD, Material = Enum.Material.Neon, CanCollide = false, CanQuery = false, CastShadow = false }))
-	local id = (s == 0) and "L" or ("F" .. s)
+	local id = LiftPlan.stopId(s)   -- 1b: one id scheme (L, F<n>, R) for the stops, the doors and the cab
+	local lit = add(st.folder, { Name = "LiftCallLit", Shape = Enum.PartType.Ball, Size = Vector3.new(0.5, 0.5, 0.5),
+		CFrame = btn.CFrame * CFrame.new(0, 0.3, 0.25), Color = GOLD, Material = Enum.Material.Neon, CanCollide = false, CanQuery = false, CastShadow = false })
+	lit:SetAttribute("Stop", id)
+	table.insert(st.core, lit)
 	local pp = Instance.new("ProximityPrompt")
-	pp.ActionText = "Take the lift"
+	pp.ActionText = "Lift"
 	pp.ObjectText = T.label(s)
 	pp.HoldDuration = 0
 	pp.MaxActivationDistance = 11
 	pp.RequiresLineOfSight = false
 	pp.Parent = btn
-	pp.Triggered:Connect(function(player)
-		if HQ and HQ.menu then HQ.menu(player, plot.index, id) end
+	pp.Triggered:Connect(function(player)   -- 1b: call the cab (LiftCab); the old fade-and-teleport menu is gone
+		if api.LiftCab and api.LiftCab.call then api.LiftCab.call(player, plot.index, id) end
 	end)
 	local stand = CFrame.lookAt((plot.pivot * CFrame.new(T.STAND.x, y + 0.1, T.STAND.z)).Position,
 		(plot.pivot * CFrame.new(T.STAND.x, y + 0.1, T.SHAFT.z1)).Position)
@@ -793,6 +794,7 @@ local function buildCore(plot)
 		if T.landable(P.PIECES, st.level, s) then liftButton(plot, st, s) end
 	end
 	if api.HQFloors and api.HQFloors.register then api.HQFloors.register(plot.index, plot, st.stops) end
+	if api.LiftCab and api.LiftCab.sync then api.LiftCab.sync(plot) end   -- 1b: the cab follows the build
 end
 
 --[[ v9 (14 Oct, HQ tower 1a): the garage's shell and dress go away once the tower has a lobby
@@ -924,6 +926,7 @@ end
 function Wafers.clear(plot)
 	local st = plot.wafer
 	if not st then return end
+	if api and api.LiftCab and api.LiftCab.reset then api.LiftCab.reset(plot) end   -- 1b: forget the cab and its riders
 	for _, c in ipairs(st.folder:GetChildren()) do c:Destroy() end
 	st.level, st.depts, st.pieces, st.core, st.stops, st.edges = 1, {}, {}, {}, {}, {}
 	st.cab = nil   -- 1b: destroyed with the folder; Wafers.cab makes a new one
@@ -977,6 +980,7 @@ end
 
 function Wafers.init(a)
 	api = a
+	if api.LiftCab and api.LiftCab.init then api.LiftCab.init({ Wafers = Wafers, session = api.session }) end   -- 1b
 end
 
 return Wafers
