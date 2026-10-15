@@ -121,9 +121,19 @@ local function insideBox(cab, pos, pad)
 	return math.abs(l.X) <= C.w / 2 + pad and math.abs(l.Y) <= C.h / 2 + pad and math.abs(l.Z) <= C.d / 2 + pad
 end
 
-local rideState = {}     -- cab -> { start, ticked, rider }
+local rideState = {}     -- cab -> { start }
 local seen, panelSeen = {}, {}
 local camWas
+local riderCab           -- the cab whose ride holds our camera
+-- hand the camera back. Also when the cab is gone (a rebuild mid-ride replaced it) or we respawn:
+-- RF3/RF5 (15 Oct) left the camera Scriptable for good, and the next ride saved that as "before"
+local function release()
+	if not riderCab then return end
+	riderCab = nil
+	workspace.CurrentCamera.CameraType = camWas or Enum.CameraType.Custom
+	camWas = nil
+end
+player.CharacterAdded:Connect(release)
 
 local function drawStep(cab, moving)   -- FromY/ToY are cabAt heights: the base sits 0.25 below
 	local base = cab.PrimaryPart
@@ -132,10 +142,9 @@ local function drawStep(cab, moving)   -- FromY/ToY are cabAt heights: the base 
 		cab:GetAttribute("Dur") or 0, base.Position.Y + 0.25)
 end
 
-local function startRide(cab, rs)
+local function startRide(cab)
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-	rs.rider = root ~= nil and insideBox(cab, root.Position, 0.5)
-	if rs.rider then
+	if root and insideBox(cab, root.Position, 0.5) then
 		hide()
 		-- the ticks, then the ding
 		for _, tk in ipairs(LP.ticks(cab:GetAttribute("Floors") or 0)) do
@@ -143,7 +152,10 @@ local function startRide(cab, rs)
 		end
 		task.delay(cab:GetAttribute("Dur") or 0, function() UIKit.sfx("ding", 1.05, 0.45) end)
 		local cam = workspace.CurrentCamera
-		camWas = cam.CameraType
+		if not riderCab then
+			camWas = cam.CameraType ~= Enum.CameraType.Scriptable and cam.CameraType or Enum.CameraType.Custom
+		end
+		riderCab = cab
 		cam.CameraType = Enum.CameraType.Scriptable
 	end
 	if cab:GetAttribute("Event") == "calm" then
@@ -158,6 +170,8 @@ end
 
 RunService.RenderStepped:Connect(function()
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if riderCab and not riderCab:IsDescendantOf(workspace) then release() end
+	for cab in pairs(rideState) do if not cab.Parent then rideState[cab] = nil end end
 	for _, cab in ipairs(CollectionService:GetTagged("LiftCab")) do
 		local base = cab.PrimaryPart
 		if base then
@@ -167,7 +181,7 @@ RunService.RenderStepped:Connect(function()
 			local start = cab:GetAttribute("Start")
 			if moving and rs.start ~= start then
 				rs.start = start
-				startRide(cab, rs)
+				startRide(cab)
 			end
 			-- draw the cab where the ride says (locally), and carry our character by the same step
 			local step = drawStep(cab, moving)
@@ -180,12 +194,11 @@ RunService.RenderStepped:Connect(function()
 				end
 			end
 			-- the rider's camera: inside, facing the doors
-			if rs.rider and moving then
+			if riderCab == cab and moving then
 				local cf = base.CFrame
 				workspace.CurrentCamera.CFrame = CFrame.lookAt((cf * CFrame.new(0, 6.6, -C.d / 2 + 1.2)).Position, (cf * CFrame.new(0, 4.2, C.d / 2)).Position)
-			elseif rs.rider and not moving then
-				rs.rider = false
-				workspace.CurrentCamera.CameraType = camWas or Enum.CameraType.Custom
+			elseif riderCab == cab then
+				release()
 			end
 			-- stepping in opens the list (and pops NEW on the trophy panel)
 			local state = cab:GetAttribute("State")
