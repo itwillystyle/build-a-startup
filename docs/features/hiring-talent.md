@@ -11,7 +11,7 @@
 - `src/ServerScriptService/StaffRig.lua`: `ROLES` :85, avatar template prewarm :422, `build` :505, `setTalent` :542, `setTitle` :590, `say` :598, `cheer` :637, `setSeated` :659, `animate` :826. Server builds and places only.
 - `src/ServerScriptService/CoreConfig.lua`: `TALENT` odds and multipliers :80-86, `TIER_RATE`/`TIER_TITLE` :77-78, `PROMOTE_EVERY` :79, `ROLE_ORDER` :27.
 - `src/ServerScriptService/RoomEconomy.lua`: `FIT` :64, `TIERS` :353, `INDEX_*` :383-385, `indexLines` :386, `indexMult` :401.
-- `src/StarterPlayer/StarterPlayerScripts/StaffAnimClient.client.lua`: `add` :156, `wander` :220, Heartbeat loop :348. Typing, glances, wander, cheer, hunter anims.
+- `src/StarterPlayer/StarterPlayerScripts/StaffAnimClient.client.lua`: `add` :146, `wander` :210, Heartbeat loop :338. Typing, glances, wander, cheer, hunter anims.
 - `src/StarterPlayer/StarterPlayerScripts/TalentRevealClient.client.lua`: `showCard` :258, listener :310.
 - `src/StarterPlayer/StarterPlayerScripts/IndexClient.client.lua`: `refresh` :229, `setOpen` :273.
 **State:**
@@ -52,5 +52,5 @@
 - Avatar templates build at server start. A hire in the first seconds waits up to 12 s, then falls back to the block rig (`StaffRig.lua:439-447,505-515`).
 - Do not move motion back to the server. The header measured 246.5 KB/s per player when it was there (`StaffRig.lua:29-33`).
 - A kept spin-off hire returns as an Intern (`spawnStaff` sets `tier = 1`, :1477).
-- `StaffAnimClient.client.lua:47` says the run animation id is empty. `HUNTER_ANIM.run` is set (:52-53). The comment is stale.
-**Last verified:** 2026-10-14 5079cec
+- `StaffAnimClient.client.lua:48` says the run animation id is empty. `HUNTER_ANIM.run` is set (:53-54). The comment is stale.
+**Last verified:** 2026-10-14 d1d37a1
