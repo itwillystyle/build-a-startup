@@ -53,6 +53,8 @@ Wafers.BLURB = {
 -- which room kind a department seats (RoomEconomy.FIT reads these)
 local SEAT_ROOM = { lobby = "office", eng = "office", studio = "studio", cafe = "cafe", labs = "labs" }
 local PAPER = Color3.fromRGB(243, 239, 230)
+local GREEN = Color3.fromRGB(118, 160, 92)
+local WOOD = Color3.fromRGB(158, 108, 66)
 local CHARCOAL = Color3.fromRGB(46, 50, 58)
 local GOLD = Color3.fromRGB(255, 194, 61)
 
@@ -169,7 +171,7 @@ spurs. Once per plot. ]]
 local function clearFootprint(plot)
 	local grounds = plot.folder and plot.folder:FindFirstChild("Grounds")
 	if not (grounds and plot.pivot) then return end
-	local A = T.SECTIONS[1]
+	local A = T.rect(0)   -- the podium, the widest storey
 	local function inside(pos)
 		local lp = plot.pivot:PointToObjectSpace(pos)
 		if math.abs(lp.X) <= A.hx + 3 and lp.Z >= A.zb - 3 and lp.Z <= A.zf + 3 then return true end
@@ -460,6 +462,25 @@ local function buildSegment(plot, L, dept, model)
 				{ Color = tint, Material = Enum.Material.SmoothPlastic, CastShadow = false, CanQuery = false, CanCollide = false })
 		end
 	end
+	if pc.storey == 0 then   -- the podium (the mock): a white roof band past the glass, warm wood columns along the front
+		local band = { Color = PAPER, Material = Enum.Material.SmoothPlastic, CastShadow = false }
+		local top, o = y + h, 1.5
+		local b = { pz = { r.x0, r.x1, r.z1 - T.WALL_T, r.z1 + o }, nz = { r.x0, r.x1, r.z0 - o, r.z0 + T.WALL_T },
+			px = { r.x1 - T.WALL_T, r.x1 + o, r.z0, r.z1 }, nx = { r.x0 - o, r.x0 + T.WALL_T, r.z0, r.z1 } }
+		for side, q in pairs(b) do
+			if r.sides[side] == "glass" then
+				slabBox(model, plot, "RoofBand", q[1], q[2], q[3], q[4], top - 1.2, top + 0.6, band)
+			end
+		end
+		if r.sides.pz == "glass" then
+			local wood = { Color = WOOD, Material = Enum.Material.SmoothPlastic }
+			for x = r.x0 + 3, r.x1 - 3, 6 do
+				if not (lobby and math.abs(x - r.cx) < 8) then   -- keep the doorway clear
+					slabBox(model, plot, "Column", x - 0.4, x + 0.4, r.z1 + 0.6, r.z1 + 1.4, y, top - 1.2, wood)
+				end
+			end
+		end
+	end
 	if lobby then   -- the entrance canopy over the forecourt
 		slabBox(model, plot, "LobbyCanopy", r.cx - 11, r.cx + 11, r.z1, r.z1 + 10, y + 10, y + 11,
 			{ Color = PAPER, Material = Enum.Material.SmoothPlastic, CanCollide = false })
@@ -473,8 +494,6 @@ local function buildSegment(plot, L, dept, model)
 end
 
 -- ---------------------------------------------------------------- gardens, roof, pavilions, crown
-local GREEN = Color3.fromRGB(118, 160, 92)
-local WOOD = Color3.fromRGB(158, 108, 66)
 
 -- a garden storey or the roof: the deck over the section below, glass rails, planters
 local function buildGarden(plot, L, model)
@@ -517,7 +536,8 @@ local function buildCrown(plot, L, model)
 		slabBox(model, plot, "Lantern", l.x0, l.x1, l.z0, l.z1, roofY, roofY + 14,
 			{ Color = Color3.fromRGB(190, 214, 226), Material = Enum.Material.Glass, Transparency = 0.35, CastShadow = false })
 	elseif pc.kind == "halo" then
-		local sec = T.SECTIONS[#T.SECTIONS]
+		local roof = T.deck(14)
+		local sec = { hx = roof.x1, zb = roof.z0, zf = roof.z1 }
 		local hy = roofY + 4
 		local band = { Color = GOLD, Material = Enum.Material.SmoothPlastic, CanCollide = false, CastShadow = false }
 		slabBox(model, plot, "Halo", -sec.hx, sec.hx, sec.zf - 0.6, sec.zf, hy, hy + 1.2, band)

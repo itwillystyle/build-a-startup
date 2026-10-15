@@ -6,18 +6,36 @@
 
 	Plot-local studs: the garage's centre is the origin, +Z faces the road. Each storey is a
 	3 x 3 grid: 8 rooms (WaferPlan's segs 1..8, seg 1 at the front centre, then clockwise seen
-	from above) around a centre hall that holds the lift shaft. The building has 4 sections;
-	at each garden storey (2, 6, 10) it steps back: the front, then the back, then the front.
-	The garage's desk, hire pad and build pad stand in the ground storey's centre hall. ]]
+	from above) around a centre hall that holds the lift shaft. Every storey has its own
+	rectangle (`rect`): a podium lobby wider than the tower, then each floor a step narrower, and
+	at each garden storey (2, 6, 10) a setback: the front, then the back, then the front.
+	The garage's desk, hire pad and build pad stand in the podium's centre hall. ]]
 local T = {}
 
 T.FLOOR_Y, T.LOBBY_H, T.H, T.SLAB = 1.0, 24, 18, 1.5
-T.SECTIONS = {
-	{ from = 0, to = 1, hx = 46, zf = 46, zb = -46 },
-	{ from = 3, to = 5, hx = 44, zf = 40, zb = -46 },     -- deck 2: the front steps back 6
-	{ from = 7, to = 9, hx = 42, zf = 40, zb = -40 },     -- deck 6: the back steps in 6
-	{ from = 11, to = 14, hx = 40, zf = 34, zb = -40 },   -- deck 10: the front steps back 6; 14 = the roof garden
-}
+--[[ v9.1 (14 Oct, Luke: "fix the taper and the podium lobby"). Every storey has its own rectangle:
+	the mock's taper (each floor steps in) plus its setbacks (the front, the back, the front at the
+	three garden storeys), on a podium lobby that stands out past the tower on every side.
+	The top is held at hx 40.8: the lift shaft must fit the top storey's centre hall. ]]
+T.BASE = { hx = 50, hd = 46 }            -- floor 1, before setbacks
+T.TAPER = { x = 10 / 13, z = 0.5 }       -- studs each storey steps in, per side (x: 100 wide at 1, 80 at 14)
+T.SETBACK = 6
+T.PODIUM = { x = 9, front = 6, back = 8 } -- how far the lobby stands out past floor 1 (the mock: 70 x 50 under 52 x 34)
+
+-- storey s's rectangle: { hx, zf, zb } (x from -hx to hx, z from zb to zf)
+function T.rect(s)
+	s = math.floor(s or 0)
+	if s <= 0 then
+		local a = T.rect(1)
+		return { hx = a.hx + T.PODIUM.x, zf = a.zf + T.PODIUM.front, zb = a.zb - T.PODIUM.back }
+	end
+	s = math.min(s, 14)
+	local hd = T.BASE.hd - T.TAPER.z * (s - 1)
+	local zf = hd - ((s >= 3) and T.SETBACK or 0) - ((s >= 11) and T.SETBACK or 0)
+	local zb = -hd + ((s >= 7) and T.SETBACK or 0)
+	return { hx = T.BASE.hx - T.TAPER.x * (s - 1), zf = zf, zb = zb }
+end
+
 T.DECKS = { [2] = 1, [6] = 2, [10] = 3 }                  -- a garden storey -> the section below it
 T.SHAFT = { x0 = 5, x1 = 13, z0 = -12, z1 = -2 }          -- in every centre hall, clear of the garage's desks (x -4.4..4.4, measured)
 T.STAND = { x = 9, z = 1.5 }                              -- where the lift lets you off: in front of its +Z doors
@@ -32,19 +50,12 @@ function T.floorY(s)
 end
 
 function T.section(s)
-	local d = T.DECKS[s]
-	if d then return T.SECTIONS[d] end
-	for _, sec in ipairs(T.SECTIONS) do
-		if s >= sec.from and s <= sec.to then return sec end
-	end
-	return T.SECTIONS[#T.SECTIONS]
+	if T.DECKS[s] then return T.rect(s - 1) end
+	return T.rect(s)
 end
 
 -- the section that starts right above garden storey s (nil if none)
-function T.above(s)
-	for _, sec in ipairs(T.SECTIONS) do if sec.from == s + 1 then return sec end end
-	return nil
-end
+function T.above(s) return T.rect(s + 1) end
 
 -- cell (col, row) of a section's 3 x 3 grid: col 1..3 from -x to +x, row 1..3 from back to front
 local function cell(sec, col, row)
@@ -77,15 +88,16 @@ end
 
 function T.centre(s) return cell(T.section(s), 2, 2) end
 
+-- a garden storey's deck, or the roof (14): the top of the storey below
 function T.deck(s)
-	local sec = T.SECTIONS[T.DECKS[s] or #T.SECTIONS]
-	return { x0 = -sec.hx, x1 = sec.hx, z0 = sec.zb, z1 = sec.zf }
+	local r = T.rect(math.min(s, 14) - 1)
+	return { x0 = -r.hx, x1 = r.hx, z0 = r.zb, z1 = r.zf }
 end
 
 function T.pavilion(k)
-	local sec = T.SECTIONS[#T.SECTIONS]
-	local qx = ({ 1, 1, -1, -1 })[k] * sec.hx / 2
-	local qz = sec.zb + (sec.zf - sec.zb) * (({ 0.75, 0.25, 0.25, 0.75 })[k])
+	local roof = T.deck(14)
+	local qx = ({ 1, 1, -1, -1 })[k] * roof.x1 / 2
+	local qz = roof.z0 + (roof.z1 - roof.z0) * (({ 0.8, 0.2, 0.2, 0.8 })[k])
 	return { x0 = qx - 6, x1 = qx + 6, z0 = qz - 6, z1 = qz + 6 }
 end
 
@@ -194,9 +206,11 @@ end
 -- the finished tower's silhouette (the intro flyover's ghost): one box per section + the crown
 function T.spec()
 	local out = {}
-	for i, sec in ipairs(T.SECTIONS) do
-		local top = (i < #T.SECTIONS) and T.floorY(sec.to + 1) or T.floorY(14)
-		table.insert(out, ("%g:%g:%g:%g:%g:%g"):format(-sec.hx, sec.hx, sec.zb, sec.zf, T.floorY(sec.from) - T.SLAB, top))
+	for st = 0, 13 do
+		if not T.DECKS[st] then
+			local r = T.rect(st)
+			table.insert(out, ("%g:%g:%g:%g:%g:%g"):format(-r.hx, r.hx, r.zb, r.zf, T.floorY(st) - T.SLAB, T.floorY(st) + T.storeyH(st) - T.SLAB))
+		end
 	end
 	local l = T.lantern()
 	table.insert(out, ("%g:%g:%g:%g:%g:%g"):format(l.x0, l.x1, l.z0, l.z1, T.floorY(14), T.floorY(15) + 4))

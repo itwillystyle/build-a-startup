@@ -43,15 +43,38 @@ test("the shaft and the stand fit every storey's centre hall", function()
 	end
 end)
 
-test("setbacks: front, back, front at the three garden storeys", function()
-	local A, B, C, D = T.SECTIONS[1], T.SECTIONS[2], T.SECTIONS[3], T.SECTIONS[4]
-	assert(B.zf < A.zf and B.zb == A.zb, "deck 2 steps the front back")
-	assert(C.zb > B.zb and C.zf == B.zf, "deck 6 steps the back in")
-	assert(D.zf < C.zf and D.zb == C.zb, "deck 10 steps the front back")
-	for d, below in pairs(T.DECKS) do
-		local r = T.deck(d)
-		local sec = T.SECTIONS[below]
-		assert(r.x0 == -sec.hx and r.x1 == sec.hx and r.z0 == sec.zb and r.z1 == sec.zf, "deck " .. d .. " = the section below")
+-- 14 Oct (Luke: "fix the taper and the podium lobby"): the mock's podium is wider than the tower on every side,
+-- and every floor steps in (concept 2's taper), with concept 3's setbacks kept at the garden storeys
+test("the podium lobby is wider and deeper than the tower above it (the mock's glass base)", function()
+	local p, a = T.rect(0), T.rect(1)
+	assert(p.hx >= a.hx + 8, ("podium sides only %.1f wider than floor 1"):format(p.hx - a.hx))
+	assert(p.zf >= a.zf + 4 and p.zb <= a.zb - 4, "the podium must stand out at the front and the back")
+	assert(T.section(0).hx == p.hx, "storey 0's rooms are laid out on the podium")
+end)
+
+test("taper: every storey above the lobby is narrower than the one below, 18% or more in all", function()
+	for s = 2, 14 do
+		assert(T.rect(s).hx < T.rect(s - 1).hx - 0.25, ("storey %d does not step in"):format(s))
+	end
+	assert(T.rect(14).hx <= 0.82 * T.rect(1).hx, ("total taper only %.0f%%"):format(100 * (1 - T.rect(14).hx / T.rect(1).hx)))
+end)
+
+test("setbacks: front, back, front at the three garden storeys, and each deck is the roof below it", function()
+	assert(T.rect(3).zf <= T.rect(1).zf - 6, "deck 2 steps the front back")
+	assert(T.rect(7).zb >= T.rect(5).zb + 6, "deck 6 steps the back in")
+	assert(T.rect(11).zf <= T.rect(9).zf - 6, "deck 10 steps the front back")
+	for d in pairs(T.DECKS) do
+		local r, below = T.deck(d), T.rect(d - 1)
+		assert(r.x0 == -below.hx and r.x1 == below.hx and r.z0 == below.zb and r.z1 == below.zf, "deck " .. d .. " = the storey below")
+	end
+end)
+
+test("the roof pavilions stand on the roof and clear of the crown", function()
+	local roof, l = T.deck(14), T.lantern()
+	for k = 1, 4 do
+		local pv = T.pavilion(k)
+		assert(inside(pv, { x0 = roof.x0, x1 = roof.x1, z0 = roof.z0, z1 = roof.z1 }), "pavilion " .. k .. " off the roof")
+		assert(not overlap(pv, l), "pavilion " .. k .. " inside the crown")
 	end
 end)
 
@@ -92,7 +115,12 @@ test("the garage's working spots stay clear of the shaft (desk, hire pad, build 
 		{ x0 = 10, x1 = 16, z0 = 5, z1 = 11 },               -- the build pad, 6x6 at (13, 8)
 		{ x0 = -1, x1 = 1, z0 = -1, z1 = 1 },                -- the spawn at (0, 0)
 	}
-	for i, s in ipairs(spots) do assert(not overlap(s, T.SHAFT), "spot " .. i .. " is in the shaft") end
+	local hall = T.centre(0)
+	for i, s in ipairs(spots) do
+		assert(not overlap(s, T.SHAFT), "spot " .. i .. " is in the shaft")
+		assert(inside(s, { x0 = hall.x0 + T.WALL_T, x1 = hall.x1 - T.WALL_T, z0 = hall.z0 + T.WALL_T, z1 = hall.z1 - T.WALL_T }),
+			"spot " .. i .. " is not inside the lobby's centre hall (a wall stands on it)")
+	end
 end)
 
 test("frames: a room's anchor is its centre at its floor, the crown stands over the shaft", function()
@@ -108,10 +136,12 @@ test("labels: lobby, floors, sky gardens, roof", function()
 	assert(T.label(0) == "LOBBY" and T.label(2) == "SKY GARDEN" and T.label(14) == "ROOF GARDEN" and T.label(3) == "FLOOR 3", "labels")
 end)
 
-test("silhouette: spec() round-trips through parseSpec, one box per section plus the crown", function()
+test("silhouette: spec() round-trips through parseSpec, one box per storey with rooms plus the crown", function()
 	local boxes = T.parseSpec(T.spec())
-	assert(#boxes == #T.SECTIONS + 1, "boxes: " .. #boxes)
-	assert(boxes[1].x0 == -T.SECTIONS[1].hx and boxes[1].y0 == T.floorY(0) - T.SLAB, "first box")
+	local n = 0
+	for st = 0, 13 do if not T.DECKS[st] then n += 1 end end
+	assert(#boxes == n + 1, "boxes: " .. #boxes)
+	assert(boxes[1].x0 == -T.rect(0).hx and boxes[1].y0 == T.floorY(0) - T.SLAB, "first box is the podium")
 	assert(#T.parseSpec("junk") == 0 and #T.parseSpec(nil) == 0, "bad input gives nothing")
 end)
 
