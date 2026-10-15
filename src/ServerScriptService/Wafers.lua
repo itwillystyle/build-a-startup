@@ -422,20 +422,6 @@ local function sign(model, plot, r, s, dept)
 	return t
 end
 
--- columns from a garden storey's deck up to the section above, with that section's first room
-local function deckColumns(model, plot, s)
-	local deckS = s - 1
-	if not T.DECKS[deckS] then return end
-	local sec = T.above(deckS)
-	if not sec then return end
-	local y0, y1 = T.floorY(deckS), T.floorY(s) - SLAB
-	for _, x in ipairs({ -sec.hx + 1.5, sec.hx - 1.5 }) do
-		for _, z in ipairs({ sec.zb + 1.5, sec.zf - 1.5 }) do
-			slabBox(model, plot, "Column", x - 1.5, x + 1.5, z - 1.5, z + 1.5, y0, y1, { Color = PAPER, Material = Enum.Material.SmoothPlastic })
-		end
-	end
-end
-
 local function buildSegment(plot, L, dept, model)
 	local pc = P.PIECES[L]
 	local r = T.room(pc.storey, pc.seg)
@@ -445,7 +431,9 @@ local function buildSegment(plot, L, dept, model)
 	local glassProps = { Color = facadeTint(dept), Material = Enum.Material.Glass, Transparency = 0.45, CastShadow = false }
 	local partProps = { Color = PAPER, Material = Enum.Material.SmoothPlastic }
 	local parts = {}
-	table.insert(parts, slabBox(model, plot, "Floor", r.x0, r.x1, r.z0, r.z1, y - SLAB, y, { Color = PAPER, Material = Enum.Material.SmoothPlastic }))
+	if not T.DECKS[pc.storey - 1] then   -- above a garden the deck is the floor (two slabs in one place would flicker)
+		table.insert(parts, slabBox(model, plot, "Floor", r.x0, r.x1, r.z0, r.z1, y - SLAB, y, { Color = PAPER, Material = Enum.Material.SmoothPlastic }))
+	end
 	table.insert(parts, slabBox(model, plot, "Ceiling", r.x0, r.x1, r.z0, r.z1, y + h - 0.4, y + h,
 		{ Color = Color3.fromRGB(250, 248, 242), Material = Enum.Material.SmoothPlastic, CanCollide = false, CastShadow = false }))
 	local lobby = (pc.storey == 0 and pc.seg == 1)
@@ -485,7 +473,6 @@ local function buildSegment(plot, L, dept, model)
 		slabBox(model, plot, "LobbyCanopy", r.cx - 11, r.cx + 11, r.z1, r.z1 + 10, y + 10, y + 11,
 			{ Color = PAPER, Material = Enum.Material.SmoothPlastic, CanCollide = false })
 	end
-	if pc.seg == 1 then deckColumns(model, plot, pc.storey) end
 	local anchor = Wafers.anchor(plot, L)
 	local seats = furnish(model, anchor, dept, r)
 	if pc.seg == 3 then station(model, anchor, dept, r, plot, L) end
@@ -502,14 +489,53 @@ local function buildGarden(plot, L, model)
 	local y = T.floorY(pc.storey)
 	slabBox(model, plot, "Deck", r.x0, r.x1, r.z0, r.z1, y - SLAB, y, { Color = Color3.fromRGB(214, 206, 190), Material = Enum.Material.SmoothPlastic })
 	local rail = { Color = Color3.fromRGB(200, 222, 232), Material = Enum.Material.Glass, Transparency = 0.4, CastShadow = false }
-	slabBox(model, plot, "Rail", r.x0, r.x1, r.z1 - 0.3, r.z1, y, y + 3.2, rail)
-	slabBox(model, plot, "Rail", r.x0, r.x1, r.z0, r.z0 + 0.3, y, y + 3.2, rail)
-	slabBox(model, plot, "Rail", r.x1 - 0.3, r.x1, r.z0, r.z1, y, y + 3.2, rail)
-	slabBox(model, plot, "Rail", r.x0, r.x0 + 0.3, r.z0, r.z1, y, y + 3.2, rail)
-	for x = r.x0 + 6, r.x1 - 6, 10 do
-		for _, z in ipairs({ r.z1 - 2.2, r.z0 + 2.2 }) do
-			slabBox(model, plot, "Planter", x - 2, x + 2, z - 0.9, z + 0.9, y, y + 1.4, { Color = WOOD, Material = Enum.Material.SmoothPlastic })
-			slabBox(model, plot, "Plants", x - 1.8, x + 1.8, z - 0.7, z + 0.7, y + 1.4, y + 2.0, { Color = GREEN, Material = Enum.Material.SmoothPlastic, CanCollide = false })
+	local hand = { Color = PAPER, Material = Enum.Material.SmoothPlastic, CastShadow = false }
+	for _, q in ipairs({ { r.x0, r.x1, r.z1 - 0.3, r.z1 }, { r.x0, r.x1, r.z0, r.z0 + 0.3 }, { r.x1 - 0.3, r.x1, r.z0, r.z1 }, { r.x0, r.x0 + 0.3, r.z0, r.z1 } }) do
+		slabBox(model, plot, "Rail", q[1], q[2], q[3], q[4], y, y + 3.2, rail)
+		slabBox(model, plot, "Handrail", q[1], q[2], q[3], q[4], y + 3.2, y + 3.5, hand)
+	end
+	local wood = { Color = WOOD, Material = Enum.Material.SmoothPlastic }
+	local leaf = { Color = GREEN, Material = Enum.Material.SmoothPlastic, CanCollide = false }
+	local function planter(x, z)
+		slabBox(model, plot, "Planter", x - 2, x + 2, z - 0.9, z + 0.9, y, y + 1.4, wood)
+		slabBox(model, plot, "Plants", x - 1.8, x + 1.8, z - 0.7, z + 0.7, y + 1.4, y + 2.0, leaf)
+	end
+	if not T.DECKS[pc.storey] then   -- the roof: nothing stands on it but the pavilions and the crown
+		for x = r.x0 + 6, r.x1 - 6, 10 do planter(x, r.z1 - 2.2); planter(x, r.z0 + 2.2) end
+		return
+	end
+	--[[ a garden: the floor above stands on this deck; its terrace is the strip the step-back left
+		open (TowerPlan.terraces). Planters along the rail, then lamps, then benches by the glass;
+		a tree at each end of the main strip (the mock's terrace kit; 1d replaces these boxes). ]]
+	local best, bestSide
+	for side, t in pairs(T.terraces(pc.storey)) do
+		if (side == "front" or side == "back") and t.depth >= 4 then
+			local out = (side == "front") and 1 or -1
+			local edge = (side == "front") and t.z1 or t.z0   -- the rail
+			for x = t.x0 + 10, t.x1 - 10, 10 do planter(x, edge - out * 1.6) end
+			if not best or t.depth > best.depth then best, bestSide = t, side end
+		end
+	end
+	if best then
+		local out = (bestSide == "front") and 1 or -1
+		local edge = (bestSide == "front") and best.z1 or best.z0
+		local inner = (bestSide == "front") and best.z0 or best.z1   -- the glass of the floor above
+		local mid = (edge + inner) / 2
+		for _, x in ipairs({ -12, 12 }) do   -- lamps
+			slabBox(model, plot, "LampPost", x - 0.15, x + 0.15, mid - 0.15, mid + 0.15, y, y + 3.2, { Color = CHARCOAL, Material = Enum.Material.SmoothPlastic })
+			slabBox(model, plot, "Lamp", x - 0.4, x + 0.4, mid - 0.4, mid + 0.4, y + 3.2, y + 3.6, { Color = GOLD, Material = Enum.Material.Neon, CanCollide = false })
+		end
+		local bz = inner + out * 1.6
+		for _, x in ipairs({ -6, 6 }) do   -- benches by the glass, facing out
+			slabBox(model, plot, "Bench", x - 2, x + 2, bz - 0.5, bz + 0.5, y + 0.9, y + 1.15, wood)
+			slabBox(model, plot, "BenchLeg", x - 1.8, x - 1.5, bz - 0.4, bz + 0.4, y, y + 0.9, wood)
+			slabBox(model, plot, "BenchLeg", x + 1.5, x + 1.8, bz - 0.4, bz + 0.4, y, y + 0.9, wood)
+		end
+		for _, x in ipairs({ best.x0 + 4, best.x1 - 4 }) do   -- a small tree at each end
+			slabBox(model, plot, "Trunk", x - 0.4, x + 0.4, mid - 0.4, mid + 0.4, y, y + 3.5, wood)
+			local crown = add(model, { Name = "TreeLeaf", Shape = Enum.PartType.Ball, Size = Vector3.new(4.5, 4.5, 4.5),
+				CFrame = plot.pivot * CFrame.new(x, y + 5, mid), Color = GREEN, Material = Enum.Material.SmoothPlastic, CanCollide = false })
+			crown.CastShadow = true
 		end
 	end
 end
@@ -591,8 +617,8 @@ local function buildCore(plot)
 	local shaft = { Color = Color3.fromRGB(190, 214, 226), Material = Enum.Material.Glass, Transparency = 0.45, CastShadow = false }
 	for s = 0, top do
 		local y, h = T.floorY(s), T.storeyH(s)
-		-- the shaft's 4 walls this storey (a 6-wide door gap on +Z, closed by the cab in 1b)
-		for _, w in ipairs({ { S.x0, S.x1, S.z0, S.z0 + 0.4 }, { S.x0, S.x0 + 0.4, S.z0, S.z1 }, { S.x1 - 0.4, S.x1, S.z0, S.z1 },
+		-- the shaft's 4 walls this storey (a 6-wide door gap on +Z, closed by the cab in 1b); a garden has no height
+		for _, w in ipairs(h <= 0 and {} or{ { S.x0, S.x1, S.z0, S.z0 + 0.4 }, { S.x0, S.x0 + 0.4, S.z0, S.z1 }, { S.x1 - 0.4, S.x1, S.z0, S.z1 },
 			{ S.x0, (S.x0 + S.x1) / 2 - 3, S.z1 - 0.4, S.z1 }, { (S.x0 + S.x1) / 2 + 3, S.x1, S.z1 - 0.4, S.z1 } }) do
 			table.insert(st.core, slabBox(st.folder, plot, "LiftShaft", w[1], w[2], w[3], w[4], y - SLAB, y + h - SLAB, shaft))
 		end

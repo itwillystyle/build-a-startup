@@ -41,12 +41,22 @@ T.SHAFT = { x0 = 5, x1 = 13, z0 = -12, z1 = -2 }          -- in every centre hal
 T.STAND = { x = 9, z = 1.5 }                              -- where the lift lets you off: in front of its +Z doors
 T.TOP = 15
 
-function T.storeyH(s) return (s == 0) and T.LOBBY_H or T.H end
+--[[ v9.2 (14 Oct, Luke: "fix the garden storeys so they look like terraces"). A garden storey
+	has no height: the floor above stands on its deck, and the garden is the strip the step-back
+	leaves open (`terraces`), as in the mock. Before, each garden was a whole empty 18-stud storey
+	and read from the plaza as a missing floor. ]]
+function T.storeyH(s)
+	if s == 0 then return T.LOBBY_H end
+	if T.DECKS[s] then return 0 end
+	return T.H
+end
 
 function T.floorY(s)
 	s = math.max(0, math.floor(s or 0))
 	if s == 0 then return T.FLOOR_Y end
-	return T.FLOOR_Y + T.LOBBY_H + (s - 1) * T.H
+	local y = T.FLOOR_Y + T.LOBBY_H
+	for k = 1, s - 1 do y += T.storeyH(k) end
+	return y
 end
 
 function T.section(s)
@@ -142,6 +152,7 @@ function T.topStorey(pieces, level)
 		local pc = pieces[L]
 		if pc and not CROWN[pc.kind] then top = math.max(top, pc.storey) end
 	end
+	if T.DECKS[top] then top += 1 end   -- a fresh garden deck: the floor above stands on it (and is the stop)
 	return top
 end
 
@@ -150,16 +161,17 @@ end
 function T.landable(pieces, level, s)
 	if level < 2 then return false end
 	if s == 0 then return true end
+	if T.DECKS[s] then return false end           -- the floor above it is the stop
 	for L = 2, level do
 		local pc = pieces[L]
-		if pc and pc.storey == s and not CROWN[pc.kind] then return true end
+		if pc and not CROWN[pc.kind] and (pc.storey == s or (pc.storey == s - 1 and T.DECKS[s - 1])) then return true end
 	end
 	return false
 end
 
 -- the landing hall floor of storey s (the centre cell), or nil where a deck carries the stand
 function T.landing(s)
-	if T.DECKS[s] or s >= 14 then return nil end
+	if T.DECKS[s] or T.DECKS[s - 1] or s >= 14 then return nil end   -- a deck carries the stand
 	return T.centre(s)
 end
 
@@ -196,10 +208,24 @@ function T.edges(pieces, L)
 	return out
 end
 
+-- the open strips of garden deck d around the storey that stands on it: side -> { x0, x1, z0, z1, depth }
+function T.terraces(d)
+	local deck, up = T.deck(d), T.rect(d + 1)
+	local out = {}
+	if deck.z1 - up.zf > 0 then out.front = { x0 = deck.x0, x1 = deck.x1, z0 = up.zf, z1 = deck.z1, depth = deck.z1 - up.zf } end
+	if up.zb - deck.z0 > 0 then out.back = { x0 = deck.x0, x1 = deck.x1, z0 = deck.z0, z1 = up.zb, depth = up.zb - deck.z0 } end
+	if deck.x1 - up.hx > 0 then
+		out.right = { x0 = up.hx, x1 = deck.x1, z0 = up.zb, z1 = up.zf, depth = deck.x1 - up.hx }
+		out.left = { x0 = deck.x0, x1 = -up.hx, z0 = up.zb, z1 = up.zf, depth = deck.x1 - up.hx }
+	end
+	return out
+end
+
 function T.label(s)
 	if s == 0 then return "LOBBY" end
 	if T.DECKS[s] then return "SKY GARDEN" end
 	if s >= 14 then return "ROOF GARDEN" end
+	if T.DECKS[s - 1] then return "FLOOR " .. s .. " · TERRACE" end
 	return "FLOOR " .. s
 end
 

@@ -10,9 +10,26 @@ local function overlap(a, b)
 end
 local function inside(a, b) return a.x0 >= b.x0 - 1e-6 and a.x1 <= b.x1 + 1e-6 and a.z0 >= b.z0 - 1e-6 and a.z1 <= b.z1 + 1e-6 end
 
-test("heights: a 24-stud lobby storey, then 18", function()
+test("heights: a 24-stud lobby storey, then 18; a garden storey has none (the floor above stands on its deck)", function()
 	assert(T.storeyH(0) == 24 and T.storeyH(1) == 18 and T.storeyH(13) == 18, "storey heights")
-	assert(T.floorY(0) == 1.0 and T.floorY(1) == 25 and T.floorY(2) == 43 and T.floorY(14) == 25 + 13 * 18, "floor tops")
+	for d in pairs(T.DECKS) do
+		assert(T.storeyH(d) == 0, "garden storey " .. d .. " still has height: it reads as a missing floor")
+		assert(T.floorY(d) == T.floorY(d + 1), "floor " .. (d + 1) .. " does not stand on deck " .. d)
+	end
+	assert(T.floorY(0) == 1.0 and T.floorY(1) == 25 and T.floorY(2) == 43 and T.floorY(3) == 43, "floor tops")
+	assert(T.floorY(14) == 25 + 10 * 18, ("the roof is at %g, want %g (10 office storeys above the lobby)"):format(T.floorY(14), 25 + 10 * 18))
+end)
+
+test("terraces: each storey above a garden stands inside the deck, leaving a terrace 6+ deep on its step-back side", function()
+	local sideOf = { [2] = "front", [6] = "back", [10] = "front" }
+	for d in pairs(T.DECKS) do
+		local deck, up = T.deck(d), T.rect(d + 1)
+		assert(inside({ x0 = -up.hx, x1 = up.hx, z0 = up.zb, z1 = up.zf }, deck), "storey " .. (d + 1) .. " overhangs deck " .. d)
+		local depth = sideOf[d] == "front" and (deck.z1 - up.zf) or (up.zb - deck.z0)
+		assert(depth >= 6, ("deck %d's %s terrace is only %.1f deep"):format(d, sideOf[d], depth))
+		local t = T.terraces(d)
+		assert(t[sideOf[d]] and math.abs(t[sideOf[d]].depth - depth) < 1e-6, "terraces() must report the " .. sideOf[d] .. " strip")
+	end
 end)
 
 test("every segment piece has a room inside its section, and rooms on a storey never overlap", function()
@@ -133,7 +150,7 @@ test("frames: a room's anchor is its centre at its floor, the crown stands over 
 end)
 
 test("labels: lobby, floors, sky gardens, roof", function()
-	assert(T.label(0) == "LOBBY" and T.label(2) == "SKY GARDEN" and T.label(14) == "ROOF GARDEN" and T.label(3) == "FLOOR 3", "labels")
+	assert(T.label(0) == "LOBBY" and T.label(2) == "SKY GARDEN" and T.label(14) == "ROOF GARDEN" and T.label(4) == "FLOOR 4", "labels")
 end)
 
 test("silhouette: spec() round-trips through parseSpec, one box per storey with rooms plus the crown", function()
@@ -150,6 +167,7 @@ local function surfaceAtStand(s)
 	local pt = { x0 = T.STAND.x, x1 = T.STAND.x, z0 = T.STAND.z, z1 = T.STAND.z }
 	local land = T.landing(s)
 	if land and inside(pt, land) then return true end
+	if T.DECKS[s - 1] then return inside(pt, T.deck(s - 1)) end   -- the floor above a garden stands on its deck
 	if T.DECKS[s] or s >= 14 then return inside(pt, T.deck(s)) end
 	return false
 end
@@ -166,6 +184,12 @@ test("every lift stop at every level stands on a landing or a deck, and nothing 
 		end
 		assert(T.landable(W.PIECES, level, 0), ("level %d: the lobby is not a stop"):format(level))
 	end
+	-- a garden is not a stop of its own: the floor above it is, as soon as the deck is built (level 18 = deck 2)
+	for d in pairs(T.DECKS) do
+		for level = 2, W.MAX do assert(not T.landable(W.PIECES, level, d), ("level %d: garden %d is a stop"):format(level, d)) end
+	end
+	assert(T.landable(W.PIECES, 18, 3), "deck 2 is built (level 18) but floor 3 is not a stop")
+	assert(T.label(3) == "FLOOR 3 · TERRACE" and T.label(2) == "SKY GARDEN", "labels: " .. T.label(3) .. " / " .. T.label(2))
 	-- the crown pieces (halo, lantern, mast) never make storey 15 a stop
 	assert(not T.landable(W.PIECES, W.MAX, 15), "the crown storey became a stop")
 	assert(T.topStorey(W.PIECES, W.MAX) == 14, "the top storey at 100 is the roof garden")
