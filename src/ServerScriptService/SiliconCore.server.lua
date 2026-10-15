@@ -2504,15 +2504,16 @@ end)
 local GRID = 0.5
 local DESK_FAMILY = { desk = true, deskCorner = true, tableRound = true, tableCross = true, kitchenBar = true }
 
-local TowerPlan = tryRequire(ReplicatedStorage, "TowerPlan")
 local function floorRects(plot)
 	-- v9 (14 Oct, HQ tower 1a): from level 2 the garage floor is stashed; decor stands on the tower's
-	-- lobby storey (TowerPlan.decorRects: its built rooms and the hall around the lift shaft)
-	if Econ.WAFERS and Econ.Wafers and TowerPlan and plot.wafer and plot.wafer.level >= 2 then
+	-- lobby storey (Wafers.decorRects: its built rooms and the hall around the lift shaft; no new
+	-- top-level local here, CONSTRAINTS rule 10)
+	local tower = Econ.WAFERS and Econ.Wafers and Econ.Wafers.decorRects and Econ.Wafers.decorRects(plot)
+	if tower then
 		local rects = {}
-		for _, r in ipairs(TowerPlan.decorRects(Econ.Wafers.Plan.PIECES, plot.wafer.level) or {}) do
+		for _, r in ipairs(tower) do
 			table.insert(rects, { cf = plot.pivot * CFrame.new((r.x0 + r.x1) / 2, 0, (r.z0 + r.z1) / 2),
-				w = r.x1 - r.x0, d = r.z1 - r.z0, top = TowerPlan.floorY(0) })
+				w = r.x1 - r.x0, d = r.z1 - r.z0, top = Econ.Wafers.floorY(0), tower = true })
 		end
 		return rects
 	end
@@ -2578,6 +2579,21 @@ local function placeAt(player, plot, key, px, pz, yawDeg, free, forcedPrice)
 			popup(plot.hirePad, "Outside your floor", CFG.BAD)
 		end
 		return false
+	end
+	-- in the tower: clear of the lift landing, the garage spots, every doorway and the tower's own
+	-- furniture (Wafers.decorOk; final review 2). A saved piece that is in the way is refunded.
+	if floor.tower and Econ.Wafers.decorOk then
+		local l = plot.pivot:PointToObjectSpace(Vector3.new(x, 0, z))
+		if not Econ.Wafers.decorOk(plot, { x0 = l.X - w / 2, x1 = l.X + w / 2, z0 = l.Z - d / 2, z1 = l.Z + d / 2 }) then
+			if free then
+				cash.Value += (forcedPrice or item.price)
+				Telemetry.money(player, "source", forcedPrice or item.price, "refund")
+				player:SetAttribute("SVRefunded", (player:GetAttribute("SVRefunded") or 0) + 1)
+			else
+				popup(plot.hirePad, "Keep the lift, the doors and the desk clear", CFG.BAD)
+			end
+			return false
+		end
 	end
 
 	-- v2.6.0 ROOM ECONOMY: a station seats people only in its own room, up to
@@ -3966,6 +3982,7 @@ local SaveLoad = require(ServerScriptService:WaitForChild("SaveLoad"))({
 	officeDesk = officeDesk,
 	placeAt = placeAt,
 	plotOf = plotOf,
+	toast = function(p, text) toast:FireClient(p, text) end,   -- v9: tell a player what the load refunded
 	assignDesks = assignDesks,   -- v8 phase 2: the loader re-seats once every pin is known
 	pushTicker = pushTicker,
 	recompute = recompute,

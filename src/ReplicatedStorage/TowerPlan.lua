@@ -40,6 +40,15 @@ T.DECKS = { [2] = 1, [6] = 2, [10] = 3 }                  -- a garden storey -> 
 T.SHAFT = { x0 = 5, x1 = 13, z0 = -12, z1 = -2 }          -- in every centre hall, clear of the garage's desks (x -4.4..4.4, measured)
 T.STAND = { x = 9, z = 1.5 }                              -- where the lift lets you off: in front of its +Z doors
 T.TOP = 15
+-- the garage's working spots, plot-local, measured live 14 Oct: they stand in the lobby's centre hall
+T.GARAGE_SPOTS = {
+	{ x0 = -4.4, x1 = 4.4, z0 = -10.2, z1 = -7.8 },     -- the WRITE CODE desks (two, 4.3 wide at x -2.2 and 2.2, z -9)
+	{ x0 = 1.5, x1 = 3.5, z0 = -7.1, z1 = -5.3 },       -- the desk chair at (2.5, -6.2)
+	{ x0 = 1.7, x1 = 4.1, z0 = -9.8, z1 = -9.2 },       -- the monitor at (2.9, -9.5)
+	{ x0 = -14.5, x1 = -7.5, z0 = 0.5, z1 = 7.5 },      -- the hire pad, 7x7 at (-11, 4)
+	{ x0 = 10, x1 = 16, z0 = 5, z1 = 11 },               -- the build pad, 6x6 at (13, 8)
+	{ x0 = -1, x1 = 1, z0 = -1, z1 = 1 },                -- the spawn at (0, 0)
+}
 
 --[[ v9.2 (14 Oct, Luke: "fix the garden storeys so they look like terraces"). A garden storey
 	has no height: the floor above stands on its deck, and the garden is the strip the step-back
@@ -91,6 +100,13 @@ function T.room(storey, seg)
 	r.cx, r.cz = (r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2
 	r.yaw = T.YAW[seg]
 	r.sides = { px = side(1, 0), nx = side(-1, 0), pz = side(0, 1), nz = side(0, -1) }
+	-- the lobby's entrance (14 wide) on the forecourt side; the middle room of the row that stands
+	-- behind a terrace has a glass door onto it (final review 2: the terraces could not be reached)
+	if storey == 0 and seg == 1 then r.entrance = { side = "pz", width = 14 } end
+	if T.DECKS[storey - 1] then
+		local back = (T.DECKS[storey - 1] == 2)   -- deck 6 steps the back in; 2 and 10 the front
+		if not back and seg == 1 then r.terraceDoor = "pz" elseif back and seg == 5 then r.terraceDoor = "nz" end
+	end
 	local wx, wz = r.x1 - r.x0, r.z1 - r.z0
 	if seg == 3 or seg == 7 then r.w, r.d = wz, wx else r.w, r.d = wx, wz end
 	return r
@@ -229,6 +245,55 @@ function T.decorRects(pieces, level)
 	table.insert(out, { x0 = c.x0, x1 = c.x1, z0 = sh.z1, z1 = c.z1 })      -- in front (the garage spots)
 	table.insert(out, { x0 = c.x0, x1 = c.x1, z0 = c.z0, z1 = sh.z0 })      -- behind
 	return out
+end
+
+--[[ may a decor piece's footprint b ({x0, x1, z0, z1}, plot-local) stand in the tower at this level?
+	nil before the tower. It must lie inside one decorRects rect and clear of the keep-clear zones:
+	the shaft and its landing (where the lift lets you off), the garage's working spots, and 3 studs
+	either side of every doorway of the built lobby-storey rooms (final review 2, I3). ]]
+local function hits(a, b)
+	return math.min(a.x1, b.x1) - math.max(a.x0, b.x0) > 1e-6 and math.min(a.z1, b.z1) - math.max(a.z0, b.z0) > 1e-6
+end
+function T.decorKeepClear(pieces, level)
+	local out = {}
+	local sh = T.SHAFT
+	table.insert(out, { x0 = sh.x0 - 0.5, x1 = sh.x1 + 0.5, z0 = sh.z0 - 0.5, z1 = sh.z1 + 5 })   -- the shaft + its landing
+	for _, g in ipairs(T.GARAGE_SPOTS) do table.insert(out, g) end   -- exact: saved plants stand right beside the pads
+	for L = 2, level do
+		local pc = pieces[L]
+		if pc and pc.kind == "segment" and pc.storey == 0 then
+			local r = T.room(0, pc.seg)
+			for side, kind in pairs(r.sides) do
+				local w = (type(kind) == "number") and kind or nil
+				if r.entrance and r.entrance.side == side then w = r.entrance.width end
+				if w then
+					local alongX = (side == "pz" or side == "nz")
+					local at = (side == "pz" and r.z1) or (side == "nz" and r.z0) or (side == "px" and r.x1) or r.x0
+					local mid = alongX and r.cx or r.cz
+					if alongX then
+						table.insert(out, { x0 = mid - w / 2, x1 = mid + w / 2, z0 = at - 3, z1 = at + 3 })
+					else
+						table.insert(out, { x0 = at - 3, x1 = at + 3, z0 = mid - w / 2, z1 = mid + w / 2 })
+					end
+				end
+			end
+		end
+	end
+	return out
+end
+
+function T.decorOk(pieces, level, b)
+	local rects = T.decorRects(pieces, level)
+	if not rects then return nil end
+	local on = false
+	for _, r in ipairs(rects) do
+		if b.x0 >= r.x0 - 1e-6 and b.x1 <= r.x1 + 1e-6 and b.z0 >= r.z0 - 1e-6 and b.z1 <= r.z1 + 1e-6 then on = true break end
+	end
+	if not on then return false end
+	for _, k in ipairs(T.decorKeepClear(pieces, level)) do
+		if hits(b, k) then return false end
+	end
+	return true
 end
 
 -- the open strips of garden deck d around the storey that stands on it: side -> { x0, x1, z0, z1, depth }

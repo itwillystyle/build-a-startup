@@ -126,14 +126,8 @@ test("rooms face out: furniture yaw per seg, and w/d swap for the side rooms", f
 end)
 
 test("the garage's working spots stay clear of the shaft (desk, hire pad, build pad, spawn)", function()
-	local spots = {
-		{ x0 = -4.4, x1 = 4.4, z0 = -10.2, z1 = -7.8 },     -- the WRITE CODE desks (two, 4.3 wide at x -2.2 and 2.2, z -9), measured 14 Oct
-		{ x0 = 1.5, x1 = 3.5, z0 = -7.1, z1 = -5.3 },       -- the desk chair at (2.5, -6.2)
-		{ x0 = 1.7, x1 = 4.1, z0 = -9.8, z1 = -9.2 },       -- the monitor at (2.9, -9.5)
-		{ x0 = -14.5, x1 = -7.5, z0 = 0.5, z1 = 7.5 },      -- the hire pad, 7x7 at (-11, 4)
-		{ x0 = 10, x1 = 16, z0 = 5, z1 = 11 },               -- the build pad, 6x6 at (13, 8)
-		{ x0 = -1, x1 = 1, z0 = -1, z1 = 1 },                -- the spawn at (0, 0)
-	}
+	local spots = T.GARAGE_SPOTS
+	assert(#spots == 6, "the six measured spots")
 	local hall = T.centre(0)
 	for i, s in ipairs(spots) do
 		assert(not overlap(s, T.SHAFT), "spot " .. i .. " is in the shaft")
@@ -272,6 +266,52 @@ test("decor floors: the lobby storey's built rooms and the hall, never the shaft
 				"decor rect touches the lobby's walls")
 		end
 	end
+end)
+
+-- final review 2, I1: a terrace you cannot reach is not a terrace. The middle room of the row that
+-- stands behind each terrace has a glass door onto it.
+test("terraces are reachable: the middle room of the row above each garden has a glass door onto it", function()
+	local want = { [2] = { seg = 1, side = "pz" }, [6] = { seg = 5, side = "nz" }, [10] = { seg = 1, side = "pz" } }
+	for d, w in pairs(want) do
+		local r = T.room(d + 1, w.seg)
+		assert(r.terraceDoor == w.side, ("storey %d seg %d has no %s terrace door"):format(d + 1, w.seg, w.side))
+		local strip = T.terraces(d)[(w.side == "pz") and "front" or "back"]
+		assert(strip and r.cx - 3 >= strip.x0 and r.cx + 3 <= strip.x1, "the door does not open onto the terrace strip")
+	end
+	for st = 0, 13 do
+		for seg = 1, 8 do
+			local r = T.room(st, seg)
+			local w = want[st - 1]
+			if r.terraceDoor then assert(w and w.seg == seg, ("storey %d seg %d has a stray terrace door"):format(st, seg)) end
+		end
+	end
+	assert(T.room(0, 1).entrance and T.room(0, 1).entrance.side == "pz" and T.room(0, 1).entrance.width == 14, "the lobby's entrance")
+end)
+
+-- final review 2, I2-I4: decor keeps the lift landing, the garage spots and every doorway clear, and
+-- the spots real saves already use stay valid (Wilz's 8 plants, measured live 14 Oct, plot-local)
+local function box(x, z, s) s = s or 1.5; return { x0 = x - s / 2, x1 = x + s / 2, z0 = z - s / 2, z1 = z + s / 2 } end
+test("decor keeps the landing, the garage spots and the doorways clear, and the saved plants still fit", function()
+	assert(T.decorOk(W.PIECES, 1, box(0, 0)) == nil, "level 1: no tower, the garage floor decides")
+	local L = 55
+	for i, p in ipairs({ { -1.5, 4.3 }, { 4.0, 4.0 }, { 7.5, 8.9 }, { 3.7, 9.4 }, { -6.5, 3.7 }, { -11.6, 9.0 }, { -10.8, 10.3 }, { -5.5, 9.5 } }) do
+		assert(T.decorOk(W.PIECES, L, box(p[1], p[2])), ("saved plant %d at (%.1f, %.1f) would be refunded"):format(i, p[1], p[2]))
+	end
+	assert(not T.decorOk(W.PIECES, L, box(T.STAND.x, T.STAND.z)), "decor on the lift landing")
+	assert(not T.decorOk(W.PIECES, L, box(9, -7)), "decor in the shaft")
+	for i, s in ipairs(T.GARAGE_SPOTS) do
+		assert(not T.decorOk(W.PIECES, L, box((s.x0 + s.x1) / 2, (s.z0 + s.z1) / 2, 1)), "decor on garage spot " .. i)
+	end
+	local hall, lobby = T.centre(0), T.room(0, 1)
+	assert(not T.decorOk(W.PIECES, L, box(0, hall.z1 - 1, 1)), "decor in the hall-to-lobby doorway")
+	assert(not T.decorOk(W.PIECES, L, box(0, lobby.z1 - 1.5, 1)), "decor in the entrance")
+	assert(not T.decorOk(W.PIECES, L, box(lobby.x1 - 0.3, lobby.cz, 0.4)), "decor in a wall")
+	-- the rooms and the hall are really usable, not one sliver
+	assert(T.decorOk(W.PIECES, L, box(lobby.x0 + 6, lobby.cz)), "decor in the lobby room")
+	assert(T.decorOk(W.PIECES, L, box(hall.x0 + 4, hall.z0 + 4)), "decor in the hall's back corner")
+	local side = T.room(0, 3)
+	assert(T.decorOk(W.PIECES, L, box(side.cx, side.cz + 6)), "decor in a side room")
+	assert(not T.decorOk(W.PIECES, 2, box(side.cx, side.cz + 6)), "decor in a room that is not built yet (level 2)")
 end)
 
 return TT

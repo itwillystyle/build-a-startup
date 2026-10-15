@@ -304,6 +304,14 @@ return function(core)
 			end
 		end
 		if type(data.placed) == "table" then
+			-- v9 (14 Oct): pieces the new HQ has no room for are refunded; say so, once, after the load
+			local refundedBefore = player:GetAttribute("SVRefunded") or 0
+			task.delay(8, function()
+				local n = (player:GetAttribute("SVRefunded") or 0) - refundedBefore
+				if n > 0 and player.Parent and core.toast then
+					core.toast(player, ("%d decor piece%s did not fit your new HQ and %s refunded"):format(n, n == 1 and "" or "s", n == 1 and "was" or "were"))
+				end
+			end)
 			for _, e in ipairs(data.placed) do
 				if type(e) == "table" and type(e.k) == "string" then
 					local lx, lz, ly = tonumber(e.x) or 0, tonumber(e.z) or 0, tonumber(e.y) or 0

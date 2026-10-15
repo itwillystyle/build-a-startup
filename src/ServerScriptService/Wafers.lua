@@ -110,6 +110,32 @@ Wafers.PATHS = PATHS
 
 
 function Wafers.floorY(s) return T.floorY(s) end
+
+-- DECOR in the tower (level 2+): the floors decor may stand on, plot-local rects; nil before the tower
+function Wafers.decorRects(plot)
+	local st = plot.wafer
+	if not st or st.level < 2 then return nil end
+	return T.decorRects(P.PIECES, st.level)
+end
+
+--[[ may a decor footprint (plot-local x0..x1, z0..z1) stand here? The plan's rule (TowerPlan.decorOk:
+	a lobby-storey floor, clear of the landing, the garage spots and the doorways), then nothing the
+	tower itself built may be in the way: furniture, racks, the station, the shaft, the lift button. ]]
+local CLEAR_OF = { Floor = true, Ceiling = true, Deck = true, RoofBand = true, DeptBand = true, LobbyCanopy = true, RoomTone = true }
+function Wafers.decorOk(plot, b)
+	local st = plot.wafer
+	if not st or st.level < 2 then return nil end
+	if not T.decorOk(P.PIECES, st.level, b) then return false end
+	local y = T.floorY(0)
+	local params = OverlapParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { st.folder }
+	local cf = plot.pivot * CFrame.new((b.x0 + b.x1) / 2, y + 1.6, (b.z0 + b.z1) / 2)
+	for _, part in ipairs(workspace:GetPartBoundsInBox(cf, Vector3.new(b.x1 - b.x0 - 0.1, 3, b.z1 - b.z0 - 0.1), params)) do
+		if not CLEAR_OF[part.Name] and part.Transparency < 1 then return false end
+	end
+	return true
+end
 function Wafers.towerSpec() return T.spec() end
 
 function Wafers.anchor(plot, L)
@@ -136,9 +162,10 @@ end
 -- one wall on a room side: `kind` "glass", or a door width (6, 8, 14) centred on the side
 local WALL_T = T.WALL_T
 local function wallSide(model, plot, r, side, kind, y0, h, glassProps, partProps)
-	local props = (kind == "glass") and glassProps or partProps
-	local name = (kind == "glass") and "Wall" or "Partition"
-	local door = (type(kind) == "number") and kind or nil
+	local glassy = (kind == "glass" or kind == "glassdoor")   -- glassdoor: a terrace door in the facade
+	local props = glassy and glassProps or partProps
+	local name = glassy and "Wall" or "Partition"
+	local door = (type(kind) == "number") and kind or ((kind == "glassdoor") and 6) or nil
 	local alongX = (side == "pz" or side == "nz")
 	local lo, hi = alongX and r.x0 or r.z0, alongX and r.x1 or r.z1
 	local at = (side == "pz" and r.z1 - WALL_T / 2) or (side == "nz" and r.z0 + WALL_T / 2)
@@ -258,12 +285,13 @@ end
 	the mesh; the plain box and its pulsing light strip where it does not (the TEST
 	experience, a place without the import). Same four slots either way. ]]
 local ServerRack = require(RS:WaitForChild("ServerRack"))
-local function serverRacks(model, base, rm)
+local function serverRacks(model, base, rm, doorway)
 	local lib = RS:FindFirstChild("SVMeshes")
 	local tpl = lib and lib:FindFirstChild(ServerRack.MESH)
 	local mesh = tpl and (tpl:IsA("MeshPart") and tpl or tpl:FindFirstChildWhichIsA("MeshPart", true))
 	if mesh and not ServerRack.fits(mesh.Size) then mesh = nil end     -- a wrong import: keep the boxes
 	for _, x in ipairs(ServerRack.XS) do
+		if doorway and math.abs(x) < 4 then continue end   -- the middle two make way for a terrace door
 		if mesh then
 			local mp = mesh:Clone()
 			mp.Name = ServerRack.NAME
@@ -384,7 +412,7 @@ local function furnish(model, anchor, dept, r)
 	elseif dept == "servers" then
 		-- the racks' backs on the glass band, the fans just inside the glass (final review I1: the backs
 		-- stood 0.6 outside the facade, rm had been reused as an offset from it)
-		serverRacks(model, anchor, ServerRack.midlineFor(T.inner(r).z))
+		serverRacks(model, anchor, ServerRack.midlineFor(T.inner(r).z), r.terraceDoor ~= nil)
 		for _, x in ipairs({ -9, 9 }) do serverFan(model, anchor * CFrame.new(x, 6.2, T.fanZ(r)), 3.0, 170) end
 	elseif dept == "board" then
 		pcall(FK.onFloor, "tableCross", anchor, -2.2, 0, 0, model)
@@ -439,7 +467,8 @@ local function buildSegment(plot, L, dept, model)
 	local lobby = (pc.storey == 0 and pc.seg == 1)
 	for _, side in ipairs({ "px", "nx", "pz", "nz" }) do
 		local kind = r.sides[side]
-		if lobby and side == "pz" then kind = 14 end           -- the entrance
+		if r.entrance and r.entrance.side == side then kind = r.entrance.width end   -- the lobby's entrance
+		if r.terraceDoor == side then kind = "glassdoor" end                       -- the door onto the terrace
 		wallSide(model, plot, r, side, kind, y, h, glassProps, partProps)
 		if r.sides[side] == "glass" and dept ~= "lobby" then  -- the department band on the facade's slab edge
 			local o = 0.55
