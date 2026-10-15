@@ -21,7 +21,7 @@
 **Drive it:**
 - `phone`: returns the live thread (id, firm, status, offer). Studio only (`DevHook.lua:160`, `Phone.lua:726`).
 - `phoneoffer <n>`: sets interest n (default 8) and makes the term sheet through the real `makeOffer` (`DevHook.lua:164`, `Phone.lua:734`). Needs a live thread.
-- To get a thread: `dev:Invoke("scenario", p, "ready")` then `"hq:5"` (stage 2). To get Series A: `"hq:13"` (stage 4, `Wafers.lua:190-192`). Waiting for the clock is still needed.
+- To get a thread: `dev:Invoke("scenario", p, "ready")` then `"hq:5"` (stage 2). To get Series A: `"hq:13"` (stage 4, `Wafers.lua:208-210`). Waiting for the clock is still needed.
 - `item <id>` gives a gift item to check the reward path (`DevHook.lua:479`).
 **Prove it:**
 - `tests/offline/journey.spec.luau`: HQ 4 gives the `seriesa` task (:114), HQ 5 order (:81, :96).
