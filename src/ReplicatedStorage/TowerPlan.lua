@@ -191,6 +191,25 @@ function T.landing(s)
 	return T.centre(s)
 end
 
+-- 1b: the cab, plot-local: centred in the shaft, its open side on the shaft's +Z face (the doors)
+T.CAB = { x = 9, z = -6.9, w = 7.0, d = 9.2, h = 10, door = 6, doorH = 8 }
+T.LANTERN_SOLID = false   -- the crown's glass lantern stands over the roof stop: walk-through glass
+
+local function minusShaft(r)
+	local sh = T.SHAFT
+	return {
+		{ x0 = r.x0, x1 = sh.x0, z0 = r.z0, z1 = r.z1 },     -- left of the shaft
+		{ x0 = sh.x1, x1 = r.x1, z0 = r.z0, z1 = r.z1 },     -- right of it
+		{ x0 = sh.x0, x1 = sh.x1, z0 = sh.z1, z1 = r.z1 },   -- in front
+		{ x0 = sh.x0, x1 = sh.x1, z0 = r.z0, z1 = sh.z0 },   -- behind
+	}
+end
+function T.landingRects(s)
+	local c = T.landing(s)
+	return c and minusShaft(c) or {}
+end
+function T.deckRects(s) return minusShaft(T.deck(s)) end
+
 -- the room in the cell on `side` of seg's cell, or nil (the outside or the centre hall)
 local SIDE = { px = { 1, 0 }, nx = { -1, 0 }, pz = { 0, 1 }, nz = { 0, -1 } }
 function T.neighbour(seg, side)

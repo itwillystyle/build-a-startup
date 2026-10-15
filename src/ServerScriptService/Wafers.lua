@@ -21,6 +21,7 @@ local CollectionService = game:GetService("CollectionService")
 
 local P = require(SSS:WaitForChild("WaferPlan"))
 local T = require(RS:WaitForChild("TowerPlan"))   -- v9 (14 Oct): the tower's geometry (rectangular, 24/18-stud storeys)
+local LiftPlan = require(RS:WaitForChild("LiftPlan")).with(T)   -- v9.3 (15 Oct, 1b): the lift's rules
 local SLAB = T.SLAB
 
 local Wafers = {}
@@ -534,7 +535,9 @@ local function buildGarden(plot, L, model)
 	local pc = P.PIECES[L]
 	local r = T.deck(pc.storey)
 	local y = T.floorY(pc.storey)
-	slabBox(model, plot, "Deck", r.x0, r.x1, r.z0, r.z1, y - SLAB, y, { Color = Color3.fromRGB(214, 206, 190), Material = Enum.Material.SmoothPlastic })
+	for _, q in ipairs(T.deckRects(pc.storey)) do   -- 1b: a hole over the shaft, the cab rides through
+		slabBox(model, plot, "Deck", q.x0, q.x1, q.z0, q.z1, y - SLAB, y, { Color = Color3.fromRGB(214, 206, 190), Material = Enum.Material.SmoothPlastic })
+	end
 	local rail = { Color = Color3.fromRGB(200, 222, 232), Material = Enum.Material.Glass, Transparency = 0.4, CastShadow = false }
 	local hand = { Color = PAPER, Material = Enum.Material.SmoothPlastic, CastShadow = false }
 	for _, q in ipairs({ { r.x0, r.x1, r.z1 - 0.3, r.z1 }, { r.x0, r.x1, r.z0, r.z0 + 0.3 }, { r.x1 - 0.3, r.x1, r.z0, r.z1 }, { r.x0, r.x0 + 0.3, r.z0, r.z1 } }) do
@@ -606,8 +609,8 @@ local function buildCrown(plot, L, model)
 	local l = T.lantern()
 	local roofY = T.floorY(14)
 	if pc.kind == "lantern" then
-		slabBox(model, plot, "Lantern", l.x0, l.x1, l.z0, l.z1, roofY, roofY + 14,
-			{ Color = Color3.fromRGB(190, 214, 226), Material = Enum.Material.Glass, Transparency = 0.35, CastShadow = false })
+		slabBox(model, plot, "Lantern", l.x0, l.x1, l.z0, l.z1, roofY, roofY + 14,   -- walk-through: it stands over the roof stop (1b)
+			{ Color = Color3.fromRGB(190, 214, 226), Material = Enum.Material.Glass, Transparency = 0.35, CastShadow = false, CanCollide = T.LANTERN_SOLID })
 	elseif pc.kind == "halo" then
 		local roof = T.deck(14)
 		local sec = { hx = roof.x1, zb = roof.z0, zf = roof.z1 }
@@ -650,6 +653,43 @@ local function liftButton(plot, st, s)
 	table.insert(st.stops, { id = id, name = s == 0 and "LOBBY" or tostring(s), sub = T.label(s), stand = stand })
 end
 
+-- 1b: the landing doors (two leaves in the shaft's door gap), the wall over them, and the display
+-- above them, on one stop. Closed and solid; LiftCab opens them when the cab is here.
+local DOOR = Color3.fromRGB(214, 220, 228)
+local function liftDoors(plot, st, s, y, h)
+	local S, C = T.SHAFT, T.CAB
+	local zf = S.z1 - 0.2
+	local mid = (S.x0 + S.x1) / 2
+	for side, x0 in pairs({ L = mid - C.door / 2, R = mid }) do
+		local leaf = slabBox(st.folder, plot, "LiftDoor" .. side, x0, x0 + C.door / 2, zf - 0.1, zf + 0.1, y, y + C.doorH,
+			{ Color = DOOR, Material = Enum.Material.SmoothPlastic, CastShadow = false })
+		leaf:SetAttribute("Stop", LiftPlan.stopId(s))
+		table.insert(st.core, leaf)
+	end
+	if h > C.doorH then   -- the wall over the door gap
+		table.insert(st.core, slabBox(st.folder, plot, "LiftHeader", mid - C.door / 2, mid + C.door / 2, S.z1 - 0.4, S.z1, y + C.doorH, y + h - SLAB,
+			{ Color = Color3.fromRGB(190, 214, 226), Material = Enum.Material.Glass, Transparency = 0.45, CastShadow = false }))
+	end
+	local disp = slabBox(st.folder, plot, "LiftDisplay", mid - 3, mid + 3, S.z1 + 0.05, S.z1 + 0.25, y + C.doorH + 0.4, y + C.doorH + 2.0,
+		{ Color = Color3.fromRGB(20, 22, 30), Material = Enum.Material.SmoothPlastic, CanCollide = false, CastShadow = false })
+	disp:SetAttribute("Stop", LiftPlan.stopId(s))
+	local sg = Instance.new("SurfaceGui")
+	sg.Face = Enum.NormalId.Back      -- the +Z side of the plate, toward the landing (check the face live and ledger if it is Front)
+	sg.PixelsPerStud = 40
+	sg.LightInfluence = 0
+	sg.Parent = disp
+	local tl = Instance.new("TextLabel")
+	tl.Name = "Text"
+	tl.Size = UDim2.fromScale(1, 1)
+	tl.BackgroundTransparency = 1
+	tl.TextScaled = true
+	tl.Font = Enum.Font.FredokaOne
+	tl.TextColor3 = Color3.fromRGB(110, 220, 255)
+	tl.Text = ""
+	tl.Parent = sg
+	table.insert(st.core, disp)
+end
+
 -- (re)build the shaft, each storey's landing hall floor and its lift stop
 local function buildCore(plot)
 	local st = stateOf(plot)
@@ -669,11 +709,12 @@ local function buildCore(plot)
 			{ S.x0, (S.x0 + S.x1) / 2 - 3, S.z1 - 0.4, S.z1 }, { (S.x0 + S.x1) / 2 + 3, S.x1, S.z1 - 0.4, S.z1 } }) do
 			table.insert(st.core, slabBox(st.folder, plot, "LiftShaft", w[1], w[2], w[3], w[4], y - SLAB, y + h - SLAB, shaft))
 		end
-		local c = T.landing(s)   -- the landing hall's floor (gardens and the roof stand on their decks)
-		if c then
+		-- the landing hall's floor, around the shaft (1b: the cab rides through it)
+		for _, c in ipairs(T.landingRects(s)) do
 			table.insert(st.core, slabBox(st.folder, plot, "Floor", c.x0, c.x1, c.z0, c.z1, y - SLAB, y,
 				{ Color = PAPER, Material = Enum.Material.SmoothPlastic }))
 		end
+		if h > 0 and T.landable(P.PIECES, st.level, s) then liftDoors(plot, st, s, y, h) end
 		if T.landable(P.PIECES, st.level, s) then liftButton(plot, st, s) end
 	end
 	if api.HQFloors and api.HQFloors.register then api.HQFloors.register(plot.index, plot, st.stops) end

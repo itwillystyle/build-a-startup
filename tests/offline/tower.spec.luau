@@ -314,4 +314,34 @@ test("decor keeps the landing, the garage spots and the doorways clear, and the 
 	assert(not T.decorOk(W.PIECES, 2, box(side.cx, side.cz + 6)), "decor in a room that is not built yet (level 2)")
 end)
 
+-- 1b: the lift's shaft is open from the lobby to the roof; landings and decks stop at it
+local function area(r) return (r.x1 - r.x0) * (r.z1 - r.z0) end
+test("landings and decks stop at the shaft and cover everything else", function()
+	local sh = T.SHAFT
+	for s = 0, 14 do
+		local whole = T.landing(s) or ((T.DECKS[s] or s >= 14) and T.deck(s)) or nil
+		local rects = T.landing(s) and T.landingRects(s) or T.deckRects(s)
+		if whole then
+			local sum = 0
+			for _, r in ipairs(rects) do
+				assert(not overlap(r, sh), ("storey %d: a slab over the shaft"):format(s))
+				assert(inside(r, whole), ("storey %d: a slab outside its floor"):format(s))
+				sum += area(r)
+			end
+			assert(math.abs(sum - (area(whole) - area(sh))) < 1e-6, ("storey %d: the slabs do not cover the floor minus the shaft"):format(s))
+		end
+	end
+end)
+
+test("the cab fits the shaft, its door faces the landing, and the roof stop opens onto the roof", function()
+	local c, sh = T.CAB, T.SHAFT
+	assert(c.x - c.w / 2 > sh.x0 + 0.39 and c.x + c.w / 2 < sh.x1 - 0.39, "the cab clears the shaft's side walls")
+	assert(c.z - c.d / 2 > sh.z0 + 0.39 and c.z + c.d / 2 <= sh.z1, "the cab clears the back wall and reaches the door line")
+	assert(c.door <= sh.x1 - sh.x0 - 0.8 and c.doorH < T.storeyH(1), "the door fits")
+	local l = T.lantern()
+	local stand = { x0 = T.STAND.x - 1, x1 = T.STAND.x + 1, z0 = T.STAND.z - 1, z1 = T.STAND.z + 1 }
+	assert(overlap(l, stand), "precondition: the crown's lantern covers the roof stop's stand point")
+	assert(T.LANTERN_SOLID == false, "so the lantern must not be solid (it enclosed the roof door, 1a review Minor 4)")
+end)
+
 return TT
