@@ -27,6 +27,7 @@
 
 local CollectionService = game:GetService("CollectionService")
 local RunService = game:GetService("RunService")
+local HunterRun = require(game:GetService("ReplicatedStorage"):WaitForChild("HunterRun"))
 
 local TAG = "SVStaff"
 local RANGE = 170
@@ -97,21 +98,10 @@ end
 	actually looks like.
 
 	Returns the track, or nil when there is no id yet or the rig cannot take
-	one, in which case the Lua pose stays in charge. ]]
+	one, in which case the Lua pose stays in charge. HunterRun loads it, and
+	asks again next frame while the rig's Humanoid is still replicating (14 Oct). ]]
 local function runTrackFor(model, st)
-	if st.runTrack ~= nil then return st.runTrack or nil end
-	if HUNTER_ANIM.run == "" then st.runTrack = false return nil end
-	local hum = model:FindFirstChildOfClass("Humanoid")
-	local animator = hum and (hum:FindFirstChildOfClass("Animator") or Instance.new("Animator", hum))
-	if not animator then st.runTrack = false return nil end
-	local anim = Instance.new("Animation")
-	anim.AnimationId = HUNTER_ANIM.run
-	local ok, track = pcall(animator.LoadAnimation, animator, anim)
-	if not ok then st.runTrack = false return nil end
-	track.Priority = Enum.AnimationPriority.Movement
-	track.Looped = true
-	st.runTrack = track
-	return track
+	return HunterRun.trackFor(model, st, HUNTER_ANIM.run, Instance.new)
 end
 
 --[[ Start and stop the run with the chase, and match the stride to the ground
