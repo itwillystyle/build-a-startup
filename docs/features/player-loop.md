@@ -5,10 +5,10 @@
 2. Ship the first app and the TELL US tile (pink, last on the rail) appears (`src/StarterPlayer/StarterPlayerScripts/FeedbackClient.client.lua:21-24`). Type up to 300 characters and tap SEND (:105). The server answers with one line (:120).
 **Files:**
 - `src/ServerScriptService/Telemetry.lua`: `FUNNEL` :40 (joined, play, first_code, first_ship, first_hire, hq_2 to hq_5, public, spinoff), money kinds `SHOP` / `TIMED` / `SUMMED` :57, `FLUSH_EVERY` 300 s :60, `flush` :84, `joined` :91, `step` :125, `reached` :152 (a returning player's furthest step), `event` :166, `mark` :186 (session milestone `m_<name>`), `money` :195, `carryStart` :207, `carryEnd` :213, `left` :218.
-- Funnel steps are sent from `SiliconCore.server.lua`: the ladder at :2215, the backfill after load at :4034, `public` in `goPublic`, `spinoff` in `spinOff`. Income is summed at :3292.
+- Funnel steps are sent from `SiliconCore.server.lua`: the ladder at :2219, the backfill after load at :4043, `public` in `goPublic`, `spinoff` in `spinOff`. Income is summed at :3301.
 - Recruit runs: `src/ServerScriptService/TalentDrop.lua` `endCarry` :452 (every end, with its outcome), `startCarry` :553, the poach :636.
 - Money: one `Telemetry.money` call beside every cash change, in SiliconCore, Apartments, Cars, DailyReward, Phone, SaveLoad and Valley (the full list is what `tests/offline/telemetry.spec.luau` checks).
-- `src/ServerScriptService/Feedback.lua`: `GAP` 60 s and 5 a session :20, `clean` :25 (pure), `key` :37, `receive` :44, `init` :71 (wired in `SiliconCore.server.lua:2960`), `latest` :89.
+- `src/ServerScriptService/Feedback.lua`: `GAP` 60 s and 5 a session :20, `clean` :25 (pure), `key` :37, `receive` :44, `init` :71 (wired in `SiliconCore.server.lua:2969`), `latest` :89.
 - `src/StarterPlayer/StarterPlayerScripts/FeedbackClient.client.lua`: the tile :21, the panel, the counter, SEND :105.
 **State:**
 - Dashboard: the onboarding funnel (once per user for life); custom events `m_recruit`, `m_chase`, `m_delivery`, `m_build`, `m_launch`, `m_room`, `m_rival`, `m_ten_minutes` (once per session, value = seconds in), `carry_start` (field `tier=`), `carry_end` (`tier=`, `out=`, value = seconds), `feedback`, `session_end`; economy events in currency `Cash` with the kind as the SKU.

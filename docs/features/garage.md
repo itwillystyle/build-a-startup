@@ -1,11 +1,11 @@
 # The garage room (the dressed garage)
 **What:** The garage is the room every player lives in: the founder's desk and WRITE CODE laptop, the hire pad, the HQ pad (BUILD, spin-off, the end of every recruit chase) and the door. With the one-building HQ (Wafers) it stays a garage for the whole game. Since 12 Oct it is dressed as a warm startup office from his "image 5" (`silicon-startup/art/`). It has a slatted walnut wall with a glowing rocket sign over the back window, a whiteboard of sticky notes, a server rack, a coffee bar, a lounge with bean bags, trophies, posters, pendant lamps, a duct and track lights. It also has glowing pad edges, warm cream walls with a sage band, and a warm colour grade while the camera is inside.
 **How a player reaches it:**
-1. Join: you spawn in your garage (see core-loop.md). The dressing is built once per plot in `buildPlot`, right after the garage furniture (`src/ServerScriptService/SiliconCore.server.lua:1120`).
+1. Join: you spawn in your garage (see core-loop.md). The dressing is built once per plot in `buildPlot`, right after the garage furniture (`src/ServerScriptService/SiliconCore.server.lua:1122`).
 2. Walk in through the door. The client warms the colour grade while the camera is inside any garage, and eases it back out when you leave (`src/StarterPlayer/StarterPlayerScripts/GarageMoodClient.client.lua:26`).
 **Files:**
 - `src/ReplicatedStorage/GarageLayout.lua`: the room as data, pure. `WINDOWS` :40, `KEEP` (walkway, desk, both pads, door) :54, `PIECES` :62, `check` :168 (every reason a piece would block the game), `lights` :237.
-- `src/ServerScriptService/GarageDress.lua`: builds from the layout. `wallFrame` :91, `at` :100, one builder per look (`B.slats` :217, `B.sign` :233, `B.whiteboard` :329, `B.tv` :393, `B.cladding` :436, `B.wainscot` :452, `B.pendants` :535, ...), `dress` :586 (refuses to build if `check` finds a problem).
+- `src/ServerScriptService/GarageDress.lua`: builds from the layout. `wallFrame` :91, `at` :100, one builder per look (`B.slats` :217, `B.sign` :233, `B.whiteboard` :329, `B.tv` :393 (also built for the lobby wall by `GarageDress.tv` :626, HQ part 1c), `B.cladding` :436, `B.wainscot` :452, `B.pendants` :535, ...), `dress` :586 (refuses to build if `check` finds a problem).
 - `src/StarterPlayer/StarterPlayerScripts/GarageMoodClient.client.lua`: the warm grade (`WARM` :22, `cameraInGarage` :26).
 - The garage floor colour: `SiliconCore.server.lua:822` (warm mid concrete at level 1).
 **State:** None saved. The dressing is a `Dressing` folder in each plot's `Garage`, one Model per piece, named by its layout id. Floor pieces that are not kit furniture carry `FKItem`, so `FurnitureKit.blocked` keeps a player's decor out of them.
@@ -26,4 +26,4 @@
 - The meeting table is solid (`solid = true` in the layout): the doctor's "sinking surfaces" check failed it on the PR gate run, 12 Oct, as a 4-stud surface you would fall through.
 - Not measured: phone frame rate with the dressing, and whether the gold rocket pulls a new player's eye off the blue laptop screen at 0:00 (the opening depends on the laptop).
 - Night (the client clock) is dim: four lights do not carry the room. Not addressed yet.
-**Last verified:** 2026-10-15 8225305
+**Last verified:** 2026-10-15 dc1074f
