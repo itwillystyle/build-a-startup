@@ -13,6 +13,7 @@ function LiftPlan.with(T)
 		calm = "PLEASE REMAIN CALM :)",
 		pride = "THIS LIFT WAS BUILT BY %s",
 		capacity = "MAXIMUM CAPACITY. SOMEONE HAS TO GO.",
+		doors = "PLEASE STEP IN OR OUT :)",   -- someone on the door line is holding the cab (I4)
 	}
 	LP.SHORT = { lobby = "LOBBY", eng = "ENG", studio = "STUDIO", cafe = "CAFE", servers = "SERVERS", labs = "AI LABS", board = "BOARD" }
 
@@ -65,6 +66,49 @@ function LiftPlan.with(T)
 	function LP.drawStep(moving, fromY, toY, t, dur, drawnY)
 		if not moving then return 0 end
 		return fromY + (toY - fromY) * LP.alpha(t, dur) - drawnY
+	end
+
+	--[[ final review (15 Oct). Positions are local to the cab: x across, y up from the cab floor, z
+		toward the doors (the door line is CAB.d / 2). The server and the client use these same rules. ]]
+	LP.LINE_IN, LP.LINE_OUT = 0.8, 1.0   -- the doorway band: a true straddle (I4; it was 1.6 each way)
+	LP.LIST_IN = 2.0                     -- the floor list opens this far inside, clear of the band
+	LP.RIDER_PAD = 0.5                   -- who rides: the server counts and the client carries alike (M2)
+	LP.HOLD_MAX = 8                      -- seconds a doorway may hold the cab, then it is cleared (I4)
+	LP.STRANDED_MAX = 2                  -- seconds a cut-short ride's riders wait for the rebuild (I2)
+
+	-- "line" (holds the doors), "in" (a rider) or "out"
+	function LP.doorZone(x, y, z)
+		local C, line = T.CAB, T.CAB.d / 2
+		if math.abs(x) <= C.door / 2 + 0.5 and y > -1 and y < C.doorH and z > line - LP.LINE_IN and z < line + LP.LINE_OUT then
+			return "line"
+		end
+		local p = LP.RIDER_PAD
+		if math.abs(x) <= C.w / 2 + p and y >= -p and y <= C.h + p and math.abs(z) <= line + p then return "in" end
+		return "out"
+	end
+	function LP.listOpens(z) return z <= T.CAB.d / 2 - LP.LIST_IN end
+	function LP.holdExpired(seconds) return seconds >= LP.HOLD_MAX end
+
+	-- a rider still in the shaft after the ride (a stalled client): under the cab floor or on its roof (I3)
+	function LP.reseat(x, y, z)
+		local C = T.CAB
+		return math.abs(x) <= C.w / 2 + 1 and math.abs(z) <= C.d / 2 and (y < 1 or y > C.h - 0.5)
+	end
+
+	-- the riders a rebuild cut short, as { player, t }: only those from just now (I2)
+	function LP.fresh(entries, now, maxAge)
+		local out = {}
+		for _, e in ipairs(entries or {}) do
+			if now - e.t <= maxAge then table.insert(out, e.player) end
+		end
+		return out
+	end
+
+	-- after a rebuild: which stop's new door leaves open, and whether to settle the cab there. While
+	-- the ride loop runs it owns the doors and the cab; the rebuild only re-applies them (I1)
+	function LP.afterRebuild(busy, doorsOpen, hereId)
+		if busy then return doorsOpen, false end
+		return hereId, true
 	end
 
 	-- the call queue: `at` is the stop index the cab is at; picks (from inside) before calls (from landings)

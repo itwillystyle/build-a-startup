@@ -35,29 +35,40 @@ local function inside(c, pos, pad)
 	pad = pad or 0
 	return math.abs(l.X) <= size.X / 2 + pad and math.abs(l.Y) <= size.Y / 2 + pad and math.abs(l.Z) <= size.Z / 2 + pad
 end
+-- a position in the cab's own frame: x across, y up from the cab floor, z toward the doors
+local function floorCF(c) return c.model.PrimaryPart.CFrame * CFrame.new(0, 0.25, 0) end
+local function localOf(c, pos) return floorCF(c):PointToObjectSpace(pos) end
 local function riders(c)
 	local out = {}
 	for _, p in ipairs(Players:GetPlayers()) do
 		local root = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
-		if root and inside(c, root.Position, 0) then table.insert(out, p) end
+		if root and inside(c, root.Position, LP.RIDER_PAD) then table.insert(out, p) end
 	end
 	return out
 end
--- someone standing across the door line (half in, half out) keeps the doors open
-local function inDoorway(c)
-	local C = T.CAB
-	local cf = c.model.PrimaryPart.CFrame
+-- the players standing across the door line (half in, half out): they keep the doors open
+local function blockers(c)
+	local out = {}
 	for _, p in ipairs(Players:GetPlayers()) do
 		local root = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
 		if root then
-			local l = cf:PointToObjectSpace(root.Position)
-			if math.abs(l.X) <= C.door / 2 + 0.5 and l.Y > -1 and l.Y < C.doorH and math.abs(l.Z - C.d / 2) < 1.6 then return true end
+			local l = localOf(c, root.Position)
+			if LP.doorZone(l.X, l.Y, l.Z) == "line" then table.insert(out, p) end
 		end
 	end
-	return false
+	return out
+end
+-- put a character down standing at a point in the cab's frame (a server PivotTo also resets Movement)
+local function standAt(c, char, x, z)
+	local hum = char:FindFirstChildOfClass("Humanoid")
+	local root = char:FindFirstChild("HumanoidRootPart")
+	if not (hum and root) then return end
+	local at = floorCF(c) * CFrame.new(x, hum.HipHeight + root.Size.Y / 2 + 0.1, z)
+	char:PivotTo(CFrame.new(at.Position) * root.CFrame.Rotation)
 end
 
 local function doorsAt(c, id, open)
+	if open then c.doorsOpen = id elseif c.doorsOpen == id then c.doorsOpen = nil end   -- what a rebuild re-applies (I1)
 	local folder = c.model.Parent
 	if not folder then return end
 	local C = T.CAB
@@ -106,6 +117,12 @@ local function label(c, idx)
 	local num = (st.id == "L" and "L") or (st.id == "R" and "R") or tostring(st.storey)
 	return num .. "  " .. LP.roomLabel(api.Wafers.Plan.PIECES, w.depts, w.level, st.storey)
 end
+-- the pick lights above the doors inside: "did it take my tap?" (spec 2.4)
+local function showNext(c, idx)
+	local h = c.model:FindFirstChild("CabHeader")
+	local sg = h and h:FindFirstChildWhichIsA("SurfaceGui")
+	if sg and sg:FindFirstChild("Label") then sg.Label.Text = "TO  " .. label(c, idx) end
+end
 local function callLight(c, id, on)
 	local folder = c.model.Parent
 	for _, p in ipairs(folder and folder:GetChildren() or {}) do
@@ -137,19 +154,39 @@ local function run(c)
 				task.wait(LP.DWELL)
 				continue
 			end
-			-- leave: wait out the doorway and the capacity rule, then close
+			-- leave: wait out the doorway (at most HOLD_MAX, then whoever blocks it is stood on the
+			-- landing) and the capacity rule, then close
+			c.holdSince = c.holdSince or os.clock()
 			local n = #riders(c)
-			while c.model.Parent and (inDoorway(c) or n > LP.MAX_RIDERS) do
+			local block = blockers(c)
+			while c.model.Parent and (#block > 0 or n > LP.MAX_RIDERS) do
 				if n > LP.MAX_RIDERS then
 					c.model:SetAttribute("Event", "capacity")
 					sign(c, LP.EVENT_TEXT.capacity)
+				elseif LP.holdExpired(os.clock() - c.holdSince) then
+					for _, p in ipairs(block) do
+						if p.Character then standAt(c, p.Character, 0, T.CAB.d / 2 + 2.5) end
+					end
+				else
+					sign(c, LP.EVENT_TEXT.doors)
 				end
 				task.wait(0.5)
-				n = #riders(c)
+				if not c.model.Parent then break end
+				n, block = #riders(c), blockers(c)
 			end
+			if not c.model.Parent then break end
 			c.model:SetAttribute("State", "closing")
 			doorsAt(c, here.id, false)
 			task.wait(LP.DOORS)
+			if not c.model.Parent then break end
+			if #blockers(c) > 0 then   -- someone stepped into the closing doors (M2): open again, wait again
+				c.model:SetAttribute("State", "opening")
+				doorsAt(c, here.id, true)
+				task.wait(LP.DOORS)
+				c.model:SetAttribute("State", "open")
+				continue
+			end
+			c.holdSince = nil
 			local who = riders(c)
 			local dest = c.stops[target]
 			local floors = math.abs(target - c.plan.at)
@@ -188,6 +225,15 @@ local function run(c)
 			c.model:SetAttribute("State", "opening")
 			doorsAt(c, dest.id, true)
 			task.wait(LP.DOORS)
+			if not c.model.Parent then break end
+			-- a rider whose client stalled over the arrival is still in the shaft: put them back (I3)
+			for _, p in ipairs(who) do
+				local root = p.Parent and p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+				if root then
+					local l = localOf(c, root.Position)
+					if LP.reseat(l.X, l.Y, l.Z) then standAt(c, p.Character, 0, 0) end
+				end
+			end
 			c.model:SetAttribute("State", "open")
 			c.model:SetAttribute("Event", "")
 			task.wait(LP.DWELL)
@@ -210,24 +256,23 @@ function LiftCab.sync(plot)
 	c.stops = stops
 	LP.prune(c.plan, #stops)
 	W.refreshPanel(plot, function(player, id) LiftCab.pick(player, plot.index, id) end)
-	if c.model:GetAttribute("State") ~= "moving" then
-		local here = stops[c.plan.at]
+	-- a rebuild (every BUILD tap) made new door leaves: while the ride loop runs it owns the doors and
+	-- the cab, so only re-apply what it had; an idle cab settles at its stop, doors open (I1)
+	local here = stops[c.plan.at]
+	local openAt, settle = LP.afterRebuild(c.busy, c.doorsOpen, here.id)
+	if settle then
 		c.model:PivotTo(W.cabAt(plot, here.storey) * CFrame.new(0, -0.25, 0))
 		c.model:SetAttribute("At", here.id)
-		doorsAt(c, here.id, true)
 		c.model:SetAttribute("State", "open")
 		setDisplays(c, c.plan.at, nil)
 		sign(c, label(c, c.plan.at))
 	end
-	local here = stops[c.plan.at]
-	for _, p in ipairs(stranded[plot.index] or {}) do
+	if openAt then doorsAt(c, openAt, true) end
+	-- riders a clear + rebuild cut short just now go back in the cab; older entries are dropped (I2)
+	for _, p in ipairs(LP.fresh(stranded[plot.index], os.clock(), LP.STRANDED_MAX)) do
 		local char = p.Parent and p.Character
 		local hum = char and char:FindFirstChildOfClass("Humanoid")
-		local root = char and char:FindFirstChild("HumanoidRootPart")
-		if hum and root and hum.Health > 0 then
-			local stand = W.cabAt(plot, here.storey) * CFrame.new(0, hum.HipHeight + root.Size.Y / 2 + 0.1, 0)
-			char:PivotTo(CFrame.new(stand.Position) * root.CFrame.Rotation)
-		end
+		if hum and hum.Health > 0 then standAt(c, char, 0, 0) end
 	end
 	stranded[plot.index] = nil
 	local list = {}
@@ -244,7 +289,7 @@ function LiftCab.reset(plot)
 		if p:GetAttribute("LiftCab") == plot.index then
 			p:SetAttribute("LiftCab", nil)
 			stranded[plot.index] = stranded[plot.index] or {}
-			table.insert(stranded[plot.index], p)
+			table.insert(stranded[plot.index], { player = p, t = os.clock() })
 		end
 	end
 end
@@ -282,6 +327,7 @@ function LiftCab.pick(player, plotIndex, stopId)
 	if not ok then return false, why end
 	lastCall[player] = os.clock()
 	LP.pick(c.plan, idx)
+	if c.model:GetAttribute("State") ~= "moving" then showNext(c, LP.target(c.plan)) end
 	run(c)
 	return true
 end

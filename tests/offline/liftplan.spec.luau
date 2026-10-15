@@ -105,6 +105,57 @@ test("drawStep: while moving the cab is drawn at an absolute height; once it sto
 	assert(LP.drawStep(false, 0, 90, 5, 4, 0) == 0, "idle cab is left alone")
 end)
 
+-- final review fixes (15 Oct). Positions are local to the cab: x across, y up from the cab floor,
+-- z toward the doors (the door line is z = CAB.d / 2)
+local C = T.CAB
+local LINE = C.d / 2
+
+test("I4 doorway: only a true straddle holds the doors; a rider a step inside does not", function()
+	assert(LP.doorZone(0, 3.4, LINE) == "line", "on the door line")
+	assert(LP.doorZone(0, 3.4, LINE - 0.5) == "line" and LP.doorZone(0, 3.4, LINE + 0.8) == "line", "within the band")
+	assert(LP.doorZone(0, 3.4, LINE - 1.2) == "in", "a step inside is a rider, not a blocker (the old band held to 1.6)")
+	assert(LP.doorZone(0, 3.4, LINE + 1.3) == "out", "a step out on the landing does not hold the cab")
+	assert(LP.doorZone(0, 3.4, 0) == "in" and LP.doorZone(0, 3.4, -LINE) == "in", "the middle and the back")
+	assert(LP.doorZone(C.door / 2 + 2, 3.4, LINE) == "out", "beside the doors on the landing")
+	assert(LP.doorZone(0, 3.4 + 18, LINE) == "out" and LP.doorZone(0, 3.4 - 18, LINE) == "out", "another floor's doorway")
+end)
+
+test("I4 the list opens only well inside, so the tap that picks a floor is never a doorway hold", function()
+	assert(not LP.listOpens(LINE - 0.5) and not LP.listOpens(LINE - 1.9), "near the doors: no list yet")
+	assert(LP.listOpens(LINE - 2) and LP.listOpens(0), "2 studs in: the list")
+	for z = -LINE, LINE - 2, 0.25 do assert(LP.doorZone(0, 3.4, z) == "in", "wherever the list is open, you are a rider") end
+end)
+
+test("I4 a hold has a limit, then the doors are cleared", function()
+	assert(not LP.holdExpired(LP.HOLD_MAX - 0.1) and LP.holdExpired(LP.HOLD_MAX), "the limit")
+	assert(LP.HOLD_MAX <= 10, "one player cannot keep a lift forever")
+end)
+
+test("I3 reseat: a rider left in the shaft (below the cab floor or on its roof) is put back; anyone else is not", function()
+	assert(LP.reseat(0, -14, 0), "fell below the cab (a stalled client on a ride up)")
+	assert(LP.reseat(1, C.h + 3.4, -2), "standing on the cab roof (a stalled client on a ride down)")
+	assert(not LP.reseat(0, 3.4, 0), "standing in the cab")
+	assert(not LP.reseat(0, 3.4, LINE + 1.5), "walked out onto the landing")
+	assert(not LP.reseat(0, -14, LINE + 3), "below, but out on the landing side: not in the shaft")
+end)
+
+test("I2 stranded riders: only a cut-short ride from just now is re-seated, never one from minutes ago", function()
+	local a, b = { name = "a" }, { name = "b" }
+	local list = LP.fresh({ { player = a, t = 100 }, { player = b, t = 40 } }, 101, LP.STRANDED_MAX)
+	assert(#list == 1 and list[1] == a, "the old entry is dropped")
+	assert(#LP.fresh(nil, 101, LP.STRANDED_MAX) == 0, "no list")
+	assert(LP.STRANDED_MAX <= 3, "a same-moment rebuild only")
+end)
+
+test("I1 a rebuild during a ride or a door cycle leaves the doors as the ride had them", function()
+	local open, settle = LP.afterRebuild(false, nil, "F7")
+	assert(open == "F7" and settle, "idle cab: open at its stop and settle there")
+	open, settle = LP.afterRebuild(true, nil, "F7")
+	assert(open == nil and not settle, "closing or moving: every door stays shut, nothing moves")
+	open, settle = LP.afterRebuild(true, "F3", "F3")
+	assert(open == "F3" and not settle, "dwelling with doors open: the new leaves open there")
+end)
+
 test("room label: the department with the most built rooms; ties to the lowest seg; the specials", function()
 	local depts = {}
 	local storey3 = {}

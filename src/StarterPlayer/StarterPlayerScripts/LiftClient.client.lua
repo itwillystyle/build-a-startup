@@ -154,7 +154,7 @@ end
 
 local function startRide(cab)
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-	if root and insideBox(cab, root.Position, 0.5) then
+	if root and insideBox(cab, root.Position, LP.RIDER_PAD) then
 		hide()
 		-- the ticks, then the ding
 		for _, tk in ipairs(LP.ticks(cab:GetAttribute("Floors") or 0)) do
@@ -197,7 +197,7 @@ RunService.RenderStepped:Connect(function()
 			-- draw the cab where the ride says (locally), and carry our character by the same step
 			local step = drawStep(cab, moving)
 			if math.abs(step) > 1e-4 then
-				local carry = root and insideBox(cab, root.Position, 0.5)
+				local carry = root and insideBox(cab, root.Position, LP.RIDER_PAD)   -- the server counts riders alike (M2)
 				cab:PivotTo(cab:GetPivot() + Vector3.new(0, step, 0))
 				if carry then
 					root.CFrame = root.CFrame + Vector3.new(0, step, 0)
@@ -211,11 +211,22 @@ RunService.RenderStepped:Connect(function()
 				-- the talking sign on the side wall both in frame
 				workspace.CurrentCamera.CFrame = CFrame.lookAt((cf * CFrame.new(0, 6.0, -C.d / 2 + 0.5)).Position, (cf * CFrame.new(0, 6.3, C.d / 2)).Position)
 			elseif riderCab == cab then
+				-- the ride is over: a hitch over the arrival can leave us in the shaft (under the cab
+				-- floor or on its roof); stand back in the cab before letting go (I3)
+				local l = root and (base.CFrame * CFrame.new(0, 0.25, 0)):PointToObjectSpace(root.Position)
+				if l and LP.reseat(l.X, l.Y, l.Z) then
+					local hum = player.Character:FindFirstChildOfClass("Humanoid")
+					local up = (hum and hum.HipHeight or 2) + root.Size.Y / 2 + 0.1
+					root.CFrame = CFrame.new((base.CFrame * CFrame.new(0, 0.25 + up, 0)).Position) * root.CFrame.Rotation
+					root.AssemblyLinearVelocity = Vector3.zero
+				end
 				release()
 			end
 			-- stepping in opens the list (and pops NEW on the trophy panel)
 			local state = cab:GetAttribute("State")
-			if root and (state == "open" or state == "idle") and insideBox(cab, root.Position, 0) then
+			-- only well inside (I4): the tap that picks a floor is never made from the door line
+			local inner = root and (base.CFrame * CFrame.new(0, 0.25, 0)):PointToObjectSpace(root.Position)
+			if inner and (state == "open" or state == "idle") and LP.doorZone(inner.X, inner.Y, inner.Z) == "in" and LP.listOpens(inner.Z) then
 				if listFor ~= cab and not seen[cab] then
 					seen[cab] = true
 					openList(cab)
