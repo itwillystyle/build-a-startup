@@ -41,4 +41,4 @@
 - If the Residences mesh is missing, no sales desk or lift exists. `init` waits 30 s, then gives up silently (`Apartments.lua:557-561`, `Downtown.lua:265`).
 - While a keeper choice is pending, the pad's second tap cannot confirm. Only the card can (`SiliconCore.server.lua:3123-3126`). Picks are opaque ids matched to staff entries, never positions (`Progression.lua:140-145`).
 - `SPINOFF_BASE` is asserted at load. A missing base would sell homes for $1 (`Apartments.lua:44-45`).
-**Last verified:** 2026-10-15 8225305
+**Last verified:** 2026-10-15 01bb51a
