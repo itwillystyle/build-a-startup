@@ -60,6 +60,13 @@ function LiftPlan.with(T)
 		return x * x * (3 - 2 * x)
 	end
 
+	-- how far a client moves its drawn cab this frame: to the eased height while moving, never once
+	-- stopped (the server's resting cab is the truth, and it may replicate before or after State)
+	function LP.drawStep(moving, fromY, toY, t, dur, drawnY)
+		if not moving then return 0 end
+		return fromY + (toY - fromY) * LP.alpha(t, dur) - drawnY
+	end
+
 	-- the call queue: `at` is the stop index the cab is at; picks (from inside) before calls (from landings)
 	function LP.newCab(at) return { at = at or 1, calls = {}, picks = {}, rides = 0, lastEvent = false } end
 	local function add(list, idx) if not table.find(list, idx) then table.insert(list, idx) end end

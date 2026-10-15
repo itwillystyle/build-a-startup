@@ -94,6 +94,17 @@ test("rare events: never on the first 3 rides, never twice in a row, about 1 in 
 	assert(near(LP.EVENT_ODDS, 1 / 12) and LP.MAX_RIDERS == 6 and LP.QUIET_RIDES == 3, "the spec's numbers")
 end)
 
+test("drawStep: while moving the cab is drawn at an absolute height; once it stops the client never moves it", function()
+	-- moving, halfway: from wherever the cab is drawn now, step to the eased height
+	assert(near(LP.drawStep(true, 0, 90, 2, 4, 0), 45), "halfway from the start floor")
+	assert(near(LP.drawStep(true, 0, 90, 2, 4, 40), 5), "already drawn at 40: only the rest")
+	-- the server's final position replicated a frame early: the step is tiny, not a whole ride
+	assert(math.abs(LP.drawStep(true, 0, 90, 3.99, 4, 90)) < 0.01, "server already at the top")
+	-- arrived: the server's resting cab is the truth, whatever height it was drawn at
+	assert(LP.drawStep(false, 0, 90, 5, 4, 90) == 0, "arrival never drags the cab back down")
+	assert(LP.drawStep(false, 0, 90, 5, 4, 0) == 0, "idle cab is left alone")
+end)
+
 test("room label: the department with the most built rooms; ties to the lowest seg; the specials", function()
 	local depts = {}
 	local storey3 = {}
