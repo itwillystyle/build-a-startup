@@ -20,7 +20,7 @@ T.FLOOR_Y, T.LOBBY_H, T.H, T.SLAB = 1.0, 24, 18, 1.5
 T.BASE = { hx = 50, hd = 46 }            -- floor 1, before setbacks
 T.TAPER = { x = 10 / 13, z = 0.5 }       -- studs each storey steps in, per side (x: 100 wide at 1, 80 at 14)
 T.SETBACK = 6
-T.PODIUM = { x = 9, front = 6, back = 8 } -- how far the lobby stands out past floor 1 (the mock: 70 x 50 under 52 x 34)
+T.PODIUM = { x = 20, front = 8, back = 16 } -- how far the lobby stands out past floor 1: 1.4x its width (the mock: 70 under 52 = 1.35x)
 
 -- storey s's rectangle: { hx, zf, zb } (x from -hx to hx, z from zb to zf)
 function T.rect(s)
