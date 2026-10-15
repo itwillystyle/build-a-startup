@@ -17,6 +17,7 @@
 ]]
 
 local UIKit = {}
+local MenuFit = require(script.Parent:WaitForChild("MenuFit"))   -- v8 (14 Oct): fitMenu's pure half
 
 -- ============ COLOUR: roles, not decoration (DESIGN.md section 2) ============
 local rgb = Color3.fromRGB
@@ -878,8 +879,10 @@ badge. Now: centred on the screen, slid right just enough to clear the rail,
 scaled down only when the free area is smaller than the menu. Refits when the
 screen changes and every time the menu opens (the rail grows as tiles unlock).
 The panel is centre-anchored and a child of its ScreenGui. Returns place(yScale,
-yOffset) -> a UDim2 at the fitted x, for menus that slide in. ]]
-function UIKit.fitMenu(panel, w, h, sc, vMargin)
+yOffset) -> a UDim2 at the fitted x, for menus that slide in.
+v8 (14 Oct): the scale and x are MenuFit.place (pure, tested); minScale is the
+smallest the menu may draw (TEAM: 44 / its 52 px taps), see MenuFit. ]]
+function UIKit.fitMenu(panel, w, h, sc, vMargin, minScale)
 	sc = sc or panel:FindFirstChildOfClass("UIScale")
 	if not sc then
 		sc = Instance.new("UIScale")
@@ -893,13 +896,13 @@ function UIKit.fitMenu(panel, w, h, sc, vMargin)
 		local px, pw, ph = parent.AbsolutePosition.X, parent.AbsoluteSize.X, parent.AbsoluteSize.Y
 		if pw <= 0 then return end
 		local W, H = w or panel.Size.X.Offset, h or panel.Size.Y.Offset
-		local left, right = px + 12, px + pw - 12
+		local right = px + pw - 12
 		local pg = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
 		local rail = pg and pg:FindFirstChild("Rail")
-		if rail and rail.Enabled then left = math.max(left, UIKit.railRight() + 10) end
-		local s = math.min(1, (right - left) / W, (ph - (vMargin or 24)) / H)
+		local s
+		s, x = MenuFit.place({ w = W, h = H, px = px, pw = pw, ph = ph, vMargin = vMargin, floor = minScale,
+			railRight = rail and rail.Enabled and UIKit.railRight() or nil })
 		local half = W * s / 2
-		x = math.clamp(px + pw / 2, left + half, math.max(left + half, right - half)) - px
 		-- below the money line (screen y 64) when the menu fits there at this
 		-- scale; a taller one stays centred rather than shrink (v5 critique: the
 		-- BAG header cut the money in half)
