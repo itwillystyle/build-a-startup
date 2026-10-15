@@ -89,18 +89,40 @@ test("look: shots are planned by when they really arrive (Cine eases the whole f
 	local roof
 	for _, st in ipairs(LM.STEPS) do if st.group == "roof" then roof = st end end
 	-- the wide shot holds until after the roof lands; the look-up arrives after the sting
-	assert(LM.SHOTS[3].arrive >= roof.to + 0.1, "still wide when the roof lands")
-	assert(LM.SHOTS[4].arrive > roof.to, "the look-up comes after the sting")
+	local lastWide, firstLook
+	for _, sh in ipairs(LM.SHOTS) do
+		if sh.role == "wide" then lastWide = sh.arrive end
+		if sh.role == "lookup" and not firstLook then firstLook = sh.arrive end
+	end
+	assert(lastWide >= roof.to + 0.1, "still wide when the roof lands")
+	assert(firstLook > roof.to, "the look-up comes after the sting")
 	local t = LM.shotTimes()
 	local sum = 0
 	for i = 2, #t do sum += t[i] end
 	assert(near(sum, LM.TOTAL), "Cine's shot times add up to the moment")
 end)
 
+test("look review: the garage is framed close while it falls; the look-up stands back far enough to see the roofline", function()
+	local garage
+	for _, st in ipairs(LM.STEPS) do if st.group == "garage" then garage = st end end
+	local close
+	for _, sh in ipairs(LM.SHOTS) do
+		if sh.role == "garage" then
+			local d = math.sqrt(sh.pos[1] ^ 2 + (sh.pos[2] - 9) ^ 2 + (sh.pos[3] + 2) ^ 2)
+			assert(d <= 70, "close on the garage (centre about 0, 9, -2): " .. math.floor(d))
+			if sh.arrive <= garage.from + 0.1 then close = true end
+		end
+		if sh.role == "lookup" then
+			assert(sh.pos[3] - 54 >= 30, "the look-up stands 30+ studs off the lobby front (z 54)")
+			assert(sh.pos[2] <= 9, "and stays low")
+		end
+	end
+	assert(close, "the close shot has landed before the garage starts to fall")
+end)
+
 test("look: no camera shot is planned near the ground (Cine's curve dips below a shot: at 2 studs it went to 0)", function()
 	for i, s in ipairs(LM.SHOTS) do
 		if s.pos then assert(s.pos[2] >= 5, "shot " .. i .. " is at least 5 studs up") end
-		if s.pos and s.pos[2] < 12 then assert(s.pos[3] <= 80, "low shot " .. i .. " is close enough to read the lobby (z <= 80)") end
 	end
 end)
 

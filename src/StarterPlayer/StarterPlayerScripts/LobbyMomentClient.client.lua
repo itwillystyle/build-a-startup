@@ -121,6 +121,13 @@ local function play(e)
 	for _, p in ipairs(e.core or {}) do if typeof(p) == "Instance" then add(p) end end
 	if typeof(e.cab) == "Instance" then for _, d in ipairs(e.cab:GetDescendants()) do add(d) end end
 	stage.Parent = workspace
+	-- the floating signs and name tags step aside for the moment (look review: the "#1" company sign
+	-- hid the garage as it fell); put back in finish()
+	for _, root in ipairs({ workspace, player:FindFirstChild("PlayerGui") }) do
+		for _, b in ipairs(root and root:GetDescendants() or {}) do
+			if b:IsA("BillboardGui") and b.Enabled then b.Enabled = false; table.insert(hidden, b) end
+		end
+	end
 
 	-- the garage copy: each part folds out on its side, or lifts away
 	local garage = copy
@@ -199,7 +206,7 @@ local function play(e)
 		done = true
 		for _, o in ipairs(hidden) do
 			if o.Parent then
-				if o:IsA("SurfaceGui") then o.Enabled = true else o.LocalTransparencyModifier = 0 end
+				if o:IsA("SurfaceGui") or o:IsA("BillboardGui") then o.Enabled = true else o.LocalTransparencyModifier = 0 end
 			end
 		end
 		stage:Destroy()

@@ -36,12 +36,16 @@ LobbyMoment.SOUNDS = {
 -- the wide shot landed at 1.06; the look-up left before the roof landed).
 LobbyMoment.SHOTS = {
 	{ at = "start", arrive = 0 },
-	{ pos = { -40, 38, 100 }, look = { 0, 9, 10 }, arrive = 1.0 },
-	{ pos = { -34, 34, 92 }, look = { 0, 10, 10 }, arrive = 2.9 },
-	-- the look-up: low (6 studs: Cine's curve dips below a shot; at 2 it went into the ground) and close
-	-- to the facade, looking up at the glass
-	{ pos = { 18, 6, 76 }, look = { -4, 24, 46 }, arrive = 3.4 },
-	{ pos = { 14, 6.5, 70 }, look = { -4, 25, 46 }, arrive = 3.8 },
+	-- close on the garage while it falls (look review, 15 Oct: from the wide shot it was a small box
+	-- half hidden by the floating sign); then the wide shot for the build and the roof's sting
+	{ role = "garage", pos = { -30, 22, 45 }, look = { 0, 6, -4 }, arrive = 0.9 },
+	{ role = "garage", pos = { -26, 20, 40 }, look = { 0, 6, -4 }, arrive = 1.7 },
+	{ role = "wide", pos = { -40, 38, 100 }, look = { 0, 9, 10 }, arrive = 2.3 },
+	{ role = "wide", pos = { -34, 34, 92 }, look = { 0, 10, 10 }, arrive = 2.95 },
+	-- the look-up: low (Cine's curve dips below a shot; at 2 studs it went into the ground) and back far
+	-- enough that the roofline fits (look review: at 22 studs off the front it clipped a prop)
+	{ role = "lookup", pos = { 24, 7, 96 }, look = { -2, 18, 48 }, arrive = 3.45 },
+	{ role = "lookup", pos = { 20, 7.5, 90 }, look = { -2, 19, 48 }, arrive = 3.85 },
 	{ at = "player", arrive = 4.4 },
 }
 
