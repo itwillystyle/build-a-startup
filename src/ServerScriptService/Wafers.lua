@@ -722,8 +722,9 @@ function Wafers.cab(plot)
 	end
 	local baseP = part("CabBase", Vector3.new(C.w, 0.5, C.d), Vector3.new(0, -0.25, 0), { Color = PAPER, Material = Enum.Material.SmoothPlastic })
 	m.PrimaryPart = baseP
-	part("CabCeiling", Vector3.new(C.w, 0.3, C.d), Vector3.new(0, C.h + 0.15, 0), { Color = PAPER, Material = Enum.Material.SmoothPlastic, CanCollide = false })
-	part("CabLight", Vector3.new(C.w - 2.5, 0.1, 3), Vector3.new(0, C.h - 0.05, 0), { Color = Color3.fromRGB(255, 248, 230), Material = Enum.Material.Neon, CanCollide = false, CastShadow = false })
+	-- solid: a ceiling you can see is a ceiling you cannot pass (the doctor's sinking check, 15 Oct)
+	part("CabCeiling", Vector3.new(C.w, 0.3, C.d), Vector3.new(0, C.h + 0.15, 0), { Color = PAPER, Material = Enum.Material.SmoothPlastic, CanCollide = true })
+	part("CabLight", Vector3.new(C.w - 2.5, 0.1, 3), Vector3.new(0, C.h - 0.05, 0), { Color = Color3.fromRGB(255, 248, 230), Material = Enum.Material.Neon, CanCollide = true, CastShadow = false })
 	part("CabBack", Vector3.new(C.w, C.h, 0.2), Vector3.new(0, C.h / 2, -C.d / 2 + 0.1), CAB_GLASS)
 	part("CabLeft", Vector3.new(0.2, C.h, C.d), Vector3.new(-C.w / 2 + 0.1, C.h / 2, 0), CAB_GLASS)
 	part("CabRight", Vector3.new(0.2, C.h, C.d), Vector3.new(C.w / 2 - 0.1, C.h / 2, 0), CAB_GLASS)
