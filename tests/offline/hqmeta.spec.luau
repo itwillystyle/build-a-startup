@@ -52,10 +52,20 @@ local function suffixes(t, prefix)
 	return out
 end
 
---[[ RETIRED 14 Oct (HQ tower 1a): "every mesh name the placer asks for has a META entry".
-	The placer (Wafers.lua) builds the rectangular tower in plain parts and asks for no
-	W_ meshes; the round kit is kept on disk but unused. Part 1d adds the tower kit and a
-	name contract for it. The kit-shape tests below still check the old kit files. ]]
+--[[ REPLACED 14 Oct (HQ tower 1a): "every mesh name the placer asks for has a META entry" passed
+	only while Wafers.lua asked for W_ meshes. The tower builds plain parts and asks for none, so the
+	slot now pins exactly that: if a kit name comes back before 1d writes the tower kit's name
+	contract, this fails instead of the placer silently building primitives (the podium/crown bug). ]]
+local WAFERS = "src/ServerScriptService/Wafers.lua"
+test("the tower placer asks for no round-kit mesh names until 1d's contract exists", function()
+	local src = fs.readFile(WAFERS)
+	local found = {}
+	for name in src:gmatch('"([WTD]_%\w+)"') do table.insert(found, name) end
+	for name in src:gmatch("'([WTD]_%\w+)'") do table.insert(found, name) end
+	assert(#found == 0, ("Wafers.lua names kit meshes with no tower contract: %s"):format(table.concat(found, ", ", 1, math.min(#found, 6))))
+	assert(src:find('"Floor"', 1, true) and src:find('"Deck"', 1, true),
+		"the walkable parts must keep the names the doctor stands on (Floor, Deck)")
+end)
 
 test("the three kits describe the same pieces", function()
 	local ref = suffixes(kit.Wafers, "W_")

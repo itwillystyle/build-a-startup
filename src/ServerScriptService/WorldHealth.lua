@@ -31,7 +31,7 @@ WorldHealth.ALLOW = {
 	FoodShutter = "food truck", FoodCounter = "food truck", FoodCab = "food truck", FoodWheel = "food truck",
 	BusBody = "the bus", BusRoof = "the bus", BusBand = "the bus", BusWheel = "the bus", body = "a parked car body",
 	StopRoof = "bus stop roof", GateHutRoof = "gate hut roof",
-	Canopy = "the HQ lobby's entrance canopy: a roof 10 studs over the forecourt, walked under",
+	LobbyCanopy = "the HQ lobby's entrance canopy: a roof 10 studs over the forecourt, walked under",
 	ParkPool = "water: PoolBed under it keeps it ankle-deep",
 	FountainWater = "water", FountainBasin = "fountain basin (inside the solid lip)",
 	-- the stand-ins built when a mesh pack is missing (the cloud smoke's build has no meshes)
