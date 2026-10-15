@@ -358,4 +358,30 @@ test("the trophy panel's 12 slots fit the cab's side wall in two columns, from t
 	assert(T.panelSlot(1).y < T.panelSlot(3).y, "the lobby is at the bottom")
 end)
 
+test("1c: the garage chair stands clear of the lift shaft and the cab", function()
+	local c = T.GARAGE_CHAIR
+	local r = 1.45   -- a 2 x 2 seat turned 28 degrees reaches about 1.4 studs from its centre
+	local s = T.SHAFT
+	assert(c.x + r < s.x0 - 0.2 or c.z + r < s.z0 - 0.2 or c.z - r > s.z1 + 0.2, "the chair's footprint misses the shaft")
+	local spot = T.GARAGE_SPOTS[2]
+	assert(c.x > spot.x0 and c.x < spot.x1 and c.z > spot.z0 and c.z < spot.z1, "it stands on the chair spot decor keeps clear")
+	assert(T.GARAGE_KEEP.Chair and T.GARAGE_KEEP.Laptop and T.GARAGE_KEEP.HQPad and T.GARAGE_KEEP.Spawn, "the working parts are kept")
+end)
+
+test("1c: the photo and the TV hang on the lobby's hall-side wall, clear of its door, the shaft and each other", function()
+	local room = T.room(0, 1)
+	local door = room.sides.nz
+	assert(type(door) == "number", "the lobby room has a door to the hall")
+	local hall = T.centre(0)
+	local items = { T.WALL_ART.photo, T.WALL_ART.tv }
+	for _, a in ipairs(items) do
+		assert(math.abs(a.x) - a.w / 2 >= door / 2 + 0.5, "clear of the door")
+		assert(a.x - a.w / 2 >= hall.x0 + 1 and a.x + a.w / 2 <= hall.x1 - 1, "inside the hall's width")
+		assert(a.x + a.w / 2 <= T.SHAFT.x0 or a.x - a.w / 2 >= T.SHAFT.x1, "not in front of the shaft")
+		assert(a.y0 >= 2 and a.y1 <= T.LOBBY_H - 2 and a.y0 < a.y1, "on the wall, below the ceiling")
+	end
+	local p, tv = T.WALL_ART.photo, T.WALL_ART.tv
+	assert(p.x + p.w / 2 <= tv.x - tv.w / 2 or tv.x + tv.w / 2 <= p.x - p.w / 2, "the photo and the TV do not overlap")
+end)
+
 return TT

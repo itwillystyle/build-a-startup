@@ -1100,10 +1100,12 @@ local function buildPlot(index, def)
 	local screen = part({ Name = "Screen", Size = Vector3.new(2.6, 1.7, 0.12),
 		CFrame = g(0, 4.35, -9.8) * CFrame.Angles(math.rad(-15), 0, 0),
 		Color = CFG.ACCENT, Material = Enum.Material.Neon }, garage)
+	-- 1c: on its spot, clear of the lift shaft (TowerPlan.GARAGE_CHAIR; the mesh swap keeps this position)
+	local chairAt = require(ReplicatedStorage:WaitForChild("TowerPlan")).GARAGE_CHAIR
 	part({ Name = "Chair", Size = Vector3.new(2, 1.0, 2),
-		CFrame = g(4.6, 1.5, -6.0) * CFrame.Angles(0, math.rad(-28), 0), Color = CFG.TRIM }, garage)
+		CFrame = g(chairAt.x, 1.5, chairAt.z) * CFrame.Angles(0, math.rad(-28), 0), Color = CFG.TRIM }, garage)
 	part({ Name = "ChairBack", Size = Vector3.new(2, 1.8, 0.3),
-		CFrame = g(4.6, 2.9, -5.15) * CFrame.Angles(0, math.rad(-28), 0), Color = CFG.TRIM }, garage)
+		CFrame = g(chairAt.x, 2.9, chairAt.z + 0.85) * CFrame.Angles(0, math.rad(-28), 0), Color = CFG.TRIM }, garage)
 
 	if FurnitureKit then
 		local swapped = { desk = desk, laptop = laptop }

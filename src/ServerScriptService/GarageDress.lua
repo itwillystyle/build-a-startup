@@ -621,4 +621,14 @@ function GarageDress.dress(garage, g, FK)
 	return built
 end
 
+-- 1c: the garage's TV, for the lobby wall. `frame` stands on the wall at floor height with its -Z
+-- pointing into the room; w, y0, y1 as in GarageLayout.
+function GarageDress.tv(parent, frame, w, y0, y1)
+	local M = Instance.new("Model")
+	M.Name = "LobbyTV"
+	B.tv({ w = w, y0 = y0, y1 = y1 }, frame, M)
+	M.Parent = parent
+	return M
+end
+
 return GarageDress

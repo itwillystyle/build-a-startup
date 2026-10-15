@@ -17,6 +17,7 @@ SiliconCore owns the economy and asks this module for: the level, the stage
 seats, capacity, department effects, and the price of the next BUILD tap. ]]
 local RS = game:GetService("ReplicatedStorage")
 local SSS = game:GetService("ServerScriptService")
+local GarageDress = require(SSS:WaitForChild("GarageDress"))
 local CollectionService = game:GetService("CollectionService")
 
 local P = require(SSS:WaitForChild("WaferPlan"))
@@ -469,6 +470,41 @@ local function sign(model, plot, r, s, dept)
 	return t
 end
 
+-- 1c: the garage's TV and a framed photo of the garage ("WHERE IT STARTED") on the lobby room's
+-- hall-side wall (TowerPlan.WALL_ART), facing the desk. Plain parts and a drawn photo; the art is 1d.
+local function lobbyArt(model, plot, r, y)
+	local A = T.WALL_ART
+	local wallZ = r.z0 - T.WALL_T / 2          -- the hall-side face of the lobby room's back wall
+	local p = A.photo
+	local frame = slabBox(model, plot, "PhotoFrame", p.x - p.w / 2, p.x + p.w / 2, wallZ - 0.3, wallZ, y + p.y0, y + p.y1,
+		{ Color = WOOD, Material = Enum.Material.SmoothPlastic, CanCollide = false })
+	local sg = Instance.new("SurfaceGui")
+	sg.Face = Enum.NormalId.Front               -- plot -Z: into the hall
+	sg.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	sg.PixelsPerStud, sg.LightInfluence = 40, 0
+	sg.Parent = frame
+	local function box(color, x, yy, w, h)
+		local f = Instance.new("Frame")
+		f.BackgroundColor3, f.BorderSizePixel = color, 0
+		f.Position, f.Size = UDim2.fromScale(x, yy), UDim2.fromScale(w, h)
+		f.Parent = sg
+		return f
+	end
+	box(Color3.fromRGB(250, 246, 236), 0.04, 0.05, 0.92, 0.9)       -- the mat
+	box(Color3.fromRGB(150, 196, 236), 0.1, 0.1, 0.8, 0.5)          -- sky
+	box(Color3.fromRGB(110, 168, 90), 0.1, 0.6, 0.8, 0.1)           -- grass
+	box(Color3.fromRGB(218, 208, 188), 0.3, 0.3, 0.4, 0.32)         -- the garage
+	box(Color3.fromRGB(115, 107, 102), 0.27, 0.26, 0.46, 0.06)      -- its roof
+	box(Color3.fromRGB(184, 189, 199), 0.4, 0.4, 0.2, 0.22)         -- the roll-up door
+	local cap = Instance.new("TextLabel")
+	cap.BackgroundTransparency, cap.TextScaled, cap.Font = 1, true, Enum.Font.FredokaOne
+	cap.TextColor3, cap.Text = Color3.fromRGB(20, 22, 30), "WHERE IT STARTED"
+	cap.Position, cap.Size = UDim2.fromScale(0.1, 0.74), UDim2.fromScale(0.8, 0.16)
+	cap.Parent = sg
+	local tv = A.tv
+	GarageDress.tv(model, plot.pivot * CFrame.new(tv.x, y, wallZ), tv.w, tv.y0, tv.y1)
+end
+
 local function buildSegment(plot, L, dept, model)
 	local pc = P.PIECES[L]
 	local r = T.room(pc.storey, pc.seg)
@@ -520,6 +556,7 @@ local function buildSegment(plot, L, dept, model)
 	if lobby then   -- the entrance canopy over the forecourt
 		slabBox(model, plot, "LobbyCanopy", r.cx - 11, r.cx + 11, r.z1, r.z1 + 10, y + 10, y + 11,
 			{ Color = PAPER, Material = Enum.Material.SmoothPlastic, CanCollide = false })
+		lobbyArt(model, plot, r, y)
 	end
 	local anchor = Wafers.anchor(plot, L)
 	local seats = furnish(model, anchor, dept, r)
@@ -811,9 +848,7 @@ end
 	(level 2) and come back with level 1 (a spin-off). The WRITE CODE desk, the hire pad and the
 	build pad stay: they stand in the ground storey's centre hall (TowerPlan's spots test). The
 	animated "garage folds into the lobby" moment is part 1c. ]]
-local GARAGE_KEEP = { -- measured live 14 Oct: the working parts (prompts, the desk set, the pads, the spawn)
-	Laptop = true, Desk = true, Chair = true, Monitor2 = true, Keyboard = true, HQPad = true, HirePad = true, Spawn = true,
-}
+local GARAGE_KEEP = T.GARAGE_KEEP   -- measured live 14 Oct: the working parts (prompts, the desk set, the pads, the spawn)
 function Wafers.garage(plot, show)
 	local g = plot.folder and plot.folder:FindFirstChild("Garage")
 	local stash = plot.garageStash

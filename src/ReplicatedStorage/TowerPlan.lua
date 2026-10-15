@@ -49,6 +49,18 @@ T.GARAGE_SPOTS = {
 	{ x0 = 10, x1 = 16, z0 = 5, z1 = 11 },               -- the build pad, 6x6 at (13, 8)
 	{ x0 = -1, x1 = 1, z0 = -1, z1 = 1 },                -- the spawn at (0, 0)
 }
+-- 1c (15 Oct): the garage's working parts stay through every upgrade (Wafers.garage keeps them, the
+-- lobby moment leaves them standing). Here, not in Wafers, so the client knows them too.
+T.GARAGE_KEEP = { Laptop = true, Desk = true, Chair = true, Monitor2 = true, Keyboard = true, HQPad = true, HirePad = true, Spawn = true }
+-- the garage chair: on its spot (GARAGE_SPOTS[2]), clear of the lift shaft (it stood at 4.6, -6.0 and
+-- reached into the cab's glass: the 1b "Ada clips the cab" finding)
+T.GARAGE_CHAIR = { x = 2.5, z = -6.2 }
+-- the garage TV and the "WHERE IT STARTED" photo, on the lobby room's hall-side wall (its z0), facing
+-- the hall and the desk; y from the lobby floor
+T.WALL_ART = {
+	photo = { x = -14, w = 8, y0 = 6, y1 = 11.5 },
+	tv = { x = -7.5, w = 4.2, y0 = 5, y1 = 7.6 },
+}
 
 --[[ v9.2 (14 Oct, Luke: "fix the garden storeys so they look like terraces"). A garden storey
 	has no height: the floor above stands on its deck, and the garden is the strip the step-back
