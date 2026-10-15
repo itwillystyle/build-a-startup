@@ -334,4 +334,35 @@ function Probes.team()
 	return out
 end
 
+--[[ v9 (15 Oct, HQ part 1b): ride along. Samples the local character against the lift cab every
+	frame for args.seconds: the biggest frame-to-frame change of its offset from the cab while the
+	cab moves (a shake), whether it ever dropped below the cab floor (a fall), and the measured ride
+	time (first to last frame the cab's State was "moving"). ]]
+function Probes.liftride(args)
+	local RS = game:GetService("RunService")
+	local CS = game:GetService("CollectionService")
+	local player = game:GetService("Players").LocalPlayer
+	local cab
+	for _, m in ipairs(CS:GetTagged("LiftCab")) do if m:GetAttribute("Plot") == args.plot then cab = m end end
+	if not cab then return { error = "no cab" } end
+	local t0, last, maxSlip, fell, movedFrom, movedTo = os.clock(), nil, 0, false, nil, nil
+	while os.clock() - t0 < (args.seconds or 8) do
+		RS.RenderStepped:Wait()
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		local base = cab.PrimaryPart
+		if root and base then
+			local off = base.CFrame:PointToObjectSpace(root.Position)
+			local moving = cab:GetAttribute("State") == "moving"
+			if moving then
+				movedFrom = movedFrom or os.clock()
+				movedTo = os.clock()
+				if last then maxSlip = math.max(maxSlip, (off - last).Magnitude) end
+				if off.Y < 0.5 then fell = true end
+			end
+			last = off
+		end
+	end
+	return { maxSlip = math.floor(maxSlip * 100) / 100, fell = fell, rideSeconds = movedFrom and math.floor((movedTo - movedFrom) * 100) / 100 or -1 }
+end
+
 return Probes
