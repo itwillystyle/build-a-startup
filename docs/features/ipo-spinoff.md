@@ -3,12 +3,12 @@
 **How a player reaches it:**
 1. Build to the top floor allowed. The cap rises with spin-offs: 18, 30, 43, 55, 68, 80, 93, 100 (`src/ServerScriptService/WaferPlan.lua:19,146`).
 2. The quest card says "GO PUBLIC!" (`src/ServerScriptService/Journey.lua:94-97`) and a gold GO PUBLIC button shows when `CanGoPublic` is true (`src/StarterPlayer/StarterPlayerScripts/IpoClient.client.lua:24-47`, attribute set at `SiliconCore.server.lua:1902-1904`).
-3. Tap it. The client fires `GoPublic` (`IpoClient.client.lua:40`). The server runs `goPublic` (`SiliconCore.server.lua:3715`). The HQ pad at the top calls it too (`wafersBuild` :2132). The bell card is `moment` (`IpoClient.client.lua:87`).
-4. The pad now reads "SPIN OFF $X revenue xN forever" (`refreshHqPad` :2024). Tap the pad, or the guide's "Spin off!". The first tap arms it and sends a `spinAsk` card (`SiliconCore.server.lua:3072-3099`, `HudClient.client.lua:790`).
+3. Tap it. The client fires `GoPublic` (`IpoClient.client.lua:40`). The server runs `goPublic` (`SiliconCore.server.lua:3731`). The HQ pad at the top calls it too (`wafersBuild` :2132). The bell card is `moment` (`IpoClient.client.lua:87`).
+4. The pad now reads "SPIN OFF $X revenue xN forever" (`refreshHqPad` :2024). Tap the pad, or the guide's "Spin off!". The first tap arms it and sends a `spinAsk` card (`SiliconCore.server.lua:3088-3115`, `HudClient.client.lua:790`).
 5. On the card, pick who comes along if more people qualify than the home has seats, then HOLD TO SPIN OFF (`HudClient.client.lua:885`). That fires `SpinConfirm {pick}` (:922) and the server runs `spinOff` again. NOT YET fires `SpinCancel` (:903).
 6. `Celebrate` kind `spin` plays the ceremony (`HudClient.client.lua:936`).
 **Files:**
-- `src/ServerScriptService/SiliconCore.server.lua`: price helpers :119-127, `refreshHqPad` :2040, `SpinConfirm` :2779, `SpinCancel` :2800, `spinOff` :3059-3167, `goPublic` :3715-3736, `GoPublic` remote :563 and :3737, `checkIPO` :3742 (old), `pushTicker` :3753.
+- `src/ServerScriptService/SiliconCore.server.lua`: price helpers :119-127, `refreshHqPad` :2040, `SpinConfirm` :2795, `SpinCancel` :2816, `spinOff` :3075-3183, `goPublic` :3731-3752, `GoPublic` remote :563 and :3753, `checkIPO` :3758 (old), `pushTicker` :3769.
 - `src/ServerScriptService/Progression.lua`: `SPIN_STEP` :23, `SPIN_CAP` :24, `spinMult` :33, `spinCost` :38, `runScale` :63, `CAPS` :59, `capWindfall` :92, `KEEP_SLOTS` :126, `rankKeepers` :146, `chooseKeepers` :164.
 - `src/ServerScriptService/RoomEconomy.lua`: `SPINOFF_BASE` 4,000,000 :235, `KEEP_TALENT` 3 (Star+) :236.
 - `src/ServerScriptService/Journey.lua`: `IPO_RAISE` 60 s :31, `milestone` :136-139.
@@ -28,13 +28,13 @@
 - `tests/smoke_core.luau:58-62` runs `gopublic` then `spinoff` in Play and snapshots the result.
 - No automated check for `goPublic`, `spinOff` or `IpoClient`.
 **Gotchas:**
-- Two taps, 30 s window (`SiliconCore.server.lua:3072-3099`). While a choice is pending, the pad's second tap cannot confirm: "Choose who comes with you" (:3106-3107).
+- Two taps, 30 s window (`SiliconCore.server.lua:3088-3115`). While a choice is pending, the pad's second tap cannot confirm: "Choose who comes with you" (:3122-3123).
 - `spinOff` only shows a popup when it refuses: "GO PUBLIC first" (:2980), "Need $..." (:2982). `goPublic` returns silently if you are not at the cap (:3621).
 - `scenario spinoff` always returns ok = true (`DevScenarios.lua:257-260`). Check `spinoffs` in the result yourself.
 - GO PUBLIC raise is 60 s of income, capped at 10% of the spin cost, rounded down (:3530, `Progression.lua:59,104`).
 - Kept people come back as Interns and need a seat (`spawnStaff` `tier = 1`, :1477; popup "build a floor" :2974).
 - Not reset by a spin-off: `s.apt`, `s.earned`, `s.index`, `s.momentum`, `s.hqPath`. A comment says the style is "committed until a spin-off" (:2072) but `spinOff` never clears `s.hqPath`. Unclear which is intended.
 - `checkIPO` (valuation at `IPO_AT` 250,000, `CoreConfig.lua:115`) is only reached from SVDev `valuation` (`DevHook.lua:186`). The real path is `goPublic`.
-- At 20 spin-offs `s.spinoffs` stops growing (`SiliconCore.server.lua:3138`), so price and multiplier stop too (`Progression.lua:24,28-30`).
+- At 20 spin-offs `s.spinoffs` stops growing (`SiliconCore.server.lua:3154`), so price and multiplier stop too (`Progression.lua:24,28-30`).
 - The keep list is built only when `Econ.V3` is on (:2941).
-**Last verified:** 2026-10-14 97ff124
+**Last verified:** 2026-10-14 e285bb9

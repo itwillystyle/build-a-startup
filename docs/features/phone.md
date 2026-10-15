@@ -10,18 +10,18 @@
 **Files:**
 - `src/ServerScriptService/Phone.lua`: `PERSONAS` :40, `THESIS` :52, `facts` :124, `sanitize` :194, `aiReact` :223, `makeOffer` :336, `respond` :371, `reply` :397, `startThread` :431, `startCall` :502, `answer` :530, `init` :560, `seriesA` :698, `notice` :709, dev hooks :726-757.
 - `src/StarterPlayer/StarterPlayerScripts/PhoneClient.client.lua`: rail tile :68, apps Texts :218 and Calls :235, `setOpen` :855, `showBanner` :954, ring card :968, `upsert` :1142, event handler :1182, `refreshBadge` :1290.
-- Wiring: `SiliconCore.server.lua` `Econ.Phone` init :2897-2915 (gives `session`, `nextGoal`, `grant`, `onSeriesA`).
+- Wiring: `SiliconCore.server.lua` `Econ.Phone` init :2913-2931 (gives `session`, `nextGoal`, `grant`, `onSeriesA`).
 - Remotes (made in `Phone.init`): `PhoneEvent` server to client, `PhoneAction` client to server (`Phone.lua:579-584`). Actions: `reply`, `text`, `offer`, `read`, `voice`, `call`, `answer`, `hangup` (:595-645).
 - Related, not in this page: `src/ServerScriptService/VoiceCheck.lua` (voice state), `Apartments.lua:517` (front desk text through `Phone.notice`).
 **State:**
 - In memory only, per player: threads (up to 6), active thread, `nextAt` (`Phone.lua:259`, :446). Not saved.
 - Session: `s.board` (Boardroom floors, makes investors keener, max 2, `:438`), `s.jr.seriesA`, `s.seriesAt`.
 - Player attributes: `PhoneUnread`, `Company`, `HasVoice`, `InCall`, `CallSince`.
-- Saved: only the Series A flag, inside `jr` (`SaveLoad.lua:146`). A spin-off clears it (`SiliconCore.server.lua:3133`). Item gifts go to the bag (see daily-bag.md).
+- Saved: only the Series A flag, inside `jr` (`SaveLoad.lua:146`). A spin-off clears it (`SiliconCore.server.lua:3149`). Item gifts go to the bag (see daily-bag.md).
 **Drive it:**
 - `phone`: returns the live thread (id, firm, status, offer). Studio only (`DevHook.lua:160`, `Phone.lua:726`).
 - `phoneoffer <n>`: sets interest n (default 8) and makes the term sheet through the real `makeOffer` (`DevHook.lua:164`, `Phone.lua:734`). Needs a live thread.
-- To get a thread: `dev:Invoke("scenario", p, "ready")` then `"hq:5"` (stage 2). To get Series A: `"hq:13"` (stage 4, `Wafers.lua:163-165`). Waiting for the clock is still needed.
+- To get a thread: `dev:Invoke("scenario", p, "ready")` then `"hq:5"` (stage 2). To get Series A: `"hq:13"` (stage 4, `Wafers.lua:190-192`). Waiting for the clock is still needed.
 - `item <id>` gives a gift item to check the reward path (`DevHook.lua:479`).
 **Prove it:**
 - `tests/offline/journey.spec.luau`: HQ 4 gives the `seriesa` task (:114), HQ 5 order (:81, :96).
