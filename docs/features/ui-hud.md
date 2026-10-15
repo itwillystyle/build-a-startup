@@ -1,10 +1,10 @@
 # UI, HUD, Goal Guide, Intro, Naming and Music
 **What:** One shared look (`UIKit`), one referee for pop-ups (`Notify`), one camera tool (`Cine`), and the first-minute screens built on them: intro flyover, goal card, one-time button tips, the "name your company" box and the music button. `Palette` and `SVStyle` are world colour rules, not UI colours. `Sfx` holds world and vehicle sound ids.
 **How a player reaches it:**
-1. Join. `MenuClient` fires `MenuDone` once (`MenuClient.client.lua:19`). The server sets the attribute (`SiliconCore.server.lua:4113-4116`). HUD guis wait for it.
+1. Join. `MenuClient` fires `MenuDone` once (`MenuClient.client.lua:19`). The server sets the attribute (`SiliconCore.server.lua:4133-4136`). HUD guis wait for it.
 2. `IntroClient` waits for `MenuDone` (:151), then `Cine.play` flies to the laptop (:297). Returning players get a short "WELCOME BACK" shot (:159-167).
 3. `GuideClient` draws the goal the server picks (`GuideClient.client.lua:566-636`).
-4. After the first app ships and the first hire, the server fires `AskName` (`SiliconCore.server.lua:4064`). `NameClient` shows the box through `Notify` (:166). SAVE fires `SetName` (:132-143). LATER sends an empty string (:126-130).
+4. After the first app ships and the first hire, the server fires `AskName` (`SiliconCore.server.lua:4084`). `NameClient` shows the box through `Notify` (:166). SAVE fires `SetName` (:132-143). LATER sends an empty string (:126-130).
 5. The server picks a button tip (`SiliconCore.server.lua:1892-1901`). `CoachClient` draws it after 1.5 s of calm (:238). GOT IT fires `CoachSeen` (:120).
 6. `MusicClient` puts a round button top right (:60-71). A tap flips `MenuMuted` and fires `SetMuted` (:115-120).
 **Files:**
@@ -29,12 +29,12 @@
 - `src/StarterPlayer/StarterPlayerScripts/IntroClient.client.lua`: `runIntro` :133, ghost tower and neighbour shot :175-260.
 - `src/StarterPlayer/StarterPlayerScripts/NameClient.client.lua`: gui `CompanyName` :31, `suggest` :59.
 - `src/StarterPlayer/StarterPlayerScripts/MusicClient.client.lua`: five tracks :28-34, volume 0.16 :35, `play` :84.
-- Server half of naming: `SiliconCore.server.lua` `cleanName` :3293, `tickerOf` :3306, `SetName` handler :3312.
+- Server half of naming: `SiliconCore.server.lua` `cleanName` :3313, `tickerOf` :3326, `SetName` handler :3332.
 **State:**
 - Server attributes: `MenuDone`, `Objective`, `ObjectiveText`, `ObjectivePos`, `ObjectiveSub`, `ObjectiveCost` (`SiliconCore.server.lua:1914-1919`), `Milestone*`, `CoachTip`, `CoachTitle`, `CoachBody`, `CoachTarget` (:1894-1900).
 - Client attributes: `NamingOpen` (`NameClient.client.lua:39`), `MenuMuted`, `MusicTrack`, `MusicTrackName`, `MusicTrackCount`, `GuideDismissed`.
 - Session: `s.name`, `s.ticker`, `s.nameSkipped` (not saved), `s.tips`, `s.muted`.
-- Saved: `name` (`SaveLoad.lua:93`), `tips` (:147), `muted` (:132). Name is also in DataStore `SVNames_v1`, key = userId (`SiliconCore.server.lua:580, 3238`).
+- Saved: `name` (`SaveLoad.lua:93`), `tips` (:147), `muted` (:132). Name is also in DataStore `SVNames_v1`, key = userId (`SiliconCore.server.lua:580, 3258`).
 **Drive it:**
 - `name <s>` sets name, ticker and sign with no box (`DevHook.lua:187-189`).
 - None opens the naming box, a tip or the flyover. `dev:Invoke("scenario", p, "ready")` hires one person, which may start the name ask on a fresh save (not verified).
@@ -56,10 +56,10 @@
 - Tips find buttons by path, such as `Rail.Column.BagButton` (`Journey.lua:156-175`). Rename a button and its tip never shows. A `Rail.` path resolves through `UIKit.railTarget`, so a tip for a tile in the closed tray points at MORE (`CoachClient.client.lua:29-39`).
 - `UIKit.autoScale` leaves full-screen frames alone, and (step 4) pure-scale bands that span the full width or height: the cutscene letterbox bars were drawn 750 of 1074 px wide, and the chase edges were cut short the same way.
 - A frame with the attribute `NoAutoScale` is skipped by `UIKit.autoScale` (the MORE tray: its tiles match the rail column, whose own `FitScale` already wins).
-- Naming: 20 characters, filtered, a `#` means refused (`SiliconCore.server.lua:3293-3304`). After 25 s idle the client submits the suggested name (`NameClient.client.lua:165`). The header says "closes itself", the code submits.
-- Saved mute probably does not return. The server sends `MenuStats` with `muted` (`SiliconCore.server.lua:4002-4005`), but no client listens and nothing sets `MenuMuted` from it. Not run.
+- Naming: 20 characters, filtered, a `#` means refused (`SiliconCore.server.lua:3313-3324`). After 25 s idle the client submits the suggested name (`NameClient.client.lua:165`). The header says "closes itself", the code submits.
+- Saved mute probably does not return. The server sends `MenuStats` with `muted` (`SiliconCore.server.lua:4022-4025`), but no client listens and nothing sets `MenuMuted` from it. Not run.
 - `MusicClient` header mentions a SETTINGS picker. `MenuClient` no longer has one, and nothing else sets `MusicTrack`.
 - The colour rule lives in `Palette.compliant`. `SVStyle.classify` calls it (`SVStyle.lua:71-77`). Change it in `Palette` only.
 - Two sound tables: `UIKit.SOUNDS` (:892) for UI, `Sfx.ID` for the world. A bad id plays silence (`Sfx.lua:5-8`).
-- Security (9 Oct exploit check): `SetName` only works while the company has no name, one attempt in flight and one a second (`SiliconCore.server.lua:3323`). Each attempt costs a text filter and a DataStore write from the server's shared budget; spammed renames drained it (280 throttled writes) before the fix. Refusal popups are capped at one per anchor every 0.3 s (`popup`, `SiliconCore.server.lua:446`).
+- Security (9 Oct exploit check): `SetName` only works while the company has no name, one attempt in flight and one a second (`SiliconCore.server.lua:3343`). Each attempt costs a text filter and a DataStore write from the server's shared budget; spammed renames drained it (280 throttled writes) before the fix. Refusal popups are capped at one per anchor every 0.3 s (`popup`, `SiliconCore.server.lua:446`).
 **Last verified:** 2026-10-14 e6a452e
