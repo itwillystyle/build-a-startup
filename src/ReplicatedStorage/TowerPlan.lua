@@ -210,6 +210,12 @@ function T.landingRects(s)
 end
 function T.deckRects(s) return minusShaft(T.deck(s)) end
 
+-- the trophy panel on the cab's right wall: slot i (1 = LOBBY) in cab-local y (up) and z (along the wall)
+function T.panelSlot(i)
+	local col, row = (i - 1) % 2, (i - 1) // 2
+	return { y = 2.0 + row * 0.95, z = -0.65 + col * 1.3 }
+end
+
 -- the room in the cell on `side` of seg's cell, or nil (the outside or the centre hall)
 local SIDE = { px = { 1, 0 }, nx = { -1, 0 }, pz = { 0, 1 }, nz = { 0, -1 } }
 function T.neighbour(seg, side)

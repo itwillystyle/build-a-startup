@@ -690,6 +690,81 @@ local function liftDoors(plot, st, s, y, h)
 	table.insert(st.core, disp)
 end
 
+-- 1b: the cab (one per tower), built once and kept across rebuilds; LiftCab moves it
+local CAB_GLASS = { Color = Color3.fromRGB(190, 214, 226), Material = Enum.Material.Glass, Transparency = 0.5, CastShadow = false }
+function Wafers.cabAt(plot, storey)
+	return plot.pivot * CFrame.new(T.CAB.x, T.floorY(storey), T.CAB.z)
+end
+local function surfaceText(part, face, color)
+	local sg = Instance.new("SurfaceGui")
+	sg.Face, sg.PixelsPerStud, sg.LightInfluence = face, 40, 0
+	sg.Parent = part
+	local tl = Instance.new("TextLabel")
+	tl.Name, tl.Size, tl.BackgroundTransparency, tl.TextScaled = "Text", UDim2.fromScale(1, 1), 1, true
+	tl.Font, tl.TextColor3, tl.Text = Enum.Font.FredokaOne, color, ""
+	tl.Parent = sg
+	return tl
+end
+function Wafers.cab(plot)
+	local st = stateOf(plot)
+	if st.cab and st.cab.Parent then return st.cab end
+	local C = T.CAB
+	local m = Instance.new("Model")
+	m.Name = "LiftCab"
+	m:SetAttribute("Plot", plot.index)
+	m:SetAttribute("State", "idle")
+	local base0 = Wafers.cabAt(plot, 0)
+	local function part(name, size, off, props)
+		local p = add(m, props)
+		p.Name, p.Size, p.CFrame = name, size, base0 * CFrame.new(off)
+		return p
+	end
+	local baseP = part("CabBase", Vector3.new(C.w, 0.5, C.d), Vector3.new(0, -0.25, 0), { Color = PAPER, Material = Enum.Material.SmoothPlastic })
+	m.PrimaryPart = baseP
+	part("CabCeiling", Vector3.new(C.w, 0.3, C.d), Vector3.new(0, C.h + 0.15, 0), { Color = PAPER, Material = Enum.Material.SmoothPlastic, CanCollide = false })
+	part("CabLight", Vector3.new(C.w - 2.5, 0.1, 3), Vector3.new(0, C.h - 0.05, 0), { Color = Color3.fromRGB(255, 248, 230), Material = Enum.Material.Neon, CanCollide = false, CastShadow = false })
+	part("CabBack", Vector3.new(C.w, C.h, 0.2), Vector3.new(0, C.h / 2, -C.d / 2 + 0.1), CAB_GLASS)
+	part("CabLeft", Vector3.new(0.2, C.h, C.d), Vector3.new(-C.w / 2 + 0.1, C.h / 2, 0), CAB_GLASS)
+	part("CabRight", Vector3.new(0.2, C.h, C.d), Vector3.new(C.w / 2 - 0.1, C.h / 2, 0), CAB_GLASS)
+	local header = part("CabHeader", Vector3.new(C.w, C.h - C.doorH, 0.2), Vector3.new(0, (C.h + C.doorH) / 2, C.d / 2 - 0.1),
+		{ Color = Color3.fromRGB(20, 22, 30), Material = Enum.Material.SmoothPlastic, CanCollide = false })
+	surfaceText(header, Enum.NormalId.Front, Color3.fromRGB(110, 220, 255))   -- faces the riders (check live)
+	part("Panel", Vector3.new(0.12, 6.4, 3.0), Vector3.new(C.w / 2 - 0.25, 4.6, 0), { Color = Color3.fromRGB(150, 156, 166), Material = Enum.Material.Metal, CanCollide = false })
+	local signPlate = part("Sign", Vector3.new(0.12, 1.4, 4.4), Vector3.new(-C.w / 2 + 0.25, 7.2, 0), { Color = Color3.fromRGB(20, 22, 30), Material = Enum.Material.SmoothPlastic, CanCollide = false })
+	surfaceText(signPlate, Enum.NormalId.Right, Color3.fromRGB(255, 170, 60))     -- faces into the cab (check live)
+	for _, p in ipairs(m:GetChildren()) do if p:IsA("BasePart") then p.Anchored = true end end
+	CollectionService:AddTag(m, "LiftCab")
+	m.Parent = st.folder
+	st.cab = m
+	return m
+end
+
+-- the trophy panel: one socket per possible stop, lit where built (LiftPlan.sockets)
+function Wafers.refreshPanel(plot, onPick)
+	local st = stateOf(plot)
+	local m = Wafers.cab(plot)
+	local C = T.CAB
+	local base = m.PrimaryPart.CFrame * CFrame.new(0, 0.25, 0)
+	for i, sk in ipairs(LiftPlan.sockets(P.PIECES, st.level)) do
+		local b = m:FindFirstChild("Btn_" .. sk.id)
+		if not b then
+			local slot = T.panelSlot(i)
+			b = add(m, { Name = "Btn_" .. sk.id, Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.1, 0.72, 0.72),
+				CFrame = base * CFrame.new(C.w / 2 - 0.33, slot.y, slot.z), CanCollide = false, Anchored = true, CastShadow = false })
+			surfaceText(b, Enum.NormalId.Left, Color3.fromRGB(20, 22, 30)).Text = sk.num
+			local cd = Instance.new("ClickDetector")
+			cd.MaxActivationDistance = 14
+			cd.Parent = b
+			cd.MouseClick:Connect(function(player) if b:GetAttribute("Built") and onPick then onPick(player, sk.id) end end)
+		end
+		b:SetAttribute("Built", sk.built)
+		b.Color = sk.built and Color3.fromRGB(250, 246, 236) or Color3.fromRGB(52, 56, 68)
+		b.Material = sk.built and Enum.Material.Neon or Enum.Material.SmoothPlastic
+		local tl = b:FindFirstChildWhichIsA("SurfaceGui") and b:FindFirstChildWhichIsA("SurfaceGui"):FindFirstChild("Text")
+		if tl then tl.Visible = sk.built end
+	end
+end
+
 -- (re)build the shaft, each storey's landing hall floor and its lift stop
 local function buildCore(plot)
 	local st = stateOf(plot)
@@ -851,6 +926,7 @@ function Wafers.clear(plot)
 	if not st then return end
 	for _, c in ipairs(st.folder:GetChildren()) do c:Destroy() end
 	st.level, st.depts, st.pieces, st.core, st.stops, st.edges = 1, {}, {}, {}, {}, {}
+	st.cab = nil   -- 1b: destroyed with the folder; Wafers.cab makes a new one
 	if api and api.HQFloors and api.HQFloors.register then api.HQFloors.register(plot.index, plot, {}) end
 	Wafers.garage(plot, true)
 end

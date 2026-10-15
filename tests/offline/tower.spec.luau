@@ -344,4 +344,18 @@ test("the cab fits the shaft, its door faces the landing, and the roof stop open
 	assert(T.LANTERN_SOLID == false, "so the lantern must not be solid (it enclosed the roof door, 1a review Minor 4)")
 end)
 
+test("the trophy panel's 12 slots fit the cab's side wall in two columns, from the bottom", function()
+	local C = T.CAB
+	local seen = {}
+	for i = 1, 12 do
+		local p = T.panelSlot(i)
+		assert(p.y >= 1.5 and p.y <= C.h - 2, ("slot %d height %.2f"):format(i, p.y))
+		assert(math.abs(p.z) <= C.d / 2 - 1.2, ("slot %d off the wall"):format(i))
+		local key = ("%.2f:%.2f"):format(p.y, p.z)
+		assert(not seen[key], "two slots in one place")
+		seen[key] = true
+	end
+	assert(T.panelSlot(1).y < T.panelSlot(3).y, "the lobby is at the bottom")
+end)
+
 return TT
