@@ -53,4 +53,4 @@
 - Do not move motion back to the server. The header measured 246.5 KB/s per player when it was there (`StaffRig.lua:29-33`).
 - A kept spin-off hire returns as an Intern (`spawnStaff` sets `tier = 1`, :1477).
 - `StaffAnimClient.client.lua:47` says the run animation id is empty. `HUNTER_ANIM.run` is set (:52-53). The comment is stale.
-**Last verified:** 2026-10-14 5079cec
+**Last verified:** 2026-10-14 e6a452e
