@@ -149,7 +149,7 @@ local function play(e)
 			elseif side == "nx" then hinge = Vector3.new(c.X - hw, y, l.Z)
 			elseif side == "pz" then hinge = Vector3.new(l.X, y, c.Z + hd)
 			elseif side == "nz" then hinge = Vector3.new(l.X, y, c.Z - hd) end
-			table.insert(folds, { part = d, cf = d.CFrame, side = side, hinge = hinge })
+			table.insert(folds, { part = d, cf = d.CFrame, side = side, hinge = hinge, size = d.Size })
 		end
 	end
 
@@ -177,6 +177,12 @@ local function play(e)
 			if f.side == "lift" then
 				f.part.CFrame = f.cf + up * (LM.LIFT * g)
 				f.part.LocalTransparencyModifier = math.clamp(g, 0, 1)
+			elseif f.side == "squash" then   -- collapses flat onto the floor, then fades
+				local k = math.clamp(g, 0, 1)
+				local h = math.max(f.size.Y * (1 - k), 0.05)
+				f.part.Size = Vector3.new(f.size.X, h, f.size.Z)
+				f.part.CFrame = f.cf * CFrame.new(0, -(f.size.Y - h) / 2, 0)
+				f.part.LocalTransparencyModifier = math.clamp((k - 0.7) / 0.3, 0, 1)
 			else
 				local a = math.rad(90) * math.clamp(g, 0, 1)
 				local rot = (f.side == "px" and CFrame.Angles(0, 0, -a)) or (f.side == "nx" and CFrame.Angles(0, 0, a))
@@ -224,15 +230,16 @@ local function play(e)
 	-- the camera
 	local cam = workspace.CurrentCamera
 	local shots = {}
-	for _, s in ipairs(LM.SHOTS) do
+	local times = LM.shotTimes()
+	for i, s in ipairs(LM.SHOTS) do
 		if s.at == "start" then
 			table.insert(shots, { pos = cam.CFrame.Position, look = cam.CFrame.Position + cam.CFrame.LookVector * 20, t = 0 })
 		elseif s.at == "player" then
 			local head = player.Character and player.Character:FindFirstChild("Head")
 			local look = head and head.Position or cam.Focus.Position
-			table.insert(shots, { pos = cam.CFrame.Position, look = look, t = s.t })
+			table.insert(shots, { pos = cam.CFrame.Position, look = look, t = times[i] })
 		else
-			table.insert(shots, { pos = vec(pivot, s.pos), look = vec(pivot, s.look), t = s.t })
+			table.insert(shots, { pos = vec(pivot, s.pos), look = vec(pivot, s.look), t = times[i] })
 		end
 	end
 	-- C1: the finish picker closes itself 0.42 s after the tap; the moment can start sooner, and Cine

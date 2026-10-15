@@ -10,34 +10,59 @@ LobbyMoment.RISE = 8     -- studs a lobby group rises from
 LobbyMoment.LIFT = 6     -- studs the garage's roof and props lift as they fade
 
 -- each group moves from `from` to `to`; the scaffold also leaves (outFrom to outTo)
+-- look review (15 Oct): the garage waits for the wide shot (Cine lands it at about 1.06 s) and falls
+-- with an ease-in; everything after it moves on ~0.25 s
 LobbyMoment.STEPS = {
-	{ group = "scaffold", from = 0.0, to = 0.6, outFrom = 2.6, outTo = 3.1 },
-	{ group = "garage", from = 0.6, to = 1.2 },
-	{ group = "columns", from = 1.2, to = 1.8 },
-	{ group = "glass", from = 1.8, to = 2.4 },
-	{ group = "roof", from = 2.2, to = 2.5 },
-	{ group = "canopy", from = 2.6, to = 3.0 },
+	{ group = "scaffold", from = 0.0, to = 0.6, outFrom = 2.85, outTo = 3.3 },
+	{ group = "garage", from = 0.95, to = 1.6, easeIn = true },
+	{ group = "columns", from = 1.6, to = 2.1 },
+	{ group = "glass", from = 2.0, to = 2.5 },
+	{ group = "roof", from = 2.4, to = 2.7 },
+	{ group = "canopy", from = 2.8, to = 3.15 },
 }
 
 -- existing UIKit.SOUNDS keys: a thunk as it starts and as the garage lands, a tick per step, the sting
 LobbyMoment.SOUNDS = {
 	{ t = 0.0, key = "thunk", pitch = 0.7, volume = 0.35 },
-	{ t = 1.2, key = "thunk", pitch = 0.9, volume = 0.55 },
-	{ t = 1.8, key = "tap", pitch = 1.2, volume = 0.5 },
-	{ t = 2.4, key = "tap", pitch = 1.5, volume = 0.55 },
-	{ t = 2.5, key = "levelup", pitch = 1.0, volume = 0.8 },
+	{ t = 1.6, key = "thunk", pitch = 0.9, volume = 0.55 },
+	{ t = 2.1, key = "tap", pitch = 1.2, volume = 0.5 },
+	{ t = 2.5, key = "tap", pitch = 1.5, volume = 0.55 },
+	{ t = 2.7, key = "levelup", pitch = 1.0, volume = 0.8 },
 }
 
--- the camera (Cine shots): from where it is, a wide shot that drifts (and holds as the roof lands),
--- a low look-up at the glass, then back to the player. t = seconds to reach that shot.
+-- the camera (Cine shots), by when each should REALLY arrive (seconds into the moment): a wide shot that
+-- holds past the roof's sting, a low look-up at the glass, then back to the player. Cine eases the whole
+-- flight, so shotTimes() converts these into Cine's own times (look review, 15 Oct: planned at 0.6 s,
+-- the wide shot landed at 1.06; the look-up left before the roof landed).
 LobbyMoment.SHOTS = {
-	{ at = "start", t = 0 },
-	{ pos = { -40, 38, 100 }, look = { 0, 9, 10 }, t = 0.6 },
-	{ pos = { -34, 34, 92 }, look = { 0, 10, 10 }, t = 2.05 },
-	{ pos = { 22, 2, 88 }, look = { -4, 18, 30 }, t = 0.6 },
-	{ pos = { 18, 2.5, 82 }, look = { -4, 19, 30 }, t = 0.35 },
-	{ at = "player", t = 0.8 },
+	{ at = "start", arrive = 0 },
+	{ pos = { -40, 38, 100 }, look = { 0, 9, 10 }, arrive = 1.0 },
+	{ pos = { -34, 34, 92 }, look = { 0, 10, 10 }, arrive = 2.9 },
+	-- the look-up: low (6 studs: Cine's curve dips below a shot; at 2 it went into the ground) and close
+	-- to the facade, looking up at the glass
+	{ pos = { 18, 6, 76 }, look = { -4, 24, 46 }, arrive = 3.4 },
+	{ pos = { 14, 6.5, 70 }, look = { -4, 25, 46 }, arrive = 3.8 },
+	{ at = "player", arrive = 4.4 },
 }
+
+-- Cine.play's whole-flight easing (Cine.lua, the `e` in its loop): real time -> the time on its shot list
+function LobbyMoment.cineTime(realT, total)
+	total = total or LobbyMoment.TOTAL
+	local raw = math.clamp(realT / total, 0, 1)
+	local e = raw < 0.5 and (4 * raw ^ 3) * 0.5 + raw * 0.5 or (1 - ((-2 * raw + 2) ^ 3) / 2) * 0.5 + raw * 0.5
+	return e * total
+end
+
+-- each shot's `t` for Cine.play (seconds from the shot before, on Cine's eased clock)
+function LobbyMoment.shotTimes()
+	local out, prev = {}, 0
+	for i, s in ipairs(LobbyMoment.SHOTS) do
+		local c = LobbyMoment.cineTime(s.arrive)
+		out[i] = (i == 1) and 0 or (c - prev)
+		prev = c
+	end
+	return out
+end
 
 -- back-out easing: 0 at 0, 1 at 1, about 5% past 1 on the way (each step "lands")
 function LobbyMoment.ease(u)
@@ -62,7 +87,10 @@ function LobbyMoment.at(group, t)
 	local p
 	if t <= s.from then p = 0
 	elseif t >= s.to then p = 1
-	else p = LobbyMoment.ease((t - s.from) / (s.to - s.from)) end
+	else
+		local u = (t - s.from) / (s.to - s.from)
+		p = s.easeIn and u * u or LobbyMoment.ease(u)   -- easeIn: falls, slow then faster
+	end
 	if s.outFrom and t > s.outFrom then
 		p = 1 - math.clamp((t - s.outFrom) / (s.outTo - s.outFrom), 0, 1)
 	end
@@ -83,7 +111,10 @@ function LobbyMoment.inCopy(name) return not COPY_SKIP[name] end
 -- spans the whole garage (the shell mesh) and anything low (boxes, props) lifts away and fades.
 -- x, z: the part's centre from the garage's centre; sx, sy, sz: its size; hw, hd: the garage's half size
 function LobbyMoment.foldSide(x, z, sx, sy, sz, hw, hd)
-	if sy < 3 or (sx >= hw * 1.2 and sz >= hd * 1.2) then return "lift" end
+	if sy < 3 then return "lift" end
+	-- the garage's look is one shell mesh over the whole garage: it collapses flat to the floor (lifting
+	-- it away read as "gone", not as a fold: look review, 15 Oct)
+	if sx >= hw * 1.2 and sz >= hd * 1.2 then return "squash" end
 	if math.abs(x) >= hw - 1.5 and sz > sx then return x > 0 and "px" or "nx" end
 	if math.abs(z) >= hd - 1.5 and sx >= sz then return z > 0 and "pz" or "nz" end
 	return "lift"
