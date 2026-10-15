@@ -14,6 +14,9 @@ local Movement = require(game:GetService("ServerScriptService"):WaitForChild("Mo
 local LiftCab = {}
 local api = {}
 local cabs = {}          -- plot.index -> { plot, model, plan, stops, busy }
+-- riders whose ride a rebuild cut short: sync puts them back in the new cab (RF3, 15 Oct: with a
+-- solid ceiling they fell down the shaft onto the cab's roof and were stuck between floors)
+local stranded = {}
 local lastCall = {}      -- player -> os.clock()
 local rng = Random.new()
 
@@ -209,6 +212,17 @@ function LiftCab.sync(plot)
 		setDisplays(c, label(c, c.plan.at), nil)
 		sign(c, label(c, c.plan.at))
 	end
+	local here = stops[c.plan.at]
+	for _, p in ipairs(stranded[plot.index] or {}) do
+		local char = p.Parent and p.Character
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		local root = char and char:FindFirstChild("HumanoidRootPart")
+		if hum and root and hum.Health > 0 then
+			local stand = W.cabAt(plot, here.storey) * CFrame.new(0, hum.HipHeight + root.Size.Y / 2 + 0.1, 0)
+			char:PivotTo(CFrame.new(stand.Position) * root.CFrame.Rotation)
+		end
+	end
+	stranded[plot.index] = nil
 	local list = {}
 	for _, sk in ipairs(LP.sockets(W.Plan.PIECES, st.level)) do
 		table.insert(list, { id = sk.id, num = sk.num, built = sk.built, label = sk.built and LP.roomLabel(W.Plan.PIECES, st.depts, st.level, sk.storey) or "",
@@ -220,7 +234,11 @@ end
 function LiftCab.reset(plot)
 	cabs[plot.index] = nil
 	for _, p in ipairs(Players:GetPlayers()) do
-		if p:GetAttribute("LiftCab") == plot.index then p:SetAttribute("LiftCab", nil) end
+		if p:GetAttribute("LiftCab") == plot.index then
+			p:SetAttribute("LiftCab", nil)
+			stranded[plot.index] = stranded[plot.index] or {}
+			table.insert(stranded[plot.index], p)
+		end
 	end
 end
 
