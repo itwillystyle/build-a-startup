@@ -2232,7 +2232,8 @@ local function wafersBuild(player, plot, s, cash, chosen)
 			if stage ~= stageBefore then head, task1 = Journey.headline(stage, { hasCar = Econ.Cars and Econ.Cars.hasCar(player) }) end
 			-- big: the HQ stage itself changed (confetti); a banner level on the way is a smaller moment
 			Econ.celebrate:FireClient(player, { kind = "hq", level = stage, name = ("LEVEL %d"):format(lvl), chips = chips,
-				headline = head or ((lvl == 100) and "THE CROWN" or "GARDEN DECK"), task = task1, big = stage ~= stageBefore or lvl == 100 })
+				headline = head or ((lvl == 100) and "THE CROWN" or "GARDEN DECK"), task = task1, big = stage ~= stageBefore or lvl == 100,
+				lobby = fromGarage or nil })   -- 1c: the lobby moment plays instead of the orbit and the banner
 		end
 	elseif not fromGarage then   -- the garage build gets the moment (below) and its own line, not a popup
 		local what = (last > L) and ("LEVELS %d-%d REBUILT"):format(L, last)
@@ -2242,7 +2243,7 @@ local function wafersBuild(player, plot, s, cash, chosen)
 	-- 1c: the build that turned the garage into the lobby plays the moment on the owner's screen, also
 	-- when it crossed a stage (after a spin-off the first build rebuilds the whole lobby storey, 2 to 9)
 	if fromGarage and plot.wafer.level >= 2 and Econ.Wafers.lobbyMoment then
-		Econ.Wafers.lobbyMoment(player, plot, L, last)
+		Econ.Wafers.lobbyMoment(player, plot, L, last, ("Your HQ is open! Up to %d staff."):format(WP.capAt(plot.wafer.level)))
 	end
 	task.delay(0.6, function() plot.busy = false end)
 end

@@ -980,6 +980,9 @@ if celebrate then
 			coinStream(from, 12, nil, e.payday)     -- the payday counts in as the coins land
 			popUnderCash("+" .. UIKit.money(e.payday or 0), UIKit.GOLD, 1.4)
 			if e.auto then task.delay(0.4, function() popUnderCash("Auto-launched: half pay", UIKit.ORANGE, 1.6) end) end
+		elseif e.kind == "hq" and e.lobby then
+			-- 1c: the garage-to-lobby moment replaces the banner; its toast carries the staff line
+			player:SetAttribute("Celebrating", nil)
 		elseif e.kind == "hq" then
 			-- v4.2: the orbit shot (HomeClient, at 1.4 s) goes first; the banner
 			-- waits for it instead of being hidden by it after 1.4 s

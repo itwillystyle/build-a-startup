@@ -74,6 +74,11 @@ function LobbyMoment.groupOf(name)
 	return GROUP[name] or (string.sub(name, 1, 4) == "Sign" and "canopy") or "glass"
 end
 
+-- what the client copies of the garage for the fold: everything the server stashes, except the floor
+-- (it stays where it is: copied, it flickered on the lobby floor and rose through the desk; final review I3)
+local COPY_SKIP = { GarageFloor = true }
+function LobbyMoment.inCopy(name) return not COPY_SKIP[name] end
+
 -- which way a garage part folds: a wall on a side folds out on that side; the roof, anything that
 -- spans the whole garage (the shell mesh) and anything low (boxes, props) lifts away and fades.
 -- x, z: the part's centre from the garage's centre; sx, sy, sz: its size; hw, hd: the garage's half size

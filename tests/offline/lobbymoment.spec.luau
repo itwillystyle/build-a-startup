@@ -74,4 +74,9 @@ test("foldSide: the garage's walls fold out on their own side; the roof, the she
 	assert(LM.foldSide(-8, 5, 1.8, 1.6, 1.6, hw, hd) == "lift", "a box")
 end)
 
+test("I3: the garage copy leaves the floor out (it stays; it would flicker and rise through the desk)", function()
+	assert(LM.inCopy("GarageFloor") == false, "the garage floor is not copied")
+	assert(LM.inCopy("Wall") and LM.inCopy("Dressing") and LM.inCopy("Roof"), "walls, dressing and the roof are")
+end)
+
 return TT

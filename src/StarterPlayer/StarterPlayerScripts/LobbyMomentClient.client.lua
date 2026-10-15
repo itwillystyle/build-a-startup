@@ -33,7 +33,7 @@ local function snapshot()
 	local m = Instance.new("Model")
 	m.Name = "GarageCopy"
 	for _, c in ipairs(g:GetChildren()) do
-		if not T.GARAGE_KEEP[c.Name] and not STRIP[c.ClassName] then
+		if not T.GARAGE_KEEP[c.Name] and LM.inCopy(c.Name) and not STRIP[c.ClassName] then
 			local ok, k = pcall(function() return c:Clone() end)
 			if ok and k then
 				for _, d in ipairs(k:GetDescendants()) do if STRIP[d.ClassName] then d:Destroy() end end
@@ -85,14 +85,33 @@ local function play(e)
 	local pivot = e.pivot
 	local up = pivot.UpVector
 
-	-- the lobby's parts by group, with where the server has them
+	-- the lobby's parts by group. The moment never moves the server's parts (final review I1, I2): it
+	-- hides each one locally (its surface text and decals too) and animates a copy that collides with
+	-- nothing; at the end the copies go and the real parts show, wherever the server has them by then
+	-- (the lift doors finish opening, the cab can be standing in, nothing pushes the player)
 	local groups = { columns = {}, glass = {}, roof = {}, canopy = {} }
+	local stage = Instance.new("Model")
+	stage.Name = "MomentLobby"
+	local hidden = {}   -- the real parts and their surface guis / decals we hid
 	local lo, hi = Vector3.new(math.huge, math.huge, math.huge), Vector3.new(-math.huge, -math.huge, -math.huge)
 	local function add(p)
 		if not p:IsA("BasePart") or p.Transparency >= 1 then return end
 		local list = groups[LM.groupOf(p.Name)]
 		if not list then return end   -- the floor stays put
-		table.insert(list, { part = p, cf = p.CFrame })
+		local ok, k = pcall(function() return p:Clone() end)
+		if not (ok and k) then return end
+		for _, d in ipairs(k:GetDescendants()) do
+			if STRIP[d.ClassName] or d:IsA("JointInstance") or d:IsA("Constraint") then d:Destroy() end
+		end
+		k.Anchored, k.CanCollide, k.CanQuery, k.CanTouch = true, false, false, false
+		k.Parent = stage
+		table.insert(list, { part = k, cf = p.CFrame })
+		table.insert(hidden, p)
+		p.LocalTransparencyModifier = 1
+		for _, d in ipairs(p:GetDescendants()) do
+			if d:IsA("SurfaceGui") and d.Enabled then d.Enabled = false; table.insert(hidden, d)
+			elseif d:IsA("Decal") or d:IsA("Texture") then d.LocalTransparencyModifier = 1; table.insert(hidden, d) end
+		end
 		local l = pivot:PointToObjectSpace(p.Position)
 		lo, hi = lo:Min(l), hi:Max(l)
 	end
@@ -101,6 +120,7 @@ local function play(e)
 	end
 	for _, p in ipairs(e.core or {}) do if typeof(p) == "Instance" then add(p) end end
 	if typeof(e.cab) == "Instance" then for _, d in ipairs(e.cab:GetDescendants()) do add(d) end end
+	stage.Parent = workspace
 
 	-- the garage copy: each part folds out on its side, or lifts away
 	local garage = copy
@@ -124,10 +144,11 @@ local function play(e)
 			local l = pivot:PointToObjectSpace(d.Position)
 			local side = LM.foldSide(l.X - c.X, l.Z - c.Z, d.Size.X, d.Size.Y, d.Size.Z, hw, hd)
 			local hinge
-			if side == "px" then hinge = Vector3.new(c.X + hw, glo.Y, l.Z)
-			elseif side == "nx" then hinge = Vector3.new(c.X - hw, glo.Y, l.Z)
-			elseif side == "pz" then hinge = Vector3.new(l.X, glo.Y, c.Z + hd)
-			elseif side == "nz" then hinge = Vector3.new(l.X, glo.Y, c.Z - hd) end
+			local y = T.FLOOR_Y   -- the walls fold at the floor's top (I3: they hinged underground)
+			if side == "px" then hinge = Vector3.new(c.X + hw, y, l.Z)
+			elseif side == "nx" then hinge = Vector3.new(c.X - hw, y, l.Z)
+			elseif side == "pz" then hinge = Vector3.new(l.X, y, c.Z + hd)
+			elseif side == "nz" then hinge = Vector3.new(l.X, y, c.Z - hd) end
 			table.insert(folds, { part = d, cf = d.CFrame, side = side, hinge = hinge })
 		end
 	end
@@ -170,11 +191,12 @@ local function play(e)
 	local function finish()
 		if done then return end
 		done = true
-		for _, list in pairs(groups) do
-			for _, it in ipairs(list) do
-				if it.part.Parent then it.part.CFrame = it.cf; it.part.LocalTransparencyModifier = 0 end
+		for _, o in ipairs(hidden) do
+			if o.Parent then
+				if o:IsA("SurfaceGui") then o.Enabled = true else o.LocalTransparencyModifier = 0 end
 			end
 		end
+		stage:Destroy()
 		if scaffold then scaffold:Destroy() end
 		if garage then garage:Destroy() end
 	end
@@ -213,6 +235,10 @@ local function play(e)
 			table.insert(shots, { pos = vec(pivot, s.pos), look = vec(pivot, s.look), t = s.t })
 		end
 	end
+	-- C1: the finish picker closes itself 0.42 s after the tap; the moment can start sooner, and Cine
+	-- would hide it and turn it back on at the end
+	local pick = player:FindFirstChild("PlayerGui") and player.PlayerGui:FindFirstChild("WaferPath")
+	if pick then pick.Enabled = false end
 	local ok, finished = pcall(Cine.play, shots, { letterbox = true, skippable = true, fov = 60 })
 	if not (ok and finished) then
 		-- skipped (or Cine refused): a short fade over the jump to the end state
@@ -226,7 +252,7 @@ local function play(e)
 		if conn.Connected then conn:Disconnect() end
 		finish()
 	end
-	pcall(Notify.toast, "Your HQ is open! Next: floor 1.", { priority = 2, icon = "info" })
+	pcall(Notify.toast, typeof(e.line) == "string" and e.line or "Your HQ is open!", { priority = 2, icon = "info" })
 	playing = false
 end
 
