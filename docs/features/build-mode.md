@@ -34,4 +34,4 @@
 - A missing template means no placement at all, never a hole (`FurnitureKit.has`, `SiliconCore.server.lua:2553`).
 - Rugs (`flat`) go under anything. Only the first 3 copies of a key count for vibe (`FurnitureKit.lua:872-886`).
 - Security (9 Oct exploit check): `placeAt` rejects a NaN or infinite x, z or angle (`SiliconCore.server.lua:2547`); before, one was charged, pivoted to nowhere and written into the save.
-**Last verified:** 2026-10-14 e285bb9
+**Last verified:** 2026-10-15 8225305
