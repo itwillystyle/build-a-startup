@@ -126,13 +126,31 @@ function Wafers.decorOk(plot, b)
 	local st = plot.wafer
 	if not st or st.level < 2 then return nil end
 	if not T.decorOk(P.PIECES, st.level, b) then return false end
-	local y = T.floorY(0)
-	local params = OverlapParams.new()
-	params.FilterType = Enum.RaycastFilterType.Include
-	params.FilterDescendantsInstances = { st.folder }
-	local cf = plot.pivot * CFrame.new((b.x0 + b.x1) / 2, y + 1.6, (b.z0 + b.z1) / 2)
-	for _, part in ipairs(workspace:GetPartBoundsInBox(cf, Vector3.new(b.x1 - b.x0 - 0.1, 3, b.z1 - b.z0 - 0.1), params)) do
-		if not CLEAR_OF[part.Name] and part.Transparency < 1 then return false end
+	-- footprint against every part the tower built on the lobby storey, between the floor and head height.
+	-- Not a spatial query: the room furniture is CanQuery false (measured 14 Oct: a plant went onto the
+	-- lobby sofa), so compare boxes, as FurnitureKit.blocked does for the old rooms
+	local y0 = T.floorY(0)
+	local inv = plot.pivot:Inverse()
+	for _, m in ipairs(st.folder:GetChildren()) do
+		local lobbyStorey = (m:GetAttribute("Storey") == 0) or m:IsA("BasePart")   -- a room piece, or a core part
+		if lobbyStorey then
+			local parts = m:IsA("BasePart") and { m } or m:GetDescendants()
+			for _, part in ipairs(parts) do
+				if part:IsA("BasePart") and not CLEAR_OF[part.Name] and part.Transparency < 1 then
+					local cf = inv * part.CFrame
+					local sx, sy, sz = part.Size.X / 2, part.Size.Y / 2, part.Size.Z / 2
+					local r = cf - cf.Position
+					local hx = math.abs(r.XVector.X) * sx + math.abs(r.YVector.X) * sy + math.abs(r.ZVector.X) * sz
+					local hy = math.abs(r.XVector.Y) * sx + math.abs(r.YVector.Y) * sy + math.abs(r.ZVector.Y) * sz
+					local hz = math.abs(r.XVector.Z) * sx + math.abs(r.YVector.Z) * sy + math.abs(r.ZVector.Z) * sz
+					local p = cf.Position
+					if p.Y - hy < y0 + 3 and p.Y + hy > y0 + 0.2
+						and p.X - hx < b.x1 - 0.05 and p.X + hx > b.x0 + 0.05 and p.Z - hz < b.z1 - 0.05 and p.Z + hz > b.z0 + 0.05 then
+						return false
+					end
+				end
+			end
+		end
 	end
 	return true
 end
