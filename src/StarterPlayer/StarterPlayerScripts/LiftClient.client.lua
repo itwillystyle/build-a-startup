@@ -88,7 +88,8 @@ local function openList(cab)
 		}, UIKit.HEAD)
 		local sub = here and "YOU ARE HERE" or st.sub or ""
 		if sub ~= "" then
-			UIKit.label(b, sub, UIKit.TYPE.caption, UIKit.MUTED_TEXT, {
+			-- on a blue row the muted grey could not be read (look review): the row's own text colour
+			UIKit.label(b, sub, UIKit.TYPE.caption, (here or locked) and UIKit.MUTED_TEXT or UIKit.TEXT, {
 				AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.new(0, 84, 0, 18),
 				TextXAlignment = Enum.TextXAlignment.Right,
 			}, UIKit.BODY)
@@ -127,11 +128,20 @@ local camWas
 local riderCab           -- the cab whose ride holds our camera
 -- hand the camera back. Also when the cab is gone (a rebuild mid-ride replaced it) or we respawn:
 -- RF3/RF5 (15 Oct) left the camera Scriptable for good, and the next ride saved that as "before"
+-- the rider's own character is hidden from their camera during the ride: from the back wall it
+-- stood in front of the doors and the signs (look review, 15 Oct)
+local function showSelf(on)
+	local char = player.Character
+	for _, d in ipairs(char and char:GetDescendants() or {}) do
+		if d:IsA("BasePart") or d:IsA("Decal") then d.LocalTransparencyModifier = on and 0 or 1 end
+	end
+end
 local function release()
 	if not riderCab then return end
 	riderCab = nil
 	workspace.CurrentCamera.CameraType = camWas or Enum.CameraType.Custom
 	camWas = nil
+	showSelf(true)
 end
 player.CharacterAdded:Connect(release)
 
@@ -157,6 +167,7 @@ local function startRide(cab)
 		end
 		riderCab = cab
 		cam.CameraType = Enum.CameraType.Scriptable
+		showSelf(false)
 	end
 	if cab:GetAttribute("Event") == "calm" then
 		local light = cab:FindFirstChild("CabLight")
@@ -196,7 +207,9 @@ RunService.RenderStepped:Connect(function()
 			-- the rider's camera: inside, facing the doors
 			if riderCab == cab and moving then
 				local cf = base.CFrame
-				workspace.CurrentCamera.CFrame = CFrame.lookAt((cf * CFrame.new(0, 6.6, -C.d / 2 + 1.2)).Position, (cf * CFrame.new(0, 4.2, C.d / 2)).Position)
+				-- the back wall at head height, looking at the doors: the floor display over them and
+				-- the talking sign on the side wall both in frame
+				workspace.CurrentCamera.CFrame = CFrame.lookAt((cf * CFrame.new(0, 6.0, -C.d / 2 + 0.5)).Position, (cf * CFrame.new(0, 6.3, C.d / 2)).Position)
 			elseif riderCab == cab then
 				release()
 			end

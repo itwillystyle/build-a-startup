@@ -74,18 +74,25 @@ local function doorsAt(c, id, open)
 	end
 end
 
-local function setDisplays(c, text, arrowUp)
-	local arrow = arrowUp == nil and "" or (arrowUp and "^ " or "v ")
+-- every display (each landing's and the cab's): the fat number, then the arrow and the room
+local function setDisplays(c, idx, arrowUp)
+	local st = c.stops[idx]
+	if not st then return end
+	local w = api.Wafers.stateOf(c.plot)
+	local num = (st.id == "L" and "L") or (st.id == "R" and "R") or tostring(st.storey)
+	local room = LP.roomLabel(api.Wafers.Plan.PIECES, w.depts, w.level, st.storey)
+	local arrow = arrowUp == nil and "" or (arrowUp and "UP  " or "DOWN  ")
+	local function put(part)
+		local sg = part and part:FindFirstChildWhichIsA("SurfaceGui")
+		if not sg then return end
+		if sg:FindFirstChild("Num") then sg.Num.Text = num end
+		if sg:FindFirstChild("Label") then sg.Label.Text = arrow .. room end
+	end
 	local folder = c.model.Parent
 	for _, d in ipairs(folder and folder:GetChildren() or {}) do
-		if d.Name == "LiftDisplay" then
-			local tl = d:FindFirstChildWhichIsA("SurfaceGui") and d:FindFirstChildWhichIsA("SurfaceGui"):FindFirstChild("Text")
-			if tl then tl.Text = arrow .. text end
-		end
+		if d.Name == "LiftDisplay" then put(d) end
 	end
-	local h = c.model:FindFirstChild("CabHeader")
-	local tl = h and h:FindFirstChildWhichIsA("SurfaceGui") and h:FindFirstChildWhichIsA("SurfaceGui"):FindFirstChild("Text")
-	if tl then tl.Text = arrow .. text end
+	put(c.model:FindFirstChild("CabHeader"))
 end
 local function sign(c, text)
 	local s = c.model:FindFirstChild("Sign")
@@ -167,7 +174,7 @@ local function run(c)
 			c.model:SetAttribute("Start", workspace:GetServerTimeNow())
 			c.model:SetAttribute("To", dest.id)
 			c.model:SetAttribute("State", "moving")
-			setDisplays(c, label(c, target), target > c.plan.at)
+			setDisplays(c, target, target > c.plan.at)
 			task.wait(dur)
 			if not c.model.Parent then break end
 			c.model:PivotTo(toCF * CFrame.new(0, -0.25, 0))
@@ -176,7 +183,7 @@ local function run(c)
 			c.model:SetAttribute("At", dest.id)
 			for _, p in ipairs(who) do if p.Parent then p:SetAttribute("LiftCab", nil) end end
 			callLight(c, dest.id, false)
-			setDisplays(c, label(c, target), nil)
+			setDisplays(c, target, nil)
 			sign(c, label(c, target))
 			c.model:SetAttribute("State", "opening")
 			doorsAt(c, dest.id, true)
@@ -209,7 +216,7 @@ function LiftCab.sync(plot)
 		c.model:SetAttribute("At", here.id)
 		doorsAt(c, here.id, true)
 		c.model:SetAttribute("State", "open")
-		setDisplays(c, label(c, c.plan.at), nil)
+		setDisplays(c, c.plan.at, nil)
 		sign(c, label(c, c.plan.at))
 	end
 	local here = stops[c.plan.at]

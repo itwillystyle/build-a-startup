@@ -671,23 +671,11 @@ local function liftDoors(plot, st, s, y, h)
 		table.insert(st.core, slabBox(st.folder, plot, "LiftHeader", mid - C.door / 2, mid + C.door / 2, S.z1 - 0.4, S.z1, y + C.doorH, y + h - SLAB,
 			{ Color = Color3.fromRGB(190, 214, 226), Material = Enum.Material.Glass, Transparency = 0.45, CastShadow = false }))
 	end
-	local disp = slabBox(st.folder, plot, "LiftDisplay", mid - 3, mid + 3, S.z1 + 0.05, S.z1 + 0.25, y + C.doorH + 0.4, y + C.doorH + 2.0,
+	-- mock A: one fat number (B's room label beside it, smaller). 2.6 tall: the number is a third of the door
+	local disp = slabBox(st.folder, plot, "LiftDisplay", mid - 3.5, mid + 3.5, S.z1 + 0.05, S.z1 + 0.25, y + C.doorH + 0.3, y + C.doorH + 2.9,
 		{ Color = Color3.fromRGB(20, 22, 30), Material = Enum.Material.SmoothPlastic, CanCollide = false, CastShadow = false })
 	disp:SetAttribute("Stop", LiftPlan.stopId(s))
-	local sg = Instance.new("SurfaceGui")
-	sg.Face = Enum.NormalId.Back      -- the +Z side of the plate, toward the landing (check the face live and ledger if it is Front)
-	sg.PixelsPerStud = 40
-	sg.LightInfluence = 0
-	sg.Parent = disp
-	local tl = Instance.new("TextLabel")
-	tl.Name = "Text"
-	tl.Size = UDim2.fromScale(1, 1)
-	tl.BackgroundTransparency = 1
-	tl.TextScaled = true
-	tl.Font = Enum.Font.FredokaOne
-	tl.TextColor3 = Color3.fromRGB(110, 220, 255)
-	tl.Text = ""
-	tl.Parent = sg
+	Wafers.displayText(disp, Enum.NormalId.Back)   -- the +Z side of the plate, toward the landing
 	table.insert(st.core, disp)
 end
 
@@ -698,6 +686,7 @@ function Wafers.cabAt(plot, storey)
 end
 local function surfaceText(part, face, color)
 	local sg = Instance.new("SurfaceGui")
+	sg.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud   -- or PixelsPerStud is ignored (fixed 800 x 600 canvas)
 	sg.Face, sg.PixelsPerStud, sg.LightInfluence = face, 40, 0
 	sg.Parent = part
 	local tl = Instance.new("TextLabel")
@@ -706,6 +695,24 @@ local function surfaceText(part, face, color)
 	tl.Parent = sg
 	return tl
 end
+-- the floor display: "Num" (the fat number, the arrow under it) and "Label" (the room), mock A + B
+function Wafers.displayText(part, face)
+	local sg = Instance.new("SurfaceGui")
+	sg.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud   -- or PixelsPerStud is ignored (fixed 800 x 600 canvas)
+	sg.Face, sg.PixelsPerStud, sg.LightInfluence = face, 40, 0
+	sg.Parent = part
+	local function text(name, pos, size, color, align)
+		local tl = Instance.new("TextLabel")
+		tl.Name, tl.Position, tl.Size, tl.BackgroundTransparency, tl.TextScaled = name, pos, size, 1, true
+		tl.Font, tl.TextColor3, tl.Text, tl.TextXAlignment = Enum.Font.FredokaOne, color, "", align
+		tl.Parent = sg
+		return tl
+	end
+	text("Num", UDim2.fromScale(0.03, 0.02), UDim2.fromScale(0.3, 0.96), Color3.fromRGB(110, 220, 255), Enum.TextXAlignment.Center)
+	text("Label", UDim2.fromScale(0.36, 0.25), UDim2.fromScale(0.6, 0.5), Color3.fromRGB(110, 220, 255), Enum.TextXAlignment.Left)
+	return sg
+end
+
 function Wafers.cab(plot)
 	local st = stateOf(plot)
 	if st.cab and st.cab.Parent then return st.cab end
@@ -730,7 +737,7 @@ function Wafers.cab(plot)
 	part("CabRight", Vector3.new(0.2, C.h, C.d), Vector3.new(C.w / 2 - 0.1, C.h / 2, 0), CAB_GLASS)
 	local header = part("CabHeader", Vector3.new(C.w, C.h - C.doorH, 0.2), Vector3.new(0, (C.h + C.doorH) / 2, C.d / 2 - 0.1),
 		{ Color = Color3.fromRGB(20, 22, 30), Material = Enum.Material.SmoothPlastic, CanCollide = false })
-	surfaceText(header, Enum.NormalId.Front, Color3.fromRGB(110, 220, 255))   -- faces the riders (check live)
+	Wafers.displayText(header, Enum.NormalId.Front)   -- faces the riders
 	part("Panel", Vector3.new(0.12, 6.4, 3.0), Vector3.new(C.w / 2 - 0.25, 4.6, 0), { Color = Color3.fromRGB(150, 156, 166), Material = Enum.Material.Metal, CanCollide = false })
 	local signPlate = part("Sign", Vector3.new(0.12, 1.4, 4.4), Vector3.new(-C.w / 2 + 0.25, 7.2, 0), { Color = Color3.fromRGB(20, 22, 30), Material = Enum.Material.SmoothPlastic, CanCollide = false })
 	surfaceText(signPlate, Enum.NormalId.Right, Color3.fromRGB(255, 170, 60))     -- faces into the cab (check live)
@@ -753,15 +760,17 @@ function Wafers.refreshPanel(plot, onPick)
 			local slot = T.panelSlot(i)
 			b = add(m, { Name = "Btn_" .. sk.id, Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.1, 0.72, 0.72),
 				CFrame = base * CFrame.new(C.w / 2 - 0.33, slot.y, slot.z), CanCollide = false, Anchored = true, CastShadow = false })
-			surfaceText(b, Enum.NormalId.Left, Color3.fromRGB(20, 22, 30)).Text = sk.num
+			local num = surfaceText(b, Enum.NormalId.Left, Color3.fromRGB(20, 22, 30))
+			num.Text, num.Font = sk.num, Enum.Font.GothamBlack
 			local cd = Instance.new("ClickDetector")
 			cd.MaxActivationDistance = 14
 			cd.Parent = b
 			cd.MouseClick:Connect(function(player) if b:GetAttribute("Built") and onPick then onPick(player, sk.id) end end)
 		end
 		b:SetAttribute("Built", sk.built)
-		b.Color = sk.built and Color3.fromRGB(250, 246, 236) or Color3.fromRGB(52, 56, 68)
-		b.Material = sk.built and Enum.Material.Neon or Enum.Material.SmoothPlastic
+		-- lit = bright warm plastic, not Neon: Neon's glow swallowed the numbers (look review, 15 Oct)
+		b.Color = sk.built and Color3.fromRGB(255, 232, 170) or Color3.fromRGB(52, 56, 68)
+		b.Material = Enum.Material.SmoothPlastic
 		local tl = b:FindFirstChildWhichIsA("SurfaceGui") and b:FindFirstChildWhichIsA("SurfaceGui"):FindFirstChild("Text")
 		if tl then tl.Visible = sk.built end
 	end
