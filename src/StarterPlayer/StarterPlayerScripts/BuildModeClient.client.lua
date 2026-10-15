@@ -508,7 +508,10 @@ local function rescanFloors()
 	if not pf then placedFolder = nil return end
 	placedFolder = pf:FindFirstChild("Placed")
 	for _, d in ipairs(pf:GetDescendants()) do
-		if d:IsA("BasePart") and (d.Name == "GarageFloor" or
+		-- v9 (14 Oct): the HQ tower's lobby storey (its rooms' and the hall's floors, top at y 1); the
+		-- server's floorRects (TowerPlan.decorRects) decides exactly where
+		local towerLobby = d.Name == "Floor" and d:FindFirstAncestor("Wafers") ~= nil and d.Position.Y + d.Size.Y / 2 < 3
+		if d:IsA("BasePart") and (d.Name == "GarageFloor" or towerLobby or
 			(d.Name == "Floor" and d.Parent and d.Parent.Name:match("^Room_"))) then
 			table.insert(floorParts, d)
 		end

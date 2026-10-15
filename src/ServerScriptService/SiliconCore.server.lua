@@ -2504,7 +2504,18 @@ end)
 local GRID = 0.5
 local DESK_FAMILY = { desk = true, deskCorner = true, tableRound = true, tableCross = true, kitchenBar = true }
 
+local TowerPlan = tryRequire(ReplicatedStorage, "TowerPlan")
 local function floorRects(plot)
+	-- v9 (14 Oct, HQ tower 1a): from level 2 the garage floor is stashed; decor stands on the tower's
+	-- lobby storey (TowerPlan.decorRects: its built rooms and the hall around the lift shaft)
+	if Econ.WAFERS and Econ.Wafers and TowerPlan and plot.wafer and plot.wafer.level >= 2 then
+		local rects = {}
+		for _, r in ipairs(TowerPlan.decorRects(Econ.Wafers.Plan.PIECES, plot.wafer.level) or {}) do
+			table.insert(rects, { cf = plot.pivot * CFrame.new((r.x0 + r.x1) / 2, 0, (r.z0 + r.z1) / 2),
+				w = r.x1 - r.x0, d = r.z1 - r.z0, top = TowerPlan.floorY(0) })
+		end
+		return rects
+	end
 	local L = CFG.HQ_LEVELS[plot.hq.level]
 	local rects = { { cf = plot.pivot, w = L.w, d = L.d, top = 1.0 } }
 	for _, slot in ipairs(plot.slots) do
@@ -2558,7 +2569,16 @@ local function placeAt(player, plot, key, px, pz, yawDeg, free, forcedPrice)
 		local l = r.cf:PointToObjectSpace(Vector3.new(x, 0, z))
 		if math.abs(l.X) + w / 2 <= r.w / 2 and math.abs(l.Z) + d / 2 <= r.d / 2 then floor = r break end
 	end
-	if not floor then if not free then popup(plot.hirePad, "Outside your floor", CFG.BAD) end return false end
+	if not floor then
+		if free then   -- a saved piece whose floor is gone (the tower replaced the garage): refunded, not lost
+			cash.Value += (forcedPrice or item.price)
+			Telemetry.money(player, "source", forcedPrice or item.price, "refund")
+			player:SetAttribute("SVRefunded", (player:GetAttribute("SVRefunded") or 0) + 1)
+		else
+			popup(plot.hirePad, "Outside your floor", CFG.BAD)
+		end
+		return false
+	end
 
 	-- v2.6.0 ROOM ECONOMY: a station seats people only in its own room, up to
 	-- that room's cap. A refused station from an old save is refunded, not lost.

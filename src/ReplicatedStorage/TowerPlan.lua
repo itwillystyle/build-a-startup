@@ -208,6 +208,29 @@ function T.edges(pieces, L)
 	return out
 end
 
+--[[ where DECOR may stand once the tower stands (level 2+): the lobby storey's built rooms (inside
+	their walls) and the centre hall around the lift shaft. A piece must fit inside ONE rect, so the
+	hall is four rects around the shaft. nil before the tower (decor stays on the garage floor).
+	Rooms higher up get their decor with project #2 (interiors). ]]
+function T.decorRects(pieces, level)
+	if level < 2 then return nil end
+	local out = {}
+	local w = T.WALL_T
+	for L = 2, level do
+		local pc = pieces[L]
+		if pc and pc.kind == "segment" and pc.storey == 0 then
+			local r = T.room(0, pc.seg)
+			table.insert(out, { x0 = r.x0 + w, x1 = r.x1 - w, z0 = r.z0 + w, z1 = r.z1 - w })
+		end
+	end
+	local c, sh = T.centre(0), T.SHAFT
+	table.insert(out, { x0 = c.x0, x1 = sh.x0, z0 = c.z0, z1 = c.z1 })      -- left of the shaft
+	table.insert(out, { x0 = sh.x1, x1 = c.x1, z0 = c.z0, z1 = c.z1 })      -- right of it
+	table.insert(out, { x0 = c.x0, x1 = c.x1, z0 = sh.z1, z1 = c.z1 })      -- in front (the garage spots)
+	table.insert(out, { x0 = c.x0, x1 = c.x1, z0 = c.z0, z1 = sh.z0 })      -- behind
+	return out
+end
+
 -- the open strips of garden deck d around the storey that stands on it: side -> { x0, x1, z0, z1, depth }
 function T.terraces(d)
 	local deck, up = T.deck(d), T.rect(d + 1)

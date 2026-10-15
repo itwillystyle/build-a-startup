@@ -244,4 +244,34 @@ test("no built room above the lobby has a door open to an unbuilt room, at any l
 	end
 end)
 
+-- DECOR in the tower (final review I3): from level 2 the garage floor is gone, so decor stands on the
+-- lobby storey: any built ground-floor room, and the centre hall around the lift shaft
+test("decor floors: the lobby storey's built rooms and the hall, never the shaft; the garage floor before the tower", function()
+	assert(T.decorRects(W.PIECES, 1) == nil, "level 1 has no tower: decor stays on the garage floor")
+	for _, level in ipairs({ 2, 5, 9, 43, 100 }) do
+		local rects = T.decorRects(W.PIECES, level)
+		assert(rects and #rects > 0, "no decor floor at level " .. level)
+		local floors = { T.centre(0) }
+		for L = 2, level do
+			local pc = W.PIECES[L]
+			if pc.kind == "segment" and pc.storey == 0 then table.insert(floors, T.room(0, pc.seg)) end
+		end
+		for i, r in ipairs(rects) do
+			assert(r.x1 > r.x0 and r.z1 > r.z0, "empty rect " .. i)
+			assert(not overlap(r, T.SHAFT), ("level %d: decor rect %d is in the lift shaft"):format(level, i))
+			local on = false
+			for _, f in ipairs(floors) do if inside(r, f) then on = true break end end
+			assert(on, ("level %d: decor rect %d is not on a built floor of the lobby storey"):format(level, i))
+		end
+	end
+	-- a built room's decor stays clear of its walls
+	local lobby = T.room(0, 1)
+	for _, r in ipairs(T.decorRects(W.PIECES, 2)) do
+		if inside(r, lobby) then
+			assert(r.x0 >= lobby.x0 + T.WALL_T and r.x1 <= lobby.x1 - T.WALL_T and r.z0 >= lobby.z0 + T.WALL_T and r.z1 <= lobby.z1 - T.WALL_T,
+				"decor rect touches the lobby's walls")
+		end
+	end
+end)
+
 return TT
