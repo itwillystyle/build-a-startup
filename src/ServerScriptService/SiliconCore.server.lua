@@ -2176,6 +2176,8 @@ local function wafersBuild(player, plot, s, cash, chosen)
 	s.blueprint = s.blueprint or {}
 	local freeSeats = capacityOf(player) - (s.staff or 0)
 	local firstDept
+	-- 1c: the build that turns the garage into the lobby plays the moment instead of the Rise
+	local fromGarage = (plot.wafer.level or 1) <= 1
 	Econ.Wafers.buildUpTo(plot, last, function(x)
 		local ok = {}
 		for _, d in ipairs(WP.allowed(x)) do ok[d] = true end
@@ -2186,7 +2188,7 @@ local function wafersBuild(player, plot, s, cash, chosen)
 		s.blueprint[x] = pick
 		firstDept = firstDept or pick
 		return pick
-	end, true)
+	end, not fromGarage)
 	s.record = math.max(s.record or 1, plot.wafer.level)
 	plot.hq.level = Econ.Wafers.stage(plot.wafer.level)
 	s.hqLevel = plot.hq.level
@@ -2232,10 +2234,15 @@ local function wafersBuild(player, plot, s, cash, chosen)
 			Econ.celebrate:FireClient(player, { kind = "hq", level = stage, name = ("LEVEL %d"):format(lvl), chips = chips,
 				headline = head or ((lvl == 100) and "THE CROWN" or "GARDEN DECK"), task = task1, big = stage ~= stageBefore or lvl == 100 })
 		end
-	else
+	elseif not fromGarage then   -- the garage build gets the moment (below) and its own line, not a popup
 		local what = (last > L) and ("LEVELS %d-%d REBUILT"):format(L, last)
 			or ("LEVEL %d  ·  %s"):format(L, (firstDept and Econ.Wafers.NAME[firstDept]) or "")
 		popup(plot.hqPad, what, CFG.GOLD)
+	end
+	-- 1c: the build that turned the garage into the lobby plays the moment on the owner's screen, also
+	-- when it crossed a stage (after a spin-off the first build rebuilds the whole lobby storey, 2 to 9)
+	if fromGarage and plot.wafer.level >= 2 and Econ.Wafers.lobbyMoment then
+		Econ.Wafers.lobbyMoment(player, plot, L, last)
 	end
 	task.delay(0.6, function() plot.busy = false end)
 end

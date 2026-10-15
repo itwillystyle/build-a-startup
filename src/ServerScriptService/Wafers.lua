@@ -967,6 +967,20 @@ function Wafers.buildUpTo(plot, to, deptOf, animate)
 	Wafers.garage(plot, st.level < 2)
 end
 
+-- 1c: tell the owner's client to play the garage-to-lobby moment over pieces from..to (built already)
+function Wafers.lobbyMoment(player, plot, from, to)
+	local folder = RS:FindFirstChild("SVRemotes")
+	local ev = folder and folder:FindFirstChild("LobbyMoment")
+	if not (ev and player) then return end
+	local st = stateOf(plot)
+	local models = {}
+	for L = from, to do
+		local pc = st.pieces[L]
+		if pc and pc.model then table.insert(models, pc.model) end
+	end
+	ev:FireClient(player, { pivot = plot.pivot, models = models, core = st.core, cab = st.cab })
+end
+
 -- everything back to the garage (a spin-off, or the owner leaving)
 function Wafers.clear(plot)
 	local st = plot.wafer
@@ -1026,6 +1040,12 @@ end
 function Wafers.init(a)
 	api = a
 	if api.LiftCab and api.LiftCab.init then api.LiftCab.init({ Wafers = Wafers, session = api.session }) end   -- 1b
+	do   -- 1c: the garage-to-lobby moment (LobbyMomentClient plays it on the owner's screen)
+		local folder = RS:WaitForChild("SVRemotes")
+		local ev = folder:FindFirstChild("LobbyMoment") or Instance.new("RemoteEvent")
+		ev.Name = "LobbyMoment"
+		ev.Parent = folder
+	end
 end
 
 return Wafers
