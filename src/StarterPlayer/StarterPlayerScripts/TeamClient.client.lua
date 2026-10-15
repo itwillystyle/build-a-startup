@@ -73,7 +73,7 @@ local panel, body, close = UIKit.menu(gui, "TEAM", UIKit.BLUE, {
 body.Position = UDim2.new(0, 0, 0, HEAD_H)
 body.Size = UDim2.new(1, 0, 1, -HEAD_H)
 local fit = Instance.new("UIScale", panel)
-UIKit.fitMenu(panel, W, H, fit, 16)
+UIKit.fitMenu(panel, W, H, fit, 16, 44 / TAP)   -- never below 44 px taps (doctor, 14 Oct: 42 px at 0.8237)
 
 local count = UIKit.label(panel:FindFirstChild("Header"), "", UIKit.TYPE.label, UIKit.TEXT, {
 	Name = "Count", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -62, 0.5, -1), Size = UDim2.new(0, 120, 0, 24),
