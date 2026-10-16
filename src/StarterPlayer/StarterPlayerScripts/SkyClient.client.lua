@@ -182,12 +182,17 @@ local litNow = {}                -- part -> true while this script has it Neon
 
 local function setLit(p, on)
 	if on == (litNow[p] == true) then return end
+	local hide = p:GetAttribute("Hide")   -- a ceiling strip or the crown's glow: invisible by day
 	if on then
 		litNow[p] = true
 		p.Material = Enum.Material.Neon
+		if hide then p.Transparency = 0 end
 	else
 		litNow[p] = nil
-		if p.Parent then p.Material = Enum.Material.SmoothPlastic end
+		if p.Parent then
+			p.Material = Enum.Material.SmoothPlastic
+			if hide then p.Transparency = 1 end
+		end
 	end
 end
 

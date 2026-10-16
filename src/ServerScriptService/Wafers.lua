@@ -540,7 +540,7 @@ local function buildSegment(plot, L, dept, model)
 	local y = T.floorY(pc.storey)
 	local h = T.storeyH(pc.storey) - SLAB
 	local fin = finOf(plot)
-	local glassProps = { Color = TF.color(fin.glass), Material = Enum.Material.Glass, Transparency = 0.45, CastShadow = false }
+	local glassProps = { Color = TF.color(fin.glass), Material = Enum.Material.Glass, Transparency = fin.glassT, CastShadow = false }
 	local cuts = T.cuts(pc.storey, pc.seg)
 	local partProps = { Color = PAPER, Material = Enum.Material.SmoothPlastic }
 	local parts = {}
@@ -783,6 +783,7 @@ function Wafers.cab(plot)
 	-- (the ride camera looks at the doors); its bottom at 7.0 clears the 8-tall opening for a 5-tall avatar
 	local signPlate = part("Sign", Vector3.new(4.4, 1.0, 0.12), Vector3.new(0, 7.5, C.d / 2 - 0.5), { Color = Color3.fromRGB(20, 22, 30), Material = Enum.Material.SmoothPlastic, CanCollide = false })
 	surfaceText(signPlate, Enum.NormalId.Front, Color3.fromRGB(255, 170, 60))     -- -Z: into the cab (checked live)
+	signPlate.Transparency = 1   -- look review: hidden until it has something to say (LiftCab's sign)
 	for _, p in ipairs(m:GetChildren()) do if p:IsA("BasePart") then p.Anchored = true end end
 	CollectionService:AddTag(m, "LiftCab")
 	m.Parent = st.folder
@@ -907,7 +908,7 @@ local function buildPiece(plot, L, dept, animate)
 			local at = (side == "pz" and r.z1 - T.WALL_T / 2) or (side == "nz" and r.z0 + T.WALL_T / 2)
 				or (side == "px" and r.x1 - T.WALL_T / 2) or (r.x0 + T.WALL_T / 2)
 			local mid = alongX and (r.x0 + r.x1) / 2 or (r.z0 + r.z1) / 2
-			local props = { Color = TF.color(finOf(plot).glass), Material = Enum.Material.Glass, Transparency = 0.45, CastShadow = false }
+			local props = { Color = TF.color(finOf(plot).glass), Material = Enum.Material.Glass, Transparency = finOf(plot).glassT, CastShadow = false }
 			local e = alongX and slabBox(model, plot, "EdgeGlass", mid - 3, mid + 3, at - T.WALL_T / 2, at + T.WALL_T / 2, y, y + h, props)
 				or slabBox(model, plot, "EdgeGlass", at - T.WALL_T / 2, at + T.WALL_T / 2, mid - 3, mid + 3, y, y + h, props)
 			st.edges[M] = st.edges[M] or {}

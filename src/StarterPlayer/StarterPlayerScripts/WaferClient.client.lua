@@ -301,9 +301,18 @@ for i, def in ipairs(PATHS) do
 			b.Anchored = true
 			b.Size = Vector3.new(bx.x1 - bx.x0 + 2.4, 1.5, bx.z1 - bx.z0 + 2.4)
 			b.CFrame = CFrame.new((bx.x0 + bx.x1) / 2, bx.y1 + 0.75, (bx.z0 + bx.z1) / 2)
-			b.Color = TFin.color(fin.band)
+			b.Color = TFin.color(fin.accent)   -- look review: each card shows its finish (Timber's wood)
 			b.Material = Enum.Material.SmoothPlastic
 			b.Parent = world
+			if fin.lineDay then   -- Neon: its light line under each band
+				local l = Instance.new("Part")
+				l.Anchored = true
+				l.Size = Vector3.new(bx.x1 - bx.x0 + 1.6, 0.6, bx.z1 - bx.z0 + 1.6)
+				l.CFrame = CFrame.new((bx.x0 + bx.x1) / 2, bx.y1 - 0.3, (bx.z0 + bx.z1) / 2)
+				l.Color = TFin.color(fin.line)
+				l.Material = Enum.Material.Neon
+				l.Parent = world
+			end
 		end
 		world.Parent = vpf
 

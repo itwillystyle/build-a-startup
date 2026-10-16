@@ -107,8 +107,13 @@ local function setDisplays(c, idx, arrowUp)
 end
 local function sign(c, text)
 	local s = c.model:FindFirstChild("Sign")
-	local tl = s and s:FindFirstChildWhichIsA("SurfaceGui") and s:FindFirstChildWhichIsA("SurfaceGui"):FindFirstChild("Text")
+	local sg = s and s:FindFirstChildWhichIsA("SurfaceGui")
+	local tl = sg and sg:FindFirstChild("Text")
 	if tl then tl.Text = text end
+	-- 1d look review: the sign hangs under the floor display now; with nothing to say it hides, so the
+	-- cab never shows the floor twice
+	if s then s.Transparency = (text == "") and 1 or 0 end
+	if sg then sg.Enabled = text ~= "" end
 end
 local function label(c, idx)
 	local st = c.stops[idx]
@@ -221,7 +226,7 @@ local function run(c)
 			for _, p in ipairs(who) do if p.Parent then p:SetAttribute("LiftCab", nil) end end
 			callLight(c, dest.id, false)
 			setDisplays(c, target, nil)
-			sign(c, label(c, target))
+			sign(c, "")   -- 1d: the display over the doors says the floor; the sign goes quiet
 			c.model:SetAttribute("State", "opening")
 			doorsAt(c, dest.id, true)
 			task.wait(LP.DOORS)
@@ -265,7 +270,7 @@ function LiftCab.sync(plot)
 		c.model:SetAttribute("At", here.id)
 		c.model:SetAttribute("State", "open")
 		setDisplays(c, c.plan.at, nil)
-		sign(c, label(c, c.plan.at))
+		sign(c, "")
 	end
 	if openAt then doorsAt(c, openAt, true) end
 	-- riders a clear + rebuild cut short just now go back in the cab; older entries are dropped (I2)

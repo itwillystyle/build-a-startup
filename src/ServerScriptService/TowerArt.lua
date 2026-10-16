@@ -34,7 +34,11 @@ function TowerArt.nightLight(p, fin, opts)
 	CollectionService:AddTag(p, "SVEmissive")
 	if opts.gate then p:SetAttribute("Gate", true) end
 	if opts.dark then p:SetAttribute("Dark", true) end
-	if fin and fin.lineDay and not opts.gate then
+	if opts.hide then   -- look review: by day a ceiling strip read as a black bar through the glass
+		p:SetAttribute("Hide", true)
+		p.Transparency = 1
+	end
+	if fin and fin.lineDay and not opts.gate and not opts.hide then
 		p:SetAttribute("Always", true)
 		p.Material = Enum.Material.Neon
 	end
@@ -114,11 +118,20 @@ function TowerArt.facade(model, plot, storey, seg, y, h, fin, glassProps)
 	end
 end
 
--- a room's ceiling light (spec §2.7): lit at night from beyond 46 studs; `dark` rooms stay off
+-- a room's ceiling light (spec §2.7): lit at night from beyond 46 studs; `dark` rooms stay off. Look review
+-- (16 Oct): a whole-ceiling panel made the top half of every floor glow and showed as a black bar by day; it
+-- is a 2-stud bar down the room's long axis now, invisible until it lights
 function TowerArt.ceilingStrip(model, plot, r, y, h, dark)
-	local p = box(model, plot, "CeilingStrip", r.x0 + 2.5, r.x1 - 2.5, r.z0 + 2.5, r.z1 - 2.5, y + h - 0.75, y + h - 0.4,
+	local cx, cz = (r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2
+	local x0, x1, z0, z1
+	if (r.x1 - r.x0) >= (r.z1 - r.z0) then
+		x0, x1, z0, z1 = r.x0 + 4, r.x1 - 4, cz - 1, cz + 1
+	else
+		x0, x1, z0, z1 = cx - 1, cx + 1, r.z0 + 4, r.z1 - 4
+	end
+	local p = box(model, plot, "CeilingStrip", x0, x1, z0, z1, y + h - 0.75, y + h - 0.4,
 		with(NOHIT, { Color = c3(TF.STRIP), Material = Enum.Material.SmoothPlastic }))
-	return nightLight(p, nil, { gate = true, dark = dark })
+	return nightLight(p, nil, { gate = true, dark = dark, hide = true })
 end
 
 -- a name on a part's face, readable from the plaza (the entrance sign, the crown plate)
@@ -139,7 +152,7 @@ end
 	canopy (y+10..y+11, z1..z1+10, 1a's LobbyCanopy), and a sign board on the canopy's front edge with the
 	company's name. Returns the name's label (Wafers keeps it fresh). ]]
 function TowerArt.entrance(model, plot, r, y, fin)
-	local bandP = with(NOHIT, { Color = c3(fin.band), Material = Enum.Material.SmoothPlastic })
+	local bandP = with(NOHIT, { Color = c3(fin.frame), Material = Enum.Material.SmoothPlastic })   -- look review: white on white vanished
 	local w = r.entrance.width
 	box(model, plot, "DoorFrame", r.cx - w / 2 - 0.6, r.cx - w / 2, r.z1 - 0.2, r.z1 + 0.6, y, y + 10, bandP)
 	box(model, plot, "DoorFrame", r.cx + w / 2, r.cx + w / 2 + 0.6, r.z1 - 0.2, r.z1 + 0.6, y, y + 10, bandP)
@@ -247,10 +260,17 @@ function TowerArt.crownRing(model, plot, roofY, fin)
 	local bandP = with(NOHIT, { Color = c3(fin.band), Material = Enum.Material.SmoothPlastic })
 	local lineP = with(NOHIT, { Color = c3(fin.line), Material = Enum.Material.SmoothPlastic })
 	local finP = with(NOHIT, { Color = c3(fin.fin), Material = Enum.Material.SmoothPlastic })
-	for _, q in ipairs({ { x0 + R, x1 - R, z1 - t, z1 }, { x0 + R, x1 - R, z0, z0 + t }, { x1 - t, x1, z0 + R, z1 - R }, { x0, x0 + t, z0 + R, z1 - R } }) do
+	local glowP = with(NOHIT, { Color = c3(TF.STRIP), Material = Enum.Material.SmoothPlastic })
+	local walls = { { x0 + R, x1 - R, z1 - t, z1, 0, -1 }, { x0 + R, x1 - R, z0, z0 + t, 0, 1 }, { x1 - t, x1, z0 + R, z1 - R, -1, 0 }, { x0, x0 + t, z0 + R, z1 - R, 1, 0 } }
+	for _, q in ipairs(walls) do
 		box(model, plot, "CrownGlass", q[1], q[2], q[3], q[4], y0, y1, glass)
 		box(model, plot, "Band", q[1] - 0.3, q[2] + 0.3, q[3] - 0.3, q[4] + 0.3, y1, y1 + 1.2, bandP)
 		nightLight(box(model, plot, "LightLine", q[1], q[2], q[3] - 0.1, q[4] + 0.1, y1 - 0.3, y1, lineP), fin)
+		nightLight(box(model, plot, "LightLine", q[1], q[2], q[3] - 0.1, q[4] + 0.1, y0, y0 + 0.3, lineP), fin)
+		-- look review: the crown must be the brightest thing at night (research: light the top, Salesforce):
+		-- a band behind the ring's glass that lights at night, hidden by day
+		local ox, oz = q[5] * 0.5, q[6] * 0.5
+		nightLight(box(model, plot, "CrownGlow", q[1] + ox, q[2] + ox, q[3] + oz, q[4] + oz, y0 + 3, y0 + 9, glowP), nil, { hide = true })
 	end
 	for _, c in ipairs({ { x = x1, z = z1, sx = 1, sz = 1 }, { x = x1, z = z0, sx = 1, sz = -1 }, { x = x0, z = z1, sx = -1, sz = 1 }, { x = x0, z = z0, sx = -1, sz = -1 } }) do
 		local p = T.arc(c, R, t / 2)
@@ -277,7 +297,7 @@ end
 function TowerArt.liftFrame(folder, plot, y, fin)
 	local S, C = T.SHAFT, T.CAB
 	local mid = (S.x0 + S.x1) / 2
-	local p = with(NOHIT, { Color = c3(fin.band), Material = Enum.Material.SmoothPlastic })
+	local p = with(NOHIT, { Color = c3(fin.frame), Material = Enum.Material.SmoothPlastic })   -- look review: it vanished on the band
 	local hw = C.door / 2
 	return {
 		box(folder, plot, "LiftFrame", mid - hw - 0.3, mid - hw, S.z1, S.z1 + 0.15, y, y + C.doorH, p),
