@@ -71,4 +71,4 @@
 - 1d look review (16 Oct, `silicon-startup/ui/2026-10-16-art-1d/look-review-1d.md`): each finish has a `glassT` (0.3-0.35; 0.45 showed the furniture), a `frame` colour that contrasts with its band (entrance and lift frames), an `accent` for the picker card; the night light is a warm white. A `Hide` light (a room's ceiling bar, the crown's `CrownGlow`) is invisible until SkyClient lights it. The cab's talking sign hangs under the floor display and goes blank and hidden when it has nothing to say (`LiftCab.lua` `sign`). The crown glow is distance-gated like the room bars (final review I2: it stood at eye height on the roof stop).
 - 1d perf (16 Oct, plaza view at hq:100): Glass 543k / 272 day, Neon 550k / 272, Timber 546k / 263; night 537-545k / 259-261; before 1d 506-510k / 264-282. The whole-scene count was over the spec's 500k before 1d.
 - Rocket position uses `CFG.HQ_LEVELS[stage].h`, not the tower (`SiliconCore.server.lua:3450-3453`). The tower is now 258 studs plus the crown; unchecked.
-**Last verified:** 2026-10-16 8c6b842
+**Last verified:** 2026-10-16 d51420c

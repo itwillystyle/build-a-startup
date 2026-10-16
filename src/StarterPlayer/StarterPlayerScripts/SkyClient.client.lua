@@ -210,11 +210,73 @@ local function updateLights(eye)
 	for p in pairs(litNow) do if not p.Parent then litNow[p] = nil end end
 end
 
+--[[ THE GARAGE'S WINDOWS (second review N3, 16 Oct). 1d stopped turning glass into Neon, for the tower. The
+	garage (every new player's plot, every empty plot) has no SVNightLight parts, so it went dark at night next to
+	lit towers. Its own glass keeps the old rule: warm Neon from beyond 46 studs, plain glass up close. Only
+	glass under a plot's `Garage` folder; the tower lives in `Wafers`. ]]
+local GLOW_COLOR = Color3.fromRGB(236, 168, 96)
+local garagePanes, paneWas, panesAt = {}, {}, -math.huge
+
+local function collectGaragePanes()
+	table.clear(garagePanes)
+	local sv = workspace:FindFirstChild("SiliconValley")
+	local plots = sv and sv:FindFirstChild("Plots")
+	if not plots then return end
+	for _, plot in ipairs(plots:GetChildren()) do
+		local g = plot:FindFirstChild("Garage")
+		if g then
+			for _, d in ipairs(g:GetDescendants()) do
+				if d:IsA("BasePart") and (d.Material == Enum.Material.Glass or paneWas[d]) and d.Transparency < 0.99 then
+					table.insert(garagePanes, d)
+				end
+			end
+		end
+	end
+	panesAt = os.clock()
+end
+
+local function setPane(d, on)
+	if on == (paneWas[d] ~= nil) then return end
+	if on then
+		paneWas[d] = { d.Color, d.Transparency }
+		d.Material = Enum.Material.Neon
+		d.Color = GLOW_COLOR
+		d.Transparency = math.max(0.3, d.Transparency * 0.6)
+	else
+		local v = paneWas[d]
+		paneWas[d] = nil
+		if d.Parent then d.Material, d.Color, d.Transparency = Enum.Material.Glass, v[1], v[2] end
+	end
+end
+
+local function updateGaragePanes(eye)
+	if nightOn and os.clock() - panesAt > 5 then collectGaragePanes() end   -- a garage rebuilt at night joins
+	for _, d in ipairs(garagePanes) do
+		if d.Parent then
+			local want = nightOn and eye ~= nil
+			if want then
+				local dist = (d.Position - eye).Magnitude
+				want = paneWas[d] and dist > GLOW_NEAR or dist > GLOW_NEAR + GLOW_HYST
+			end
+			setPane(d, want)
+		end
+	end
+	for d in pairs(paneWas) do
+		if not d.Parent then paneWas[d] = nil end
+	end
+	if not nightOn then
+		for d in pairs(paneWas) do setPane(d, false) end
+		table.clear(garagePanes)
+	end
+end
+
 local function setNight(on)
 	if nightOn == on then return end
 	nightOn = on
 	workspace:SetAttribute("SVNight", on)       -- client-local: LifeClient lights the train
 	updateLights(workspace.CurrentCamera and workspace.CurrentCamera.CFrame.Position)   -- 1d: on at dusk, off at dawn
+	if on then collectGaragePanes() end
+	updateGaragePanes(workspace.CurrentCamera and workspace.CurrentCamera.CFrame.Position)
 	if not on then
 		for head, l in pairs(lampLights) do
 			if l.Parent then l:Destroy() end
@@ -243,6 +305,7 @@ local function updateLamps(dt)
 		end
 	end
 	updateLights(eye)
+	updateGaragePanes(eye)
 	table.sort(near, function(a, b) return a[2] < b[2] end)
 	local keep = {}
 	for i = 1, math.min(MAX_LIT, #near) do

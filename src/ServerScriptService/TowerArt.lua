@@ -169,7 +169,7 @@ end
 -- planters on the podium roof (spec §2.3): along this lobby room's glass sides, where floor 1 does not stand
 function TowerArt.podium(model, plot, r, y, h, fin)
 	local up = T.rect(1)
-	local top = y + h + 0.6   -- 1a's RoofBand top
+	local top = y + h   -- the lobby ceiling's top (second review N2: at + 0.6, the RoofBand's top, they floated)
 	local potP = { Color = c3(fin.planter), Material = Enum.Material.SmoothPlastic, CastShadow = false }
 	local leafP = with(NOHIT, { Color = c3(TF.LEAF), Material = Enum.Material.SmoothPlastic })
 	local function under(x, z) return x > -up.hx and x < up.hx and z > up.zb and z < up.zf end
