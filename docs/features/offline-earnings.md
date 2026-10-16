@@ -2,7 +2,7 @@
 **What:** When a player with a saved record joins, the server pays money for the time they were gone. The rule lives in `Progression.offline` and is reached as `Apartments.offline`. `SaveLoad.applySave` calls it. Pay is 25% of income for the time your home covers, never less than 10 minutes of income, never more than one next step, never enough to buy two steps. The HUD shows a WHILE YOU WERE AWAY card with COLLECT.
 **How a player reaches it:**
 1. Play, leave, come back later. The record has `rate` and `lastSeen` from the last save.
-2. Join. `onJoin` calls `SaveLoad.loadOnce` (`src/ServerScriptService/SiliconCore.server.lua:4040`), which sets `Returning` (`src/ServerScriptService/SaveLoad.lua:431`) and calls `applySave`.
+2. Join. `onJoin` calls `SaveLoad.loadOnce` (`src/ServerScriptService/SiliconCore.server.lua:4041`), which sets `Returning` (`src/ServerScriptService/SaveLoad.lua:431`) and calls `applySave`.
 3. `applySave` adds cash and sets `OfflineEarned` and `OfflineApt` (`SaveLoad.lua:218-225`).
 4. A "WELCOME BACK" flyover plays (`src/StarterPlayer/StarterPlayerScripts/IntroClient.client.lua:150-159`).
 5. `HudClient` waits up to 12 s for `OfflineEarned`. A small amount is a line under the cash. A bigger one is a centre card with COLLECT (auto-collects after 20 s) (`src/StarterPlayer/StarterPlayerScripts/HudClient.client.lua:1018-1092`).
@@ -27,10 +27,10 @@
 - No automated check for the `applySave` wiring or the HUD card.
 **Gotchas:**
 - The old formula at `SaveLoad.lua:196-199` is overwritten by the home rule at :218 whenever `Econ.Apt` has both `offline` and `ladder`. The 600 s cap is only a fallback.
-- Time away starts at the last save. A normal leave saves at exit (`SiliconCore.server.lua:4145-4148`). After a crash it is the last autosave, up to 120 s older (`SaveLoad.lua:442-447`). The saved `rate` is the rate at that save.
+- Time away starts at the last save. A normal leave saves at exit (`SiliconCore.server.lua:4146-4149`). After a crash it is the last autosave, up to 120 s older (`SaveLoad.lua:442-447`). The saved `rate` is the rate at that save.
 - At the top of the Wafers blueprint both steps are the spin-off price (`SaveLoad.lua:215`). `Progression.ladder` instead wraps to HQ 2 after the spin-off (`Progression.lua:237`).
 - `OFFLINE_RATE` (`Progression.lua:223`) and `AFK_RATE` (`RoomEconomy.lua:208`) are both 0.25 but separate. Change both or neither.
 - `WelcomeDone` is only set after 12 s when no offline pay came (`HudClient.client.lua:1021-1024`). `TalentRevealClient` (:357), `NameClient` (:160) and `DailyClient` (:364) wait for it.
 - The server adds the money first. The HUD subtracts `pendingOffline` from the shown cash until COLLECT (`HudClient.client.lua:1038,530`). If the card cannot show for 45 s the money is released (:1044-1049).
 - A Studio Play, stop, Play loop pays almost nothing, because `lastSeen` is only seconds old.
-**Last verified:** 2026-10-15 5384cb5
+**Last verified:** 2026-10-16 8c6b842

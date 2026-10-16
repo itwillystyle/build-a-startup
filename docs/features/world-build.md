@@ -18,7 +18,7 @@
 - `src/ServerScriptService/Placement.lua`: places by shape, not name. `scanSurfaces` :199, `resolve` :519, `pass` :555.
 - `src/ServerScriptService/FlatLook.lua`: `sweep` :97, `watch` :110, `prop` :140, `propMesh` :163, `contact` :200.
 - `src/ServerScriptService/Shapes.lua`: `apply` :95 adds a rounded apron on parts named `CampusSlab` or `PadVerge` only (:98).
-- `src/StarterPlayer/StarterPlayerScripts/SkyClient.client.lua`: 22 minute day from the server clock (:26-29, :439-447), lamps :276, clouds :116.
+- `src/StarterPlayer/StarterPlayerScripts/SkyClient.client.lua`: 22 minute day from the server clock (:26-29, :387-395), lamps :239, clouds :116; night lights (the tower's `SVNightLight` parts, not the glass) `updateLights` :199.
 - `src/StarterPlayer/StarterPlayerScripts/ShadowClient.client.lua`: turns `CastShadow` on near the camera, budget 420 (:47), radius 70 to 230 (:48).
 - `src/StarterPlayer/StarterPlayerScripts/TreeCullClient.client.lua`: hides tree meshes past 680 studs, or 1000 with the low-poly set (:14, :32).
 - `src/StarterPlayer/StarterPlayerScripts/WorldFxClient.client.lua`: `Popup` text :60, `Rise` animation :126, fall rescue below y -40 :142-151.
@@ -26,29 +26,29 @@
 - `src/StarterPlayer/StarterPlayerScripts/LifeClient.client.lua`: walkers :179, birds :283, jet :319, Caltrain :394, sound :527. Builds folder `Life` in workspace (:33-35).
 **State:**
 - Nothing is saved. No session fields.
-- Workspace and folder attributes: `GroundZones` (JSON, `Ground.lua:162`), `SVNight` (`SkyClient.client.lua:230`), `SVClockOverride` (read :445, set by IntroClient :166), `TowerSpec` (`SiliconCore.server.lua:2993`).
-- Tags: `SVCloud` (`ValleyGen.lua:666`), `SVLamp`, `SVSpin`, `SVPulse` (`SVSpin` and `SVPulse` set in `Wafers.lua:297, 330`), `SVIdle`, `SVCar`, `SVStaff`. Part attribute `SVPitted` (`Placement.lua:372`).
+- Workspace and folder attributes: `GroundZones` (JSON, `Ground.lua:162`), `SVNight` (`SkyClient.client.lua:216`), `SVClockOverride` (read :393, set by IntroClient :166), `TowerSpec` (`SiliconCore.server.lua:2993`).
+- Tags: `SVCloud` (`ValleyGen.lua:666`), `SVLamp`, `SVSpin`, `SVPulse` (`SVSpin` and `SVPulse` set in `Wafers.lua:326, 359`), `SVIdle`, `SVCar`, `SVStaff`. Part attribute `SVPitted` (`Placement.lua:372`).
 **Drive it:**
 - `dev:Invoke("scenario", p, "tp:hq")` stands you at your HQ pad (`DevScenarios.lua`, `tp` branch). No SVDev action rebuilds the world.
-- Studio, CLIENT datamodel: `workspace:SetAttribute("SVClockOverride", 22)` previews any hour (`SkyClient.client.lua:445`).
+- Studio, CLIENT datamodel: `workspace:SetAttribute("SVClockOverride", 22)` previews any hour (`SkyClient.client.lua:393`).
 **Prove it:**
 - `tools/world_overlap.luau`: Play, SERVER datamodel, read only. Greenery on paving, unreserved zones, props inside props.
 - `SVCheck`: `require(game.ReplicatedStorage.SVCheck).run()` in Play CLIENT. The world and placement passes are `checkWorld` :220 and `checkPlacement` :373.
 - `SVStyle.run()` (`src/ReplicatedStorage/SVStyle.lua:287`) ratchets colour counts against `StyleBaseline.lua`.
 - Server log lines: `[SV] ground sweep`, `[SV] placement`, `[SV] flat look`. No offline spec: these modules touch services at load (`README.md:34`).
 **Gotchas:**
-- The HQ tower (v9, branch `hq-tower`) is a rectangle, not the old round campus. The first build clears anything taller than the paving inside its footprint: the podium lobby's rectangle plus 3 studs, and the entrance canopy's box (`clearFootprint` `src/ServerScriptService/Wafers.lua:218`, once per plot). Grounds laid out for the round tower outside that rectangle stay.
+- The HQ tower (v9, branch `hq-tower`) is a rectangle, not the old round campus. The first build clears anything taller than the paving inside its footprint: the podium lobby's rectangle plus 3 studs, and the entrance canopy's box (`clearFootprint` `src/ServerScriptService/Wafers.lua:247`, once per plot). Grounds laid out for the round tower outside that rectangle stay.
 - The park you see is the park you stand on (10 Oct, `CampusHub.lua:258`). Its lawn, walks and terraces used to be CanCollide and CanQuery false above one flat floor, so players and candidates stood 3.6 studs inside the lawn (a raycast cannot see a CanQuery-false part, so the candidate spawn could not either). They are solid now, every inner step is 1.2 studs or less, and the 4.4-stud outer kerb has eight ramps on the lawn paths (`ParkRamp`, :333). The district pads, their kerbs, the parking islands and the stage step are solid too. Still visible but not solid, on purpose: hedges, trees, lamps, parasols, the bus, the food truck and tents, and the road verges (0.8). Before making a decorative floor non-solid, check what stands on it.
 - The check that keeps it true: `src/ServerScriptService/WorldHealth.lua` `sinking` :49 finds every visible, walkable-looking slab (wide, flat, at most 2.5 thick, under y 12, inside the campus) that is not solid and stands over 0.6 studs above the solid floor under it. `ALLOW` :24 lists what is meant to be walked through, each with why; low-poly trees and bushes pass by their `LP_` prefix. It runs in the cloud smoke on every PR and in the Studio scenario `health`. Live on 10 Oct it found the forecourt lawn panels (0.6), the monument plinth (1.6) and the street planters (1.3), now solid; with the lawn planted back to non-solid it reported "ParkLawn sinks 3.6".
 - Up in the HQ (11 Oct): `WorldHealth.throughFloors` :101 finds a lower storey's mesh poking through a floor you walk on (the floors are each HQ's `Floor` and `Deck` collider tops; the rule is `pokes` :96, `POKE` :93, `BELOW` :94; tested in `tests/offline/worldfloors.spec.luau`). `WorldHealth.liftLandings` :147 checks every lift stop puts you over something solid within `FEET` :145. Both run in the Studio scenario `health` only: the cloud build has no meshes and no built HQ. Live on 11 Oct at HQ level 18 it found the Dome garden decks' tents 3.9 studs through floors 3 and 7 (see hq-paths.md) and, by riding the lift, a floor-8 stop over nothing; both 0 after the fix.
 - Build order is the bug source. The valley plants trees first and later paving covers them (`Ground.lua:9-14`). Only `CampusDistricts` (:125, :488) and `Downtown.lua:191` call `Ground.reservePart`. The `Placement` shape scan catches the rest.
 - Placement looks at shape: broad, thin, flat, not green (`Placement.lua:36-44`). Greenery is still found by name words (`Ground.lua:85`), so a tree with an odd name is missed.
-- Plots build after the world, so `Placement.pass` runs again per plot (`SiliconCore.server.lua:1063-1069`) and once at the end (:3219).
+- Plots build after the world, so `Placement.pass` runs again per plot (`SiliconCore.server.lua:1063-1069`) and once at the end (:3220).
 - Meshes live in Studio, not in Rojo (`default.project.json`). Without `SVMeshes.LowPoly`, `ValleyGen` falls back to terrain plus `MountainData` (`ValleyGen.lua:410-426, 1308-1320`). `TreeCullClient` exits if `SVMeshes` is missing (:23-24).
 - `LowPolyData` is generated. Do not hand edit. `luau-lsp` skips it (`check.ps1:11`).
 - The rail line is hard coded twice: `SiliconCore.server.lua:642` and `LifeClient.client.lua:404`. Change both.
 - `FlatLook.watch` runs forever on all of workspace (`FlatLook.lua:110-137`). Lawns stay flat, floors keep Concrete or Asphalt, parts with a `MaterialVariant` are skipped (:62-95).
-- Stale comments: `SkyClient.client.lua:17,230` say LifeClient reads `SVNight`, but LifeClient has no night code. `FlatLook.lua` header says contact discs replace shadows, but `SkyClient.client.lua:84` turns `GlobalShadows` back on.
+- Stale comments: `SkyClient.client.lua:17,216` say LifeClient reads `SVNight`, but LifeClient has no night code. `FlatLook.lua` header says contact discs replace shadows, but `SkyClient.client.lua:84` turns `GlobalShadows` back on.
 - `WorldFxClient`: a red refusal popup only draws on your own plot (:48, :59-67). A rise is skipped if you stand inside the building (:127).
 - `ShadowClient` constant `SKIP_PARENT` (:62) is never used.
-**Last verified:** 2026-10-15 5384cb5
+**Last verified:** 2026-10-16 8c6b842

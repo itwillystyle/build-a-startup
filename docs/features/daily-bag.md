@@ -12,7 +12,7 @@
 - `src/ServerScriptService/Inventory.lua`: `load` :36, `save` :49, `grant` :56, `use` :74, `codeMult` :115, `scooterBonus` :119, `launchMult` :123, `onHire` :132, `onLaunch` :143, `init` :153 (makes `ItemEvent`, `UseItem`, `ItemsSeen`).
 - `src/ReplicatedStorage/Items.lua`: `LIST` :31 (ids `coffee`, `energy`, `noncompete`, `scout`, `frontpage`), `MAX` 99 :45, `encode` :48, `decode` :56, 3D icons `icon` :135.
 - `src/StarterPlayer/StarterPlayerScripts/InventoryClient.client.lua`: BAG tile :48, gui `Bag` :56, `WHERE` text :35-41, boost rows :234, `setOpen` :211.
-- Callers in `src/ServerScriptService/SiliconCore.server.lua`: `Econ.Daily` init :2875, `Econ.Inv` init :2912, `codeMult` :1381, `onHire` :1969, `launchMult` :3432, `onLaunch` :3435. Also `TalentDrop.lua:295, 892` (`scooterBonus`) and `SaveLoad.lua:434-435`.
+- Callers in `src/ServerScriptService/SiliconCore.server.lua`: `Econ.Daily` init :2875, `Econ.Inv` init :2912, `codeMult` :1381, `onHire` :1969, `launchMult` :3433, `onLaunch` :3436. Also `TalentDrop.lua:295, 892` (`scooterBonus`) and `SaveLoad.lua:434-435`.
 **State:**
 - Session: `s.dailyDay` (UTC day number), `s.streak` (0 to 7), `s.items` (id to count), `s.lastUse`, `s.gotFirstCoffee`.
 - Attributes: `DailyReady`, `DailyStreak`, `DailyLast`, `DailyAmounts`, `DailyItems` (`DailyReward.lua:58-67`). `Items` as `coffee=2;energy=1`, `ItemsNew`, `BoostCode`, `BoostEnergy`, `ArmedScout`, `ArmedPress` (`Inventory.lua:1-12`).
@@ -37,4 +37,4 @@
 - Armed Scout and Front Page are attributes, not saved. Leaving after arming loses an item that was already spent.
 - Stale: `DailyClient.client.lua:34-35` says there is no rail tile and the phone opens the card. There is a DAILY tile (:226), and the `SVOpenDaily` event (:37) is never fired in `src`.
 - Tips find `Rail.Column.BagButton` and `Rail.Column.DailyButton` by name (`Journey.lua:164, 173`). Do not rename them.
-**Last verified:** 2026-10-15 5384cb5
+**Last verified:** 2026-10-16 8c6b842
