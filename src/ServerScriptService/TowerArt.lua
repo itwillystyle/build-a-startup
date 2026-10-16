@@ -121,4 +121,65 @@ function TowerArt.ceilingStrip(model, plot, r, y, h, dark)
 	return nightLight(p, nil, { gate = true, dark = dark })
 end
 
+-- a name on a part's face, readable from the plaza (the entrance sign, the crown plate)
+function TowerArt.nameText(p, face)
+	local sg = Instance.new("SurfaceGui")
+	sg.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	sg.Face, sg.PixelsPerStud, sg.LightInfluence, sg.MaxDistance = face, 30, 0, 600
+	sg.Parent = p
+	local tl = Instance.new("TextLabel")
+	tl.Name, tl.Size, tl.Position = "Text", UDim2.fromScale(0.92, 0.76), UDim2.fromScale(0.04, 0.12)
+	tl.BackgroundTransparency, tl.TextScaled, tl.Font = 1, true, Enum.Font.FredokaOne
+	tl.TextColor3, tl.Text = c3(TF.GOLD), "YOUR STARTUP"
+	tl.Parent = sg
+	return tl
+end
+
+--[[ the lobby's entrance (spec §2.3): door frames round the 14-wide doorway, a lit strip under the
+	canopy (y+10..y+11, z1..z1+10, 1a's LobbyCanopy), and a sign board on the canopy's front edge with the
+	company's name. Returns the name's label (Wafers keeps it fresh). ]]
+function TowerArt.entrance(model, plot, r, y, fin)
+	local bandP = with(NOHIT, { Color = c3(fin.band), Material = Enum.Material.SmoothPlastic })
+	local w = r.entrance.width
+	box(model, plot, "DoorFrame", r.cx - w / 2 - 0.6, r.cx - w / 2, r.z1 - 0.2, r.z1 + 0.6, y, y + 10, bandP)
+	box(model, plot, "DoorFrame", r.cx + w / 2, r.cx + w / 2 + 0.6, r.z1 - 0.2, r.z1 + 0.6, y, y + 10, bandP)
+	box(model, plot, "DoorFrame", r.cx - w / 2 - 0.6, r.cx + w / 2 + 0.6, r.z1 - 0.2, r.z1 + 0.6, y + 9.4, y + 10, bandP)
+	nightLight(box(model, plot, "LightLine", r.cx - 10.5, r.cx + 10.5, r.z1 + 0.5, r.z1 + 9.5, y + 9.7, y + 10,
+		with(NOHIT, { Color = c3(fin.line), Material = Enum.Material.SmoothPlastic })), fin)
+	local board = box(model, plot, "EntranceSign", r.cx - 11, r.cx + 11, r.z1 + 9.4, r.z1 + 9.9, y + 11, y + 14,
+		with(NOHIT, { Color = c3(fin.plate), Material = Enum.Material.SmoothPlastic }))
+	return TowerArt.nameText(board, Enum.NormalId.Back)   -- +Z: toward the street
+end
+
+-- planters on the podium roof (spec §2.3): along this lobby room's glass sides, where floor 1 does not stand
+function TowerArt.podium(model, plot, r, y, h, fin)
+	local up = T.rect(1)
+	local top = y + h + 0.6   -- 1a's RoofBand top
+	local potP = { Color = c3(fin.planter), Material = Enum.Material.SmoothPlastic, CastShadow = false }
+	local leafP = with(NOHIT, { Color = c3(TF.LEAF), Material = Enum.Material.SmoothPlastic })
+	local function under(x, z) return x > -up.hx and x < up.hx and z > up.zb and z < up.zf end
+	for side, kind in pairs(r.sides) do
+		if kind == "glass" then
+			local alongX = (side == "pz" or side == "nz")
+			local lo, hi = alongX and r.x0 or r.z0, alongX and r.x1 or r.z1
+			local face = (side == "pz" and r.z1) or (side == "nz" and r.z0) or (side == "px" and r.x1) or r.x0
+			local o = (side == "pz" or side == "px") and 1 or -1
+			for a = lo + 6, hi - 6, 10 do
+				local d0, d1 = face - o * 3.5, face - o * 1.5
+				if d0 > d1 then d0, d1 = d1, d0 end
+				local x, z = alongX and a or (d0 + d1) / 2, alongX and (d0 + d1) / 2 or a
+				if not under(x, z) then
+					if alongX then
+						box(model, plot, "Planter", a - 3, a + 3, d0, d1, top, top + 1.2, potP)
+						box(model, plot, "Plants", a - 2.7, a + 2.7, d0 + 0.2, d1 - 0.2, top + 1.2, top + 1.8, leafP)
+					else
+						box(model, plot, "Planter", d0, d1, a - 3, a + 3, top, top + 1.2, potP)
+						box(model, plot, "Plants", d0 + 0.2, d1 - 0.2, a - 2.7, a + 2.7, top + 1.2, top + 1.8, leafP)
+					end
+				end
+			end
+		end
+	end
+end
+
 return TowerArt

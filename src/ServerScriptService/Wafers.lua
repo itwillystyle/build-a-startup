@@ -19,6 +19,8 @@ local RS = game:GetService("ReplicatedStorage")
 local SSS = game:GetService("ServerScriptService")
 local GarageDress = require(SSS:WaitForChild("GarageDress"))
 local CollectionService = game:GetService("CollectionService")
+local Players = game:GetService("Players")
+local TextService = game:GetService("TextService")
 
 local P = require(SSS:WaitForChild("WaferPlan"))
 local T = require(RS:WaitForChild("TowerPlan"))   -- v9 (14 Oct): the tower's geometry (rectangular, 24/18-stud storeys)
@@ -67,6 +69,47 @@ local GOLD = Color3.fromRGB(255, 194, 61)
 	because the stacked tints read as coloured static from the plaza. 1d finishes the job: the facade is
 	the finish's one glass colour (TowerFinish); the department shows on its sign and inside. ]]
 local function finOf(plot) return TF.get(Wafers.pathOf(plot)) end
+
+--[[ the company's name on the tower (the entrance sign, the crown plate): every player sees it, so it is
+	filtered for BROADCAST (the owner-only filter is not enough), once per name, off the build thread. ]]
+local nameCache = {}
+function Wafers.companyName(plot)
+	local owner = plot and plot.owner and Players:GetPlayerByUserId(plot.owner)
+	local raw = owner and owner:GetAttribute("Company")
+	if type(raw) ~= "string" or raw == "" then return "YOUR STARTUP" end
+	local key = plot.owner .. ":" .. raw
+	if nameCache[key] == nil then
+		nameCache[key] = false
+		task.spawn(function()
+			local ok, res = pcall(function()
+				return TextService:FilterStringAsync(raw, plot.owner):GetNonChatStringForBroadcastAsync()
+			end)
+			nameCache[key] = (ok and type(res) == "string" and res ~= "") and string.upper(res) or "YOUR STARTUP"
+		end)
+	end
+	return nameCache[key] or nil   -- nil while the filter runs: callers keep what the sign says now
+end
+
+--[[ the name signs follow a rename. A rename does not recompute income (refreshSigns' caller), so the
+	plots that carry a name sign are checked every 2 s (live 16 Oct: 12 s after a rename the sign still
+	showed the old name). Weak keys: a plot that goes away is forgotten. ]]
+local namedPlots = setmetatable({}, { __mode = "k" })
+local function refreshNames(plot)
+	local st = plot and plot.wafer
+	if not st then return end
+	local name = Wafers.companyName(plot)
+	if not name then return end
+	for _, tl in ipairs(st.names or {}) do
+		if tl.Parent and tl.Text ~= name then tl.Text = name end
+	end
+end
+local function nameSign(plot, tl)
+	tl.Text = Wafers.companyName(plot) or "YOUR STARTUP"
+	local st = plot.wafer   -- built: the tower's state exists (stateOf is defined further down)
+	st.names = st.names or {}
+	table.insert(st.names, tl)
+	namedPlots[plot] = true
+end
 
 
 -- ---------------------------------------------------------------- geometry (v9, 14 Oct: the tower)
@@ -228,7 +271,7 @@ local function stateOf(plot)
 		local folder = Instance.new("Folder")
 		folder.Name = "Wafers"
 		folder.Parent = plot.folder
-		plot.wafer = { level = 1, depts = {}, pieces = {}, folder = folder, core = {}, stops = {}, edges = {} }
+		plot.wafer = { level = 1, depts = {}, pieces = {}, folder = folder, core = {}, stops = {}, edges = {}, names = {} }
 		clearFootprint(plot)
 	end
 	return plot.wafer
@@ -461,7 +504,7 @@ end
 -- hall-side wall (TowerPlan.WALL_ART), facing the desk. Plain parts and a drawn photo; the art is 1d.
 local function lobbyArt(model, plot, r, y)
 	local A = T.WALL_ART
-	local wallZ = r.z0 - T.WALL_T / 2          -- the hall-side face of the lobby room's back wall
+	local wallZ = r.z0                         -- the hall-side face of the lobby room's back wall (1d, 1c M2: flush)
 	local p = A.photo
 	local frame = slabBox(model, plot, "PhotoFrame", p.x - p.w / 2, p.x + p.w / 2, wallZ - 0.3, wallZ, y + p.y0, y + p.y1,
 		{ Color = WOOD, Material = Enum.Material.SmoothPlastic, CanCollide = false })
@@ -537,9 +580,11 @@ local function buildSegment(plot, L, dept, model)
 	end
 	if lobby then   -- the entrance canopy over the forecourt
 		slabBox(model, plot, "LobbyCanopy", r.cx - 11, r.cx + 11, r.z1, r.z1 + 10, y + 10, y + 11,
-			{ Color = PAPER, Material = Enum.Material.SmoothPlastic, CanCollide = false })
+			{ Color = TF.color(fin.band), Material = Enum.Material.SmoothPlastic, CanCollide = false })
 		lobbyArt(model, plot, r, y)
+		nameSign(plot, TowerArt.entrance(model, plot, r, y, fin))   -- 1d: frames, the soffit light, the name
 	end
+	if pc.storey == 0 then TowerArt.podium(model, plot, r, y, h, fin) end   -- 1d: planters on the podium roof
 	local anchor = Wafers.anchor(plot, L)
 	local seats = furnish(model, anchor, dept, r)
 	if pc.seg == 3 then station(model, anchor, dept, r, plot, L) end
@@ -971,6 +1016,7 @@ function Wafers.clear(plot)
 	for _, c in ipairs(st.folder:GetChildren()) do c:Destroy() end
 	st.level, st.depts, st.pieces, st.core, st.stops, st.edges = 1, {}, {}, {}, {}, {}
 	st.cab = nil   -- 1b: destroyed with the folder; Wafers.cab makes a new one
+	st.names = {}   -- 1d: the entrance sign and the crown plate went with the folder
 	if api and api.HQFloors and api.HQFloors.register then api.HQFloors.register(plot.index, plot, {}) end
 	Wafers.garage(plot, true)
 end
@@ -1007,6 +1053,7 @@ function Wafers.refreshSigns(plot, perSeg, fmt)
 			if piece.label.Text ~= txt then piece.label.Text = txt end
 		end
 	end
+	refreshNames(plot)   -- 1d: the entrance sign and the crown plate
 end
 
 -- the next BUILD tap: its first and last level and its price for this company
@@ -1022,6 +1069,12 @@ end
 function Wafers.init(a)
 	api = a
 	TowerArt.init({ box = slabBox, part = function(props, parent) return add(parent, props) end })   -- 1d
+	task.spawn(function()   -- 1d: the name signs follow a rename
+		while true do
+			task.wait(2)
+			for plot in pairs(namedPlots) do pcall(refreshNames, plot) end
+		end
+	end)
 	if api.LiftCab and api.LiftCab.init then api.LiftCab.init({ Wafers = Wafers, session = api.session }) end   -- 1b
 	do   -- 1c: the garage-to-lobby moment (LobbyMomentClient plays it on the owner's screen)
 		local folder = RS:WaitForChild("SVRemotes")
