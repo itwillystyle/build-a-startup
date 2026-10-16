@@ -3063,6 +3063,7 @@ end
 -- a vacated plot goes back to the exact state a new player expects
 local function releasePlot(plot)
 	plot.owner = nil
+	plot.hqPath = nil   -- 1d final review I3: the next owner must not inherit this tower's finish
 	for _, f in ipairs({ plot.placed, plot.rooms, plot.staff }) do
 		for _, c in ipairs(f:GetChildren()) do c:Destroy() end
 	end

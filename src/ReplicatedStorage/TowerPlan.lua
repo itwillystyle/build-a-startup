@@ -493,6 +493,24 @@ function T.railEdges(pieces, level)
 	return out, s
 end
 
+-- where the fins go along one glass side of a room (plot x or z, each room owns its low end, no two on a
+-- seam), clear of a terrace door (final review I1: a fin stood in the 6-wide door on storeys 3, 7, 11)
+function T.fins(storey, seg, side, step, w)
+	local r = T.room(storey, seg)
+	local cut = T.cuts(storey, seg)[side]
+	local alongX = (side == "pz" or side == "nz")
+	local lo = (alongX and r.x0 or r.z0) + cut.lo
+	local hi = (alongX and r.x1 or r.z1) - cut.hi
+	local door = (r.terraceDoor == side) and (alongX and r.cx or r.cz) or nil
+	local n = math.max(1, math.floor((hi - lo) / step + 0.5))
+	local out = {}
+	for k = 0, n - 1 do
+		local a = lo + (hi - lo) * k / n
+		if not door or math.abs(a - door) >= 3 + w / 2 then table.insert(out, a) end
+	end
+	return out
+end
+
 -- about 1 room in 5 has its lights off at night (fixed per level, so it never flickers)
 function T.darkRoom(L) return (L * 7) % 5 == 1 end
 

@@ -484,4 +484,26 @@ test("1d dark rooms: about 1 room in 5, fixed per level", function()
 	assert(share >= 0.15 and share <= 0.25, ("%.0f%% of rooms are dark"):format(share * 100))
 end)
 
+test("final review I1: no fin stands in a terrace door (6 wide), for every finish's fin step", function()
+	local seen = 0
+	for _, step in ipairs({ { 5, 0.5 }, { 3.6, 0.9 } }) do
+		for s = 1, 13 do
+			for seg = 1, 8 do
+				local r = T.room(s, seg)
+				local side = r.terraceDoor
+				if side then
+					seen += 1
+					local mid = (side == "pz" or side == "nz") and r.cx or r.cz
+					for _, a in ipairs(T.fins(s, seg, side, step[1], step[2])) do
+						assert(math.abs(a - mid) >= 3 + step[2] / 2 - 1e-6,
+							("storey %d seg %d: a fin %.2f from the terrace door's centre"):format(s, seg, math.abs(a - mid)))
+					end
+				end
+			end
+		end
+	end
+	assert(seen >= 6, "the terrace doors were found")
+	assert(#T.fins(5, 1, "pz", 5, 0.5) >= 4, "a plain glass side still has its fins")
+end)
+
 return TT

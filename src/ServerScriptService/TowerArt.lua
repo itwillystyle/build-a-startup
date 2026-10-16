@@ -88,9 +88,7 @@ function TowerArt.facade(model, plot, storey, seg, y, h, fin, glassProps)
 				return box(model, plot, name, f0, f1, a0, a1, y0, y1, props)
 			end
 			if office then
-				local n = math.max(1, math.floor((hi - lo) / fin.finStep + 0.5))
-				for k = 0, n - 1 do   -- each room owns its low end: no two fins on one seam
-					local a = lo + (hi - lo) * k / n
+				for _, a in ipairs(T.fins(storey, seg, side, fin.finStep, fin.finW)) do   -- clear of a terrace door
 					rect(a - fin.finW / 2, a + fin.finW / 2, 0, fin.finD, y, top, "Fin", finP)
 				end
 				rect(lo, hi, 0, T.LIP, top, top + T.SLAB, "Band", bandP)
@@ -270,7 +268,7 @@ function TowerArt.crownRing(model, plot, roofY, fin)
 		-- look review: the crown must be the brightest thing at night (research: light the top, Salesforce):
 		-- a band behind the ring's glass that lights at night, hidden by day
 		local ox, oz = q[5] * 0.5, q[6] * 0.5
-		nightLight(box(model, plot, "CrownGlow", q[1] + ox, q[2] + ox, q[3] + oz, q[4] + oz, y0 + 3, y0 + 9, glowP), nil, { hide = true })
+		nightLight(box(model, plot, "CrownGlow", q[1] + ox, q[2] + ox, q[3] + oz, q[4] + oz, y0 + 3, y0 + 9, glowP), nil, { hide = true, gate = true })   -- final review I2: not from the roof stop
 	end
 	for _, c in ipairs({ { x = x1, z = z1, sx = 1, sz = 1 }, { x = x1, z = z0, sx = 1, sz = -1 }, { x = x0, z = z1, sx = -1, sz = 1 }, { x = x0, z = z0, sx = -1, sz = -1 } }) do
 		local p = T.arc(c, R, t / 2)
