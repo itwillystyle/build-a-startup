@@ -22,6 +22,8 @@ local CollectionService = game:GetService("CollectionService")
 
 local P = require(SSS:WaitForChild("WaferPlan"))
 local T = require(RS:WaitForChild("TowerPlan"))   -- v9 (14 Oct): the tower's geometry (rectangular, 24/18-stud storeys)
+local TF = require(RS:WaitForChild("TowerFinish"))       -- 1d: the three finishes
+local TowerArt = require(SSS:WaitForChild("TowerArt"))   -- 1d: the art, from parts
 local LiftPlan = require(RS:WaitForChild("LiftPlan")).with(T)   -- v9.3 (15 Oct, 1b): the lift's rules
 local SLAB = T.SLAB
 
@@ -61,26 +63,10 @@ local CHARCOAL = Color3.fromRGB(46, 50, 58)
 local GOLD = Color3.fromRGB(255, 194, 61)
 
 
---[[ THE FACADE TINT (v7).
-
-From the plaza the tower read as coloured static -- pink, orange, green and
-blue bands stacked up it. The cause was not interior furniture, as first
-assumed: it was the DEPARTMENT TINT painted straight onto the exterior glass,
-at full saturation, with a different department on nearly every floor.
-
-A real curtain wall is one glass colour for the whole building. Departments
-still need to be legible, so the tint is kept but pulled most of the way
-toward a common glass blue-grey: the floor still reads warm or cool up close
-and on its sign, and the tower reads as one building from across the map.
-
-Inside, and on the sign, the full-strength colour is unchanged. ]]
-local GLASS_BASE = Color3.fromRGB(176, 202, 214)
-local FACADE_MIX = 0.78          -- how far toward the common colour
-
-local function facadeTint(dept)
-	local c = Wafers.TINT[dept] or PAPER
-	return c:Lerp(GLASS_BASE, FACADE_MIX)
-end
+--[[ THE FACADE (1d, 16 Oct). v7 pulled each department's tint most of the way to one glass colour
+	because the stacked tints read as coloured static from the plaza. 1d finishes the job: the facade is
+	the finish's one glass colour (TowerFinish); the department shows on its sign and inside. ]]
+local function finOf(plot) return TF.get(Wafers.pathOf(plot)) end
 
 
 -- ---------------------------------------------------------------- geometry (v9, 14 Oct: the tower)
@@ -181,13 +167,14 @@ end
 
 -- one wall on a room side: `kind` "glass", or a door width (6, 8, 14) centred on the side
 local WALL_T = T.WALL_T
-local function wallSide(model, plot, r, side, kind, y0, h, glassProps, partProps)
+local function wallSide(model, plot, r, side, kind, y0, h, glassProps, partProps, cut)
 	local glassy = (kind == "glass" or kind == "glassdoor")   -- glassdoor: a terrace door in the facade
 	local props = glassy and glassProps or partProps
 	local name = glassy and "Wall" or "Partition"
 	local door = (type(kind) == "number") and kind or ((kind == "glassdoor") and 6) or nil
 	local alongX = (side == "pz" or side == "nz")
 	local lo, hi = alongX and r.x0 or r.z0, alongX and r.x1 or r.z1
+	if glassy and cut then lo, hi = lo + cut.lo, hi - cut.hi end   -- 1d: stop short of a rounded corner
 	local at = (side == "pz" and r.z1 - WALL_T / 2) or (side == "nz" and r.z0 + WALL_T / 2)
 		or (side == "px" and r.x1 - WALL_T / 2) or (r.x0 + WALL_T / 2)
 	local spans = { { lo, hi } }
@@ -510,8 +497,9 @@ local function buildSegment(plot, L, dept, model)
 	local r = T.room(pc.storey, pc.seg)
 	local y = T.floorY(pc.storey)
 	local h = T.storeyH(pc.storey) - SLAB
-	local tint = Wafers.TINT[dept] or PAPER
-	local glassProps = { Color = facadeTint(dept), Material = Enum.Material.Glass, Transparency = 0.45, CastShadow = false }
+	local fin = finOf(plot)
+	local glassProps = { Color = TF.color(fin.glass), Material = Enum.Material.Glass, Transparency = 0.45, CastShadow = false }
+	local cuts = T.cuts(pc.storey, pc.seg)
 	local partProps = { Color = PAPER, Material = Enum.Material.SmoothPlastic }
 	local parts = {}
 	if not T.DECKS[pc.storey - 1] then   -- above a garden the deck is the floor (two slabs in one place would flicker)
@@ -524,18 +512,12 @@ local function buildSegment(plot, L, dept, model)
 		local kind = r.sides[side]
 		if r.entrance and r.entrance.side == side then kind = r.entrance.width end   -- the lobby's entrance
 		if r.terraceDoor == side then kind = "glassdoor" end                       -- the door onto the terrace
-		wallSide(model, plot, r, side, kind, y, h, glassProps, partProps)
-		if r.sides[side] == "glass" and dept ~= "lobby" then  -- the department band on the facade's slab edge
-			local o = 0.55
-			local b = { pz = { r.x0, r.x1, r.z1, r.z1 + o }, nz = { r.x0, r.x1, r.z0 - o, r.z0 },
-				px = { r.x1, r.x1 + o, r.z0, r.z1 }, nx = { r.x0 - o, r.x0, r.z0, r.z1 } }
-			local q = b[side]
-			slabBox(model, plot, "DeptBand", q[1], q[2], q[3], q[4], y - SLAB - 0.05, y - SLAB + 2.0,
-				{ Color = tint, Material = Enum.Material.SmoothPlastic, CastShadow = false, CanQuery = false, CanCollide = false })
-		end
+		wallSide(model, plot, r, side, kind, y, h, glassProps, partProps, cuts[side])
 	end
+	TowerArt.facade(model, plot, pc.storey, pc.seg, y, h, fin, glassProps)   -- 1d: fins, band, line, corners
+	TowerArt.ceilingStrip(model, plot, r, y, h, T.darkRoom(L))                 -- 1d: the night's room light
 	if pc.storey == 0 then   -- the podium (the mock): a white roof band past the glass, warm wood columns along the front
-		local band = { Color = PAPER, Material = Enum.Material.SmoothPlastic, CastShadow = false }
+		local band = { Color = TF.color(fin.band), Material = Enum.Material.SmoothPlastic, CastShadow = false }
 		local top, o = y + h, 1.5
 		local b = { pz = { r.x0, r.x1, r.z1 - T.WALL_T, r.z1 + o }, nz = { r.x0, r.x1, r.z0 - o, r.z0 + T.WALL_T },
 			px = { r.x1 - T.WALL_T, r.x1 + o, r.z0, r.z1 }, nx = { r.x0 - o, r.x0 + T.WALL_T, r.z0, r.z1 } }
@@ -545,7 +527,7 @@ local function buildSegment(plot, L, dept, model)
 			end
 		end
 		if r.sides.pz == "glass" then
-			local wood = { Color = WOOD, Material = Enum.Material.SmoothPlastic }
+			local wood = { Color = TF.color(fin.column), Material = Enum.Material.SmoothPlastic }
 			for x = r.x0 + 3, r.x1 - 3, 6 do
 				if not (lobby and math.abs(x - r.cx) < 8) then   -- keep the doorway clear
 					slabBox(model, plot, "Column", x - 0.4, x + 0.4, r.z1 + 0.6, r.z1 + 1.4, y, top - 1.2, wood)
@@ -901,7 +883,7 @@ local function buildPiece(plot, L, dept, animate)
 			local at = (side == "pz" and r.z1 - T.WALL_T / 2) or (side == "nz" and r.z0 + T.WALL_T / 2)
 				or (side == "px" and r.x1 - T.WALL_T / 2) or (r.x0 + T.WALL_T / 2)
 			local mid = alongX and (r.x0 + r.x1) / 2 or (r.z0 + r.z1) / 2
-			local props = { Color = facadeTint(st.depts[L]), Material = Enum.Material.Glass, Transparency = 0.45, CastShadow = false }
+			local props = { Color = TF.color(finOf(plot).glass), Material = Enum.Material.Glass, Transparency = 0.45, CastShadow = false }
 			local e = alongX and slabBox(model, plot, "EdgeGlass", mid - 3, mid + 3, at - T.WALL_T / 2, at + T.WALL_T / 2, y, y + h, props)
 				or slabBox(model, plot, "EdgeGlass", at - T.WALL_T / 2, at + T.WALL_T / 2, mid - 3, mid + 3, y, y + h, props)
 			st.edges[M] = st.edges[M] or {}
@@ -1039,6 +1021,7 @@ end
 
 function Wafers.init(a)
 	api = a
+	TowerArt.init({ box = slabBox, part = function(props, parent) return add(parent, props) end })   -- 1d
 	if api.LiftCab and api.LiftCab.init then api.LiftCab.init({ Wafers = Wafers, session = api.session }) end   -- 1b
 	do   -- 1c: the garage-to-lobby moment (LobbyMomentClient plays it on the owner's screen)
 		local folder = RS:WaitForChild("SVRemotes")
