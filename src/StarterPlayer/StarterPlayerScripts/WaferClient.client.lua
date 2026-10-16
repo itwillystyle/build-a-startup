@@ -286,20 +286,24 @@ for i, def in ipairs(PATHS) do
 		the crown (TowerPlan.spec), in the finish's colour. The three finishes share the shape;
 		1d gives each its real materials. ]]
 		local TP = require(RS:WaitForChild("TowerPlan"))
-		local FINISH = {
-			W_ = Color3.fromRGB(120, 170, 220),  -- world colour: Glass
-			T_ = Color3.fromRGB(176, 128, 84),   -- world colour: Timber
-			D_ = Color3.fromRGB(44, 52, 74),     -- world colour: Neon
-		}
+		local TFin = require(RS:WaitForChild("TowerFinish"))   -- 1d: the finish's real colours
+		local fin = TFin.get(def.key)
 		local world = Instance.new("Model")
 		for _, bx in ipairs(TP.parseSpec(TP.spec())) do
 			local c = Instance.new("Part")
 			c.Anchored = true
 			c.Size = Vector3.new(bx.x1 - bx.x0, bx.y1 - bx.y0, bx.z1 - bx.z0)
 			c.CFrame = CFrame.new((bx.x0 + bx.x1) / 2, (bx.y0 + bx.y1) / 2, (bx.z0 + bx.z1) / 2)
-			c.Color = FINISH[def.key] or FINISH.W_
+			c.Color = TFin.color(fin.glass)
 			c.Material = Enum.Material.SmoothPlastic
 			c.Parent = world
+			local b = Instance.new("Part")   -- the floor band with its lip
+			b.Anchored = true
+			b.Size = Vector3.new(bx.x1 - bx.x0 + 2.4, 1.5, bx.z1 - bx.z0 + 2.4)
+			b.CFrame = CFrame.new((bx.x0 + bx.x1) / 2, bx.y1 + 0.75, (bx.z0 + bx.z1) / 2)
+			b.Color = TFin.color(fin.band)
+			b.Material = Enum.Material.SmoothPlastic
+			b.Parent = world
 		end
 		world.Parent = vpf
 
