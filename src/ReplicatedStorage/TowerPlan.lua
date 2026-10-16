@@ -381,4 +381,119 @@ function T.parseSpec(str)
 	return out
 end
 
+-- ---------------------------------------------------------------- 1d (16 Oct): the art's geometry
+--[[ Rounded corners: the building's outer corners close with three angled panels on an arc of
+	radius T.CORNER. The radius is capped by the furniture margin (T.inner keeps furniture WALL_T +
+	GLASS_BAND = 1.3 from a wall): a corner room's furniture must stay inside the panels (tower.spec),
+	which holds up to 3.2. The mock's 8 needs furniture re-laid at the corners (project #2). ]]
+T.CORNER = 3
+T.LIP = 1.2   -- how far a floor band stands out past the glass
+
+-- the building's outer corners in this room: { x, z, sx, sz } (the corner point, its outward signs)
+function T.corners(storey, seg)
+	local r = T.room(storey, seg)
+	local s, out = r.sides, {}
+	for _, c in ipairs({ { "px", "pz", r.x1, r.z1, 1, 1 }, { "px", "nz", r.x1, r.z0, 1, -1 },
+		{ "nx", "pz", r.x0, r.z1, -1, 1 }, { "nx", "nz", r.x0, r.z0, -1, -1 } }) do
+		if s[c[1]] == "glass" and s[c[2]] == "glass" then
+			table.insert(out, { x = c[3], z = c[4], sx = c[5], sz = c[6] })
+		end
+	end
+	return out
+end
+
+-- the 4 points of corner c's three panels, radius R, from the x-face to the z-face (inset > 0 pulls in)
+function T.arc(c, R, inset)
+	local cx, cz = c.x - c.sx * R, c.z - c.sz * R
+	local rr = R - (inset or 0)
+	local pts = {}
+	for k = 0, 3 do
+		local a = math.rad(k * 30)
+		pts[k + 1] = { x = cx + c.sx * rr * math.cos(a), z = cz + c.sz * rr * math.sin(a) }
+	end
+	return pts
+end
+
+-- how far each glass side of this room stops short of a corner: side -> { lo, hi } (along x or z)
+function T.cuts(storey, seg)
+	local k = { px = { lo = 0, hi = 0 }, nx = { lo = 0, hi = 0 }, pz = { lo = 0, hi = 0 }, nz = { lo = 0, hi = 0 } }
+	for _, c in ipairs(T.corners(storey, seg)) do
+		local xs, zs = (c.sx > 0) and "px" or "nx", (c.sz > 0) and "pz" or "nz"
+		if c.sz > 0 then k[xs].hi = T.CORNER else k[xs].lo = T.CORNER end   -- an x-face runs along z
+		if c.sx > 0 then k[zs].hi = T.CORNER else k[zs].lo = T.CORNER end   -- a z-face runs along x
+	end
+	return k
+end
+
+local function aroundShaft(r)
+	local sh = T.SHAFT
+	return {
+		{ x0 = r.x0, x1 = sh.x0, z0 = r.z0, z1 = r.z1 },
+		{ x0 = sh.x1, x1 = r.x1, z0 = r.z0, z1 = r.z1 },
+		{ x0 = sh.x0, x1 = sh.x1, z0 = sh.z1, z1 = r.z1 },
+		{ x0 = sh.x0, x1 = sh.x1, z0 = r.z0, z1 = sh.z0 },
+	}
+end
+
+-- the roof over storey s's centre hall, where nothing stands above it yet (the 1c "hole over the lobby")
+function T.hallRoofRects(s) return aroundShaft(T.centre(s)) end
+
+local function hasKind(pieces, level, kind)
+	for L = 2, level do
+		local pc = pieces[L]
+		if pc and pc.kind == kind then return true end
+	end
+	return false
+end
+
+-- where the top of the shaft is (its cap stands here), or nil: no tower yet, or the lantern stands over it
+function T.shaftCapY(pieces, level)
+	if level < 2 or hasKind(pieces, level, "lantern") then return nil end
+	local top = T.topStorey(pieces, level)
+	return T.floorY(top) + T.storeyH(top) - T.SLAB
+end
+
+-- the top storey with some but not all of its 8 rooms: storey, { [seg] = true }; or nil
+function T.unfinished(pieces, level)
+	local built, top = {}, nil
+	for L = 2, level do
+		local pc = pieces[L]
+		if pc and pc.kind == "segment" then
+			built[pc.storey] = built[pc.storey] or {}
+			built[pc.storey][pc.seg] = true
+			if not top or pc.storey > top then top = pc.storey end
+		end
+	end
+	if not top then return nil end
+	local n = 0
+	for _ in pairs(built[top]) do n += 1 end
+	if n >= 8 then return nil end
+	return top, built[top]
+end
+
+-- the safety rail on an unfinished office floor: the outer edges of its rooms not built yet, 0.6 in
+function T.railEdges(pieces, level)
+	local s, built = T.unfinished(pieces, level)
+	local out = {}
+	if not s or s == 0 then return out, s end
+	local i = 0.6
+	for seg = 1, 8 do
+		if not built[seg] then
+			local r = T.room(s, seg)
+			for side, kind in pairs(r.sides) do
+				if kind == "glass" then
+					if side == "pz" then table.insert(out, { x0 = r.x0, x1 = r.x1, z0 = r.z1 - i, z1 = r.z1 - i })
+					elseif side == "nz" then table.insert(out, { x0 = r.x0, x1 = r.x1, z0 = r.z0 + i, z1 = r.z0 + i })
+					elseif side == "px" then table.insert(out, { x0 = r.x1 - i, x1 = r.x1 - i, z0 = r.z0, z1 = r.z1 })
+					else table.insert(out, { x0 = r.x0 + i, x1 = r.x0 + i, z0 = r.z0, z1 = r.z1 }) end
+				end
+			end
+		end
+	end
+	return out, s
+end
+
+-- about 1 room in 5 has its lights off at night (fixed per level, so it never flickers)
+function T.darkRoom(L) return (L * 7) % 5 == 1 end
+
 return T

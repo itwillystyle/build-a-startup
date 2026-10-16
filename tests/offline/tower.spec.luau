@@ -384,4 +384,104 @@ test("1c: the photo and the TV hang on the lobby's hall-side wall, clear of its 
 	assert(p.x + p.w / 2 <= tv.x - tv.w / 2 or tv.x + tv.w / 2 <= p.x - p.w / 2, "the photo and the TV do not overlap")
 end)
 
+-- ---------------------------------------------------------------- 1d (16 Oct): the art's geometry
+test("1d corners: only the building's outer corners round, and a corner room's furniture stays inside the panels", function()
+	assert(#T.corners(5, 1) == 0, "a front-middle room has no outer corner")
+	assert(#T.corners(5, 2) == 1 and #T.corners(5, 4) == 1 and #T.corners(5, 6) == 1 and #T.corners(5, 8) == 1, "the four corner rooms")
+	local R = T.CORNER
+	for _, s in ipairs({ 0, 1, 5, 9, 13 }) do
+		for seg = 1, 8 do
+			local r = T.room(s, seg)
+			local inn = T.inner(r)
+			local rx = (seg == 3 or seg == 7) and inn.z or inn.x
+			local rz = (seg == 3 or seg == 7) and inn.x or inn.z
+			for _, c in ipairs(T.corners(s, seg)) do
+				local p = { x = r.cx + c.sx * rx, z = r.cz + c.sz * rz }       -- furniture's reach toward this corner
+				local cx, cz = c.x - c.sx * R, c.z - c.sz * R                   -- the arc's centre
+				if c.sx * (p.x - cx) > 0 and c.sz * (p.z - cz) > 0 then
+					local d = math.sqrt((p.x - cx) ^ 2 + (p.z - cz) ^ 2)
+					assert(d <= R * math.cos(math.rad(15)) - T.WALL_T,
+						("storey %d seg %d: furniture reaches %.2f from the corner's centre; the panels are at %.2f"):format(s, seg, d, R * math.cos(math.rad(15)) - T.WALL_T))
+				end
+			end
+		end
+	end
+end)
+
+test("1d arc: 4 points from the x-face to the z-face, R from the corner, inset pulls them in", function()
+	local c = { x = 10, z = 20, sx = 1, sz = 1 }
+	local p = T.arc(c, 3, 0)
+	assert(#p == 4, "4 points")
+	assert(math.abs(p[1].x - 10) < 1e-6 and math.abs(p[1].z - 17) < 1e-6, "starts on the x-face, 3 short of the corner")
+	assert(math.abs(p[4].x - 7) < 1e-6 and math.abs(p[4].z - 20) < 1e-6, "ends on the z-face")
+	local q = T.arc(c, 3, 0.2)
+	assert(q[1].x < p[1].x and q[4].z < p[4].z, "an inset pulls the arc in")
+end)
+
+test("1d cuts: a corner room's two glass sides stop R short of the corner, nothing else is cut", function()
+	local k = T.cuts(5, 2)   -- the front-right corner room: px and pz meet at (x1, z1)
+	assert(k.px.hi == T.CORNER and k.px.lo == 0 and k.pz.hi == T.CORNER and k.pz.lo == 0, "front-right")
+	local m = T.cuts(5, 1)
+	for _, side in ipairs({ "px", "nx", "pz", "nz" }) do assert(m[side].lo == 0 and m[side].hi == 0, "no cut on a middle room") end
+end)
+
+test("1d hall roof: the centre hall minus the shaft, 4 rects that do not touch the shaft", function()
+	local sh = T.SHAFT
+	for _, s in ipairs({ 0, 1, 5, 13 }) do
+		local rs = T.hallRoofRects(s)
+		assert(#rs == 4, "4 rects")
+		for _, q in ipairs(rs) do
+			local overlapX = math.min(q.x1, sh.x1) - math.max(q.x0, sh.x0)
+			local overlapZ = math.min(q.z1, sh.z1) - math.max(q.z0, sh.z0)
+			assert(not (overlapX > 1e-6 and overlapZ > 1e-6), "storey " .. s .. ": a hall roof covers the shaft")
+		end
+	end
+end)
+
+test("1d shaft top: nil in the garage, on the lobby's roof at level 2, gone once the lantern stands", function()
+	assert(T.shaftCapY(W.PIECES, 1) == nil, "no tower, no cap")
+	assert(math.abs(T.shaftCapY(W.PIECES, 2) - (T.floorY(0) + T.storeyH(0) - T.SLAB)) < 1e-6, "level 2: the lobby's roof")
+	local lantern
+	for L, pc in ipairs(W.PIECES) do if pc.kind == "lantern" then lantern = L end end
+	assert(lantern, "WaferPlan has a lantern piece")
+	assert(T.shaftCapY(W.PIECES, lantern) == nil and T.shaftCapY(W.PIECES, W.MAX) == nil, "the lantern replaces the cap")
+	assert(T.shaftCapY(W.PIECES, lantern - 1) ~= nil, "the level before the lantern still has a cap")
+end)
+
+test("1d unfinished floor: the top storey with some rooms; a complete storey has no rail; rails only by unbuilt rooms", function()
+	for level = 2, W.MAX do
+		local s, built = T.unfinished(W.PIECES, level)
+		local edges = T.railEdges(W.PIECES, level)
+		if s then
+			local n = 0
+			for _ in pairs(built) do n += 1 end
+			assert(n >= 1 and n <= 7, "level " .. level .. ": unfinished means 1..7 rooms built")
+			if s > 0 then assert(#edges > 0, "level " .. level .. ": an unfinished office floor has a rail") end
+			for _, e in ipairs(edges) do
+				for seg in pairs(built) do
+					local r = T.room(s, seg)
+					local inside = e.x0 >= r.x0 - 1e-6 and e.x1 <= r.x1 + 1e-6 and e.z0 >= r.z0 - 1e-6 and e.z1 <= r.z1 + 1e-6
+					assert(not inside, "level " .. level .. ": a rail runs through built room " .. seg)
+				end
+			end
+		else
+			assert(#edges == 0, "level " .. level .. ": no unfinished floor, no rail")
+		end
+	end
+	assert(W.PIECES[2].kind == "segment", "level 2 is the first lobby room")
+end)
+
+test("1d dark rooms: about 1 room in 5, fixed per level", function()
+	local n, dark = 0, 0
+	for L, pc in ipairs(W.PIECES) do
+		if pc.kind == "segment" then
+			n += 1
+			if T.darkRoom(L) then dark += 1 end
+			assert(T.darkRoom(L) == T.darkRoom(L), "stable")
+		end
+	end
+	local share = dark / n
+	assert(share >= 0.15 and share <= 0.25, ("%.0f%% of rooms are dark"):format(share * 100))
+end)
+
 return TT
