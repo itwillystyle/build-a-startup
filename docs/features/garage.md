@@ -11,7 +11,7 @@
 **State:** None saved. The dressing is a `Dressing` folder in each plot's `Garage`, one Model per piece, named by its layout id. Floor pieces that are not kit furniture carry `FKItem`, so `FurnitureKit.blocked` keeps a player's decor out of them.
 **Drive it:**
 - Studio Play: `workspace.SiliconValley.Plots.Plot1.Garage.Dressing` (52 pieces, about 360 parts, 4 lights on 12 Oct).
-- Preview any hour of the day: set the workspace attribute `SVClockOverride` (a number) on the CLIENT (`src/StarterPlayer/StarterPlayerScripts/SkyClient.client.lua:393`). The client runs its own day and night, so the server's ClockTime is not what you see.
+- Preview any hour of the day: set the workspace attribute `SVClockOverride` (a number) on the CLIENT (`src/StarterPlayer/StarterPlayerScripts/SkyClient.client.lua:456`). The client runs its own day and night, so the server's ClockTime is not what you see.
 - Camera framed like image 5: garage-local (0, 9.5, 17.5) looking at (0, 5.5, -14).
 **Prove it:**
 - `tests/offline/garagelayout.spec.luau`: the real layout has no problems (nothing in the walkway, the desk, either pad or the door; nothing over a window; nothing through a wall; nothing in anything else; no lamp in front of the TV); spawn, camera and laptop line lie in kept floor; the check catches each failure on purpose; at most 6 new lights.
@@ -21,9 +21,10 @@
 - Oak renders gold. The slats are walnut (128, 88, 56) on a near-black backing, or the back wall reads as orange curtains beside the Kenney bookcases.
 - The Palette sweep re-tints every colour onto its anchors. The sage band is the room's one tagged exemption (`SVNoPalette`), or it turns grass green.
 - The rocket sign's face is dark NEON on purpose. A shaded ink panel six studs from the desk pendants rendered tan and washed the rocket out.
+- At night the garage's own glass glows warm from beyond 46 studs (`SkyClient.client.lua` `updateGaragePanes`); the tower's glass never does (1d). Restored 16 Oct after 1d had left every garage dark.
 - The Kenney `lampSquareFloor` is one mesh tinted as its shade, so the whole lamp glows. The garage lamp is built from parts (`B.floorLamp`).
 - The sign covers the back window deliberately (`coversWindow`). The wall skin is cut round the windows (`cutsWindow`). Every other wall piece may not cover a window.
 - The meeting table is solid (`solid = true` in the layout): the doctor's "sinking surfaces" check failed it on the PR gate run, 12 Oct, as a 4-stud surface you would fall through.
 - Not measured: phone frame rate with the dressing, and whether the gold rocket pulls a new player's eye off the blue laptop screen at 0:00 (the opening depends on the laptop).
 - Night (the client clock) is dim: four lights do not carry the room. Not addressed yet.
-**Last verified:** 2026-10-16 8c6b842
+**Last verified:** 2026-10-16 d51420c
