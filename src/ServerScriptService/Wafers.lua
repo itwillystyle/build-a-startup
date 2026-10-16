@@ -59,7 +59,6 @@ Wafers.BLURB = {
 -- which room kind a department seats (RoomEconomy.FIT reads these)
 local SEAT_ROOM = { lobby = "office", eng = "office", studio = "studio", cafe = "cafe", labs = "labs" }
 local PAPER = Color3.fromRGB(243, 239, 230)
-local GREEN = Color3.fromRGB(118, 160, 92)
 local WOOD = Color3.fromRGB(158, 108, 66)
 local CHARCOAL = Color3.fromRGB(46, 50, 58)
 local GOLD = Color3.fromRGB(255, 194, 61)
@@ -602,56 +601,38 @@ local function buildGarden(plot, L, model)
 	for _, q in ipairs(T.deckRects(pc.storey)) do   -- 1b: a hole over the shaft, the cab rides through
 		slabBox(model, plot, "Deck", q.x0, q.x1, q.z0, q.z1, y - SLAB, y, { Color = Color3.fromRGB(214, 206, 190), Material = Enum.Material.SmoothPlastic })
 	end
-	local rail = { Color = Color3.fromRGB(200, 222, 232), Material = Enum.Material.Glass, Transparency = 0.4, CastShadow = false }
-	local hand = { Color = PAPER, Material = Enum.Material.SmoothPlastic, CastShadow = false }
-	for _, q in ipairs({ { r.x0, r.x1, r.z1 - 0.3, r.z1 }, { r.x0, r.x1, r.z0, r.z0 + 0.3 }, { r.x1 - 0.3, r.x1, r.z0, r.z1 }, { r.x0, r.x0 + 0.3, r.z0, r.z1 } }) do
-		slabBox(model, plot, "Rail", q[1], q[2], q[3], q[4], y, y + 3.2, rail)
-		slabBox(model, plot, "Handrail", q[1], q[2], q[3], q[4], y + 3.2, y + 3.5, hand)
+	local fin = finOf(plot)
+	local rail = { Color = TF.color(fin.glass), Material = Enum.Material.Glass, Transparency = 0.4, CastShadow = false }
+	local hand = { Color = TF.color(fin.band), Material = Enum.Material.SmoothPlastic, CastShadow = false }
+	-- 1d: the main strips get the terrace kit (its planter edge carries the rail); the other edges keep a rail
+	local kits = {}
+	if T.DECKS[pc.storey] then
+		for side, t in pairs(T.terraces(pc.storey)) do
+			if (side == "front" or side == "back") and t.depth >= 4 then kits[side] = t end
+		end
 	end
-	local wood = { Color = WOOD, Material = Enum.Material.SmoothPlastic }
-	local leaf = { Color = GREEN, Material = Enum.Material.SmoothPlastic, CanCollide = false }
-	local function planter(x, z)
-		slabBox(model, plot, "Planter", x - 2, x + 2, z - 0.9, z + 0.9, y, y + 1.4, wood)
-		slabBox(model, plot, "Plants", x - 1.8, x + 1.8, z - 0.7, z + 0.7, y + 1.4, y + 2.0, leaf)
+	local edges = { pz = { r.x0, r.x1, r.z1 - 0.3, r.z1 }, nz = { r.x0, r.x1, r.z0, r.z0 + 0.3 },
+		px = { r.x1 - 0.3, r.x1, r.z0, r.z1 }, nx = { r.x0, r.x0 + 0.3, r.z0, r.z1 } }
+	for side, q in pairs(edges) do
+		if not ((side == "pz" and kits.front) or (side == "nz" and kits.back)) then
+			slabBox(model, plot, "Rail", q[1], q[2], q[3], q[4], y, y + 3.2, rail)
+			slabBox(model, plot, "Handrail", q[1], q[2], q[3], q[4], y + 3.2, y + 3.5, hand)
+		end
 	end
-	if not T.DECKS[pc.storey] then   -- the roof: nothing stands on it but the pavilions and the crown
-		for x = r.x0 + 6, r.x1 - 6, 10 do planter(x, r.z1 - 2.2); planter(x, r.z0 + 2.2) end
+	if not T.DECKS[pc.storey] then   -- the roof: planters along the front and back, the pavilions and the crown
+		local wood = { Color = TF.color(fin.planter), Material = Enum.Material.SmoothPlastic }
+		local leaf = { Color = TF.color(TF.LEAF), Material = Enum.Material.SmoothPlastic, CanCollide = false }
+		for x = r.x0 + 6, r.x1 - 6, 10 do
+			for _, z in ipairs({ r.z1 - 2.2, r.z0 + 2.2 }) do
+				slabBox(model, plot, "Planter", x - 2, x + 2, z - 0.9, z + 0.9, y, y + 1.4, wood)
+				slabBox(model, plot, "Plants", x - 1.8, x + 1.8, z - 0.7, z + 0.7, y + 1.4, y + 2.0, leaf)
+			end
+		end
 		return
 	end
-	--[[ a garden: the floor above stands on this deck; its terrace is the strip the step-back left
-		open (TowerPlan.terraces). Planters along the rail, then lamps, then benches by the glass;
-		a tree at each end of the main strip (the mock's terrace kit; 1d replaces these boxes). ]]
 	local best, bestSide
-	for side, t in pairs(T.terraces(pc.storey)) do
-		if (side == "front" or side == "back") and t.depth >= 4 then
-			local out = (side == "front") and 1 or -1
-			local edge = (side == "front") and t.z1 or t.z0   -- the rail
-			for x = t.x0 + 10, t.x1 - 10, 10 do planter(x, edge - out * 1.6) end
-			if not best or t.depth > best.depth then best, bestSide = t, side end
-		end
-	end
-	if best then
-		local out = (bestSide == "front") and 1 or -1
-		local edge = (bestSide == "front") and best.z1 or best.z0
-		local inner = (bestSide == "front") and best.z0 or best.z1   -- the glass of the floor above
-		local mid = (edge + inner) / 2
-		for _, x in ipairs({ -12, 12 }) do   -- lamps
-			slabBox(model, plot, "LampPost", x - 0.15, x + 0.15, mid - 0.15, mid + 0.15, y, y + 3.2, { Color = CHARCOAL, Material = Enum.Material.SmoothPlastic })
-			slabBox(model, plot, "Lamp", x - 0.4, x + 0.4, mid - 0.4, mid + 0.4, y + 3.2, y + 3.6, { Color = GOLD, Material = Enum.Material.Neon, CanCollide = false })
-		end
-		local bz = inner + out * 1.6
-		for _, x in ipairs({ -6, 6 }) do   -- benches by the glass, facing out
-			slabBox(model, plot, "Bench", x - 2, x + 2, bz - 0.5, bz + 0.5, y + 0.9, y + 1.15, wood)
-			slabBox(model, plot, "BenchLeg", x - 1.8, x - 1.5, bz - 0.4, bz + 0.4, y, y + 0.9, wood)
-			slabBox(model, plot, "BenchLeg", x + 1.5, x + 1.8, bz - 0.4, bz + 0.4, y, y + 0.9, wood)
-		end
-		for _, x in ipairs({ best.x0 + 4, best.x1 - 4 }) do   -- a small tree at each end
-			slabBox(model, plot, "Trunk", x - 0.4, x + 0.4, mid - 0.4, mid + 0.4, y, y + 3.5, wood)
-			local crown = add(model, { Name = "TreeLeaf", Shape = Enum.PartType.Ball, Size = Vector3.new(4.5, 4.5, 4.5),
-				CFrame = plot.pivot * CFrame.new(x, y + 5, mid), Color = GREEN, Material = Enum.Material.SmoothPlastic, CanCollide = false })
-			crown.CastShadow = true
-		end
-	end
+	for side, t in pairs(kits) do if not best or t.depth > best.depth then best, bestSide = t, side end end
+	for side, t in pairs(kits) do TowerArt.terrace(model, plot, t, side, y, fin, side == bestSide) end
 end
 
 local function buildPavilion(plot, L, model)
@@ -665,7 +646,7 @@ local function buildPavilion(plot, L, model)
 	slabBox(model, plot, "Wall", r.x0, r.x0 + 0.4, r.z0, r.z1, y, y + h, glass)
 	slabBox(model, plot, "Wall", r.x1 - 0.4, r.x1, r.z0, (r.z0 + r.z1) / 2 - 3, y, y + h, glass)   -- a door on +x
 	slabBox(model, plot, "Wall", r.x1 - 0.4, r.x1, (r.z0 + r.z1) / 2 + 3, r.z1, y, y + h, glass)
-	slabBox(model, plot, "PavilionRoof", r.x0 - 1, r.x1 + 1, r.z0 - 1, r.z1 + 1, y + h, y + h + 0.8, { Color = PAPER, Material = Enum.Material.SmoothPlastic })
+	slabBox(model, plot, "PavilionRoof", r.x0 - 1, r.x1 + 1, r.z0 - 1, r.z1 + 1, y + h, y + h + 0.8, { Color = TF.color(finOf(plot).band), Material = Enum.Material.SmoothPlastic })
 end
 
 local function buildCrown(plot, L, model)
@@ -675,18 +656,12 @@ local function buildCrown(plot, L, model)
 	if pc.kind == "lantern" then
 		slabBox(model, plot, "Lantern", l.x0, l.x1, l.z0, l.z1, roofY, roofY + 14,   -- walk-through: it stands over the roof stop (1b)
 			{ Color = Color3.fromRGB(190, 214, 226), Material = Enum.Material.Glass, Transparency = 0.35, CastShadow = false, CanCollide = T.LANTERN_SOLID })
-	elseif pc.kind == "halo" then
-		local roof = T.deck(14)
-		local sec = { hx = roof.x1, zb = roof.z0, zf = roof.z1 }
-		local hy = roofY + 4
-		local band = { Color = GOLD, Material = Enum.Material.SmoothPlastic, CanCollide = false, CastShadow = false }
-		slabBox(model, plot, "Halo", -sec.hx, sec.hx, sec.zf - 0.6, sec.zf, hy, hy + 1.2, band)
-		slabBox(model, plot, "Halo", -sec.hx, sec.hx, sec.zb, sec.zb + 0.6, hy, hy + 1.2, band)
-		slabBox(model, plot, "Halo", sec.hx - 0.6, sec.hx, sec.zb, sec.zf, hy, hy + 1.2, band)
-		slabBox(model, plot, "Halo", -sec.hx, -sec.hx + 0.6, sec.zb, sec.zf, hy, hy + 1.2, band)
+	elseif pc.kind == "halo" then   -- 1d: the crown ring with the company's name on its front
+		nameSign(plot, TowerArt.crownRing(model, plot, roofY, finOf(plot)))
 	else -- mast
 		local cx, cz = (T.SHAFT.x0 + T.SHAFT.x1) / 2, (T.SHAFT.z0 + T.SHAFT.z1) / 2
 		slabBox(model, plot, "Mast", cx - 0.6, cx + 0.6, cz - 0.6, cz + 0.6, roofY + 14, roofY + 34, { Color = CHARCOAL, Material = Enum.Material.SmoothPlastic })
+		TowerArt.beacon(model, plot, cx, cz, roofY + 34)   -- 1d
 	end
 end
 

@@ -182,4 +182,91 @@ function TowerArt.podium(model, plot, r, y, h, fin)
 	end
 end
 
+--[[ a terrace strip (spec §2.4; Bosco Verticale, Oasia): a planter edge along the outer edge with the
+	glass rail standing on it and a wood handrail; on the main strip (`full`) four trees taller than the
+	rail, two benches by the glass, two lamps. t = TowerPlan.terraces' strip, side "front"/"back". ]]
+function TowerArt.terrace(model, plot, t, side, y, fin, full)
+	local out = (side == "front") and 1 or -1
+	local edge = (side == "front") and t.z1 or t.z0
+	local inner = (side == "front") and t.z0 or t.z1
+	local function zs(a, b)   -- a..b studs in from the edge -> z0, z1
+		local z0, z1 = edge - out * a, edge - out * b
+		if z0 > z1 then z0, z1 = z1, z0 end
+		return z0, z1
+	end
+	local potP = { Color = c3(fin.planter), Material = Enum.Material.SmoothPlastic }
+	local leafP = with(NOHIT, { Color = c3(TF.LEAF), Material = Enum.Material.SmoothPlastic })
+	local x0, x1 = t.x0 + 1, t.x1 - 1
+	local a, b = zs(0.3, 2.1)
+	box(model, plot, "PlanterEdge", x0, x1, a, b, y, y + 1.6, potP)
+	a, b = zs(0.5, 1.9)
+	box(model, plot, "Plants", x0 + 0.3, x1 - 0.3, a, b, y + 1.6, y + 2.3, leafP)
+	a, b = zs(1.9, 2.1)
+	box(model, plot, "Rail", x0, x1, a, b, y + 1.6, y + 3.9,
+		{ Color = c3(fin.glass), Material = Enum.Material.Glass, Transparency = 0.4, CastShadow = false })
+	a, b = zs(1.8, 2.2)
+	box(model, plot, "Handrail", x0, x1, a, b, y + 3.9, y + 4.2, potP)
+	if not full then return end
+	local mid = (edge + inner) / 2 - out * 0.9   -- between the planter edge and the glass
+	local span = t.x1 - t.x0
+	for _, x in ipairs({ t.x0 + 6, t.x1 - 6, -span * 0.22, span * 0.22 }) do
+		box(model, plot, "Trunk", x - 0.35, x + 0.35, mid - 0.35, mid + 0.35, y, y + 5.2, potP)
+		local ball = part(with(leafP, { Name = "TreeLeaf", Shape = Enum.PartType.Ball, Size = Vector3.new(4, 4, 4) }), model)
+		ball.CFrame = plot.pivot * CFrame.new(x, y + 6.6, mid)
+		local ball2 = part(with(leafP, { Name = "TreeLeaf", Shape = Enum.PartType.Ball, Size = Vector3.new(3, 3, 3) }), model)
+		ball2.CFrame = plot.pivot * CFrame.new(x + 1.1, y + 8.0, mid)
+	end
+	local bz = inner + out * 1.6
+	for _, x in ipairs({ -6, 6 }) do
+		box(model, plot, "Bench", x - 2, x + 2, bz - 0.5, bz + 0.5, y + 0.9, y + 1.15, potP)
+		box(model, plot, "BenchLeg", x - 1.8, x - 1.5, bz - 0.4, bz + 0.4, y, y + 0.9, potP)
+		box(model, plot, "BenchLeg", x + 1.5, x + 1.8, bz - 0.4, bz + 0.4, y, y + 0.9, potP)
+	end
+	for _, x in ipairs({ -12, 12 }) do
+		box(model, plot, "LampPost", x - 0.15, x + 0.15, mid - 0.15, mid + 0.15, y, y + 3.6,
+			{ Color = c3(TF.INK), Material = Enum.Material.SmoothPlastic })
+		local lamp = box(model, plot, "Lamp", x - 0.45, x + 0.45, mid - 0.45, mid + 0.45, y + 3.6, y + 4.1,
+			with(NOHIT, { Color = c3(TF.GOLD), Material = Enum.Material.Neon }))
+		CollectionService:AddTag(lamp, "SVEmissive")
+	end
+end
+
+--[[ the crown ring (spec §2.5; the `halo` piece's new look): a 12-tall glass screen round the roof's edge,
+	1 stud in, rounded corners, fins every 4 on the front, a band with a light line on top, and the dark
+	name plate on its front. The mocks showed why: from the plaza the roof edge hides the lantern. ]]
+function TowerArt.crownRing(model, plot, roofY, fin)
+	local roof = T.deck(14)
+	local x0, x1, z0, z1 = roof.x0 + 1, roof.x1 - 1, roof.z0 + 1, roof.z1 - 1
+	local R, H, t = T.CORNER, 12, 0.4
+	local y0, y1 = roofY, roofY + H
+	local glass = { Color = c3(fin.glass), Material = Enum.Material.Glass, Transparency = 0.4, CastShadow = false, CanCollide = false, CanQuery = false }
+	local bandP = with(NOHIT, { Color = c3(fin.band), Material = Enum.Material.SmoothPlastic })
+	local lineP = with(NOHIT, { Color = c3(fin.line), Material = Enum.Material.SmoothPlastic })
+	local finP = with(NOHIT, { Color = c3(fin.fin), Material = Enum.Material.SmoothPlastic })
+	for _, q in ipairs({ { x0 + R, x1 - R, z1 - t, z1 }, { x0 + R, x1 - R, z0, z0 + t }, { x1 - t, x1, z0 + R, z1 - R }, { x0, x0 + t, z0 + R, z1 - R } }) do
+		box(model, plot, "CrownGlass", q[1], q[2], q[3], q[4], y0, y1, glass)
+		box(model, plot, "Band", q[1] - 0.3, q[2] + 0.3, q[3] - 0.3, q[4] + 0.3, y1, y1 + 1.2, bandP)
+		nightLight(box(model, plot, "LightLine", q[1], q[2], q[3] - 0.1, q[4] + 0.1, y1 - 0.3, y1, lineP), fin)
+	end
+	for _, c in ipairs({ { x = x1, z = z1, sx = 1, sz = 1 }, { x = x1, z = z0, sx = 1, sz = -1 }, { x = x0, z = z1, sx = -1, sz = 1 }, { x = x0, z = z0, sx = -1, sz = -1 } }) do
+		local p = T.arc(c, R, t / 2)
+		for k = 1, 3 do panel(model, plot, "CrownGlass", p[k], p[k + 1], y0, y1, t, glass) end
+	end
+	for x = x0 + R + 2, x1 - R - 2, 4 do
+		box(model, plot, "Fin", x - 0.2, x + 0.2, z1, z1 + 0.5, y0, y1, finP)
+	end
+	local plate = box(model, plot, "CrownPlate", -12, 12, z1 + 0.5, z1 + 1.1, y0 + 2, y0 + 10,
+		with(NOHIT, { Color = c3(fin.plate), Material = Enum.Material.SmoothPlastic }))
+	return TowerArt.nameText(plate, Enum.NormalId.Back)
+end
+
+-- the light on top of the mast (spec §2.5; BrandGold: the palette has no red)
+function TowerArt.beacon(model, plot, x, z, y)
+	local b = part(with(NOHIT, { Name = "Beacon", Shape = Enum.PartType.Ball, Size = Vector3.new(1.4, 1.4, 1.4),
+		Color = c3(TF.GOLD), Material = Enum.Material.Neon }), model)
+	b.CFrame = plot.pivot * CFrame.new(x, y + 0.7, z)
+	CollectionService:AddTag(b, "SVEmissive")
+	return b
+end
+
 return TowerArt
