@@ -671,7 +671,7 @@ local function liftButton(plot, st, s)
 	local y = T.floorY(s)
 	local bx = (T.SHAFT.x0 + T.SHAFT.x1) / 2 + 3.2
 	local btn = add(st.folder, { Name = "LiftCall", Size = Vector3.new(1.2, 2, 0.4),
-		CFrame = plot.pivot * CFrame.new(bx, y + 4.2, T.SHAFT.z1 + 0.2), Color = CHARCOAL, CanCollide = false, CastShadow = false })
+		CFrame = plot.pivot * CFrame.new(bx, y + 4.2, T.SHAFT.z1 + 0.35), Color = CHARCOAL, CanCollide = false, CastShadow = false })
 	table.insert(st.core, btn)
 	local id = LiftPlan.stopId(s)   -- 1b: one id scheme (L, F<n>, R) for the stops, the doors and the cab
 	local lit = add(st.folder, { Name = "LiftCallLit", Shape = Enum.PartType.Ball, Size = Vector3.new(0.5, 0.5, 0.5),
@@ -706,6 +706,7 @@ local function liftDoors(plot, st, s, y, h)
 		leaf:SetAttribute("Stop", LiftPlan.stopId(s))
 		table.insert(st.core, leaf)
 	end
+	for _, p in ipairs(TowerArt.liftFrame(st.folder, plot, y, finOf(plot))) do table.insert(st.core, p) end   -- 1d
 	if h > C.doorH then   -- the wall over the door gap
 		table.insert(st.core, slabBox(st.folder, plot, "LiftHeader", mid - C.door / 2, mid + C.door / 2, S.z1 - 0.4, S.z1, y + C.doorH, y + h - SLAB,
 			{ Color = Color3.fromRGB(190, 214, 226), Material = Enum.Material.Glass, Transparency = 0.45, CastShadow = false }))
@@ -778,8 +779,10 @@ function Wafers.cab(plot)
 		{ Color = Color3.fromRGB(20, 22, 30), Material = Enum.Material.SmoothPlastic, CanCollide = false })
 	Wafers.displayText(header, Enum.NormalId.Front)   -- faces the riders
 	part("Panel", Vector3.new(0.12, 6.4, 3.0), Vector3.new(C.w / 2 - 0.25, 4.6, 0), { Color = Color3.fromRGB(150, 156, 166), Material = Enum.Material.Metal, CanCollide = false })
-	local signPlate = part("Sign", Vector3.new(0.12, 1.4, 4.4), Vector3.new(-C.w / 2 + 0.25, 7.2, 0), { Color = Color3.fromRGB(20, 22, 30), Material = Enum.Material.SmoothPlastic, CanCollide = false })
-	surfaceText(signPlate, Enum.NormalId.Right, Color3.fromRGB(255, 170, 60))     -- faces into the cab (check live)
+	-- 1d (1b minor): the talking sign hangs over the door opening, under the floor display, facing the riders
+	-- (the ride camera looks at the doors); its bottom at 7.0 clears the 8-tall opening for a 5-tall avatar
+	local signPlate = part("Sign", Vector3.new(4.4, 1.0, 0.12), Vector3.new(0, 7.5, C.d / 2 - 0.5), { Color = Color3.fromRGB(20, 22, 30), Material = Enum.Material.SmoothPlastic, CanCollide = false })
+	surfaceText(signPlate, Enum.NormalId.Front, Color3.fromRGB(255, 170, 60))     -- -Z: into the cab (checked live)
 	for _, p in ipairs(m:GetChildren()) do if p:IsA("BasePart") then p.Anchored = true end end
 	CollectionService:AddTag(m, "LiftCab")
 	m.Parent = st.folder
@@ -842,6 +845,7 @@ local function buildCore(plot)
 		if h > 0 and T.landable(P.PIECES, st.level, s) then liftDoors(plot, st, s, y, h) end
 		if T.landable(P.PIECES, st.level, s) then liftButton(plot, st, s) end
 	end
+	for _, p in ipairs(TowerArt.coreTop(st.folder, plot, P.PIECES, st.level, finOf(plot))) do table.insert(st.core, p) end   -- 1d
 	if api.HQFloors and api.HQFloors.register then api.HQFloors.register(plot.index, plot, st.stops) end
 	if api.LiftCab and api.LiftCab.sync then api.LiftCab.sync(plot) end   -- 1b: the cab follows the build
 end

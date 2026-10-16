@@ -144,8 +144,12 @@ function TowerArt.entrance(model, plot, r, y, fin)
 	box(model, plot, "DoorFrame", r.cx - w / 2 - 0.6, r.cx - w / 2, r.z1 - 0.2, r.z1 + 0.6, y, y + 10, bandP)
 	box(model, plot, "DoorFrame", r.cx + w / 2, r.cx + w / 2 + 0.6, r.z1 - 0.2, r.z1 + 0.6, y, y + 10, bandP)
 	box(model, plot, "DoorFrame", r.cx - w / 2 - 0.6, r.cx + w / 2 + 0.6, r.z1 - 0.2, r.z1 + 0.6, y + 9.4, y + 10, bandP)
-	nightLight(box(model, plot, "LightLine", r.cx - 10.5, r.cx + 10.5, r.z1 + 0.5, r.z1 + 9.5, y + 9.7, y + 10,
-		with(NOHIT, { Color = c3(fin.line), Material = Enum.Material.SmoothPlastic })), fin)
+	-- two strips, not one panel: a 9-deep non-solid panel near the ground reads to WorldHealth as a
+	-- surface you sink through (doctor, 16 Oct); the spec asks for a lit strip anyway
+	local lineP = with(NOHIT, { Color = c3(fin.line), Material = Enum.Material.SmoothPlastic })
+	for _, z in ipairs({ r.z1 + 1.0, r.z1 + 8.4 }) do
+		nightLight(box(model, plot, "LightLine", r.cx - 10.5, r.cx + 10.5, z, z + 1.0, y + 9.7, y + 10, lineP), fin)
+	end
 	local board = box(model, plot, "EntranceSign", r.cx - 11, r.cx + 11, r.z1 + 9.4, r.z1 + 9.9, y + 11, y + 14,
 		with(NOHIT, { Color = c3(fin.plate), Material = Enum.Material.SmoothPlastic }))
 	return TowerArt.nameText(board, Enum.NormalId.Back)   -- +Z: toward the street
@@ -267,6 +271,74 @@ function TowerArt.beacon(model, plot, x, z, y)
 	b.CFrame = plot.pivot * CFrame.new(x, y + 0.7, z)
 	CollectionService:AddTag(b, "SVEmissive")
 	return b
+end
+
+-- a frame round the lift doors on one landing (spec §2.6); the call button sits in front of its right jamb
+function TowerArt.liftFrame(folder, plot, y, fin)
+	local S, C = T.SHAFT, T.CAB
+	local mid = (S.x0 + S.x1) / 2
+	local p = with(NOHIT, { Color = c3(fin.band), Material = Enum.Material.SmoothPlastic })
+	local hw = C.door / 2
+	return {
+		box(folder, plot, "LiftFrame", mid - hw - 0.3, mid - hw, S.z1, S.z1 + 0.15, y, y + C.doorH, p),
+		box(folder, plot, "LiftFrame", mid + hw, mid + hw + 0.3, S.z1, S.z1 + 0.15, y, y + C.doorH, p),
+		box(folder, plot, "LiftFrame", mid - hw - 0.3, mid + hw + 0.3, S.z1, S.z1 + 0.15, y + C.doorH, y + C.doorH + 0.3, p),
+	}
+end
+
+--[[ the top of the core (spec §2.6): a roof over the top storey's centre hall (the 1c "hole over the
+	lobby"), a tidy cap on the shaft, and while that storey is unfinished a small crane on the cap and a
+	safety rail on the open roof edges where the next rooms go. Rebuilt with the core, so nothing lingers. ]]
+function TowerArt.coreTop(folder, plot, pieces, level, fin)
+	local out = {}
+	local capY = T.shaftCapY(pieces, level)
+	if not capY then return out end
+	local S = T.SHAFT
+	local top = T.topStorey(pieces, level)
+	local bandP = { Color = c3(fin.band), Material = Enum.Material.SmoothPlastic }
+	if top < 14 then
+		for _, q in ipairs(T.hallRoofRects(top)) do
+			table.insert(out, box(folder, plot, "HallRoof", q.x0, q.x1, q.z0, q.z1, capY, capY + T.SLAB, bandP))
+		end
+	end
+	table.insert(out, box(folder, plot, "ShaftCap", S.x0 - 0.6, S.x1 + 0.6, S.z0 - 0.6, S.z1 + 0.6, capY, capY + 5, bandP))
+	table.insert(out, box(folder, plot, "ShaftCap", S.x0 - 1.0, S.x1 + 1.0, S.z0 - 1.0, S.z1 + 1.0, capY + 5, capY + 5.6,
+		{ Color = c3(fin.fin), Material = Enum.Material.SmoothPlastic }))
+	local mid = (S.x0 + S.x1) / 2
+	table.insert(out, box(folder, plot, "ShaftCapDoor", mid - 1.2, mid + 1.2, S.z1 + 0.6, S.z1 + 0.75, capY, capY + 4,
+		with(NOHIT, { Color = c3(TF.INK), Material = Enum.Material.SmoothPlastic })))
+	local s = T.unfinished(pieces, level)
+	if s and s > 0 then
+		local gold = with(NOHIT, { Color = c3(TF.GOLD), Material = Enum.Material.SmoothPlastic })
+		local ink = with(NOHIT, { Color = c3(TF.INK), Material = Enum.Material.SmoothPlastic })
+		local cz = (S.z0 + S.z1) / 2
+		local cy = capY + 5.6
+		table.insert(out, box(folder, plot, "Crane", mid - 0.8, mid + 0.8, cz - 0.8, cz + 0.8, cy, cy + 20, gold))
+		table.insert(out, box(folder, plot, "Crane", mid - 8, mid + 26, cz - 0.6, cz + 0.6, cy + 19, cy + 20.4, gold))
+		table.insert(out, box(folder, plot, "Crane", mid - 9.5, mid - 4.5, cz - 1.4, cz + 1.4, cy + 16.5, cy + 19, ink))
+		table.insert(out, box(folder, plot, "Crane", mid + 21.9, mid + 22.1, cz - 0.1, cz + 0.1, cy + 9, cy + 19, ink))
+		table.insert(out, box(folder, plot, "Crane", mid + 21.2, mid + 22.8, cz - 0.8, cz + 0.8, cy + 7.8, cy + 9, gold))
+		local edges = T.railEdges(pieces, level)
+		local ry = T.DECKS[s - 1] and T.floorY(s) or (T.floorY(s) - T.SLAB)
+		local white = with(NOHIT, { Color = c3(TF.STRIP), Material = Enum.Material.SmoothPlastic })
+		for _, e in ipairs(edges) do
+			local alongX = (e.z0 == e.z1)
+			local a0, a1 = alongX and e.x0 or e.z0, alongX and e.x1 or e.z1
+			local at = alongX and e.z0 or e.x0
+			local function bar(b0, b1, y0, y1, props)
+				if alongX then return box(folder, plot, "SafetyRail", b0, b1, at - 0.15, at + 0.15, y0, y1, props) end
+				return box(folder, plot, "SafetyRail", at - 0.15, at + 0.15, b0, b1, y0, y1, props)
+			end
+			table.insert(out, bar(a0, a1, ry + 2.2, ry + 2.5, gold))
+			table.insert(out, bar(a0, a1, ry + 1.1, ry + 1.35, white))
+			local n = math.max(1, math.floor((a1 - a0) / 6))
+			for k = 0, n do
+				local a = a0 + (a1 - a0) * k / n
+				table.insert(out, bar(a - 0.15, a + 0.15, ry, ry + 2.5, gold))
+			end
+		end
+	end
+	return out
 end
 
 return TowerArt
