@@ -243,6 +243,7 @@ local celebrate = remotes:WaitForChild("Celebrate", 20)
 if celebrate then
 	celebrate.OnClientEvent:Connect(function(e)
 		if type(e) ~= "table" or e.kind ~= "hq" then return end
+		if e.lobby then return end   -- 1c: the garage-to-lobby moment is this build's cinematic
 		task.wait(1.4)
 		if busy() then return end
 		local idx = player:GetAttribute("Plot")

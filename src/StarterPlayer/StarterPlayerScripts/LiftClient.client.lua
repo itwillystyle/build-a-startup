@@ -1,24 +1,27 @@
 --[[
-	LiftClient (v4.0) -- the floor picker for HQFloors' lifts.
-
-	Press E at any lift: a panel lists the building's stops top to bottom, like
-	the buttons in a real lift (ROOF GARDEN, 5 SKY CAFE ... LOBBY), with the
-	floor you are on greyed out. Tap one: the screen fades to black, the server
-	moves you, a ding, the screen fades back in at the new floor's lift.
-	Walking away closes it. The server checks everything (HQFloors.LiftGo).
+	LiftClient (v9, 15 Oct 2026, HQ part 1b): the lift's ride, on the client.
+	The server (LiftCab) publishes each ride as attributes on the cab model; this script animates
+	every cab from them so the ride is smooth for riders and watchers, carries its own character
+	with the cab (the platform-delta method: the character keeps its offset from the cab each frame,
+	so it never shakes or falls through), holds a steady camera inside for riders, plays the ticks
+	and the ding, opens the big floor list when you step in, pops "NEW!" on the trophy panel, and
+	flickers the light on the "calm" event. Spec: docs/superpowers/specs/2026-10-15-hq-lift-1b-design.md
 ]]
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local CollectionService = game:GetService("CollectionService")
+local HttpService = game:GetService("HttpService")
 
 local player = Players.LocalPlayer
 local UIKit = require(RS:WaitForChild("UIKit"))
-local Notify = require(RS:WaitForChild("Notify"))
-local remotes = RS:WaitForChild("SVRemotes")
-local liftMenu = remotes:WaitForChild("LiftMenu")
-local liftGo = remotes:WaitForChild("LiftGo")
+local T = require(RS:WaitForChild("TowerPlan"))
+local LP = require(RS:WaitForChild("LiftPlan")).with(T)
+local liftPick = RS:WaitForChild("SVRemotes"):WaitForChild("LiftPick")
+local C = T.CAB
 
+-- ------------------------------------------------------------ the floor list (phone first)
 local gui = Instance.new("ScreenGui")
 gui.Name = "Lift"
 gui.ResetOnSpawn = false
@@ -27,138 +30,224 @@ gui.IgnoreGuiInset = true
 gui.Enabled = false
 gui.Parent = player:WaitForChild("PlayerGui")
 UIKit.safe(gui)
-
-local fadeGui = Instance.new("ScreenGui")
-fadeGui.Name = "LiftFade"
-fadeGui.ResetOnSpawn = false
-fadeGui.DisplayOrder = 40
-fadeGui.IgnoreGuiInset = true
-fadeGui.Parent = player.PlayerGui
-local fade = Instance.new("Frame")
-fade.Size = UDim2.new(1, 0, 1, 0)
-fade.BackgroundColor3 = UIKit.BLACK
-fade.BackgroundTransparency = 1
-fade.BorderSizePixel = 0
-fade.Parent = fadeGui
-
--- v5: centred like every menu (at the right edge it sat on the goal card)
-local menu, body, close = UIKit.menu(gui, "LIFT", UIKit.BLUE, {
-	Name = "Panel", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), Size = UDim2.new(0, 360, 0, 200),
+local ROW = 56
+local menu, body, close = UIKit.menu(gui, "TAKE THE LIFT", UIKit.BLUE, {
+	Name = "Panel", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), Size = UDim2.new(0, 340, 0, 200),
 })
-local list = Instance.new("UIGridLayout")
-list.CellSize = UDim2.new(0.5, -4, 0, 52)
-list.CellPadding = UDim2.new(0, 8, 0, 8)
-list.SortOrder = Enum.SortOrder.LayoutOrder
+-- a tall tower scrolls: rows never draw under 44 px (a short phone screen shrank 12 rows to 26 px)
+local list = Instance.new("ScrollingFrame")
+list.Name = "List"
+list.BackgroundTransparency = 1
+list.BorderSizePixel = 0
+list.Size = UDim2.new(1, 0, 1, 0)
+list.ScrollBarThickness = 5
 list.Parent = body
-local fit = Instance.new("UIScale", menu)
-local place = UIKit.fitMenu(menu, 360, nil, fit, 16)   -- v5: the shared rule (clears the rail, scales to fit)
-menu:GetPropertyChangedSignal("Size"):Connect(function() place(menu.Position.Y.Scale, menu.Position.Y.Offset) end)   -- the stop count sets its height
-
-local openedAt
-local busy = false
-
-local function hide()
-	gui.Enabled = false
-	openedAt = nil
+local layout = Instance.new("UIListLayout")
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Padding = UDim.new(0, 6)
+layout.Parent = list
+local fit = Instance.new("UIScale")
+fit.Parent = menu
+local FLOOR = 44 / ROW
+local place = UIKit.fitMenu(menu, 340, nil, fit, 16, FLOOR)
+menu:GetPropertyChangedSignal("Size"):Connect(function() place(menu.Position.Y.Scale, menu.Position.Y.Offset) end)
+local listFor        -- the cab whose list is open
+-- scrolled so "YOU ARE HERE" is in view (the lobby is the bottom row). CanvasPosition is in scaled
+-- screen pixels, and the list's sizes settle a frame or more after it opens (measured 15 Oct), so
+-- this runs again whenever they change; they only change on open or a refit, never mid-scroll
+local hereAt = 0
+local function scrollHere()
+	local s = list.AbsoluteCanvasSize.Y / math.max(1, list.CanvasSize.Y.Offset)
+	list.CanvasPosition = Vector2.new(0, math.max(0, (hereAt + 1) * (ROW + 6) * s - list.AbsoluteWindowSize.Y))
 end
+list:GetPropertyChangedSignal("AbsoluteWindowSize"):Connect(scrollHere)
+list:GetPropertyChangedSignal("AbsoluteCanvasSize"):Connect(scrollHere)
+local function hide() gui.Enabled = false; listFor = nil end
 if close then close.MouseButton1Click:Connect(hide) end
 
--- v4.2: the shared toast (Notify), one bottom toast for the whole game
-local function say(text)
-	Notify.toast(text, { priority = 1, hold = 2.2, sfx = "thunk" })
-end
-
-local function ride(plotIndex, stopId)
-	if busy then return end
-	busy = true
-	hide()
-	local char = player.Character
-	local root = char and char:FindFirstChild("HumanoidRootPart")
-	local from = root and root.Position
-	TweenService:Create(fade, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = 0 }):Play()
-	task.wait(0.22)
-	liftGo:FireServer(plotIndex, stopId)
-	local t0 = os.clock()
-	while os.clock() - t0 < 1.4 do
-		RunService.Heartbeat:Wait()
-		if root and from and (root.Position - from).Magnitude > 4 then break end
-	end
-	task.wait(0.12)
-	UIKit.sfx("ding", 1.05, 0.45)
-	TweenService:Create(fade, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = 1 }):Play()
-	task.wait(0.4)
-	busy = false
-end
-
-liftMenu.OnClientEvent:Connect(function(data)
-	if type(data) ~= "table" then return end
-	if data.blocked then say(data.blocked) return end
-	for _, c in ipairs(body:GetChildren()) do
-		if c:IsA("GuiObject") then c:Destroy() end
-	end
-	local stops = data.stops or {}
-	-- v5: two columns, a floor badge and the floor's name (six full-width rows were
-	-- 414 px tall, taller than a phone, and "ROOF / ROOF GARDEN" said it twice)
-	-- v5 critique: like a real lift panel, it counts up from the bottom-left:
-	-- the stops pair up in twos (L 2 / 3 4 / 5 R) and the rows stack upward
-	local rowsOf = {}
-	for i = 1, #stops, 2 do table.insert(rowsOf, { stops[i], stops[i + 1] }) end
-	local order = {}
-	for r = #rowsOf, 1, -1 do
-		for _, st in ipairs(rowsOf[r]) do table.insert(order, st) end
-	end
-	for k, st in ipairs(order) do
-		local here = st.id == data.here
-		-- the server sends { id = "L" | "F2".."F5" | "R", name = "LOBBY" | "2" | "R",
-		-- sub = theme name }: the badge is the floor's number, the title its name
-		local num = tostring(st.id):match("^F(%d+)$")
-		local badgeText = num or tostring(st.id)
-		local name = (st.id == "L" and "LOBBY") or ((st.sub and st.sub ~= "") and st.sub)
-			or (num and ("FLOOR " .. num)) or st.name or ""
-		local b = UIKit.button(body, "", here and UIKit.SURFACE_2 or UIKit.BLUE, {
-			Name = "Stop_" .. st.id, Size = UDim2.new(0, 0, 0, 0), LayoutOrder = k,
-		}, { silent = here })
-		local badge = Instance.new("TextLabel")
-		badge.AnchorPoint = Vector2.new(0, 0.5)
-		badge.Position = UDim2.new(0, 8, 0.5, -2)
-		badge.Size = UDim2.new(0, 36, 0, 36)
-		badge.BackgroundColor3 = here and UIKit.PAPER or UIKit.BLUE_DEEP
-		badge.Text = badgeText
-		badge.TextColor3 = here and UIKit.MUTED_TEXT or UIKit.TEXT
-		badge.TextSize = UIKit.TYPE.label
-		badge.Font = UIKit.HEAD
-		badge.ZIndex = b.ZIndex + 1
-		badge.Parent = b
-		Instance.new("UICorner", badge).CornerRadius = UDim.new(1, 0)
-		local nm = UIKit.label(b, name, UIKit.TYPE.body, here and UIKit.INK or UIKit.TEXT, {
-			Position = UDim2.new(0, 52, 0, 4), Size = UDim2.new(1, -58, 0, 22), TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = b.ZIndex + 1,
+local function openList(cab)
+	for _, c in ipairs(list:GetChildren()) do if c:IsA("GuiObject") then c:Destroy() end end
+	local ok, stops = pcall(HttpService.JSONDecode, HttpService, cab:GetAttribute("Stops") or "[]")
+	if not ok then return end
+	local at = cab:GetAttribute("At")
+	local hereRow = 0
+	for k = #stops, 1, -1 do   -- top floor first, like a panel read from the top
+		local st = stops[k]
+		local here, locked = st.id == at, not st.built
+		if here then hereRow = #stops - k end
+		local b = UIKit.button(list, "", (here or locked) and UIKit.SURFACE_2 or UIKit.BLUE, {
+			Name = "Stop_" .. st.id, Size = UDim2.new(1, -8, 0, ROW), LayoutOrder = #stops - k,
+		}, { silent = here or locked })
+		UIKit.label(b, st.num, UIKit.TYPE.title, (here or locked) and UIKit.MUTED_TEXT or UIKit.TEXT, {
+			Position = UDim2.new(0, 10, 0, 0), Size = UDim2.new(0, 44, 1, 0),
 		}, UIKit.HEAD)
-		if not here then UIKit.paintLabel(nm, UIKit.BLUE) end
-		local sub = here and "YOU ARE HERE" or ""
+		local name = locked and "Build to unlock" or (st.label ~= "" and st.label or ("FLOOR " .. st.num))
+		UIKit.label(b, name, UIKit.TYPE.body, (here or locked) and UIKit.MUTED_TEXT or UIKit.TEXT, {
+			Position = UDim2.new(0, 62, 0, 0), Size = UDim2.new(1, -150, 1, 0), TextXAlignment = Enum.TextXAlignment.Left,
+			TextTruncate = Enum.TextTruncate.AtEnd,
+		}, UIKit.HEAD)
+		local sub = here and "YOU ARE HERE" or st.sub or ""
 		if sub ~= "" then
-			local sl = UIKit.label(b, sub, UIKit.TYPE.caption, here and UIKit.MUTED_TEXT or UIKit.TEXT, {
-				Position = UDim2.new(0, 52, 0, 25), Size = UDim2.new(1, -58, 0, 18), TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = b.ZIndex + 1,
+			-- on a blue row the muted grey could not be read (look review): the row's own text colour
+			UIKit.label(b, sub, UIKit.TYPE.caption, (here or locked) and UIKit.MUTED_TEXT or UIKit.TEXT, {
+				AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.new(0, 84, 0, 18),
+				TextXAlignment = Enum.TextXAlignment.Right,
 			}, UIKit.BODY)
-			if not here then UIKit.paintLabel(sl, UIKit.BLUE) end
-		else
-			nm.Position = UDim2.new(0, 52, 0, 0)
-			nm.Size = UDim2.new(1, -58, 1, -5)
 		end
-		if not here then
-			b.MouseButton1Click:Connect(function() ride(data.plot, st.id) end)
+		if not (here or locked) then
+			b.MouseButton1Click:Connect(function()
+				liftPick:FireServer(cab:GetAttribute("Plot"), st.id)
+				UIKit.sfx("tap")
+				hide()
+			end)
 		end
 	end
-	local rows = math.ceil(#order / 2)
-	menu.Size = UDim2.new(0, 360, 0, 52 + 26 + rows * 60)
-	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-	openedAt = root and root.Position
+	-- as many rows as fit on this screen at the 44 px floor; the rest scroll
+	local room = math.max(3, math.floor(((gui.AbsoluteSize.Y - 32) / FLOOR - 72) / (ROW + 6)))
+	menu.Size = UDim2.new(0, 340, 0, 72 + math.min(#stops, room) * (ROW + 6))
+	list.CanvasSize = UDim2.new(0, 0, 0, #stops * (ROW + 6))
+	hereAt = hereRow
+	scrollHere()
+	listFor = cab
 	gui.Enabled = true
 	UIKit.solo(gui)
-	UIKit.sfx("tap")
-end)
--- walking away closes the picker
-RunService.Heartbeat:Connect(function()
-	if not gui.Enabled or not openedAt then return end
+end
+
+-- ------------------------------------------------------------ the cab, animated from its attributes
+local function insideBox(cab, pos, pad)
+	local base = cab.PrimaryPart
+	if not base then return false end
+	local l = (base.CFrame * CFrame.new(0, 0.25 + C.h / 2, 0)):PointToObjectSpace(pos)
+	pad = pad or 0
+	return math.abs(l.X) <= C.w / 2 + pad and math.abs(l.Y) <= C.h / 2 + pad and math.abs(l.Z) <= C.d / 2 + pad
+end
+
+local rideState = {}     -- cab -> { start }
+local seen, panelSeen = {}, {}
+local camWas
+local riderCab           -- the cab whose ride holds our camera
+-- hand the camera back. Also when the cab is gone (a rebuild mid-ride replaced it) or we respawn:
+-- RF3/RF5 (15 Oct) left the camera Scriptable for good, and the next ride saved that as "before"
+-- the rider's own character is hidden from their camera during the ride: from the back wall it
+-- stood in front of the doors and the signs (look review, 15 Oct)
+local function showSelf(on)
+	local char = player.Character
+	for _, d in ipairs(char and char:GetDescendants() or {}) do
+		if d:IsA("BasePart") or d:IsA("Decal") then d.LocalTransparencyModifier = on and 0 or 1 end
+	end
+end
+local function release()
+	if not riderCab then return end
+	riderCab = nil
+	workspace.CurrentCamera.CameraType = camWas or Enum.CameraType.Custom
+	camWas = nil
+	showSelf(true)
+end
+player.CharacterAdded:Connect(release)
+
+local function drawStep(cab, moving)   -- FromY/ToY are cabAt heights: the base sits 0.25 below
+	local base = cab.PrimaryPart
+	local t = workspace:GetServerTimeNow() - (cab:GetAttribute("Start") or 0)
+	return LP.drawStep(moving, cab:GetAttribute("FromY") or 0, cab:GetAttribute("ToY") or 0, t,
+		cab:GetAttribute("Dur") or 0, base.Position.Y + 0.25)
+end
+
+local function startRide(cab)
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-	if not root or (root.Position - openedAt).Magnitude > 12 then hide() end
+	if root and insideBox(cab, root.Position, LP.RIDER_PAD) then
+		hide()
+		-- the ticks, then the ding
+		for _, tk in ipairs(LP.ticks(cab:GetAttribute("Floors") or 0)) do
+			task.delay(tk.t, function() UIKit.sfx("tap", tk.loud and 1.25 or 1.7, tk.loud and 0.55 or 0.25) end)
+		end
+		task.delay(cab:GetAttribute("Dur") or 0, function() UIKit.sfx("ding", 1.05, 0.45) end)
+		local cam = workspace.CurrentCamera
+		if not riderCab then
+			camWas = cam.CameraType ~= Enum.CameraType.Scriptable and cam.CameraType or Enum.CameraType.Custom
+		end
+		riderCab = cab
+		cam.CameraType = Enum.CameraType.Scriptable
+		showSelf(false)
+	end
+	if cab:GetAttribute("Event") == "calm" then
+		local light = cab:FindFirstChild("CabLight")
+		if light then
+			local was = light.Transparency
+			light.Transparency = 1
+			task.delay(0.5, function() light.Transparency = was end)
+		end
+	end
+end
+
+RunService.RenderStepped:Connect(function()
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if riderCab and not riderCab:IsDescendantOf(workspace) then release() end
+	for cab in pairs(rideState) do if not cab.Parent then rideState[cab] = nil end end
+	for _, cab in ipairs(CollectionService:GetTagged("LiftCab")) do
+		local base = cab.PrimaryPart
+		if base then
+			local rs = rideState[cab]
+			if not rs then rs = { start = nil }; rideState[cab] = rs end
+			local moving = cab:GetAttribute("State") == "moving"
+			local start = cab:GetAttribute("Start")
+			if moving and rs.start ~= start then
+				rs.start = start
+				startRide(cab)
+			end
+			-- draw the cab where the ride says (locally), and carry our character by the same step
+			local step = drawStep(cab, moving)
+			if math.abs(step) > 1e-4 then
+				local carry = root and insideBox(cab, root.Position, LP.RIDER_PAD)   -- the server counts riders alike (M2)
+				cab:PivotTo(cab:GetPivot() + Vector3.new(0, step, 0))
+				if carry then
+					root.CFrame = root.CFrame + Vector3.new(0, step, 0)
+					root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 0, root.AssemblyLinearVelocity.Z)
+				end
+			end
+			-- the rider's camera: inside, facing the doors
+			if riderCab == cab and moving then
+				local cf = base.CFrame
+				-- the back wall at head height, looking at the doors: the floor display over them and
+				-- the talking sign on the side wall both in frame
+				workspace.CurrentCamera.CFrame = CFrame.lookAt((cf * CFrame.new(0, 6.0, -C.d / 2 + 0.5)).Position, (cf * CFrame.new(0, 6.3, C.d / 2)).Position)
+			elseif riderCab == cab then
+				-- the ride is over: a hitch over the arrival can leave us in the shaft (under the cab
+				-- floor or on its roof); stand back in the cab before letting go (I3)
+				local l = root and (base.CFrame * CFrame.new(0, 0.25, 0)):PointToObjectSpace(root.Position)
+				if l and LP.reseat(l.X, l.Y, l.Z) then
+					local hum = player.Character:FindFirstChildOfClass("Humanoid")
+					local up = (hum and hum.HipHeight or 2) + root.Size.Y / 2 + 0.1
+					root.CFrame = CFrame.new((base.CFrame * CFrame.new(0, 0.25 + up, 0)).Position) * root.CFrame.Rotation
+					root.AssemblyLinearVelocity = Vector3.zero
+				end
+				release()
+			end
+			-- stepping in opens the list (and pops NEW on the trophy panel)
+			local state = cab:GetAttribute("State")
+			-- only well inside (I4): the tap that picks a floor is never made from the door line
+			local inner = root and (base.CFrame * CFrame.new(0, 0.25, 0)):PointToObjectSpace(root.Position)
+			if inner and (state == "open" or state == "idle") and LP.doorZone(inner.X, inner.Y, inner.Z) == "in" and LP.listOpens(inner.Z) then
+				if listFor ~= cab and not seen[cab] then
+					seen[cab] = true
+					openList(cab)
+					local first = not panelSeen[cab]
+					panelSeen[cab] = panelSeen[cab] or {}
+					for _, b in ipairs(cab:GetChildren()) do
+						if b.Name:match("^Btn_") and b:GetAttribute("Built") and not panelSeen[cab][b.Name] then
+							panelSeen[cab][b.Name] = true
+							if not first then
+								local was = b.Color
+								b.Color = Color3.fromRGB(255, 196, 60)   -- world colour: the trophy button flashes gold
+								UIKit.sfx("star", 1.2, 0.35)
+								TweenService:Create(b, TweenInfo.new(1.6), { Color = was }):Play()
+							end
+						end
+					end
+				end
+			elseif root and not insideBox(cab, root.Position, 1.5) then
+				seen[cab] = nil
+				if listFor == cab then hide() end
+			end
+		end
+	end
 end)

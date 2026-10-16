@@ -1,11 +1,11 @@
 # UI, HUD, Goal Guide, Intro, Naming and Music
 **What:** One shared look (`UIKit`), one referee for pop-ups (`Notify`), one camera tool (`Cine`), and the first-minute screens built on them: intro flyover, goal card, one-time button tips, the "name your company" box and the music button. `Palette` and `SVStyle` are world colour rules, not UI colours. `Sfx` holds world and vehicle sound ids.
 **How a player reaches it:**
-1. Join. `MenuClient` fires `MenuDone` once (`MenuClient.client.lua:19`). The server sets the attribute (`SiliconCore.server.lua:4113-4116`). HUD guis wait for it.
+1. Join. `MenuClient` fires `MenuDone` once (`MenuClient.client.lua:19`). The server sets the attribute (`SiliconCore.server.lua:4162-4165`). HUD guis wait for it.
 2. `IntroClient` waits for `MenuDone` (:151), then `Cine.play` flies to the laptop (:297). Returning players get a short "WELCOME BACK" shot (:159-167).
 3. `GuideClient` draws the goal the server picks (`GuideClient.client.lua:566-636`).
-4. After the first app ships and the first hire, the server fires `AskName` (`SiliconCore.server.lua:4064`). `NameClient` shows the box through `Notify` (:166). SAVE fires `SetName` (:132-143). LATER sends an empty string (:126-130).
-5. The server picks a button tip (`SiliconCore.server.lua:1892-1901`). `CoachClient` draws it after 1.5 s of calm (:238). GOT IT fires `CoachSeen` (:120).
+4. After the first app ships and the first hire, the server fires `AskName` (`SiliconCore.server.lua:4113`). `NameClient` shows the box through `Notify` (:166). SAVE fires `SetName` (:132-143). LATER sends an empty string (:126-130).
+5. The server picks a button tip (`SiliconCore.server.lua:1894-1903`). `CoachClient` draws it after 1.5 s of calm (:238). GOT IT fires `CoachSeen` (:120).
 6. `MusicClient` puts a round button top right (:60-71). A tap flips `MenuMuted` and fires `SetMuted` (:115-120).
 **Files:**
 - `src/ReplicatedStorage/UIKit.lua`: colours :23-76, `button` :171, `card` :326, `menu` :1352, `railButton` :583, `fitMenu` :885, `sfx` :1243, `MENUS` :1463, `menuOpen` :1468, `solo` :1564, `autoScale` :1657.
@@ -29,14 +29,14 @@
 - `src/StarterPlayer/StarterPlayerScripts/IntroClient.client.lua`: `runIntro` :133, ghost tower and neighbour shot :175-260.
 - `src/StarterPlayer/StarterPlayerScripts/NameClient.client.lua`: gui `CompanyName` :31, `suggest` :59.
 - `src/StarterPlayer/StarterPlayerScripts/MusicClient.client.lua`: five tracks :28-34, volume 0.16 :35, `play` :84.
-- Server half of naming: `SiliconCore.server.lua` `cleanName` :3293, `tickerOf` :3306, `SetName` handler :3312.
+- Server half of naming: `SiliconCore.server.lua` `cleanName` :3341, `tickerOf` :3354, `SetName` handler :3360.
 **State:**
-- Server attributes: `MenuDone`, `Objective`, `ObjectiveText`, `ObjectivePos`, `ObjectiveSub`, `ObjectiveCost` (`SiliconCore.server.lua:1914-1919`), `Milestone*`, `CoachTip`, `CoachTitle`, `CoachBody`, `CoachTarget` (:1894-1900).
+- Server attributes: `MenuDone`, `Objective`, `ObjectiveText`, `ObjectivePos`, `ObjectiveSub`, `ObjectiveCost` (`SiliconCore.server.lua:1916-1921`), `Milestone*`, `CoachTip`, `CoachTitle`, `CoachBody`, `CoachTarget` (:1896-1902).
 - Client attributes: `NamingOpen` (`NameClient.client.lua:39`), `MenuMuted`, `MusicTrack`, `MusicTrackName`, `MusicTrackCount`, `GuideDismissed`.
 - Session: `s.name`, `s.ticker`, `s.nameSkipped` (not saved), `s.tips`, `s.muted`.
-- Saved: `name` (`SaveLoad.lua:93`), `tips` (:147), `muted` (:132). Name is also in DataStore `SVNames_v1`, key = userId (`SiliconCore.server.lua:580, 3238`).
+- Saved: `name` (`SaveLoad.lua:93`), `tips` (:147), `muted` (:132). Name is also in DataStore `SVNames_v1`, key = userId (`SiliconCore.server.lua:580, 3286`).
 **Drive it:**
-- `name <s>` sets name, ticker and sign with no box (`DevHook.lua:181-183`).
+- `name <s>` sets name, ticker and sign with no box (`DevHook.lua:187-189`).
 - None opens the naming box, a tip or the flyover. `dev:Invoke("scenario", p, "ready")` hires one person, which may start the name ask on a fresh save (not verified).
 - Studio SERVER datamodel, likely works, not run: `game.ReplicatedStorage.SVRemotes.AskName:FireClient(p, "")`. See how `tests/notify_live_server.luau` fires remotes.
 **Prove it:**
@@ -48,7 +48,7 @@
 - No automated check for `Cine`, `IntroClient`, `NameClient`, `CoachClient`, `MusicClient`.
 **Gotchas:**
 - The phone pass (11 Oct, step 5), measured in Studio's Device Simulator (iPhone, 749 x 381) and at HD 1080 and 1074 x 355. A frame honours ONE UIScale, its first child, so `UIKit.autoScale` only ever reached the pieces with no UIScale of their own (the income line, the toast, the LOST!, hire and phone cards, the speedometer, the build bars); the "17 texts under 14 px" the probe reported before multiplied every UIScale and was mostly wrong (fixed: `DoctorProbes.ui` uses the first). The autoScale floor is 0.86 (was 0.66): the smallest text draws at 12 px on a phone, the doctor's phone floor (`MIN_TEXT_PHONE`, screens under 520 tall; 14 elsewhere). Fixed at phone size: the cash pill sat on the thumbstick's resting spot and under the coffee button (`placeMoney` lifts the money block above whatever shares its strip, re-measured every second); the income line was drawn above the screen on every device since v7 (now right above the cash, its tap target over both); "+$X" pops still appeared top centre (now above the money); BOOST stood mid-screen (now beside the jump button on a touch screen); CAR hides during a carry (cars are refused then); a menu's close button is a 52 px tap target (it fitted down to 41 px); the quest card steps aside while the MORE tray is open; ambient toasts wait while a P0/P1 card holds the centre; `fitMenu` refits when its gui resizes (after a window resize the quest card stayed centred on the old width). Result at all three sizes: 0 text under the floor, 0 taps under 44, 0 overlaps, 0 covered buttons (the chase's edges, LOST!'s flash and the IPO dim carry `Overlay`, which the probe skips). Screenshots: `silicon-startup/ui/2026-10-11-step5-phone/`. Studio's mouse tool lands about 62 px left of the target in the phone simulator (the safe-area inset): aim with that added.
-- A new menu must be added to `UIKit.MENUS` (`UIKit.lua:1460`) with its ScreenGui name, or `solo`, `menuOpen` and `Notify` will not see it open.
+- A new menu must be added to `UIKit.MENUS` (`UIKit.lua:1463`) with its ScreenGui name, or `solo`, `menuOpen` and `Notify` will not see it open.
 - Every transient asks `Notify.show` first. One card per lane. A card that never says done is freed after `MAX_HOLD` (`Notify.lua:29`).
 - Top lane cards must use `Notify.followTop`. The quest card is not a lane item; it steps aside on `Notify.onLoud` and frees the top at once, before the loud card draws (`Director:_open` calls `env.changed` first). `GuideClient` reports the quest card bottom every 0.4 s (`GuideClient.client.lua:824-837`).
 - `Cine.play` disables every enabled ScreenGui and the prompts, then re-enables only non-menu guis (`Cine.lua:173-182, 228-231`). It returns false if one is already playing (:168).
@@ -56,10 +56,10 @@
 - Tips find buttons by path, such as `Rail.Column.BagButton` (`Journey.lua:156-175`). Rename a button and its tip never shows. A `Rail.` path resolves through `UIKit.railTarget`, so a tip for a tile in the closed tray points at MORE (`CoachClient.client.lua:29-39`).
 - `UIKit.autoScale` leaves full-screen frames alone, and (step 4) pure-scale bands that span the full width or height: the cutscene letterbox bars were drawn 750 of 1074 px wide, and the chase edges were cut short the same way.
 - A frame with the attribute `NoAutoScale` is skipped by `UIKit.autoScale` (the MORE tray: its tiles match the rail column, whose own `FitScale` already wins).
-- Naming: 20 characters, filtered, a `#` means refused (`SiliconCore.server.lua:3293-3304`). After 25 s idle the client submits the suggested name (`NameClient.client.lua:165`). The header says "closes itself", the code submits.
-- Saved mute probably does not return. The server sends `MenuStats` with `muted` (`SiliconCore.server.lua:4002-4005`), but no client listens and nothing sets `MenuMuted` from it. Not run.
+- Naming: 20 characters, filtered, a `#` means refused (`SiliconCore.server.lua:3341-3352`). After 25 s idle the client submits the suggested name (`NameClient.client.lua:165`). The header says "closes itself", the code submits.
+- Saved mute probably does not return. The server sends `MenuStats` with `muted` (`SiliconCore.server.lua:4051-4054`), but no client listens and nothing sets `MenuMuted` from it. Not run.
 - `MusicClient` header mentions a SETTINGS picker. `MenuClient` no longer has one, and nothing else sets `MusicTrack`.
 - The colour rule lives in `Palette.compliant`. `SVStyle.classify` calls it (`SVStyle.lua:71-77`). Change it in `Palette` only.
 - Two sound tables: `UIKit.SOUNDS` (:892) for UI, `Sfx.ID` for the world. A bad id plays silence (`Sfx.lua:5-8`).
-- Security (9 Oct exploit check): `SetName` only works while the company has no name, one attempt in flight and one a second (`SiliconCore.server.lua:3323`). Each attempt costs a text filter and a DataStore write from the server's shared budget; spammed renames drained it (280 throttled writes) before the fix. Refusal popups are capped at one per anchor every 0.3 s (`popup`, `SiliconCore.server.lua:446`).
-**Last verified:** 2026-10-14 5079cec
+- Security (9 Oct exploit check): `SetName` only works while the company has no name, one attempt in flight and one a second (`SiliconCore.server.lua:3371`). Each attempt costs a text filter and a DataStore write from the server's shared budget; spammed renames drained it (280 throttled writes) before the fix. Refusal popups are capped at one per anchor every 0.3 s (`popup`, `SiliconCore.server.lua:446`).
+**Last verified:** 2026-10-14 e6a452e

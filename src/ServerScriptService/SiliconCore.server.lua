@@ -1100,10 +1100,12 @@ local function buildPlot(index, def)
 	local screen = part({ Name = "Screen", Size = Vector3.new(2.6, 1.7, 0.12),
 		CFrame = g(0, 4.35, -9.8) * CFrame.Angles(math.rad(-15), 0, 0),
 		Color = CFG.ACCENT, Material = Enum.Material.Neon }, garage)
+	-- 1c: on its spot, clear of the lift shaft (TowerPlan.GARAGE_CHAIR; the mesh swap keeps this position)
+	local chairAt = require(ReplicatedStorage:WaitForChild("TowerPlan")).GARAGE_CHAIR
 	part({ Name = "Chair", Size = Vector3.new(2, 1.0, 2),
-		CFrame = g(4.6, 1.5, -6.0) * CFrame.Angles(0, math.rad(-28), 0), Color = CFG.TRIM }, garage)
+		CFrame = g(chairAt.x, 1.5, chairAt.z) * CFrame.Angles(0, math.rad(-28), 0), Color = CFG.TRIM }, garage)
 	part({ Name = "ChairBack", Size = Vector3.new(2, 1.8, 0.3),
-		CFrame = g(4.6, 2.9, -5.15) * CFrame.Angles(0, math.rad(-28), 0), Color = CFG.TRIM }, garage)
+		CFrame = g(chairAt.x, 2.9, chairAt.z + 0.85) * CFrame.Angles(0, math.rad(-28), 0), Color = CFG.TRIM }, garage)
 
 	if FurnitureKit then
 		local swapped = { desk = desk, laptop = laptop }
@@ -2174,6 +2176,8 @@ local function wafersBuild(player, plot, s, cash, chosen)
 	s.blueprint = s.blueprint or {}
 	local freeSeats = capacityOf(player) - (s.staff or 0)
 	local firstDept
+	-- 1c: the build that turns the garage into the lobby plays the moment instead of the Rise
+	local fromGarage = (plot.wafer.level or 1) <= 1
 	Econ.Wafers.buildUpTo(plot, last, function(x)
 		local ok = {}
 		for _, d in ipairs(WP.allowed(x)) do ok[d] = true end
@@ -2184,7 +2188,7 @@ local function wafersBuild(player, plot, s, cash, chosen)
 		s.blueprint[x] = pick
 		firstDept = firstDept or pick
 		return pick
-	end, true)
+	end, not fromGarage)
 	s.record = math.max(s.record or 1, plot.wafer.level)
 	plot.hq.level = Econ.Wafers.stage(plot.wafer.level)
 	s.hqLevel = plot.hq.level
@@ -2228,12 +2232,18 @@ local function wafersBuild(player, plot, s, cash, chosen)
 			if stage ~= stageBefore then head, task1 = Journey.headline(stage, { hasCar = Econ.Cars and Econ.Cars.hasCar(player) }) end
 			-- big: the HQ stage itself changed (confetti); a banner level on the way is a smaller moment
 			Econ.celebrate:FireClient(player, { kind = "hq", level = stage, name = ("LEVEL %d"):format(lvl), chips = chips,
-				headline = head or ((lvl == 100) and "THE CROWN" or "GARDEN DECK"), task = task1, big = stage ~= stageBefore or lvl == 100 })
+				headline = head or ((lvl == 100) and "THE CROWN" or "GARDEN DECK"), task = task1, big = stage ~= stageBefore or lvl == 100,
+				lobby = fromGarage or nil })   -- 1c: the lobby moment plays instead of the orbit and the banner
 		end
-	else
+	elseif not fromGarage then   -- the garage build gets the moment (below) and its own line, not a popup
 		local what = (last > L) and ("LEVELS %d-%d REBUILT"):format(L, last)
 			or ("LEVEL %d  ·  %s"):format(L, (firstDept and Econ.Wafers.NAME[firstDept]) or "")
 		popup(plot.hqPad, what, CFG.GOLD)
+	end
+	-- 1c: the build that turned the garage into the lobby plays the moment on the owner's screen, also
+	-- when it crossed a stage (after a spin-off the first build rebuilds the whole lobby storey, 2 to 9)
+	if fromGarage and plot.wafer.level >= 2 and Econ.Wafers.lobbyMoment then
+		Econ.Wafers.lobbyMoment(player, plot, L, last, ("Your HQ is open! Up to %d staff."):format(WP.capAt(plot.wafer.level)))
 	end
 	task.delay(0.6, function() plot.busy = false end)
 end
@@ -2505,6 +2515,18 @@ local GRID = 0.5
 local DESK_FAMILY = { desk = true, deskCorner = true, tableRound = true, tableCross = true, kitchenBar = true }
 
 local function floorRects(plot)
+	-- v9 (14 Oct, HQ tower 1a): from level 2 the garage floor is stashed; decor stands on the tower's
+	-- lobby storey (Wafers.decorRects: its built rooms and the hall around the lift shaft; no new
+	-- top-level local here, CONSTRAINTS rule 10)
+	local tower = Econ.WAFERS and Econ.Wafers and Econ.Wafers.decorRects and Econ.Wafers.decorRects(plot)
+	if tower then
+		local rects = {}
+		for _, r in ipairs(tower) do
+			table.insert(rects, { cf = plot.pivot * CFrame.new((r.x0 + r.x1) / 2, 0, (r.z0 + r.z1) / 2),
+				w = r.x1 - r.x0, d = r.z1 - r.z0, top = Econ.Wafers.floorY(0), tower = true })
+		end
+		return rects
+	end
 	local L = CFG.HQ_LEVELS[plot.hq.level]
 	local rects = { { cf = plot.pivot, w = L.w, d = L.d, top = 1.0 } }
 	for _, slot in ipairs(plot.slots) do
@@ -2558,7 +2580,31 @@ local function placeAt(player, plot, key, px, pz, yawDeg, free, forcedPrice)
 		local l = r.cf:PointToObjectSpace(Vector3.new(x, 0, z))
 		if math.abs(l.X) + w / 2 <= r.w / 2 and math.abs(l.Z) + d / 2 <= r.d / 2 then floor = r break end
 	end
-	if not floor then if not free then popup(plot.hirePad, "Outside your floor", CFG.BAD) end return false end
+	if not floor then
+		if free then   -- a saved piece whose floor is gone (the tower replaced the garage): refunded, not lost
+			cash.Value += (forcedPrice or item.price)
+			Telemetry.money(player, "source", forcedPrice or item.price, "refund")
+			player:SetAttribute("SVRefunded", (player:GetAttribute("SVRefunded") or 0) + 1)
+		else
+			popup(plot.hirePad, "Outside your floor", CFG.BAD)
+		end
+		return false
+	end
+	-- in the tower: clear of the lift landing, the garage spots, every doorway and the tower's own
+	-- furniture (Wafers.decorOk; final review 2). A saved piece that is in the way is refunded.
+	if floor.tower and Econ.Wafers.decorOk then
+		local l = plot.pivot:PointToObjectSpace(Vector3.new(x, 0, z))
+		if not Econ.Wafers.decorOk(plot, { x0 = l.X - w / 2, x1 = l.X + w / 2, z0 = l.Z - d / 2, z1 = l.Z + d / 2 }) then
+			if free then
+				cash.Value += (forcedPrice or item.price)
+				Telemetry.money(player, "source", forcedPrice or item.price, "refund")
+				player:SetAttribute("SVRefunded", (player:GetAttribute("SVRefunded") or 0) + 1)
+			else
+				popup(plot.hirePad, "Keep the lift, the doors and the desk clear", CFG.BAD)
+			end
+			return false
+		end
+	end
 
 	-- v2.6.0 ROOM ECONOMY: a station seats people only in its own room, up to
 	-- that room's cap. A refused station from an old save is refunded, not lost.
@@ -2936,6 +2982,7 @@ if Econ then
 			prompt = prompt, popup = popup, session = function(pl) return sessions[pl.UserId] end,
 			grant = function(pl, id, n) return Econ.Inv and Econ.Inv.grant(pl, id, n, "floor") end,
 			plotOf = plotOf,
+			LiftCab = tryRequire(ServerScriptService, "LiftCab"),   -- v9 (1b): the lift's cab
 		})
 		if ok then Econ.WAFERS = true else warn("[SV] Wafers init failed: " .. tostring(err)); Econ.Wafers = nil end
 		-- v4.9: the finished tower's massing, for the opening flyover's ghost.
@@ -3016,6 +3063,7 @@ end
 -- a vacated plot goes back to the exact state a new player expects
 local function releasePlot(plot)
 	plot.owner = nil
+	plot.hqPath = nil   -- 1d final review I3: the next owner must not inherit this tower's finish
 	for _, f in ipairs({ plot.placed, plot.rooms, plot.staff }) do
 		for _, c in ipairs(f:GetChildren()) do c:Destroy() end
 	end
@@ -3946,6 +3994,7 @@ local SaveLoad = require(ServerScriptService:WaitForChild("SaveLoad"))({
 	officeDesk = officeDesk,
 	placeAt = placeAt,
 	plotOf = plotOf,
+	toast = function(p, text) toast:FireClient(p, text) end,   -- v9: tell a player what the load refunded
 	assignDesks = assignDesks,   -- v8 phase 2: the loader re-seats once every pin is known
 	pushTicker = pushTicker,
 	recompute = recompute,

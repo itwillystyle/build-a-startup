@@ -41,22 +41,6 @@ local function test(name, fn)
 	table.insert(T, { name = name, fn = fn })
 end
 
--- the piece names Wafers.lua actually asks for, read out of the placer itself.
--- Names built by concatenation ("W_Deck_" .. n) come out as a trailing-underscore
--- prefix, and are checked as "at least one key starts with this".
-local function requestedNames()
-	local src = fs.readFile("src/ServerScriptService/Wafers.lua")
-	local seen, out = {}, {}
-	for name in src:gmatch('"(W_[A-Za-z_0-9]+)"') do
-		if not seen[name] then
-			seen[name] = true
-			table.insert(out, name)
-		end
-	end
-	table.sort(out)
-	return out
-end
-
 local function suffixes(t, prefix)
 	local out = {}
 	for k in pairs(t) do
@@ -68,39 +52,19 @@ local function suffixes(t, prefix)
 	return out
 end
 
-test("every mesh name the placer asks for has a META entry in all three kits", function()
-	local names = requestedNames()
-	assert(#names > 20, ("only found %d names in Wafers.lua -- did the parse break?"):format(#names))
-
-	local missing = {}
-	for _, name in ipairs(names) do
-		local stem = name:sub(3) -- drop "W_"
-		for kitName, prefix in pairs(PREFIX) do
-			local gap = ALLOWED_GAPS[kitName] and ALLOWED_GAPS[kitName][stem]
-			if not gap then
-				local ok = false
-				if stem:sub(-1) == "_" then
-					-- built by concatenation: any numbered variant counts
-					for k in pairs(kit[kitName]) do
-						if k:sub(1, #prefix + #stem) == prefix .. stem then
-							ok = true
-							break
-						end
-					end
-				else
-					ok = kit[kitName][prefix .. stem] ~= nil
-				end
-				if not ok then
-					table.insert(missing, prefix .. stem)
-				end
-			end
-		end
-	end
-	table.sort(missing)
-	assert(
-		#missing == 0,
-		("no META entry (so these silently build the primitive fallback): %s"):format(table.concat(missing, ", "))
-	)
+--[[ REPLACED 14 Oct (HQ tower 1a): "every mesh name the placer asks for has a META entry" passed
+	only while Wafers.lua asked for W_ meshes. The tower builds plain parts and asks for none, so the
+	slot now pins exactly that: if a kit name comes back before 1d writes the tower kit's name
+	contract, this fails instead of the placer silently building primitives (the podium/crown bug). ]]
+local WAFERS = "src/ServerScriptService/Wafers.lua"
+test("the tower placer asks for no round-kit mesh names until 1d's contract exists", function()
+	local src = fs.readFile(WAFERS)
+	local found = {}
+	for name in src:gmatch('"([WTD]_%\w+)"') do table.insert(found, name) end
+	for name in src:gmatch("'([WTD]_%\w+)'") do table.insert(found, name) end
+	assert(#found == 0, ("Wafers.lua names kit meshes with no tower contract: %s"):format(table.concat(found, ", ", 1, math.min(#found, 6))))
+	assert(src:find('"Floor"', 1, true) and src:find('"Deck"', 1, true),
+		"the walkable parts must keep the names the doctor stands on (Floor, Deck)")
 end)
 
 test("the three kits describe the same pieces", function()

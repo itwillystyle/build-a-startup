@@ -1,7 +1,7 @@
 # Cars (company car, dealer, driving, ambient traffic)
 **What:** At HQ stage 2 the company gives the player a free hatchback. Valley Motors sells five faster cars. The player drives with a VehicleSeat that the client steers. Separate from that, ambient traffic is scenery that each client moves on its own.
 **How a player reaches it:**
-1. Build to stage 2 (wafer level 5). The server calls `Cars.grant(player, "hatch", "COMPANY CAR!")` after 3.5 s (`src/ServerScriptService/SiliconCore.server.lua:2218-2219`). The car parks in the plot's bay (`src/ServerScriptService/Cars.lua:227-229`).
+1. Build to stage 2 (wafer level 5). The server calls `Cars.grant(player, "hatch", "COMPANY CAR!")` after 3.5 s (`src/ServerScriptService/SiliconCore.server.lua:2222-2223`). The car parks in the plot's bay (`src/ServerScriptService/Cars.lua:227-229`).
 2. Walk up and press the "Drive" prompt (owner only), or tap the CAR button or press C to call the car (`CallCar`, `Cars.lua:272`).
 3. Move with WASD or thumbstick. Jump to get out. Shift is nitro, H is the horn (`src/StarterPlayer/StarterPlayerScripts/CarClient.client.lua:167-192`).
 4. Buy more at the campus showroom car (prompt "Cars", `Cars.lua:560`) or the dealership display pads (prompt "Look", `Cars.lua:580`). `DealerMenu` opens the list, `BuyCar` buys or switches (`Cars.lua:305-334`, `CarClient.client.lua:557-622`).
@@ -18,9 +18,9 @@
 - Saved: `cars`, `car` (`src/ServerScriptService/SaveLoad.lua:149-150`). Load keeps only known ids (`Cars.lua:597-617`).
 **Drive it:**
 - `dev:Invoke("scenario", p, "tp:car")` goes to the spawned car (`DevScenarios.lua:235`). It fails with "no position" if no car exists yet.
-- `hq:<n>` does NOT grant the car. `wlevel` sets the stage directly (`DevHook.lua:65-81`) and skips the grant. Untested recipe from the code: `wlevel 4`, then `upgrade` across level 5 (`DevHook.lua:62`).
+- `hq:<n>` does NOT grant the car. `wlevel` sets the stage directly (`DevHook.lua:65-87`) and skips the grant. Untested recipe from the code: `wlevel 4`, then `upgrade` across level 5 (`DevHook.lua:62`).
 - No raw action buys or grants a car. "none yet".
-- The `bot` action fakes the car and drive steps by setting `s.jr.drove` (`DevHook.lua:292-301`). It never drives.
+- The `bot` action fakes the car and drive steps by setting `s.jr.drove` (`DevHook.lua:298-307`). It never drives.
 **Prove it:** no automated check yet. `tests/smoke_core.luau` only reads `cars` and `car` from the saved record. `SVCheck` skips `TrafficCar` models when it looks for overlaps (`src/ReplicatedStorage/SVCheck.lua:300`).
 **Gotchas:**
 - The CAR tile hides while you carry a hire (11 Oct): `callCar` refuses then ("Not during a recruit run!"), and on a phone BOOST takes that spot.
@@ -32,8 +32,8 @@
 - The free hatchback is hidden in the dealer list until owned (`CarClient.client.lua:559`).
 - `Cars.forecourt` is set only after the Downtown dealer pads exist. It waits 30 s, else cars appear in the plot bay (`Cars.lua:404-409`, `buyCar` :314).
 - Old saves past HQ 2 with no cars get the hatchback on load (`Cars.lua:611-615`).
-- Lifts: `LiftGo` stands you up first, because moving a seated player drags the car (`HQFloors.lua:115-129`).
+- Lifts: the 1b lift (`LiftCab`) does not stand a seated player up (the old `LiftGo` teleport did, because moving a seated player drags the car); a car has to fit the 6-stud doors to matter. Final review minor M7.
 - The CAR button pulses only while the Journey objective is "car" (`CarClient.client.lua:365-372`).
-- The header comment says "HQ 2". In Wafers mode that means wafer level 5 (`Wafers.lua:166-169`).
+- The header comment says "HQ 2". In Wafers mode that means wafer level 5 (`Wafers.lua:239-241`, `WaferPlan.STAGE_AT`).
 - Security (9 Oct exploit check): `CallCar`, and `BuyCar` on a car you already own, respawn the car for every client, so both share a 2 s gate (`Cars.lua:284, 312`).
-**Last verified:** 2026-10-14 5079cec
+**Last verified:** 2026-10-16 8c6b842

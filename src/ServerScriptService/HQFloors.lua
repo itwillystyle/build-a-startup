@@ -21,12 +21,10 @@
 	corner gets an arc of invisible wall, so nobody stands outside the glass.
 
 	Called from CampusArch.dressHQ with `add` (a tracked shell part: an HQ
-	upgrade rebuilds everything). The lift is server-authoritative: the client
-	only asks (LiftGo) and fades the screen.
+	upgrade rebuilds everything). v9 (15 Oct, HQ 1b): the tower's lift is LiftCab; the
+	LiftGo teleport is gone (the final review: an exploit could fire it to skip the ride).
 ]]
 local RS = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
-local Movement = require(script.Parent:WaitForChild("Movement"))   -- the lift refuses a teleport
 
 local HQFloors = {}
 
@@ -76,8 +74,7 @@ HQFloors.slabsFor = slabsFor
 
 -- ============ LIFT REGISTRY + REMOTES ============
 HQFloors.lifts = {}          -- [plot.index] = { plot = plot, stops = { {id, name, stand = CFrame, door = Vector3} } }
-local liftMenu, liftGo
-local lastGo = {}
+local liftMenu
 
 local function initRemotes()
 	if liftMenu then return end
@@ -90,52 +87,6 @@ local function initRemotes()
 	liftMenu = folder:FindFirstChild("LiftMenu") or Instance.new("RemoteEvent")
 	liftMenu.Name = "LiftMenu"
 	liftMenu.Parent = folder
-	liftGo = folder:FindFirstChild("LiftGo") or Instance.new("RemoteEvent")
-	liftGo.Name = "LiftGo"
-	liftGo.Parent = folder
-	liftGo.OnServerEvent:Connect(function(player, plotIndex, stopId)
-		if typeof(plotIndex) ~= "number" or typeof(stopId) ~= "string" then return end
-		local reg = HQFloors.lifts[plotIndex]
-		local char = player.Character
-		local root = char and char:FindFirstChild("HumanoidRootPart")
-		if not reg or not root then return end
-		if player:GetAttribute("Carrying") then return end
-		if (lastGo[player] or 0) > os.clock() - 1.2 then return end
-		if not Movement.check(player) then return end   -- standing at the lift, honestly
-		-- the player must be standing at one of THIS building's lifts
-		local near, dest = false, nil
-		for _, st in ipairs(reg.stops) do
-			if (st.stand.Position - root.Position).Magnitude < 16 then near = true end
-			if st.id == stopId then dest = st end
-		end
-		if not near or not dest then return end
-		lastGo[player] = os.clock()
-		task.delay(0.28, function()
-			if player.Character == char and char.Parent then
-				--[[ GET OUT OF THE CAR FIRST.
-
-					PivotTo on a SEATED character drags the vehicle with it,
-					because the seat weld is still attached. Drive to the lift,
-					ride it without standing up, and the car arrives on the
-					storey with you -- you then stand on its roof, half inside
-					the floor, which is exactly what "I am phased into the
-					floor on the second wafer" looks like.
-
-					Standing the player up rather than refusing the lift: taking
-					a lift obviously means getting out, and a refusal with no
-					explanation is worse than the bug. ]]
-				local hum = char:FindFirstChildOfClass("Humanoid")
-				if hum and hum.Sit then
-					hum.Sit = false
-					task.wait(0.15)          -- let the weld break before moving
-				end
-				if player.Character == char and char.Parent then
-					char:PivotTo(dest.stand + Vector3.new(0, 3, 0))
-				end
-			end
-		end)
-	end)
-	Players.PlayerRemoving:Connect(function(p) lastGo[p] = nil end)
 end
 
 -- ============ SMALL BUILDERS ============
@@ -642,23 +593,10 @@ function HQFloors.build(add, g, level, w, d, h, shell, plot)
 	end
 end
 
--- v4.6 THE WAFERS: the one-building HQ has its own lift (Wafers.lua) and uses this
--- registry and these remotes, so LiftClient is unchanged
+-- the tower registers its stops here: the doctor and DevScenarios read them (the ride itself is LiftCab)
 function HQFloors.register(plotIndex, plot, stops)
 	HQFloors.lifts[plotIndex] = { plot = plot, stops = stops }
 end
-function HQFloors.menu(player, plotIndex, here)
-	local reg = HQFloors.lifts[plotIndex]
-	if not reg or not liftMenu then return end
-	if player:GetAttribute("Carrying") then
-		liftMenu:FireClient(player, { blocked = "Drop off your recruit first" })
-		return
-	end
-	local list = {}
-	for _, st in ipairs(reg.stops) do table.insert(list, { id = st.id, name = st.name, sub = st.sub }) end
-	liftMenu:FireClient(player, { plot = plotIndex, here = here, stops = list })
-end
-
 -- v4.4 make the lift remotes at load: LiftClient waits for LiftMenu, and on a
 -- fresh save (HQ 1, no lift yet) that wait printed "Infinite yield possible"
 initRemotes()

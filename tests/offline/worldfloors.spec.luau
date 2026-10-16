@@ -19,4 +19,13 @@ test("a storey's own pieces and things that stop at the floor are not", function
 	assert(not W.pokes(77.5, 90.45, 92), "the deck squashed to fit under floor 7 was flagged")
 end)
 
+test("the tower lobby's entrance canopy is a roof, and only it is exempt (not every 'Canopy')", function()
+	-- 14 Oct (HQ tower 1a): Wafers builds a 22 x 10 CanCollide-false canopy 10 studs over the forecourt;
+	-- it sits under MAX_Y, so the sinking check measured an 11.3 gap. Final review: a bare "Canopy"
+	-- entry also exempted three unrelated parts (CampusArch x2, ValleyGen), so the tower's has its own name.
+	local why = W.ALLOW.LobbyCanopy
+	assert(type(why) == "string" and #why > 0, "LobbyCanopy is not on WorldHealth.ALLOW with a reason")
+	assert(W.ALLOW.Canopy == nil, "a bare 'Canopy' exempts every canopy in the world")
+end)
+
 return T

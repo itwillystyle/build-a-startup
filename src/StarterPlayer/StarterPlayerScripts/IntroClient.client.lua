@@ -228,14 +228,14 @@ local function runIntro()
 			ghost = Instance.new("Model")
 			ghost.Name = "SVTowerGhost"
 			local top = 0
-			for band in string.gmatch(spec, "[^|]+") do
-				local r, y0, y1 = string.match(band, "(%-?%d+):(%-?%d+):(%-?%d+)")
-				r, y0, y1 = tonumber(r), tonumber(y0), tonumber(y1)
-				if r and y1 and y1 > y0 then
+			-- v9 (14 Oct, HQ tower 1a): one box per section of the tower plus its crown (TowerPlan.spec)
+			local TP = require(game:GetService("ReplicatedStorage"):WaitForChild("TowerPlan"))
+			for _, bx in ipairs(TP.parseSpec(spec)) do
+				local y0, y1 = bx.y0, bx.y1
+				if y1 > y0 then
 					local c = Instance.new("Part")
-					c.Shape = Enum.PartType.Cylinder
-					c.Size = Vector3.new(y1 - y0, r * 2, r * 2)
-					c.CFrame = CFrame.new(P(0, (y0 + y1) / 2, 0)) * CFrame.Angles(0, 0, math.pi / 2)
+					c.Size = Vector3.new(bx.x1 - bx.x0, y1 - y0, bx.z1 - bx.z0)
+					c.CFrame = CFrame.new(P((bx.x0 + bx.x1) / 2, (y0 + y1) / 2, (bx.z0 + bx.z1) / 2)) * pivot.Rotation   -- boxes turn with the plot
 					c.Anchored, c.CanCollide, c.CanQuery, c.CanTouch = true, false, false, false
 					c.CastShadow = false
 					--[[ MEASURED: ForceField at 0.62 was all but invisible against the

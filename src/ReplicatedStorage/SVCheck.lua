@@ -710,63 +710,51 @@ local function checkPlacement(say)
 		the path's inset, which WaferPlan now owns. So the assertion is that
 		every furniture corner lies between the inner glass and the outer
 		glass of its own wafer -- no collision needed, and it is exact. ]]
-	local glassOut, glassIn, glassWorst, glassWorstN = 0, 0, 0, ""
+	local glassOut, glassIn, glassWorst, glassWorstN, glassSkip, glassRooms = 0, 0, 0, "", nil, 0
 	do
-		local okP, WP = pcall(function()
-			return require(game:GetService("ReplicatedStorage"):FindFirstChild("WaferPlan")
-				or game:GetService("ServerScriptService"):FindFirstChild("WaferPlan"))
-		end)
+		--[[ v9 (14 Oct, HQ tower 1a): the rooms are rectangles (TowerPlan.room). A furniture
+			corner must stay GLASS_BAND inside every glass side of its own room; partitions are
+			the "buried in a wall" pass's job. There is no courtyard glass any more, so the "in"
+			count stays 0. Final review (14 Oct): it used to require WaferPlan, which the client
+			cannot see, so it never ran and printed "0 out" as a pass. Each room piece now carries
+			its Storey and Seg, and a pass that cannot run says SKIPPED and fails. ]]
+		local okT, TP = pcall(function() return require(game:GetService("ReplicatedStorage"):FindFirstChild("TowerPlan")) end)
 		local plots = sv:FindFirstChild("Plots")
-		if okP and WP and WP.INSET and plots then
+		if not (okT and TP and TP.room) then
+			glassSkip = "TowerPlan did not load"
+		elseif not plots then
+			glassSkip = "no Plots folder"
+		else
+			local band, wallT = TP.GLASS_BAND, TP.WALL_T
 			for _, plot in ipairs(plots:GetChildren()) do
 				local wf = plot:FindFirstChild("Wafers")
 				local pv = plot:GetAttribute("Pivot")
 				if wf and pv then
-					-- which path is this plot built in? read it off a shell mesh
-					local path
 					for _, seg in ipairs(wf:GetChildren()) do
-						for _, d in ipairs(seg:GetDescendants()) do
-							if d:IsA("MeshPart") and WP.INSET[d.Name:sub(1, 2)] then
-								path = d.Name:sub(1, 2)
-								break
-							end
-						end
-						if path then break end
-					end
-					if path then
-						for _, seg in ipairs(wf:GetChildren()) do
-							local L = tonumber(seg.Name:match("^L(%d+)"))
-							local pc = L and WP.PIECES[L]
-							if pc and pc.kind == "segment" then
-								local R = WP.GEO.WAFER[pc.wafer].r
-								local rout = R - WP.INSET[path] - WP.GLASS_BAND
-								local rin = R - WP.GEO.DEPTH + 0.6
-								for _, d in ipairs(seg:GetDescendants()) do
-									if d:IsA("MeshPart") and d.Name:sub(1, 2) ~= path
-										and d.Size.Y > 0.3
-										and math.max(d.Size.X, d.Size.Y, d.Size.Z) <= 10 then
-										local far, near = 0, math.huge
-										for ix = -1, 1, 2 do
-											for iz = -1, 1, 2 do
-												local q = pv:PointToObjectSpace(
-													d.CFrame * Vector3.new(ix * d.Size.X / 2, 0, iz * d.Size.Z / 2))
-												local rr = math.sqrt(q.X * q.X + q.Z * q.Z)
-												far = math.max(far, rr)
-												near = math.min(near, rr)
-											end
+						local storey, segN = seg:GetAttribute("Storey"), seg:GetAttribute("Seg")
+						if storey and segN then
+							glassRooms += 1
+							local r = TP.room(storey, segN)
+							local lim = {
+								px = r.sides.px == "glass" and r.x1 - wallT - band or math.huge,
+								nx = r.sides.nx == "glass" and r.x0 + wallT + band or -math.huge,
+								pz = r.sides.pz == "glass" and r.z1 - wallT - band or math.huge,
+								nz = r.sides.nz == "glass" and r.z0 + wallT + band or -math.huge,
+							}
+							for _, d in ipairs(seg:GetDescendants()) do
+								if d:IsA("MeshPart") and d.Size.Y > 0.3 and math.max(d.Size.X, d.Size.Y, d.Size.Z) <= 10 then
+									local over = 0
+									for ix = -1, 1, 2 do
+										for iz = -1, 1, 2 do
+											local q = pv:PointToObjectSpace(d.CFrame * Vector3.new(ix * d.Size.X / 2, 0, iz * d.Size.Z / 2))
+											over = math.max(over, q.X - lim.px, lim.nx - q.X, q.Z - lim.pz, lim.nz - q.Z)
 										end
-										if far > rout + 0.05 then
-											glassOut += 1
-											if far - rout > glassWorst then
-												glassWorst = far - rout
-												glassWorstN = d.Name .. " out of " .. seg.Name
-											end
-										elseif near < rin - 0.05 then
-											glassIn += 1
-											if rin - near > glassWorst then
-												glassWorst = rin - near
-												glassWorstN = d.Name .. " through the courtyard glass in " .. seg.Name
-											end
+									end
+									if over > 0.05 then
+										glassOut += 1
+										if over > glassWorst then
+											glassWorst = over
+											glassWorstN = d.Name .. " out of " .. seg.Name
 										end
 									end
 								end
@@ -784,12 +772,16 @@ local function checkPlacement(say)
 	if jam > 0 then say("      worst %.2f studs: %s", worstJam, worstJamN) end
 	say("   furniture buried in a wall: %d", buried)
 	if buried > 0 then say("      worst %.2f studs: %s", worstB, worstBN) end
-	say("   furniture through the glass: %d out, %d in", glassOut, glassIn)
+	if glassSkip then
+		say("   furniture through the glass: SKIPPED (%s) -- counts as a fail", glassSkip)
+	else
+		say("   furniture through the glass: %d out, %d in  (%d tower rooms checked)", glassOut, glassIn, glassRooms)
+	end
 	if glassOut + glassIn > 0 then say("      worst %.2f studs: %s", glassWorst, glassWorstN) end
 	say("   greenery standing in paving: %d", bad)
 	if bad > 0 then say("      worst %.1f studs: %s", worst, worstN) end
 	if elevated > 0 then say("   (%d on terraces and interior floors, not counted)", elevated) end
-	return bad == 0 and jam == 0 and buried == 0 and glassOut == 0 and glassIn == 0
+	return bad == 0 and jam == 0 and buried == 0 and glassOut == 0 and glassIn == 0 and glassSkip == nil
 end
 
 -- ---------------------------------------------------------------- 5. client errors

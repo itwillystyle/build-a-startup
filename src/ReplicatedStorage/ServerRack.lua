@@ -25,6 +25,11 @@ ServerRack.SLOT = Vector3.new(3, 7, 2.2)
 ServerRack.XS = { -6, -2, 2, 6 }          -- the four racks along a room, as before
 ServerRack.BACK = 3                        -- z offset from the room's midline (rm + 3)
 
+-- the `rm` that puts the racks' backs on the line z = `backLine` (room frame), e.g. the glass band
+function ServerRack.midlineFor(backLine)
+	return backLine - ServerRack.BACK - ServerRack.SLOT.Z / 2
+end
+
 -- the mesh's CFrame in the room's frame: standing on the floor (y = 0), its front to -Z
 function ServerRack.pose(x, rm, meshHeight)
 	return CFrame.new(x, meshHeight / 2, rm + ServerRack.BACK) * CFrame.Angles(0, math.pi, 0)

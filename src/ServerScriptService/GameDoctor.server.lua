@@ -44,7 +44,7 @@ local SSS = game:GetService("ServerScriptService")
 local WH = require(SSS:WaitForChild("WorldHealth"))
 local HQF = require(SSS:WaitForChild("HQFloors"))
 
-local LEVELS = { 5, 9, 13, 18 }
+local LEVELS = { 5, 9, 13, 18, 43, 100 }   -- v9 (14 Oct): the tower is checked at its top too (spec §8.2)
 local TIERS = { "skilled", "star", "genius" }
 local STAND_TOL = 0.35        -- studs: resting this far off a floor's top is standing in it (or floating)
 local CAMERA_BEHIND = 0       -- camera samples behind a wall: anything over this is a bug
@@ -232,7 +232,10 @@ local function run()
 	for _, level in ipairs(LEVELS) do
 		step("hq:" .. level, function()
 			local r = sv:Invoke("scenario", player, "hq:" .. level)
-			check("built", r and r.ok, "BLOCKER", r and r.ok and "ok" or tostring(r and r.err), "ok")
+			-- the level it really reached (14 Oct: a save at 55 with a blueprint cap of 55 "checked"
+			-- levels 5, 9, 13, 18, 43 and 100 as 55, six times, and every one passed)
+			check("built", r and r.ok and r.level == level, "BLOCKER",
+				r and r.ok and ("level " .. tostring(r.level)) or tostring(r and r.err), "level " .. level)
 			task.wait(4)
 			-- the drop-off is on the forecourt's ground, not on whatever the HQ hangs over it
 			-- (11 Oct: from level 18 it sat 18.4 studs up, on the entrance arch)
@@ -300,6 +303,54 @@ local function run()
 				samples > 0 and ("closest the lens came to your head: %.1f studs"):format(closest) or "the camera probe never answered")
 		end)
 	end
+
+	-- v9 (15 Oct, HQ part 1b): ride the lift at the top level (the loop above ends at hq:100)
+	step("lift:ride", function()
+		local LiftCab = require(SSS:WaitForChild("LiftCab"))
+		local LP = require(ReplicatedStorage:WaitForChild("LiftPlan")).with(require(ReplicatedStorage:WaitForChild("TowerPlan")))
+		local idx = tonumber(plotFolder.Name:match("%d+"))
+		local c = LiftCab.cabs[idx]
+		check("lift exists", c ~= nil, "BLOCKER", c and "yes" or "no", "yes")
+		if not c then return end
+		local want = standHeight(char)
+		local route = { "F7", "R", "L" }
+		local slips, falls, lands, times = {}, {}, {}, {}
+		local at = c.model:GetAttribute("At")
+		for _, id in ipairs(route) do
+			-- stand in the cab where it is, then pick
+			settleAt(char, c.model.PrimaryPart.CFrame * CFrame.new(0, 3.5, 0))
+			local fromIdx, toIdx
+			for i, s in ipairs(c.stops) do if s.id == at then fromIdx = i end; if s.id == id then toIdx = i end end
+			local dur = LP.rideTime(math.abs((toIdx or 1) - (fromIdx or 1)))
+			local res
+			task.spawn(function() res = probe(player, "liftride", { plot = idx, seconds = dur + 2.5 }, dur + 10) end)
+			task.wait(0.3)
+			LiftCab.pick(player, idx, id)
+			local t0 = os.clock()
+			while res == nil and os.clock() - t0 < dur + 12 do task.wait(0.2) end
+			res = res or {}
+			table.insert(slips, res.maxSlip or -1)
+			if res.fell then table.insert(falls, id) end
+			if math.abs((res.rideSeconds or -1) - dur) > 0.25 then table.insert(times, ("%s %.2f/%.2f"):format(id, res.rideSeconds or -1, dur)) end
+			task.wait(LP.DOORS + 0.3)
+			-- arrived: resting on the cab's floor, which is the stop's floor when the cab is at rest
+			local root = char:FindFirstChild("HumanoidRootPart")
+			local ok = root and math.abs((root.Position.Y - (c.model.PrimaryPart.Position.Y + 0.25)) - want) <= STAND_TOL + 0.15
+			if not ok then table.insert(lands, id) end
+			at = id
+		end
+		local worst = 0
+		for _, s in ipairs(slips) do worst = math.max(worst, s) end
+		check("lift ride holds the rider", worst >= 0 and worst <= 0.3 and #falls == 0, "BUG", ("max %.2f, falls %d"):format(worst, #falls), "<= 0.30, 0 falls")
+		check("lift arrives on the floor", #lands == 0, "BUG", #lands, 0, short(lands))
+		check("lift ride time", #times == 0, "FEEL", #times, 0, short(times))
+		-- doors solid wherever the cab is not
+		local open = {}
+		for _, d in ipairs(plotFolder.Wafers:GetChildren()) do
+			if d.Name:match("^LiftDoor") and d:GetAttribute("Stop") ~= c.model:GetAttribute("At") and not d.CanCollide then table.insert(open, d:GetAttribute("Stop")) end
+		end
+		check("lift doors solid when away", #open == 0, "BUG", #open, 0, short(open))
+	end)
 
 	for _, tier in ipairs(TIERS) do
 		step("chase:" .. tier, function()
