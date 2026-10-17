@@ -323,7 +323,7 @@ local timeText = UIKit.label(timeBadge, "", UIKit.TYPE.label, UIKit.TEXT, {
 	CODE instead of a relabel of it. WRITE CODE is now HELD to code a client's job,
 	so a payday that turned the same button gold would take the coding away. ]]
 local launchBtn, launchLabel = UIKit.button(gui, "LAUNCH!", UIKit.GOLD, {
-	Name = "Launch", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0.5, 142, 1, -22),
+	Name = "Launch", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -96),
 	Size = LAUNCH_SIZE, Visible = false, ClipsDescendants = false,
 }, { textSize = UIKit.TYPE.title, silent = true })
 launchLabel.Position = UDim2.new(0, 0, 0, 2)
@@ -358,7 +358,8 @@ local function syncCode()
 	local free = player:GetAttribute("BuildModeOpen") ~= true and player:GetAttribute("NamingOpen") ~= true and not menuOpen()
 	codeBtn.Visible = free and not inCar
 	launchBtn.Visible = free and launchState ~= nil
-	launchBtn.Position = UDim2.new(0.5, inCar and -82 or 142, 1, inCar and -126 or -22)
+	-- 17 Oct: above WRITE CODE (beside it, the CAR button covered it: Luke's recording 3:46)
+	launchBtn.Position = UDim2.new(0.5, 0, 1, inCar and -126 or -96)
 	-- 16 Oct, mock 2C: the button says what holding it does right now
 	local carrying = player:GetAttribute("CarryingApp") == true
 	local job = player:GetAttribute("JobWaiting") == true

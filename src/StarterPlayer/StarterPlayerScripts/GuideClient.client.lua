@@ -446,15 +446,6 @@ local function textHeight(label, width)
 	return TextService:GetTextSize(label.Text, fontSize, UIKit.HEAD, Vector2.new(width, 1000)).Y
 end
 
-local function bigVisible()
-	if player:GetAttribute("NamingOpen") == true then return false end
-	if not player:GetAttribute("MilestoneTitle") then return false end
-	-- not in the first minutes: before the first building a $3.8K goal at $0 is a second "next"
-	local raw = player:GetAttribute("IncomeRooms") or ""
-	local built = raw:find("OFFICE", 1, true) or raw:find("STUDIO", 1, true) or raw:find("CAFE", 1, true) or raw:find("SERVER", 1, true)
-	return (player:GetAttribute("HQLevel") or 1) >= 2 or built ~= nil
-end
-
 local function layout()
 	local w = card.AbsoluteSize.X > 0 and card.AbsoluteSize.X or 250
 	local textW = w - TEXT_X - PAD
@@ -494,12 +485,15 @@ local function applySub()
 	local subText = words(player:GetAttribute("ObjectiveSub"))
 	local reward = subText ~= "" and (string.sub(subText, 1, 1) == "+" or string.find(subText, "Unlocks", 1, true) ~= nil
 		or string.find(subText, "Room for", 1, true) ~= nil or string.find(subText, "money", 1, true) ~= nil)
-	chip.Visible = reward and not stamping
+	--[[ 16 Oct, mock 4A (Luke's pick): the goal is ONE line. No sub line, no price
+		chip, no meter, no BIG GOAL footer under it: the ring and the beam in the
+		world say where, the title says what. ]]
+	chip.Visible = false
 	chip.Text = reward and subText or ""
-	sub.Text = reward and "" or subText
-	sub.Visible = not stamping
-	meter.Visible = cost ~= nil and cost > 0 and not stamping
-	footer.Visible = bigVisible() and not stamping
+	sub.Text = ""
+	sub.Visible = false
+	meter.Visible = false
+	footer.Visible = false
 	layout()
 end
 
@@ -617,7 +611,7 @@ local function readObjective()
 	local menu = UIKit.menuOpen()
 	-- v8: and it steps aside while a card that matters holds the screen (Notify.loud:
 	-- a level-up, a rare hire, LOST!, the chase): one loud thing at a time
-	card.Visible = show and key ~= "product" and player:GetAttribute("NamingOpen") ~= true
+	card.Visible = show and player:GetAttribute("NamingOpen") ~= true
 		and key ~= player:GetAttribute(DISMISS_ATTR) and not menu and not Notify.loud()
 		and player:GetAttribute("RailTrayOpen") ~= true      -- the MORE tray is open over it
 	gui.Enabled = show and player:GetAttribute("NamingOpen") ~= true and not menu

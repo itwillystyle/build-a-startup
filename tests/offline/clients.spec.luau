@@ -241,6 +241,11 @@ test("counter: clients walk in through the entrance", function()
 	assert(L.path[2].z < LOBBY.z1 and math.abs(L.path[2].x - LOBBY.cx) < half, "then just inside the door")
 end)
 
+test("launches wait for the lobby (Luke: introduce it later)", function()
+	assert(C.productsOpen(1) == false, "no product bar in the garage")
+	assert(C.productsOpen(2) == true and C.productsOpen(18) == true, "from the lobby on")
+end)
+
 -- the goal line (Clients.goal): one goal, taught when it is needed
 local function st(over)
 	local t = { served = 0, carrying = false, waiting = 1, staff = 0, cap = 1, level = 1, cash = 0,

@@ -1546,27 +1546,16 @@ local function updateHirePad(player)
 		the floor, which is what it looked like in his 5 Oct screenshot. Pale
 		stone reads as "a pad, not yet active". ]]
 	local PAD_OFF = Color3.fromRGB(176, 172, 164)
-	if not s.shipped then
-		plot.hireLabel.Text = ""
-		plot.hirePad.Color = PAD_OFF
-	elseif s.staff >= cap then
-		plot.hireLabel.Text = "SEATS FULL  ·  add a station (B) or upgrade a room"
-		if Econ and Econ.V3 then
-			local atCap = cap >= (Econ.CAP_BY_HQ[plot.hq.level] or 30)
-			plot.hireLabel.Text = atCap and "TEAM FULL  ·  a bigger HQ fits more people" or "SEATS FULL  ·  build or upgrade a room"
-		elseif (s.waitingStaff or 0) > 0 then
-			plot.hireLabel.Text = ("%d WAITING FOR A SEAT  ·  add a station (B)"):format(s.waitingStaff)
-		end
-		plot.hirePad.Color = Color3.fromRGB(120, 90, 90)
-	elseif s.staff == 0 then
-		plot.hireLabel.Text = "HIRE YOUR FIRST INTERN  ·  FREE"
+	if s.shipped and s.staff == 0 and s.staff < cap then
+		plot.hireLabel.Text = "HIRE  ·  FREE"
 		plot.hirePad.Color = CFG.GOLD
-	elseif Econ and Econ.RECRUIT and Econ.Drop then
-		plot.hireLabel.Text = "HIRING HAPPENS ON THE STREET  ·  candidates wait on the sidewalk"
-		plot.hirePad.Color = PAD_OFF
-	else
+	elseif s.shipped and s.staff < cap and not (Econ and Econ.RECRUIT and Econ.Drop) then
 		plot.hireLabel.Text = string.format("HIRE  ·  $%s  ·  rolls talent", fmt(hireCostOf(s, plot)))
 		plot.hirePad.Color = CFG.GOLD
+	else
+		-- not shipped, seats full, or hiring is on the street: the pad rests
+		plot.hireLabel.Text = ""
+		plot.hirePad.Color = PAD_OFF
 	end
 	-- the HQ is not a verb until someone works here (it competed with the laptop at 0:00)
 	if plot.hqPrompt then plot.hqPrompt.Enabled = s.staff >= 1 end
@@ -1655,20 +1644,46 @@ local function refreshObjective(player)
 	if not s or not plot then return end
 	local st = journeyState(player, s, plot)
 	local key, text, pos, sub, cost
-	if not s.shipped then
-		key, text, pos = "code", "Write your first app", posOf(plot.laptop)
-		sub = ("Tap the laptop  (%d of %d)"):format(math.min(s.clicks or 0, CFG.CLICKS_TO_SHIP), CFG.CLICKS_TO_SHIP)
-	elseif s.staff < 1 then
-		key, text, pos, sub = "hire", "Hire your first intern", posOf(plot.hirePad), "Step on the HIRE pad. It's free!"
-	elseif not s.buildUnlocked then
-		key, text, pos, sub = "watch", "Your intern is coding", nil, "Tap WRITE CODE to help"
+	--[[ 16 Oct, the client loop: the goal is one line, taught the moment it is needed
+		(Clients.goal): code the to-do app, take it to your client, too busy so hire,
+		a full garage so upgrade, recruit on the street once. It replaces "Write your
+		first app / Tap the laptop (0 of 3)", "Hire your first intern" and "Your intern
+		is coding" (Luke's playtest: the old card sent him to click the laptop). ]]
+	local cg, gs
+	if Econ and Econ.Clients then
+		gs = Econ.Clients.goalState(player)
+		gs.staff, gs.cap, gs.level = s.staff or 0, st.cap or 1, st.level or plot.hq.level
+		gs.cash, gs.upgradeCost = st.cash or 0, st.nextHqCost
+		gs.freeSeat = (s.staff or 0) < (st.cap or 0)
+		gs.recruitTaught = (s.staff or 0) >= 2
+		cg = Econ.Clients.goal(gs)
+	end
+	local function clientTarget(target)
+		if target == "laptop" then return posOf(plot.laptop) end
+		if target == "client" then return Econ.Clients.state(player).frontPos end
+		if target == "hirePad" then return posOf(plot.hirePad) end
+		if target == "hqPad" then return posOf(plot.hqPad) end
+		if target == "sidewalk" then
+			local cand = Econ.Drop and Econ.Drop.bestFor(player, (cashOf(player) or { Value = 0 }).Value)
+			return cand and cand.pos
+		end
+		return nil
+	end
+	local recruitCarry = Econ and Econ.Drop and Econ.Drop.carrying(player)
+	if cg and not recruitCarry then
+		key, text, pos, sub = cg.key, cg.title, clientTarget(cg.target), ""
+	elseif not recruitCarry and s.pendingProduct then
+		-- launches are taught when the first app is ready (Luke: "introduce it later")
+		key, text, pos, sub = "product", "Your app is ready: LAUNCH it", nil, ""
+	elseif not recruitCarry and (not s.shipped or s.staff < 1) then
+		local fb = gs and Econ.Clients.fallback(gs)
+		if fb then key, text, pos, sub = fb.key, fb.title, clientTarget(fb.target), ""
+		else key, text, pos, sub = "wait", "", nil, "" end
 	elseif Econ and Econ.Drop and Econ.Drop.carrying(player) then
 		-- v3.0: walking a candidate home is the only thing that matters right now
 		local c = Econ.Drop.carrying(player)
 		local left = math.max(0, math.floor(c.deadline - workspace:GetServerTimeNow()))
 		key, text, pos, sub = "carry", ("Bring %s home!"):format(c.name), posOf(plot.hqPad), ("%d seconds left"):format(left)
-	elseif s.pendingProduct then
-		key, text, pos, sub = "product", "Your app is ready!", nil, "Tap LAUNCH for a payday"
 	else
 		-- v4.3 THE JOURNEY: a story task (the car, the drive, the home, the VIP, the
 		-- first Genius, the Series A, GO PUBLIC) beats the cheapest-next-buy guide
@@ -1841,7 +1856,12 @@ local function refreshObjective(player)
 				s.decorTeachEnd = s.decorTeachEnd or (os.clock() + 120)
 				best = decorOffer
 			end
-			if not best then best = { k = "wait", t = "Write code", at = nil, sub = "Tap WRITE CODE for cash" } end
+			if not best then
+				-- 16 Oct: nothing to buy yet = serve your clients (there is always a goal after the lobby)
+				local fb = gs and Econ.Clients.fallback(gs)
+				best = fb and { k = fb.key, t = fb.title, at = clientTarget(fb.target), sub = "" }
+					or { k = "wait", t = "Serve your clients", at = nil, sub = "" }
+			end
 			key, text, pos, sub, cost = best.k, best.t, best.at, best.sub, best.cost or best.c
 		end
 		end
@@ -1857,8 +1877,12 @@ local function refreshObjective(player)
 	local mc = m.cost and math.floor(m.cost) or nil
 	if player:GetAttribute("MilestoneCost") ~= mc then player:SetAttribute("MilestoneCost", mc) end
 	if player:GetAttribute("MilestoneUnlock") ~= m.unlock then player:SetAttribute("MilestoneUnlock", m.unlock) end
-	local tip = Journey.tip(st)
+	-- 17 Oct (Luke's playtest): no coach tip before the lobby, and a tip that was taken
+	-- away without GOT IT (a carry, a ready app) waits its 25 s like a seen one: the BAG
+	-- card came back three times in a minute
+	local tip = (st.level or 1) >= 2 and Journey.tip(st) or nil
 	local tipId = (tip and (player:GetAttribute("CoachTip") == tip.id or os.clock() - s.tipAt > 25)) and tip.id or nil
+	if player:GetAttribute("CoachTip") and not tipId then s.tipAt = os.clock() end
 	if player:GetAttribute("CoachTip") ~= tipId then
 		-- the words ride along (Journey lives on the server); the id goes last, it is what the client watches
 		player:SetAttribute("CoachTitle", tipId and tip.title or nil)
@@ -1910,8 +1934,7 @@ local function hire(player, plot, recruit)
 	local cash = cashOf(player)
 	if not s or not cash or not s.shipped then return false end
 	if not recruit and s.staff >= 1 and Econ and Econ.RECRUIT and Econ.Drop then
-		popup(plot.hirePad, "Recruit on the street  ·  candidates wait on the sidewalk", CFG.ACCENT)
-		return false
+		return false   -- 17 Oct: the goal line says where hiring happens; no second voice here
 	end
 	if s.staff >= capacityOf(player) then
 		popup(plot.hirePad, "No desks free", CFG.BAD)
@@ -2007,6 +2030,12 @@ local goPublic  -- v4.3 assigned in the IPO section (it needs refreshSign / tick
 function refreshHqPad(plot)      -- forward-declared above hire()
 	local nxt = CFG.HQ_LEVELS[plot.hq.level + 1]
 	local s = plot.owner and sessions[plot.owner]
+	-- 17 Oct: before the save has loaded there is no session, and the pad fell through to
+	-- "HQ MAXED" on a brand-new account (Luke's recording, 0:12 and 0:34). Say nothing yet.
+	if not s then
+		if plot.hqLabel then plot.hqLabel.Text = "" end
+		return
+	end
 	local owner = plot.owner and Players:GetPlayerByUserId(plot.owner)
 	if owner and Econ and Econ.Daily and Econ.Daily.refresh then pcall(Econ.Daily.refresh, owner) end   -- v4.5 the goal moved
 	if Econ and Econ.WAFERS and plot.wafer then
@@ -2114,11 +2143,21 @@ local function wafersBuild(player, plot, s, cash, chosen)
 
 	Only on the very first one. After that the building is committed until a
 	spin-off, because restyling 40 storeys mid-company is a silent hitch. ]]
-	if not s.hqPath and (plot.wafer and plot.wafer.level or 1) <= 1 then
+	--[[ 17 Oct (the client loop, Luke's playtest): the picker opened in the first
+		minute, on top of the lobby moment. The lobby goes up as Glass (W_) with no
+		question; the picker opens once, on the first floor ABOVE the lobby, and a
+		different pick restyles the lobby too (WaferPath below). Closed = Glass. ]]
+	local wl = plot.wafer and plot.wafer.level or 1
+	if not s.hqPath and wl <= 1 then
+		s.hqPath, plot.hqPath = "W_", "W_"
+		recompute(player)
+	end
+	if wl == 2 and not s.pathAsked then
+		s.pathAsked = true
 		local ev = ReplicatedStorage:FindFirstChild("SVRemotes")
 		ev = ev and ev:FindFirstChild("AskPath")
 		if ev then ev:FireClient(player) return end
-		-- no client listening (a very old client): fall through and build as Wafers
+		-- no client listening (a very old client): fall through and build as Glass
 	end
 
 	local L, last, price, momSpend = wafersNext(s, plot)
@@ -2981,15 +3020,24 @@ if Econ then
 		-- flipping styles costs a recompute and a broadcast each time: one a second
 		if os.clock() < (s.pathNext or 0) then return end
 		s.pathNext = os.clock() + 1
-		-- only while the HQ is still just the garage
-		if (plot.wafer and plot.wafer.level or 1) > 1 then
+		-- only up to the lobby (17 Oct: the question moved to the floor above it)
+		local wl = plot.wafer and plot.wafer.level or 1
+		if wl > 2 then
 			popup(plot.hqPad, "Too late to restyle -- next company", CFG.BAD)
 			return
 		end
-		if s.hqPath == path then return end
-		s.hqPath = path
-		plot.hqPath = path
-		recompute(player)
+		if s.hqPath ~= path then
+			s.hqPath = path
+			plot.hqPath = path
+			recompute(player)
+			if wl == 2 then
+				-- the lobby is already up in the default finish: rebuild its two pieces
+				local depts = {}
+				for k, v in pairs(plot.wafer.depts or {}) do depts[k] = v end
+				Econ.Wafers.clear(plot)
+				Econ.Wafers.buildUpTo(plot, 2, function(x) return depts[x] end)
+			end
+		end
 		popup(plot.hqPad, Econ.Wafers.pathName(path) .. " it is", CFG.GOOD)
 		-- the pick came from the gate in wafersBuild, so finish what they asked
 		-- for: one tap, one choice, the floor goes up. Making them press BUILD a
@@ -3298,7 +3346,10 @@ task.spawn(function()
 						end
 					end
 				end
+				-- 17 Oct: no product bar before the lobby (Clients.productsOpen)
+				if not (Econ.Clients and Econ.Clients.productsOpen and not Econ.Clients.productsOpen(player:GetAttribute("WaferLevel") or 1)) then
 				s.work = (s.work or 0) + work * afk * (1 + (Econ and Econ.WAFERS and (s.labs or 0) * 0.15 or 0))      -- AFK: products slow too; v4.6 AI Labs speed them
+				end
 				s.workNeed = s.workNeed or CFG.WORK_FIRST
 				player:SetAttribute("ProductProgress", math.clamp(s.work / s.workNeed, 0, 1))
 				s.playtime = (s.playtime or 0) + 1
@@ -3341,13 +3392,14 @@ setName.OnServerEvent:Connect(function(player, raw)
 		call and a DataStore write, and the write budget is the whole server's:
 		the 9 Oct fuzz drained it with renames (280 throttled writes), which is
 		the budget every other player's save comes out of. ]]
-	if s.name or s.naming or os.clock() < (s.nameNext or 0) then return end
+	if (s.name and not s.renaming) or s.naming or os.clock() < (s.nameNext or 0) then return end
 	s.naming, s.nameNext = true, os.clock() + 1
 	local name = cleanName(player, raw)                 -- yields
 	s.naming = nil
 	if plotOf(player) ~= plot or sessions[player.UserId] ~= s then return end
 	if not name then askName:FireClient(player, "That name will not work. Try another.") return end
 	s.name = name
+	s.renaming = nil
 	s.ticker = tickerOf(name)
 	refreshSign(plot)
 	popup(plot.desk, name .. " is born.", CFG.GOLD)
@@ -4089,20 +4141,9 @@ local function onJoin(player)
 		end
 		if not player.Parent then return end
 		task.wait(1.5)
-		local s0 = sessions[player.UserId]
-		if s0 and not s0.name then
-			askName:FireClient(player, "")
-			-- the door waits for the name (or 25 s), so nothing new appears under the modal
-			local t0 = os.clock()
-			while player.Parent and os.clock() - t0 < 25 do
-				local s1 = sessions[player.UserId]
-				if not s1 or s1.name or s1.nameSkipped then break end
-				task.wait(0.3)
-			end
-			task.wait(1.5)
-		else
-			task.wait(4.5)
-		end
+		-- 17 Oct: no name box here any more (a new company comes named, Names.lua; the
+		-- player renames it by tapping the sign from the lobby on)
+		task.wait(1.5)
 		local s = sessions[player.UserId]
 		if not s or plotOf(player) ~= plot then return end
 		s.buildUnlocked = true
@@ -4160,6 +4201,11 @@ end)
 if Econ then
 	Econ.Clients = require(ServerScriptService:WaitForChild("ClientsServer"))({
 		sessions = sessions, plotOf = plotOf, cashOf = cashOf, popup = popup, CFG = CFG, Econ = Econ, plots = plots,
+		-- 17 Oct: tapping your sign renames the company (the name box no longer opens on its own)
+		askRename = function(p)
+			local ss = sessions[p.UserId]
+			if ss then ss.renaming = true; askName:FireClient(p, "") end
+		end,
 		openDoor = openDoor, shipFirstProduct = shipFirstProduct,
 	})
 end

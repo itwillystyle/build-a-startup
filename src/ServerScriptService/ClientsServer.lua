@@ -204,6 +204,30 @@ return function(core)
 		end)
 	end
 
+	--[[ 17 Oct: the company name. New companies come named (Names.lua); from the lobby
+		on, the entrance sign carries a RENAME prompt, said once by a world popup. ]]
+	local function signPrompt(player, P)
+		local sign
+		for _ = 1, 20 do
+			for _, d in ipairs(P.plot.garage.Parent:GetDescendants()) do
+				if d.Name == "EntranceSign" and d:IsA("BasePart") then sign = d break end
+			end
+			if sign then break end
+			task.wait(0.5)
+		end
+		if not sign or sign:FindFirstChild("RenamePrompt") then return end
+		local pr = Instance.new("ProximityPrompt")
+		pr.Name = "RenamePrompt"
+		pr.ActionText, pr.ObjectText = "RENAME", "Your company"
+		pr.MaxActivationDistance, pr.RequiresLineOfSight = 22, false
+		pr.Triggered:Connect(function(who) if who == player and core.askRename then core.askRename(player) end end)
+		pr.Parent = sign
+		if not P.renameSaid then
+			P.renameSaid = true
+			task.delay(6, function() if sign.Parent then core.popup(sign, "Tap your sign to rename it.", GOLD) end end)
+		end
+	end
+
 	local function walkPath(model, points, faceAfter, done)
 		local i = 0
 		local function nextLeg()
@@ -439,6 +463,7 @@ return function(core)
 			if mode ~= P.mode then
 				P.mode = mode
 				setCounter(P.plot, mode == "lobby")
+				if mode == "lobby" then task.spawn(signPrompt, player, P) end
 				for i, c in ipairs(P.Q.line) do
 					local model = P.rigs[c.id]
 					if model then standAt(model, spot(P.plot, i), lookAtOf(P.plot)); model:SetAttribute("Spot", i) end
@@ -452,7 +477,7 @@ return function(core)
 				if not P.coded then P.coded = true; Telemetry.step(player, "first_code") end
 				-- holding also pushes the product bar, about as two taps a second did
 				local Econ = core.Econ
-				if Econ and Econ.V3 and s.shipped and not s.pendingProduct then
+				if Econ and Econ.V3 and s.shipped and not s.pendingProduct and Clients.productsOpen(level) then
 					local team = 0
 					for _, r in ipairs(s.rigs or {}) do team += core.CFG.TIER_RATE[r.tier or 1] end
 					s.work = (s.work or 0) + math.max(1, team * Econ.CODE_WORK) * brew * 2 * dt
@@ -548,6 +573,8 @@ return function(core)
 	end
 
 	-- the plain table Clients.goal reads (Task 7 adds the HQ fields from SiliconCore)
+	api.goal, api.fallback, api.productsOpen = Clients.goal, Clients.fallback, Clients.productsOpen
+
 	function api.goalState(player)
 		local st = api.state(player)
 		return { served = st.served, carrying = st.carrying, waiting = st.line, tutorial = st.tutorial }

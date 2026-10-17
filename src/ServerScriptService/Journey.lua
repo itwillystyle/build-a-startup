@@ -76,7 +76,10 @@ function J.task(st)
 	if hq >= 2 and st.hasCar and not jr.drove then
 		return { key = "car", title = "Hop in your car", sub = st.touch and "Tap CAR" or "Press C or click CAR", target = "car" }
 	end
-	if hq >= 2 and (st.apt or 0) == 0 and not jr.res then
+	-- 17 Oct (Luke's playtest): only once the next home is affordable; it sent a new player to
+	-- a $40,000 home with $900 ("a waste of my time")
+	local home = st.aptNext
+	if hq >= 2 and (st.apt or 0) == 0 and not jr.res and home and (st.cash or 0) >= (home.price or math.huge) then
 		return { key = "drive", title = "Drive to The Residences", sub = "Downtown, the east end of the road", target = "residences" }
 	end
 	-- the VIP that comes with your first home

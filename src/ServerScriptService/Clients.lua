@@ -219,6 +219,12 @@ function Clients.fallback(st)
 	return nil
 end
 
+-- your own apps (the product bar, LAUNCH!) start at the lobby: in the garage the
+-- clients are the whole game (Luke's playtest, 17 Oct: LAUNCH was never explained)
+function Clients.productsOpen(level)
+	return (level or 1) >= 2
+end
+
 -- hand the carried app to its client; nil when you carry nothing
 function Clients.handOver(Q, ctx)
 	local c = Q.carrying
