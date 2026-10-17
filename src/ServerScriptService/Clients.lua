@@ -18,7 +18,7 @@ local Clients = {}
 -- starting values; tuned against the pacing targets (plan Task 10), never in the tests
 Clients.TUNE = {
 	FLOOR = 5,            -- a job pays at least this ... (17 Oct Task 10: was 8; the $60 lobby came 2 s after the hire)
-	SECONDS = 3,          -- ... or this many seconds of your income, whichever is more
+	SECONDS = 3,          -- ... or this many seconds of your income, whichever is more (5 put the lobby at 0:44)
 	TIP = 0.35,           -- speed tip, as a share of the pay, when you hand over with half your patience left
 	WOW = 5,              -- the first client pays this many normal jobs
 	BIG_MULT = 5,         -- a BIG client pays this many
@@ -43,7 +43,7 @@ Clients.TUNE = {
 	STAR3 = 0.6,
 	STAR2 = 1 / 3,
 	SPAWN_GARAGE = 9,
-	SPAWN_LOBBY = 7,
+	SPAWN_LOBBY = 4,      -- 17 Oct Task 10: was 7; the early lobby earned a quarter of the old taps
 	SPAWN_MIN = 4,
 }
 local TUNE = Clients.TUNE
