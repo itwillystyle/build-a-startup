@@ -572,8 +572,41 @@ function FurnitureKit.glow(screen, colour)
 	g.CanCollide = false
 	g.CanQuery = false
 	g.CastShadow = false
+	--[[ 17 Oct (Luke: "a freaking glowing block on the monitor, it sucks"). It was a
+		Neon slab in the screen colour, so every monitor read as a lit brick. Now the
+		plate is a dark panel and a SurfaceGui draws a screen on it: a title bar and a
+		few lines of code in the screen colour, lit (LightInfluence 0) without Neon.
+		The part keeps its name and Color, so the WRITE CODE flash still shows. ]]
 	g.Color = colour
-	g.Material = Enum.Material.Neon
+	g.Material = Enum.Material.SmoothPlastic
+	local gui = Instance.new("SurfaceGui")
+	gui.Name = "Screen"
+	gui.Face = Enum.NormalId.Front
+	gui.LightInfluence = 0
+	gui.Brightness = 1.4
+	gui.CanvasSize = Vector2.new(160, 100)
+	gui.Parent = g
+	local bg = Instance.new("Frame")
+	bg.Size = UDim2.fromScale(1, 1)
+	bg.BackgroundColor3 = Color3.fromRGB(30, 37, 48)      -- Palette Ink (world colour)
+	bg.BackgroundTransparency = 0.08
+	bg.BorderSizePixel = 0
+	bg.Parent = gui
+	local bar = Instance.new("Frame")
+	bar.Size = UDim2.new(1, 0, 0, 12)
+	bar.BackgroundColor3 = colour
+	bar.BorderSizePixel = 0
+	bar.Parent = bg
+	local rows = { { 0.10, 0.55 }, { 0.18, 0.40 }, { 0.18, 0.62 }, { 0.26, 0.30 }, { 0.10, 0.48 }, { 0.18, 0.36 } }
+	for i, r in ipairs(rows) do
+		local line = Instance.new("Frame")
+		line.Position = UDim2.new(r[1], 0, 0, 18 + (i - 1) * 13)
+		line.Size = UDim2.new(r[2], 0, 0, 6)
+		line.BackgroundColor3 = (i % 3 == 0) and Color3.fromRGB(224, 182, 90) or colour   -- CaliforniaGold accents (world colour)
+		line.BackgroundTransparency = 0.15
+		line.BorderSizePixel = 0
+		line.Parent = bg
+	end
 	g.Parent = screen
 	return g
 end
