@@ -251,7 +251,7 @@ local Sfx = (function()
 end)()
 local keyFlip = false
 
-local writeCodeRemote = remotes:WaitForChild("WriteCode", 10)
+local codeHold = remotes:WaitForChild("CodeHold", 10)   -- 16 Oct: WRITE CODE is held to code a client's job
 local pickMarket = remotes:WaitForChild("PickMarket", 10)
 local productReady = remotes:WaitForChild("ProductReady", 10)
 local FULL = UDim2.new(0, 236, 0, 64)
@@ -286,7 +286,8 @@ codeWrap.Parent = codeLabel
 -- the full-pay time left on a waiting LAUNCH: a thin strip draining along the
 -- bottom of the face. v5: it used to be a light fill over the WHOLE face, so the
 -- loudest button in the game read pale gold for its first minute.
-local TIME_W = FULL.X.Offset - 24
+local LAUNCH_SIZE = UDim2.new(0, 164, 0, 58)
+local TIME_W = LAUNCH_SIZE.X.Offset - 24
 local timeBar = Instance.new("Frame")
 timeBar.Name = "TimeLeft"
 timeBar.BackgroundColor3 = UIKit.GOLD_DEEP
@@ -318,6 +319,23 @@ local timeText = UIKit.label(timeBadge, "", UIKit.TYPE.label, UIKit.TEXT, {
 	Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = codeBtn.ZIndex + 4,
 }, UIKit.HEAD)
 
+--[[ 16 Oct (mock 2C, Luke's pick): LAUNCH! is its own gold button beside WRITE
+	CODE instead of a relabel of it. WRITE CODE is now HELD to code a client's job,
+	so a payday that turned the same button gold would take the coding away. ]]
+local launchBtn, launchLabel = UIKit.button(gui, "LAUNCH!", UIKit.GOLD, {
+	Name = "Launch", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0.5, 142, 1, -22),
+	Size = LAUNCH_SIZE, Visible = false, ClipsDescendants = false,
+}, { textSize = UIKit.TYPE.title, silent = true })
+launchLabel.Position = UDim2.new(0, 0, 0, 2)
+launchLabel.Size = UDim2.new(1, 0, 0, 30)
+local launchWrap = Instance.new("UIScale")
+launchWrap.Parent = launchLabel
+payLabel.Parent = launchBtn
+payLabel.Position = UDim2.new(0, 8, 0, 31)
+payLabel.Size = UDim2.new(1, -16, 0, 20)
+timeBar.Parent = launchBtn
+timeBadge.Parent = launchBtn
+
 local launchState     -- { payday, autoAt } while an app waits to launch
 local pulsing = false
 
@@ -337,24 +355,33 @@ local function syncCode()
 	-- in a car the speedometer owns the bottom centre: a waiting LAUNCH sits above it
 	-- v5: it also steps aside while the company-name box is up (it pulsed behind
 	-- the box, two loud things at once, and its caption ran under the box's edge)
-	codeBtn.Visible = player:GetAttribute("Shipped") == true and player:GetAttribute("BuildModeOpen") ~= true
-		and player:GetAttribute("NamingOpen") ~= true and not menuOpen() and (not inCar or launchState ~= nil)
-	codeBtn.Position = UDim2.new(0.5, 0, 1, inCar and -126 or -22)
-	local loud = launchState ~= nil or pulsing
+	local free = player:GetAttribute("BuildModeOpen") ~= true and player:GetAttribute("NamingOpen") ~= true and not menuOpen()
+	codeBtn.Visible = free and not inCar
+	launchBtn.Visible = free and launchState ~= nil
+	launchBtn.Position = UDim2.new(0.5, inCar and -82 or 142, 1, inCar and -126 or -22)
+	-- 16 Oct, mock 2C: the button says what holding it does right now
+	local carrying = player:GetAttribute("CarryingApp") == true
+	local job = player:GetAttribute("JobWaiting") == true
+	local away = job and not carrying and player:GetAttribute("AtLaptop") ~= true
+	local prog = tonumber(player:GetAttribute("CodeProgress")) or 0
+	local loud = carrying or job or pulsing
 	codeBtn.Size = loud and FULL or QUIET
-	codeLabel.TextSize = loud and 24 or 22
+	codeLabel.TextSize = loud and UIKit.TYPE.title or UIKit.TYPE.label
+	codeLabel.Text = carrying and "HAND IT OVER" or away and "GO TO LAPTOP"
+		or (prog > 0 and prog < 1) and ("CODING " .. math.floor(prog * 100) .. "%") or "HOLD TO CODE"
+	local colour = carrying and UIKit.GOLD or away and UIKit.BLUE or loud and UIKit.GREEN or UIKit.PAPER
 	-- v5: when the goal is out in the world (hire, build, drive...), WRITE CODE is
-	-- a quiet paper button, still one tap away, and the goal is the loud thing
-	if not launchState then
-		codeBtn:SetAttribute("FixedStroke", (not loud) and UIKit.GREEN or nil)
-		codeBtn:SetAttribute("FixedText", (not loud) and UIKit.GREEN_DEEP or nil)
-		UIKit.setButtonColor(codeBtn, loud and UIKit.GREEN or UIKit.PAPER)
-	end
+	-- a quiet paper button, still one press away, and the goal is the loud thing
+	codeBtn:SetAttribute("FixedStroke", (not loud) and UIKit.GREEN or nil)
+	codeBtn:SetAttribute("FixedText", (not loud) and UIKit.GREEN_DEEP or nil)
+	UIKit.setButtonColor(codeBtn, colour)
+	slotArt.Visible = not (carrying or away)
 end
 syncCode()
 player:GetAttributeChangedSignal("Shipped"):Connect(syncCode)
 player:GetAttributeChangedSignal("BuildModeOpen"):Connect(syncCode)
 player:GetAttributeChangedSignal("NamingOpen"):Connect(syncCode)
+for _, a in ipairs({ "CarryingApp", "JobWaiting", "AtLaptop" }) do player:GetAttributeChangedSignal(a):Connect(syncCode) end
 UIKit.onMenuChange(function() syncCode() end)   -- menus are other scripts' guis: one shared watch
 -- v4.2: in a car the speedometer owns the bottom centre (it sat on top of WRITE CODE)
 local function watchSeat(char)
@@ -365,13 +392,22 @@ end
 if player.Character then task.spawn(watchSeat, player.Character) end
 player.CharacterAdded:Connect(watchSeat)
 
+-- 16 Oct, mock 2C: the button IS the coding bar (CodeProgress, from ClientsServer)
+charge.BackgroundColor3 = UIKit.GREEN_DEEP
 local chargeTween
-local function setCharge(p)
-	if launchState then return end
-	p = math.clamp(tonumber(p) or 0, 0, 1)
+local function setCoding()
+	local p = math.clamp(tonumber(player:GetAttribute("CodeProgress")) or 0, 0, 1)
 	if chargeTween then chargeTween:Cancel() end
-	chargeTween = tween(charge, 0.25, { Size = UDim2.new(p, 0, 1, -5) })
-	codeCaption.Text = p >= 1 and "APP READY!" or ("NEXT APP  " .. math.floor(p * 100) .. "%")
+	chargeTween = tween(charge, 0.2, { Size = UDim2.new(p, 0, 1, -5) })
+	syncCode()
+end
+setCoding()
+player:GetAttributeChangedSignal("CodeProgress"):Connect(setCoding)
+-- the product bar is said once, and only when it is nearly ready (it is taught when it fills)
+local function setCharge(p)
+	p = math.clamp(tonumber(p) or 0, 0, 1)
+	codeCaption.Visible = launchState == nil and p >= 0.75
+	codeCaption.Text = ("NEXT APP  " .. math.floor(p * 100) .. "%")
 	codeCaption.TextColor3 = UIKit.TEXT
 end
 setCharge(player:GetAttribute("ProductProgress"))
@@ -387,42 +423,16 @@ end
 local function setLaunch(o)
 	local was = launchState
 	launchState = o
-	-- a progress tween still running from the last tap would cut the time-left fill short
-	if chargeTween then chargeTween:Cancel(); chargeTween = nil end
-	if o then
-		codeBtn:SetAttribute("FixedStroke", nil)
-		codeBtn:SetAttribute("FixedText", nil)
-		UIKit.setButtonColor(codeBtn, UIKit.GOLD)
-		charge.Size = UDim2.new(0, 0, 1, -5)
-		-- solid gold; the full-pay time drains along the bottom and counts on the
-		-- corner badge (neither on your first launch, which has no clock)
-		timeBar.Visible = o.autoAt ~= nil
-		timeBadge.Visible = o.autoAt ~= nil
-		codeCaption.Visible = false
-		slotArt.Image = UIKit.ART.rocket
-		codeLabel.Text = "LAUNCH!"
-		codeLabel.Position = UDim2.new(0, 56, 0, 3)
-		codeLabel.Size = UDim2.new(1, -64, 0, 30)
-		payLabel.Text = payText()
-		payLabel.Visible = true
-		if not was then
-			UIKit.sfx("ding", 0.9)
-			local sc = codeBtn:FindFirstChildOfClass("UIScale")
-			if sc then sc.Scale = 1.15; tween(sc, 0.35, { Scale = 1 }, Enum.EasingStyle.Quint) end
-		end
-	else
-		UIKit.setButtonColor(codeBtn, UIKit.GREEN)
-		charge.BackgroundColor3 = MINT
-		timeBar.Visible = false
-		timeBadge.Visible = false
-		codeCaption.Visible = true
-		slotArt.Image = UIKit.ART.code
-		codeLabel.Text = "WRITE CODE"
-		codeLabel.Position = UDim2.new(0, 56, 0, 0)
-		codeLabel.Size = UDim2.new(1, -64, 1, -5)
-		payLabel.Visible = false
-		setCharge(player:GetAttribute("ProductProgress"))
+	timeBar.Visible = o ~= nil and o.autoAt ~= nil
+	timeBadge.Visible = timeBar.Visible
+	payLabel.Text = payText()
+	payLabel.Visible = o ~= nil
+	if o and not was then
+		UIKit.sfx("ding", 0.9)
+		local sc = launchBtn:FindFirstChildOfClass("UIScale")
+		if sc then sc.Scale = 1.15; tween(sc, 0.35, { Scale = 1 }, Enum.EasingStyle.Quint) end
 	end
+	setCharge(player:GetAttribute("ProductProgress"))
 	syncCode()
 end
 player:GetAttributeChangedSignal("ArmedPress"):Connect(function() payLabel.Text = payText() end)
@@ -443,42 +453,41 @@ game:GetService("UserInputService").InputBegan:Connect(function(input, processed
 	if input.KeyCode == Enum.KeyCode.L or input.KeyCode == Enum.KeyCode.ButtonY then doLaunch() end
 end)
 
-local combo, lastTap = 0, 0
-codeBtn.MouseButton1Click:Connect(function()
-	if launchState then doLaunch() return end
-	if writeCodeRemote then writeCodeRemote:FireServer() end
-	--[[ The verb the player presses most in the whole game made no sound at
-		all. Two alternating key samples at a jittered pitch, so holding the
-		button reads as typing rather than as one sample retriggering. ]]
-	if Sfx then
-		local head = player.Character and player.Character:FindFirstChild("Head")
-		if head then
-			keyFlip = not keyFlip
-			Sfx.play(head, keyFlip and "keyboard" or "keyTap", {
-				volume = 0.35, pitch = 0.92 + math.random() * 0.22, life = 2, max = 24,
-			})
+launchBtn.MouseButton1Click:Connect(doLaunch)
+
+--[[ 16 Oct, the client loop: WRITE CODE is HELD. Press (mouse or finger) = start
+	coding the job at the door, let go = pause; the server counts the time
+	(ClientsServer) and the fill shows it. A thumb that slides off lets go. ]]
+local holdingCode = false
+local function setHold(on)
+	if holdingCode == on then return end
+	holdingCode = on
+	if codeHold then codeHold:FireServer(on) end
+end
+local function pressInput(input)
+	return input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch
+end
+codeBtn.InputBegan:Connect(function(input) if pressInput(input) then setHold(true) end end)
+codeBtn.InputEnded:Connect(function(input) if pressInput(input) then setHold(false) end end)
+codeBtn.MouseLeave:Connect(function() setHold(false) end)
+--[[ The verb the player presses most in the whole game made no sound at all.
+	Two alternating key samples at a jittered pitch while the code is going in,
+	so holding reads as typing rather than as one sample retriggering. ]]
+task.spawn(function()
+	while true do
+		task.wait(0.17)
+		local p = tonumber(player:GetAttribute("CodeProgress")) or 0
+		if holdingCode and Sfx and p > 0 and p < 1 then
+			local head = player.Character and player.Character:FindFirstChild("Head")
+			if head then
+				keyFlip = not keyFlip
+				Sfx.play(head, keyFlip and "keyboard" or "keyTap", {
+					volume = 0.35, pitch = 0.92 + math.random() * 0.22, life = 2, max = 24,
+				})
+			end
 		end
 	end
-	local now = os.clock()
-	combo = (now - lastTap < 0.8) and math.min(combo + 1, 10) or 0
-	lastTap = now
-	UIKit.sfx("tap", 1 + 0.04 * combo, 0.4)
 end)
--- v4.3: what the tap actually paid flies up off the button (the server scales it
--- with your income and your combo), with the combo when it is building
-local function floatGain()
-	local gain = player:GetAttribute("CodeGain")
-	if not gain then return end
-	local combo = player:GetAttribute("CodeCombo") or 0
-	local text = "+" .. UIKit.money(gain) .. (combo >= 2 and ("  x%.1f"):format(1 + 0.1 * combo) or "")
-	local g = UIKit.outlined(gui, text, UIKit.TYPE.label + math.min(combo, 8), combo >= 5 and UIKit.GOLD or UIKit.MONEY, {
-		AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0, 200, 0, 28), TextXAlignment = Enum.TextXAlignment.Center,
-		Position = UDim2.new(0.5, math.random(-70, 70), 1, -112),
-	})
-	fadeText(g, 0.7, { Position = g.Position - UDim2.new(0, 0, 0, 56) })
-	task.delay(0.75, function() g:Destroy() end)
-end
-player:GetAttributeChangedSignal("CodeTap"):Connect(floatGain)
 
 -- pulse when writing code IS the objective (and when a launch is waiting)
 local function syncPulse()
@@ -491,7 +500,8 @@ player:GetAttributeChangedSignal("Objective"):Connect(syncPulse)
 RunService.RenderStepped:Connect(function()
 	local t = os.clock()
 	if launchState then
-		codeWrap.Scale = 1 + 0.07 * (0.5 + 0.5 * math.sin(t * 5.5))
+		codeWrap.Scale = 1
+		launchWrap.Scale = 1 + 0.07 * (0.5 + 0.5 * math.sin(t * 5.5))
 		local at = launchState.autoAt
 		if at then
 			local left = math.max(0, at - workspace:GetServerTimeNow())
@@ -499,12 +509,9 @@ RunService.RenderStepped:Connect(function()
 			timeBar.BackgroundColor3 = left <= 15 and UIKit.ORANGE_DEEP or UIKit.GOLD_DEEP
 			timeText.Text = math.ceil(left) .. "s"
 			timeBadge.BackgroundColor3 = left <= 15 and UIKit.ORANGE_DEEP or UIKit.INK
-			codeCaption.Text = ("FULL PAY  %ds"):format(math.ceil(left))
-			codeCaption.TextColor3 = left <= 15 and UIKit.ORANGE or UIKit.TEXT
-		else
-			codeCaption.Text = "APP READY!"
 		end
 	else
+		launchWrap.Scale = 1
 		-- a coach tip on screen has the stage: the pulse waits
 		local coach = player.PlayerGui:FindFirstChild("Coach")
 		local tip = coach and coach:FindFirstChild("CoachCard")
