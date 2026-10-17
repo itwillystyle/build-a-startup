@@ -32,4 +32,4 @@
 - The GivePrompt uses the Custom style (no Roblox prompt UI): the HUD's gold GIVE is the look, E still triggers it.
 - `api.give` re-checks range (HAND_RANGE + 2) on the server; a GiveApp spammer is limited to one every 0.3 s.
 - A coder's delivery pays no tip and shows no stars; only your own GIVE does.
-**Last verified:** 2026-10-17 f757f69
+**Last verified:** 2026-10-17 d0d8ace
