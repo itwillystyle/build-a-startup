@@ -355,4 +355,22 @@ test("goal: after the lobby there is always a goal", function()
 	assert(C.fallback(st({ waiting = 0, tutorial = false, served = 9 })) == nil, "nothing to say with nobody waiting")
 end)
 
+-- 17 Oct final review, Important 2: a phone tap is 50-100 ms, so the 0.1 s debounce dropped
+-- the release and the server held forever (every job then coded itself at the laptop)
+test("hold: a release is never dropped, however soon after the press", function()
+	local hold, last = C.holdEvent(true, false, 0, 10.00)
+	assert(hold == true and last == 10.00, "the press is taken")
+	hold, last = C.holdEvent(false, hold, last, 10.03)
+	assert(hold == false, "a release 30 ms later still lets go")
+end)
+
+test("hold: a second press inside 0.1 s is ignored (a toggle spammer gains nothing)", function()
+	local hold, last = C.holdEvent(true, false, 0, 10.00)
+	hold, last = C.holdEvent(false, hold, last, 10.02)
+	hold, last = C.holdEvent(true, hold, last, 10.05)
+	assert(hold == false and last == 10.00, "the press 50 ms after the last one is dropped")
+	hold = C.holdEvent(true, hold, last, 10.20)
+	assert(hold == true, "a press after 0.1 s is taken")
+end)
+
 return T

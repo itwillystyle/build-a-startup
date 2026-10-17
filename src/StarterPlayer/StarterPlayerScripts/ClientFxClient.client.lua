@@ -235,9 +235,22 @@ clientPaid.OnClientEvent:Connect(function(d)
 		end
 		return
 	end
+	--[[ 17 Oct review: a coder's delivery fired every few seconds in the late game, and an
+		off-screen client fell back to the middle of the screen, so a player driving or in a
+		chase got "+$X" and coins at screen centre. A coder's pay shows only on a client you
+		can see, within 60 studs; the cash counter still counts it. ]]
+	if d.who == "coder" then
+		local cam = workspace.CurrentCamera
+		local v, onScreen = cam:WorldToViewportPoint(where + Vector3.new(0, 4, 0))
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		if onScreen and root and (root.Position - where).Magnitude <= 60 then
+			cash(d, Vector2.new(v.X, v.Y), true)
+		end
+		return
+	end
 	local at = screenAt(where + Vector3.new(0, 4, 0))
-	if d.who == "coder" or type(d.stars) ~= "number" or typeof(d.from) ~= "Vector3" then
-		cash(d, at, d.who == "coder")
+	if type(d.stars) ~= "number" or typeof(d.from) ~= "Vector3" then
+		cash(d, at, false)
 		return
 	end
 	fly(screenAt(d.from + Vector3.new(0, 1.5, 0)), screenAt(where + Vector3.new(0, 3, 0)), 0.32, function()

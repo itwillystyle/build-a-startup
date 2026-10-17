@@ -479,6 +479,9 @@ codeBtn.InputBegan:Connect(function(input)
 end)
 codeBtn.InputEnded:Connect(function(input) if pressInput(input) then setHold(false) end end)
 codeBtn.MouseLeave:Connect(function() setHold(false) end)
+-- 17 Oct review: a button that hides mid-hold (a menu, the car, build mode) never sees
+-- InputEnded, and the server kept coding with the thumb up
+codeBtn:GetPropertyChangedSignal("Visible"):Connect(function() if not codeBtn.Visible then setHold(false) end end)
 --[[ The verb the player presses most in the whole game made no sound at all.
 	Two alternating key samples at a jittered pitch while the code is going in,
 	so holding reads as typing rather than as one sample retriggering. ]]

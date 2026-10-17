@@ -218,19 +218,24 @@ return function(core)
 	end
 
 	-- slide a rig from where it is to `to` at WALK_SPEED (rigs are anchored, like staff)
+	-- 17 Oct review: two walks on one rig fought frame by frame (a client walking in while the
+	-- line moved up) and the older one could finish last, leaving them at the wrong spot. Each
+	-- walk takes a token; a newer walk ends the older one.
 	local function walk(model, to, faceAfter, done)
+		local id = (model:GetAttribute("WalkId") or 0) + 1
+		model:SetAttribute("WalkId", id)
 		task.spawn(function()
 			local start = model:GetPivot().Position
 			local h = model:GetAttribute("StandH") or heightOf(model)
 			local from = Vector3.new(start.X, start.Y - h / 2, start.Z)
 			local dist = (Vector3.new(to.X, from.Y, to.Z) - from).Magnitude
 			local t, T = 0, math.max(0.2, dist / WALK_SPEED)
-			while t < T and model.Parent do
+			while t < T and model.Parent and model:GetAttribute("WalkId") == id do
 				t += task.wait()
 				local a = math.min(1, t / T)
 				standAt(model, from:Lerp(to, a), to + (to - from) * 10)
 			end
-			if model.Parent then
+			if model.Parent and model:GetAttribute("WalkId") == id then
 				if faceAfter then standAt(model, to, faceAfter) end
 				if done then done() end
 			end
@@ -238,15 +243,21 @@ return function(core)
 	end
 
 	--[[ 17 Oct: the company name. New companies come named (Names.lua); from the lobby
-		on, the entrance sign carries a RENAME prompt, said once by a world popup. ]]
+		on, the entrance sign carries a RENAME prompt, said once by a world popup.
+		17 Oct review: a style pick rebuilds the lobby and its sign, and the prompt went with
+		it. The loop calls this about once a second in the lobby: a cached sign that still
+		has its prompt costs nothing; a missing one is looked for at most every 5 s. ]]
 	local function signPrompt(player, P)
-		local sign
-		for _ = 1, 20 do
+		local sign = P.sign
+		if sign and sign.Parent and sign:FindFirstChild("RenamePrompt") then return end
+		if not (sign and sign.Parent) then
+			if os.clock() < (P.signLookAt or 0) then return end
+			P.signLookAt = os.clock() + 5
+			sign = nil
 			for _, d in ipairs(P.plot.garage.Parent:GetDescendants()) do
 				if d.Name == "EntranceSign" and d:IsA("BasePart") then sign = d break end
 			end
-			if sign then break end
-			task.wait(0.5)
+			P.sign = sign
 		end
 		if not sign or sign:FindFirstChild("RenamePrompt") then return end
 		local pr = Instance.new("ProximityPrompt")
@@ -370,6 +381,7 @@ return function(core)
 	end
 
 	local function makeRig(player, P, client)
+		if P.dead then return nil end   -- 17 Oct review: a cleared line never makes a rig
 		local model = StaffRig.build(client.kind == "big" and "sales" or "designer", 900 + client.id * 13 + (player.UserId % 97))
 		model.Name = "Client" .. client.id
 		model:SetAttribute("ClientOf", player.UserId)
@@ -496,6 +508,9 @@ return function(core)
 		local lastDraw = 0
 		while player.Parent and byUser[uid] == P do
 			local dt = task.wait(TICK)
+			-- 17 Oct review: a reset or a leave during the wait ends this loop before it acts
+			-- (one more pass made orphan rigs and a stuck CarryingApp)
+			if byUser[uid] ~= P then break end
 			s = sessions[uid]
 			if not s or plotOf(player) ~= P.plot then break end
 			local char = player.Character
@@ -507,10 +522,14 @@ return function(core)
 			if mode ~= P.mode then
 				P.mode = mode
 				setCounter(P.plot, mode == "lobby")
-				if mode == "lobby" then task.spawn(signPrompt, player, P) end
+				P.sign, P.signLookAt = nil, 0
 				for i, c in ipairs(P.Q.line) do
 					local model = P.rigs[c.id]
-					if model then standAt(model, spot(P.plot, i), lookAtOf(P.plot)); model:SetAttribute("Spot", i) end
+					if model then
+						model:SetAttribute("WalkId", (model:GetAttribute("WalkId") or 0) + 1)   -- the teleport ends any walk
+						standAt(model, spot(P.plot, i), lookAtOf(P.plot))
+						model:SetAttribute("Spot", i)
+					end
 				end
 			end
 			local brew = (core.Econ and core.Econ.Inv and core.Econ.Inv.codeMult(player)) or 1
@@ -531,6 +550,7 @@ return function(core)
 			for _, e in ipairs(events) do
 				if e.kind == "arrive" then
 					local model = makeRig(player, P, e.client)
+					if not model then continue end
 					local path = entryPath(P.plot)
 					standAt(model, path[1], lookAtOf(P.plot))
 					local idx = table.find(P.Q.line, e.client) or #P.Q.line
@@ -543,8 +563,15 @@ return function(core)
 					player:SetAttribute("CarryingApp", true)
 					core.popup(P.plot.laptop, "SHIPPED!", GO)
 				elseif e.kind == "served" then
+					-- 17 Oct review: the spec's teaching line, said where it happens, once a session
+					local model = P.rigs[e.client.id]
+					local at = model and (model:FindFirstChild("Head") or model.PrimaryPart)
 					paid(player, P, e, "coder")
 					placeLine(P)
+					if at and not s.coderTaught and (s.staff or 0) == 1 then
+						s.coderTaught = true
+						core.popup(at, "Your coder takes the small jobs.", GO)
+					end
 				elseif e.kind == "lost" then
 					Telemetry.event(player, "client_lost", 1)
 					leave(P, e.client, "Too slow...")
@@ -556,8 +583,10 @@ return function(core)
 			for i, c in ipairs(P.Q.line) do
 				if not P.rigs[c.id] then
 					local model = makeRig(player, P, c)
-					standAt(model, spot(P.plot, i), lookAtOf(P.plot))
-					model:SetAttribute("Spot", i)
+					if model then
+						standAt(model, spot(P.plot, i), lookAtOf(P.plot))
+						model:SetAttribute("Spot", i)
+					end
 				end
 			end
 
@@ -587,6 +616,10 @@ return function(core)
 
 			if os.clock() - lastDraw >= DRAW_EVERY then
 				lastDraw = os.clock()
+				if P.mode == "lobby" and os.clock() >= (P.signAt or 0) then
+					P.signAt = os.clock() + 1
+					signPrompt(player, P)
+				end
 				local front
 				for _, c in ipairs(P.Q.line) do
 					if c ~= P.Q.carrying and c.done < c.need then front = front or c end
@@ -658,7 +691,16 @@ return function(core)
 		local P = byUser[uid]
 		byUser[uid] = nil
 		if not P then return end
+		P.dead = true
 		for _, model in pairs(P.rigs) do if model.Parent then model:Destroy() end end
+		P.rigs = {}
+		-- clients walking off are no longer in P.rigs: anything of ours left in the folder goes too
+		local holder = P.plot and P.plot.garage and P.plot.garage.Parent and P.plot.garage.Parent:FindFirstChild("Clients")
+		if holder then
+			for _, m in ipairs(holder:GetChildren()) do
+				if m:GetAttribute("ClientOf") == uid then m:Destroy() end
+			end
+		end
 		setCounter(P.plot, false)
 	end
 
@@ -705,9 +747,7 @@ return function(core)
 	codeHold.OnServerEvent:Connect(function(player, on)
 		local P = byUser[player.UserId]
 		if not P then return end
-		if os.clock() - P.lastToggle < 0.1 then return end   -- a toggle spammer gains nothing
-		P.lastToggle = os.clock()
-		P.hold = on == true
+		P.hold, P.lastToggle = Clients.holdEvent(on, P.hold, P.lastToggle, os.clock())
 	end)
 
 	Players.PlayerAdded:Connect(function(player) task.spawn(start, player) end)

@@ -262,6 +262,16 @@ function Clients.productsOpen(level)
 	return (level or 1) >= 2
 end
 
+--[[ the WRITE CODE hold, one remote event at a time: returns the new hold and the time of
+	the last accepted press. A release always lets go (17 Oct review: a phone tap is 50-100 ms,
+	and the old 0.1 s debounce dropped the release, so the server held forever); only a press
+	inside 0.1 s of the last one is ignored, so a toggle spammer gains nothing. ]]
+function Clients.holdEvent(on, hold, lastPress, now)
+	if on ~= true then return false, lastPress end
+	if now - (lastPress or -math.huge) < 0.1 then return hold, lastPress end
+	return true, now
+end
+
 -- hand the carried app to its client; nil when you carry nothing
 function Clients.handOver(Q, ctx)
 	local c = Q.carrying
