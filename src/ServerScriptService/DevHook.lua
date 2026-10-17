@@ -214,7 +214,29 @@ return function(core)
 				while B.running and player.Parent and sessions[player.UserId] == s do
 					local now = os.clock()
 					local cash = cashOf(player)
-					if now - lastTap >= 1 then lastTap = now; writeCode(player, plot) end
+					-- 16 Oct, the client loop: with clients at the door, play it like a person:
+					-- walk to the laptop and hold while a job waits, carry the app to the
+					-- client, take BIG clients too. Builds without it still tap once a second.
+					local C = core.clients
+					-- 17 Oct: a recruit carry owns the bot; client mode pivoted it back to the laptop
+					-- every tick, and every carry was LOST (Task 10 run: 10 of 10)
+					if C and player:GetAttribute("Carrying") then
+						C.hold(player, false)
+					elseif C then
+						local st = C.state(player)
+						local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+						local want = (st.carrying and st.frontPos) or (st.waiting > 0 and plot.laptop.Position) or nil
+						if root and want and (root.Position - want).Magnitude > 6 then
+							player.Character:PivotTo(CFrame.new(want + Vector3.new(0, 3, 4)))
+						end
+						C.hold(player, (not st.carrying) and st.waiting > 0)
+						-- 17 Oct: the hand-over is a GIVE press now (pick 2A), not a walk-up
+						if st.carrying and C.give then C.give(player) end
+						if (st.served or 0) > (B.served or 0) then
+							B.served = st.served
+							if B.served % 10 == 1 then note(("client served #%d (%s)"):format(B.served, tostring(st.lastWho))) end
+						end
+					elseif now - lastTap >= 1 then lastTap = now; writeCode(player, plot) end
 					if s.pendingProduct and not B.launchAt then B.launchAt = now + 2 end
 					if B.launchAt and now >= B.launchAt then
 						B.launchAt = nil
@@ -244,7 +266,10 @@ return function(core)
 							-- a +-35 degree weave round lamps and cars, and one 1.5 s stop
 							-- a third of the way home to look around
 							B.carry = B.carry or { t0 = now, tier = player:GetAttribute("Carrying") or "?", staff = s.staff }
-							local to = plot.hqPad.Position
+							-- 17 Oct: home is the doorstep since v4.6 (TalentDrop doorPos, the CarryHome
+							-- attribute); walking to the HQ pad lost every carry
+							local home = player:GetAttribute("CarryHome")
+							local to = typeof(home) == "Vector3" and home or plot.hqPad.Position
 							local d = Vector3.new(to.X - root.Position.X, 0, to.Z - root.Position.Z)
 							--[[ v4.4 the v4.3 hunter catches anyone who stops (the old bot's 1.5 s
 							look-around lost every chase-tier carry), so the bot plays like a player
