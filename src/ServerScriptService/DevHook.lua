@@ -218,7 +218,11 @@ return function(core)
 					-- walk to the laptop and hold while a job waits, carry the app to the
 					-- client, take BIG clients too. Builds without it still tap once a second.
 					local C = core.clients
-					if C then
+					-- 17 Oct: a recruit carry owns the bot; client mode pivoted it back to the laptop
+					-- every tick, and every carry was LOST (Task 10 run: 10 of 10)
+					if C and player:GetAttribute("Carrying") then
+						C.hold(player, false)
+					elseif C then
 						local st = C.state(player)
 						local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 						local want = (st.carrying and st.frontPos) or (st.waiting > 0 and plot.laptop.Position) or nil
