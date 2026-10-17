@@ -1,0 +1,188 @@
+--[[ Clients (16 Oct 2026): the clients who walk up to your door. Pure.
+
+	Spec: silicon-startup/docs/superpowers/specs/2026-10-16-client-loop-design.md.
+	Luke's recording (16 Oct): the main thing a new player did was tap a button,
+	and nobody in the world wanted anything from them. Now a client walks up and
+	asks for an app, you code it by holding WRITE CODE at your laptop, carry it
+	out and get paid, with a tip for speed. The first client is the tutorial and
+	the wow (Tizzy: the first feed made the pet 5x bigger "to teach that wow").
+
+	This module is every rule and no Instance: the queue, patience, job progress,
+	coders, pay. `ClientsServer` owns the people, the remote and the cash, and
+	calls `tick` / `handOver`. Tested by tests/offline/clients.spec.luau.
+
+	A queue Q = { line, carrying, t, nextAt, served, lost, first, tutorial, seed, nextId }
+	A client  = { id, kind = "first"|"normal"|"big", ask, need, done, patience?, left?, by? } ]]
+local Clients = {}
+
+-- starting values; tuned against the pacing targets (plan Task 10), never in the tests
+Clients.TUNE = {
+	FLOOR = 8,            -- a job pays at least this ...
+	SECONDS = 3,          -- ... or this many seconds of your income, whichever is more
+	TIP = 0.35,           -- speed tip, as a share of the pay, when you hand over with half your patience left
+	WOW = 5,              -- the first client pays this many normal jobs
+	BIG_MULT = 5,         -- a BIG client pays this many
+	BIG_NEED = 4,         -- and is this many jobs of work
+	BIG_CHANCE = 0.12,    -- chance a new client is BIG, from the lobby on
+	PLAYER_SPEED = 1,     -- work per second while you hold at the laptop
+	CODER_SPEED = 0.4,    -- a tier-1 engineer's work per second
+	OFF_ROLE = 1 / 1.5,   -- other roles code this much slower (RoomEconomy.FIT_MULT)
+	FIRST_NEED = 3,       -- the first job: about 3 s of holding
+	NEED = 4,
+	PATIENCE = 30,
+	BIG_PATIENCE = 45,
+	CAP = 3,              -- never more than 3 waiting (phones)
+	SPAWN_GARAGE = 9,
+	SPAWN_LOBBY = 7,
+	SPAWN_MIN = 4,
+}
+local TUNE = Clients.TUNE
+
+local FIRST_ASK = "A to-do app!"
+local ASKS = { "A chat app!", "A game!", "A shop site!", "A photo app!", "A map app!", "A music app!", "A weather app!", "A pet app!" }
+
+-- a seeded generator kept in the queue, so the same seed gives the same clients
+local function roll(Q)
+	Q.seed = (Q.seed * 1103515245 + 12345) % 2147483648
+	return Q.seed / 2147483648
+end
+
+function Clients.cap(level)
+	return math.min(TUNE.CAP, (level or 1) <= 1 and 2 or 3)
+end
+
+function Clients.spawnEvery(level, stage)
+	if (level or 1) <= 1 then return TUNE.SPAWN_GARAGE end
+	return math.max(TUNE.SPAWN_MIN, TUNE.SPAWN_LOBBY - ((stage or 1) - 1))
+end
+
+function Clients.coderSpeed(tier, role)
+	local s = TUNE.CODER_SPEED * (1 + 0.25 * ((tier or 1) - 1))
+	if role ~= "engineer" then s *= TUNE.OFF_ROLE end
+	return s
+end
+
+-- a new client of `kind`; picks its ask from the queue's generator
+function Clients.make(Q, kind)
+	local c = { id = Q.nextId, kind = kind, done = 0 }
+	Q.nextId += 1
+	if kind == "first" then
+		c.ask, c.need = FIRST_ASK, TUNE.FIRST_NEED
+	elseif kind == "big" then
+		c.ask, c.need, c.patience = "BIG", TUNE.NEED * TUNE.BIG_NEED, TUNE.BIG_PATIENCE
+	else
+		c.ask, c.need, c.patience = ASKS[1 + math.floor(roll(Q) * #ASKS)], TUNE.NEED, TUNE.PATIENCE
+	end
+	c.left = c.patience
+	return c
+end
+
+function Clients.new(opts)
+	opts = opts or {}
+	local Q = { line = {}, carrying = nil, t = 0, nextAt = 0, served = 0, lost = 0,
+		first = opts.first == true, tutorial = opts.first == true, seed = (opts.seed or 1) % 2147483648, nextId = 1 }
+	if Q.first then table.insert(Q.line, Clients.make(Q, "first")) end
+	return Q
+end
+
+-- pay for a finished job; `patienceLeft` is the share (0-1) of patience left at the hand-over
+function Clients.pay(client, rate, patienceLeft)
+	local base = math.max(TUNE.FLOOR, (rate or 0) * TUNE.SECONDS)
+	local mult = client.kind == "first" and TUNE.WOW or client.kind == "big" and TUNE.BIG_MULT or 1
+	local pay = math.floor(base * mult)
+	local tip = 0
+	if client.by == "you" and client.kind ~= "first" and (patienceLeft or 0) >= 0.5 then
+		tip = math.floor(base * TUNE.TIP)
+	end
+	return pay, tip
+end
+
+local function remove(Q, c)
+	for i, x in ipairs(Q.line) do
+		if x == c then table.remove(Q.line, i) return end
+	end
+end
+
+--[[ One step of `dt` seconds. ctx = { level, stage, rate, holding, atLaptop, coders = {speed} }.
+	Returns a list of events { kind = "arrive"|"shipped"|"served"|"lost", client, pay?, tip? }. ]]
+function Clients.tick(Q, dt, ctx)
+	local events = {}
+	Q.t += dt
+
+	-- someone new walks up (not during the tutorial: the first client is alone)
+	local newcomer
+	if not Q.tutorial and #Q.line < Clients.cap(ctx.level) and Q.t >= Q.nextAt then
+		local kind = ((ctx.level or 1) >= 2 and roll(Q) < TUNE.BIG_CHANCE) and "big" or "normal"
+		local c = Clients.make(Q, kind)
+		table.insert(Q.line, c)
+		newcomer = c
+		Q.nextAt = Q.t + Clients.spawnEvery(ctx.level, ctx.stage)
+		table.insert(events, { kind = "arrive", client = c })
+	end
+
+	-- the jobs nobody has finished, front of the line first
+	local open = {}
+	for _, c in ipairs(Q.line) do
+		if c ~= Q.carrying and c.done < c.need then table.insert(open, c) end
+	end
+
+	-- you: the front open job, while you hold at the laptop and carry nothing
+	local mine = (ctx.holding and ctx.atLaptop and not Q.carrying) and open[1] or nil
+	if mine then
+		mine.by = "you"
+		mine.done = math.min(mine.need, mine.done + TUNE.PLAYER_SPEED * dt)
+		if mine.done >= mine.need then
+			Q.carrying = mine
+			table.insert(events, { kind = "shipped", client = mine })
+		end
+	end
+
+	-- coders: one job each, front first, never yours, never BIG, never the tutorial's
+	local ci = 1
+	for _, c in ipairs(open) do
+		local speed = ctx.coders and ctx.coders[ci]
+		if not speed then break end
+		if c ~= mine and c.kind == "normal" then
+			c.by = "coder"
+			c.done += speed * dt
+			ci += 1
+			if c.done >= c.need then
+				remove(Q, c)
+				Q.served += 1
+				local pay, tip = Clients.pay(c, ctx.rate, 1)
+				table.insert(events, { kind = "served", client = c, pay = pay, tip = tip })
+			end
+		end
+	end
+
+	-- patience: everyone waiting, except the job in your hands this tick, the app you carry and who just arrived
+	for i = #Q.line, 1, -1 do
+		local c = Q.line[i]
+		if c.left and c ~= mine and c ~= Q.carrying and c ~= newcomer then
+			c.left -= dt
+			if c.left <= 0 then
+				table.remove(Q.line, i)
+				Q.lost += 1
+				table.insert(events, { kind = "lost", client = c })
+			end
+		end
+	end
+	return events
+end
+
+-- hand the carried app to its client; nil when you carry nothing
+function Clients.handOver(Q, ctx)
+	local c = Q.carrying
+	if not c then return nil end
+	remove(Q, c)
+	Q.carrying = nil
+	Q.served += 1
+	local pay, tip = Clients.pay(c, ctx and ctx.rate, c.patience and (c.left / c.patience) or 1)
+	if c.kind == "first" then
+		Q.tutorial = false
+		Q.nextAt = Q.t     -- the next client is already on the way
+	end
+	return { kind = "served", client = c, pay = pay, tip = tip }
+end
+
+return Clients
