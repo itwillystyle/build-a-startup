@@ -17,7 +17,7 @@ local Clients = {}
 
 -- starting values; tuned against the pacing targets (plan Task 10), never in the tests
 Clients.TUNE = {
-	FLOOR = 8,            -- a job pays at least this ...
+	FLOOR = 5,            -- a job pays at least this ... (17 Oct Task 10: was 8; the $60 lobby came 2 s after the hire)
 	SECONDS = 3,          -- ... or this many seconds of your income, whichever is more
 	TIP = 0.35,           -- speed tip, as a share of the pay, when you hand over with half your patience left
 	WOW = 5,              -- the first client pays this many normal jobs
@@ -32,6 +32,8 @@ Clients.TUNE = {
 	PATIENCE = 30,
 	BIG_PATIENCE = 45,
 	CAP = 3,              -- never more than 3 waiting (phones)
+	HIRE_AFTER = 4,       -- clients served before the hire is taught anyway (17 Oct: an attentive
+	                      -- player never had two waiting, so "Too busy!" came at 1:20)
 	-- 17 Oct, Luke's pick 3A: tiers like the hires (Skilled from the lobby, Star from HQ stage 3)
 	SKILLED_CHANCE = 0.30,
 	STAR_CHANCE = 0.12,
@@ -233,13 +235,16 @@ function Clients.goal(st)
 		return { key = "code", title = "Code the to-do app", target = "laptop" }
 	end
 	local busy = (st.waiting or 0) >= 2
-	if (st.staff or 0) == 0 and busy then
+	local staff = st.staff or 0
+	if staff == 0 and (busy or (st.served or 0) >= TUNE.HIRE_AFTER) then
 		return { key = "hire", title = "Too busy! Hire a coder", target = "hirePad" }
 	end
-	if (st.level or 1) <= 1 and (((st.staff or 0) >= (st.cap or 1) and busy) or (st.cash or 0) >= (st.upgradeCost or math.huge)) then
+	-- the HQ only builds with someone hired (wafersBuild: "Hire someone first")
+	if staff >= 1 and (st.level or 1) <= 1 and ((staff >= (st.cap or 1) and busy) or (st.cash or 0) >= (st.upgradeCost or math.huge)) then
 		return { key = "upgrade", title = "Upgrade your HQ", target = "hqPad" }
 	end
-	if (st.level or 1) >= 2 and st.freeSeat and busy and not st.recruitTaught then
+	-- not gated on `busy`: it flipped with Journey's goal every few seconds as the line went 1-2-1
+	if (st.level or 1) >= 2 and st.freeSeat and not st.recruitTaught then
 		return { key = "recruit", title = "Recruit on the street", target = "sidewalk" }
 	end
 	return nil

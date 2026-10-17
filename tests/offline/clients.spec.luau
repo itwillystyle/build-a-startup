@@ -327,6 +327,27 @@ test("goal: recruit on the street once, from the lobby", function()
 	assert(C.goal(st({ served = 9, tutorial = false, waiting = 2, staff = 1, cap = 8, level = 2, freeSeat = true, recruitTaught = true })) == nil, "only once")
 end)
 
+-- 17 Oct, Task 10 scripted run: a player who serves every client at once never had two
+-- waiting, so "Too busy!" came at 1:20 (target 0:40). The hire is also taught after a few.
+test("goal: an attentive player is told to hire after HIRE_AFTER clients", function()
+	local n = TUNE.HIRE_AFTER
+	assert(type(n) == "number" and n >= 2, "HIRE_AFTER is a TUNE number")
+	assert(C.goal(st({ served = n - 1, tutorial = false, waiting = 1 })) == nil, "not yet")
+	local g = C.goal(st({ served = n, tutorial = false, waiting = 0 }))
+	assert(g and g.key == "hire", "after " .. n .. " clients, even with nobody waiting")
+end)
+
+test("goal: never 'upgrade' before the first hire (the pad says 'Hire someone first')", function()
+	local g = C.goal(st({ served = 3, tutorial = false, waiting = 1, staff = 0, cash = 500, upgradeCost = 60 }))
+	assert(not (g and g.key == "upgrade"), "upgrade with no staff")
+end)
+
+test("goal: the recruit goal does not flicker as the line goes 1 and 2", function()
+	local function at(w) return st({ served = 9, tutorial = false, staff = 1, cap = 2, level = 2, freeSeat = true, waiting = w }) end
+	local a, b, c = C.goal(at(2)), C.goal(at(1)), C.goal(at(0))
+	assert(a and b and c and a.key == "recruit" and b.key == "recruit" and c.key == "recruit", "one goal while the seat is free")
+end)
+
 test("goal: after the lobby there is always a goal", function()
 	local s = st({ served = 9, tutorial = false, waiting = 1, staff = 1, cap = 8, level = 2 })
 	local g = C.goal(s) or (function() return nil end)() or C.fallback(s)

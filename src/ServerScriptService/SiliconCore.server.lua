@@ -1655,7 +1655,10 @@ local function refreshObjective(player)
 		gs.staff, gs.cap, gs.level = s.staff or 0, st.cap or 1, st.level or plot.hq.level
 		gs.cash, gs.upgradeCost = st.cash or 0, st.nextHqCost
 		gs.freeSeat = (s.staff or 0) < (st.cap or 0)
-		gs.recruitTaught = (s.staff or 0) >= 2
+		-- 17 Oct (Task 10): taught once you have picked someone up on the street; the bot, losing
+		-- every carry, sat on "Recruit on the street" and never built level 3
+		if Econ.Drop and Econ.Drop.carrying(player) then s.recruitTried = true end
+		gs.recruitTaught = (s.staff or 0) >= 2 or s.recruitTried == true
 		cg = Econ.Clients.goal(gs)
 	end
 	local function clientTarget(target)
