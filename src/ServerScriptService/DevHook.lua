@@ -266,7 +266,10 @@ return function(core)
 							-- a +-35 degree weave round lamps and cars, and one 1.5 s stop
 							-- a third of the way home to look around
 							B.carry = B.carry or { t0 = now, tier = player:GetAttribute("Carrying") or "?", staff = s.staff }
-							local to = plot.hqPad.Position
+							-- 17 Oct: home is the doorstep since v4.6 (TalentDrop doorPos, the CarryHome
+							-- attribute); walking to the HQ pad lost every carry
+							local home = player:GetAttribute("CarryHome")
+							local to = typeof(home) == "Vector3" and home or plot.hqPad.Position
 							local d = Vector3.new(to.X - root.Position.X, 0, to.Z - root.Position.Z)
 							--[[ v4.4 the v4.3 hunter catches anyone who stops (the old bot's 1.5 s
 							look-around lost every chase-tier carry), so the bot plays like a player
