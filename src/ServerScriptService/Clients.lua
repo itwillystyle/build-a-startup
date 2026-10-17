@@ -171,6 +171,25 @@ function Clients.tick(Q, dt, ctx)
 	return events
 end
 
+--[[ The reception counter (Luke's pick B, 17 Oct). From the lobby on, clients do not
+	queue at the old garage door: the lobby reaches 49 studs past it, so they stood in
+	its walls and by its sofa (his playtest). They walk in through the entrance to a
+	counter on the empty half of the lobby's back wall (the TV and the photo hang on the
+	other half), the side nearest the hall desk, and queue from it toward the door.
+	`room` is TowerPlan.room(0, 1), plot-local (x right, +z toward the road).
+	Returns { counter = {x, z, w, d}, spots = {{x, z}...}, path = {{x, z}...} }. ]]
+function Clients.counterLine(room)
+	local cx = room.x0 + (room.x1 - room.x0) * 0.76
+	local counter = { x = cx, z = room.z0 + 4.4, w = 6, d = 1.6 }
+	local spots = {}
+	for i = 1, TUNE.CAP do
+		table.insert(spots, { x = cx, z = counter.z + 3.2 + 4.2 * (i - 1) })
+	end
+	local doorX = room.cx or (room.x0 + room.x1) / 2
+	local path = { { x = doorX, z = room.z1 + 14 }, { x = doorX, z = room.z1 - 4 } }
+	return { counter = counter, spots = spots, path = path }
+end
+
 --[[ The goal line (spec: "Teaching the rest when it's needed"; Tizzy's contextual
 	tutorial). One goal, the moment it is needed; nil = let Journey decide.
 	st = { served, carrying, waiting, staff, cap, level, cash, upgradeCost, freeSeat,

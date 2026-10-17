@@ -203,6 +203,44 @@ test("a Cold Brew codes faster (speedMult)", function()
 	assert(math.abs(Q.line[1].done - 3) < 0.01 or Q.carrying, "3 work in 1 s at x3, got " .. tostring(Q.line[1] and Q.line[1].done))
 end)
 
+-- the reception counter (Luke's pick B, 17 Oct): from the lobby on, clients queue inside the lobby
+local TP = require("../../src/ReplicatedStorage/TowerPlan")
+local LOBBY = TP.room(0, 1)
+
+test("counter: queue spots stand inside the lobby room, 2 studs off every wall", function()
+	local L = C.counterLine(LOBBY)
+	assert(L and #L.spots == TUNE.CAP, "one spot per waiting client")
+	for i, sp in ipairs(L.spots) do
+		assert(sp.x > LOBBY.x0 + 2 and sp.x < LOBBY.x1 - 2, ("spot %d x %.1f outside the room"):format(i, sp.x))
+		assert(sp.z > LOBBY.z0 + 2 and sp.z < LOBBY.z1 - 2, ("spot %d z %.1f outside the room"):format(i, sp.z))
+	end
+end)
+
+test("counter: clear of the sofa in the middle and the desks by the door", function()
+	local L = C.counterLine(LOBBY)
+	local sofa = { x = LOBBY.cx, z = LOBBY.z0 + 4.8 }   -- TowerArt's loungeSofa (measured 17 Oct: 0, 20.3)
+	for i, sp in ipairs(L.spots) do
+		assert(math.abs(sp.x - sofa.x) > 5, ("spot %d is at the sofa"):format(i))
+		assert(sp.z < LOBBY.z1 - 10, ("spot %d is among the desks by the door"):format(i))
+	end
+	assert(math.abs(L.counter.x - sofa.x) > 6, "the counter is at the sofa")
+end)
+
+test("counter: at the back of the lobby, nearest the hall desk, queue toward the door", function()
+	local L = C.counterLine(LOBBY)
+	assert(L.counter.z < LOBBY.z0 + 7, "the counter is at the back wall")
+	for i = 2, #L.spots do assert(L.spots[i].z > L.spots[i - 1].z, "the line runs toward the entrance") end
+	assert(L.spots[1].z > L.counter.z, "the first client stands in front of the counter")
+end)
+
+test("counter: clients walk in through the entrance", function()
+	local L = C.counterLine(LOBBY)
+	local half = LOBBY.entrance.width / 2
+	assert(#L.path >= 2, "a path from outside to inside")
+	assert(L.path[1].z > LOBBY.z1 and math.abs(L.path[1].x - LOBBY.cx) < half, "starts outside, in front of the door")
+	assert(L.path[2].z < LOBBY.z1 and math.abs(L.path[2].x - LOBBY.cx) < half, "then just inside the door")
+end)
+
 -- the goal line (Clients.goal): one goal, taught when it is needed
 local function st(over)
 	local t = { served = 0, carrying = false, waiting = 1, staff = 0, cap = 1, level = 1, cash = 0,

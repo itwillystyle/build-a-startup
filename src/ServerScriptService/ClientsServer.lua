@@ -20,6 +20,7 @@ local Clients = require(ServerScriptService:WaitForChild("Clients"))
 local StaffRig = require(ServerScriptService:WaitForChild("StaffRig"))
 local Telemetry = require(ServerScriptService:WaitForChild("Telemetry"))
 local WaferPlan = require(ServerScriptService:WaitForChild("WaferPlan"))
+local TowerPlan = require(ReplicatedStorage:WaitForChild("TowerPlan"))
 
 local LAPTOP_RANGE = 12    -- studs: holding counts within this of your laptop
 local HAND_RANGE = 9       -- studs: walk this close to your client and the app changes hands
@@ -81,14 +82,93 @@ return function(core)
 	end
 	for _, plot in pairs(core.plots or {}) do pcall(doorLine, plot) end
 
+	local function levelOf(plot)
+		return (plot.wafer and plot.wafer.level) or (plot.hq and plot.hq.level) or 1
+	end
+
+	-- from the lobby on, the reception counter (Luke's pick B, Clients.counterLine)
+	local LOBBY_LINE = Clients.counterLine(TowerPlan.room(0, 1))
+	local function lobbyMode(plot) return levelOf(plot) >= 2 end
+	local function localAt(plot, x, z)
+		local p = plot.g(x, 0, z).Position
+		return Vector3.new(p.X, plot.hqPad.Position.Y, p.Z)
+	end
+
 	local function spot(plot, i)
+		if lobbyMode(plot) then
+			local sp = LOBBY_LINE.spots[math.min(i, #LOBBY_LINE.spots)]
+			return localAt(plot, sp.x, sp.z)
+		end
 		local L = doorLine(plot)
 		return L.center + L.out * (4 + 4.5 * (i - 1)) + L.side * ((i % 2 == 0) and 1.5 or -1.5)
 	end
 
-	local function farPoint(plot)
+	-- where a waiting client looks: the counter, or the garage door
+	local function lookAtOf(plot)
+		if lobbyMode(plot) then return localAt(plot, LOBBY_LINE.counter.x, LOBBY_LINE.counter.z) end
+		return doorLine(plot).center
+	end
+
+	-- the way in, from outside to just inside (the lobby's entrance; the garage has an open front)
+	local function entryPath(plot)
+		if lobbyMode(plot) then
+			local out = {}
+			for _, q in ipairs(LOBBY_LINE.path) do table.insert(out, localAt(plot, q.x, q.z)) end
+			return out
+		end
 		local L = doorLine(plot)
-		return L.center + L.out * 34 + L.side * 14
+		return { L.center + L.out * 34 + L.side * 14 }
+	end
+
+	-- the counter itself: Oak top, PaperWhite body, a BrandGold stripe, round ends (the
+	-- wafer rule), and a rope line on both sides of the queue (Palette anchors only)
+	local OAK, PAPER_W, BRAND, INK_C = Color3.fromRGB(192, 138, 85), Color3.fromRGB(243, 239, 230),
+		Color3.fromRGB(255, 194, 61), Color3.fromRGB(30, 37, 48)
+	local function setCounter(plot, on)
+		if not on then
+			if plot.clientCounter then plot.clientCounter:Destroy(); plot.clientCounter = nil end
+			return
+		end
+		if plot.clientCounter and plot.clientCounter.Parent then return end
+		local m = Instance.new("Model")
+		m.Name = "HQ_ClientCounter"
+		local y0 = plot.hqPad.Position.Y
+		local function piece(name, shape, size, x, y, z, color, rot)
+			local part = Instance.new("Part")
+			part.Name, part.Anchored, part.Material = name, true, Enum.Material.SmoothPlastic
+			part.Shape = shape or Enum.PartType.Block
+			part.Size, part.Color = size, color
+			local cf = plot.g(x, 0, z)
+			part.CFrame = CFrame.new(cf.Position.X, y0 + y, cf.Position.Z) * (cf - cf.Position) * (rot or CFrame.new())
+			part.Parent = m
+			return part
+		end
+		local C0, cyl = LOBBY_LINE.counter, Enum.PartType.Cylinder
+		local upright = CFrame.Angles(0, 0, math.pi / 2)
+		local bodyW = C0.w - C0.d
+		piece("Body", nil, Vector3.new(bodyW, 3.2, C0.d), C0.x, 1.6, C0.z, PAPER_W)
+		piece("Stripe", nil, Vector3.new(bodyW + 0.02, 0.35, C0.d + 0.02), C0.x, 2.55, C0.z, BRAND)
+		piece("Top", nil, Vector3.new(bodyW + 0.4, 0.3, C0.d + 0.5), C0.x, 3.35, C0.z, OAK)
+		for _, sx in ipairs({ -1, 1 }) do
+			local ex = C0.x + sx * bodyW / 2
+			piece("End", cyl, Vector3.new(3.2, C0.d, C0.d), ex, 1.6, C0.z, PAPER_W, upright)
+			piece("TopEnd", cyl, Vector3.new(0.3, C0.d + 0.5, C0.d + 0.5), ex, 3.35, C0.z, OAK, upright)
+		end
+		-- rope line: a post at each end of the queue, both sides, gold rope between
+		local first, last = LOBBY_LINE.spots[1], LOBBY_LINE.spots[#LOBBY_LINE.spots]
+		for _, sx in ipairs({ -1.7, 1.7 }) do
+			for _, z in ipairs({ first.z - 1, last.z + 1.5 }) do
+				piece("Post", cyl, Vector3.new(2.6, 0.35, 0.35), first.x + sx, 1.3, z, INK_C, upright)
+				piece("PostCap", Enum.PartType.Ball, Vector3.new(0.6, 0.6, 0.6), first.x + sx, 2.7, z, INK_C)
+			end
+			local len = (last.z + 1.5) - (first.z - 1)
+			piece("Rope", nil, Vector3.new(0.18, 0.18, len), first.x + sx, 2.35, (first.z - 1 + last.z + 1.5) / 2, BRAND)
+		end
+		for _, part in ipairs(m:GetChildren()) do
+			if part.Name == "Rope" or part.Name == "PostCap" then part.CanCollide = false end
+		end
+		m.Parent = plot.garage.Parent
+		plot.clientCounter = m
 	end
 
 	-- ------------------------------------------------------------- one client's body
@@ -122,6 +202,16 @@ return function(core)
 				if done then done() end
 			end
 		end)
+	end
+
+	local function walkPath(model, points, faceAfter, done)
+		local i = 0
+		local function nextLeg()
+			i += 1
+			if i > #points then if done then done() end return end
+			walk(model, points[i], i == #points and faceAfter or nil, nextLeg)
+		end
+		nextLeg()
 	end
 
 	local function bubble(model, client)
@@ -250,7 +340,11 @@ return function(core)
 		if not model then return end
 		if line then say(model, line) end
 		task.delay(line and 1.4 or 0, function()
-			if model.Parent then walk(model, farPoint(P.plot), nil, function() model:Destroy() end) end
+			if not model.Parent then return end
+			local path = entryPath(P.plot)
+			local back = {}
+			for k = #path, 1, -1 do table.insert(back, path[k]) end
+			walkPath(model, back, nil, function() model:Destroy() end)
 		end)
 	end
 
@@ -261,7 +355,7 @@ return function(core)
 			local want = spot(P.plot, i)
 			if model and model.Parent and model:GetAttribute("Spot") ~= i then
 				model:SetAttribute("Spot", i)
-				walk(model, want, doorLine(P.plot).center)
+				walk(model, want, lookAtOf(P.plot))
 			end
 		end
 	end
@@ -303,10 +397,6 @@ return function(core)
 		return n
 	end
 
-	local function levelOf(plot)
-		return (plot.wafer and plot.wafer.level) or (plot.hq and plot.hq.level) or 1
-	end
-
 	local function codersOf(s)
 		local out = {}
 		for _, r in ipairs(s.rigs or {}) do
@@ -345,6 +435,15 @@ return function(core)
 			local atLaptop = root ~= nil and (root.Position - P.plot.laptop.Position).Magnitude <= LAPTOP_RANGE
 			local holding = P.hold or os.clock() < P.tapUntil
 			local level = levelOf(P.plot)
+			local mode = level >= 2 and "lobby" or "garage"
+			if mode ~= P.mode then
+				P.mode = mode
+				setCounter(P.plot, mode == "lobby")
+				for i, c in ipairs(P.Q.line) do
+					local model = P.rigs[c.id]
+					if model then standAt(model, spot(P.plot, i), lookAtOf(P.plot)); model:SetAttribute("Spot", i) end
+				end
+			end
 			local brew = (core.Econ and core.Econ.Inv and core.Econ.Inv.codeMult(player)) or 1
 			local events = Clients.tick(P.Q, dt, { level = level, stage = stageOf(level), rate = s.effective or s.rate or 0,
 				holding = holding, atLaptop = atLaptop, coders = codersOf(s), speedMult = brew })
@@ -363,8 +462,14 @@ return function(core)
 			for _, e in ipairs(events) do
 				if e.kind == "arrive" then
 					local model = makeRig(player, P, e.client)
-					standAt(model, farPoint(P.plot), doorLine(P.plot).center)
-					placeLine(P)
+					local path = entryPath(P.plot)
+					standAt(model, path[1], lookAtOf(P.plot))
+					local idx = table.find(P.Q.line, e.client) or #P.Q.line
+					model:SetAttribute("Spot", idx)
+					local legs = {}
+					for k = 2, #path do table.insert(legs, path[k]) end
+					table.insert(legs, spot(P.plot, idx))
+					walkPath(model, legs, lookAtOf(P.plot))
 				elseif e.kind == "shipped" then
 					player:SetAttribute("CarryingApp", true)
 					core.popup(P.plot.laptop, "SHIPPED!", GO)
@@ -382,7 +487,7 @@ return function(core)
 			for i, c in ipairs(P.Q.line) do
 				if not P.rigs[c.id] then
 					local model = makeRig(player, P, c)
-					standAt(model, spot(P.plot, i), doorLine(P.plot).center)
+					standAt(model, spot(P.plot, i), lookAtOf(P.plot))
 					model:SetAttribute("Spot", i)
 				end
 			end
@@ -453,6 +558,7 @@ return function(core)
 		byUser[uid] = nil
 		if not P then return end
 		for _, model in pairs(P.rigs) do if model.Parent then model:Destroy() end end
+		setCounter(P.plot, false)
 	end
 
 	-- a spin-off or a dev reset: new line, no tutorial unless asked
