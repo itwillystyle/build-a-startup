@@ -239,6 +239,8 @@ return function(core)
 							player.Character:PivotTo(CFrame.new(want + Vector3.new(0, 3, 4)))
 						end
 						C.hold(player, (not st.carrying) and st.waiting > 0)
+						-- 17 Oct: the hand-over is a GIVE press now (pick 2A), not a walk-up
+						if st.carrying and C.give then C.give(player) end
 						if (st.served or 0) > (B.served or 0) then
 							B.served = st.served
 							if B.served % 10 == 1 then note(("client served #%d (%s)"):format(B.served, tostring(st.lastWho))) end
