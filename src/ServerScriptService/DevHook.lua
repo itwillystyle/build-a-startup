@@ -214,7 +214,23 @@ return function(core)
 				while B.running and player.Parent and sessions[player.UserId] == s do
 					local now = os.clock()
 					local cash = cashOf(player)
-					if now - lastTap >= 1 then lastTap = now; writeCode(player, plot) end
+					-- 16 Oct, the client loop: with clients at the door, play it like a person:
+					-- walk to the laptop and hold while a job waits, carry the app to the
+					-- client, take BIG clients too. Builds without it still tap once a second.
+					local C = core.clients
+					if C then
+						local st = C.state(player)
+						local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+						local want = (st.carrying and st.frontPos) or (st.waiting > 0 and plot.laptop.Position) or nil
+						if root and want and (root.Position - want).Magnitude > 6 then
+							player.Character:PivotTo(CFrame.new(want + Vector3.new(0, 3, 4)))
+						end
+						C.hold(player, (not st.carrying) and st.waiting > 0)
+						if (st.served or 0) > (B.served or 0) then
+							B.served = st.served
+							if B.served % 10 == 1 then note(("client served #%d (%s)"):format(B.served, tostring(st.lastWho))) end
+						end
+					elseif now - lastTap >= 1 then lastTap = now; writeCode(player, plot) end
 					if s.pendingProduct and not B.launchAt then B.launchAt = now + 2 end
 					if B.launchAt and now >= B.launchAt then
 						B.launchAt = nil

@@ -33,7 +33,8 @@ end
 -- the money kinds Telemetry knows how to file (SHOP, TIMED, SUMMED, and the Gameplay rest)
 local KINDS = { floor = true, room = true, furniture = true, home = true, car = true, refund = true,
 	daily = true, offline = true, income = true, code = true,
-	hire = true, launch = true, investor = true, offer = true, ipo = true, bell = true, spinoff = true }
+	hire = true, launch = true, investor = true, offer = true, ipo = true, bell = true, spinoff = true,
+	client = true, client_tip = true }   -- 16 Oct: the client loop's pay and speed tip
 
 test("the funnel is the HQ ladder, in the order the game forces", function()
 	local steps = table.concat(funnel(), " ")

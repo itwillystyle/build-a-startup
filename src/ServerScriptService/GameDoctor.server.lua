@@ -229,6 +229,36 @@ local function run()
 			": two Rojo plugins syncing at once? keep one (Plugins > Manage Plugins)") or nil)
 	end)
 
+	--[[ The first client (16 Oct, the client loop): a brand-new save meets one client
+		at the door asking for a to-do app, and serving it pays the wow (spec:
+		2026-10-16-client-loop-design.md). Builds without the client loop have no
+		"fresh" scenario: the step says so and passes, so this judge can land first. ]]
+	step("first client", function()
+		local r = sv:Invoke("scenario", player, "fresh")
+		if not (r and r.ok) and tostring(r and r.err):find("unknown scenario", 1, true) then
+			info("first client", "skipped", "no client loop on this build")
+			return
+		end
+		check("fresh save", r and r.ok, "BLOCKER", r and (r.ok and "ok" or r.err), "ok")
+		local Clients = require(game:GetService("ServerScriptService"):WaitForChild("Clients"))
+		local t0 = os.clock()
+		local rig
+		repeat
+			for _, d in ipairs(workspace:GetDescendants()) do
+				if d:GetAttribute("ClientOf") == player.UserId then rig = d break end
+			end
+			if not rig then task.wait(0.5) end
+		until rig or os.clock() - t0 > 20
+		check("client arrives", rig ~= nil, "BUG", rig and "at the door" or "none in 20 s", "at the door")
+		local cash = player:FindFirstChild("leaderstats") and player.leaderstats:FindFirstChild("Cash")
+		local before = cash and cash.Value or 0
+		local s = sv:Invoke("clients", player, "serve")
+		local gained = (cash and cash.Value or 0) - before
+		local want = Clients.TUNE.FLOOR * Clients.TUNE.WOW
+		check("first client pays the wow", gained >= want, "BUG", gained, ">= " .. want, s and s.err)
+		check("first app shipped", player:GetAttribute("Shipped") == true, "BUG", player:GetAttribute("Shipped"), true)
+	end)
+
 	for _, level in ipairs(LEVELS) do
 		step("hq:" .. level, function()
 			local r = sv:Invoke("scenario", player, "hq:" .. level)
