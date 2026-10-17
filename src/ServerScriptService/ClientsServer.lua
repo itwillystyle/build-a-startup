@@ -55,7 +55,11 @@ return function(core)
 	local clientPaid = remote("ClientPaid")  -- server -> client: { pay, tip, wow, at, who }
 
 	-- ------------------------------------------------------------- the door line
-	-- where the clients queue: straight out of the garage door, away from the laptop
+	--[[ where the clients queue: straight out of the garage door, away from the
+		laptop. Measured from the garage's DoorHeader, which only exists while the
+		plot is a garage: every plot is one when the server starts, so init measures
+		them all; a line measured without the header is never kept (a level-16 save
+		loading first left the line beside the laptop, 16 Oct live check). ]]
 	local function doorLine(plot)
 		if plot.clientLine then return plot.clientLine end
 		local header = plot.garage and plot.garage:FindFirstChild("DoorHeader", true)
@@ -71,9 +75,11 @@ return function(core)
 			out = Vector3.new(0, 0, -1)
 		end
 		local side = out:Cross(Vector3.yAxis)
-		plot.clientLine = { center = center, out = out, side = side }
-		return plot.clientLine
+		local line = { center = center, out = out, side = side }
+		if header then plot.clientLine = line end
+		return line
 	end
+	for _, plot in pairs(core.plots or {}) do pcall(doorLine, plot) end
 
 	local function spot(plot, i)
 		local L = doorLine(plot)
@@ -312,7 +318,7 @@ return function(core)
 		return out
 	end
 
-	local function start(player)
+	local function start(player, forceFirst)
 		local uid = player.UserId
 		local t0 = os.clock()
 		while player.Parent and not (sessions[uid] and plotOf(player) and player:GetAttribute("HQLevel") ~= nil) do
@@ -321,7 +327,7 @@ return function(core)
 		end
 		if not player.Parent then return end
 		local s, plot = sessions[uid], plotOf(player)
-		local first = not s.shipped and (s.spinoffs or 0) == 0 and (s.launches or 0) == 0
+		local first = forceFirst == true or (not s.shipped and (s.spinoffs or 0) == 0 and (s.launches or 0) == 0)
 		local P = { Q = Clients.new({ first = first, seed = uid % 100000 + 17 }), plot = plot, rigs = {},
 			hold = false, tapUntil = 0, lastToggle = 0, coded = false }
 		byUser[uid] = P
@@ -461,7 +467,7 @@ return function(core)
 					local s = sessions[player.UserId]
 					if s then s.shipped = false end
 				end
-				start(player)
+				start(player, first)
 			end)
 		end
 	end

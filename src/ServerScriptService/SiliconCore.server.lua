@@ -4159,7 +4159,7 @@ end)
 -- refreshObjective, the bot and the doctor reach it without a new top-level local.
 if Econ then
 	Econ.Clients = require(ServerScriptService:WaitForChild("ClientsServer"))({
-		sessions = sessions, plotOf = plotOf, cashOf = cashOf, popup = popup, CFG = CFG, Econ = Econ,
+		sessions = sessions, plotOf = plotOf, cashOf = cashOf, popup = popup, CFG = CFG, Econ = Econ, plots = plots,
 		openDoor = openDoor, shipFirstProduct = shipFirstProduct,
 	})
 end
