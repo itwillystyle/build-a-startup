@@ -1349,58 +1349,23 @@ local function capacityOf(player)
 	return s and (CFG.GARAGE_DESKS + s.desks + (s.placedDesks or 0)) or 0
 end
 
-local function shipFirstProduct(player, plot)
+local function shipFirstProduct(player, _plot)
 	local s = sessions[player.UserId]
 	if not s or s.shipped then return end
 	s.shipped = true
 	Telemetry.step(player, "first_ship")
-	local g = plot.g
-	local prod = part({ Name = "Product", Size = Vector3.new(1.6, 2.2, 0.2),
-		CFrame = g(0, 3.9, -9), Color = CFG.GOOD, Material = Enum.Material.Neon }, plot.garage)
-	local tag = label(prod, "TO-DO APP", 22, 2.2, 60)
-	tag.TextColor3 = CFG.GOOD
-	TweenService:Create(prod, TweenInfo.new(1.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-		{ CFrame = g(0, 9.2, -9) }):Play()
-	task.delay(2.6, function()
-		TweenService:Create(prod, TweenInfo.new(0.5), { Transparency = 1 }):Play()
-		TweenService:Create(tag, TweenInfo.new(0.5), { TextTransparency = 1 }):Play()
-		task.delay(0.6, function() prod:Destroy() end)
-	end)
-	popup(plot.desk, "SHIPPED!", CFG.GOLD)
+	-- 16 Oct: the first client's hand-over calls this; the payout and its
+	-- SHIPPED! stamp are the client's (ClientsServer, ClientFxClient); the beat
+	-- driver below wakes on s.shipped and turns the HIRE pad on
 end
 
 local function writeCode(player, plot)
+	-- 16 Oct, the client loop: coding is HOLDING at the laptop (ClientsServer);
+	-- a tap (the old WriteCode remote, a click on the laptop) counts as a short hold
 	if plotOf(player) ~= plot then return end
-	local s = sessions[player.UserId]
-	local cash = cashOf(player)
-	if not s or not cash then return end
-	-- a prompt/click spammer fired this hundreds of times a second for $5 each
-	if s.lastCode and os.clock() - s.lastCode < 0.35 then return end
-	s.lastCode = os.clock()
-	s.clicks += 1
-	local brew = (Econ and Econ.Inv and Econ.Inv.codeMult(player)) or 1     -- v3.2: a Cold Brew runs x3
-	-- v4.3: a tap is worth a slice of your income, and fast taps build a combo:
-	-- the one active verb while you save up (CoreConfig CODE_SECONDS / CODE_COMBO_*)
-	local tNow = os.clock()
-	s.codeCombo = (s.lastCodeAt and tNow - s.lastCodeAt < 0.9) and math.min((s.codeCombo or 0) + 1, CFG.CODE_COMBO_MAX) or 0
-	s.lastCodeAt = tNow
-	local gain = math.floor(math.max(CFG.CODE_REWARD, (s.rate or 0) * CFG.CODE_SECONDS) * (1 + CFG.CODE_COMBO_STEP * s.codeCombo) * brew)
-	cash.Value += gain
-	Telemetry.money(player, "source", gain, "code")
-	player:SetAttribute("CodeCombo", s.codeCombo)
-	player:SetAttribute("CodeGain", gain)
-	player:SetAttribute("CodeTap", (player:GetAttribute("CodeTap") or 0) + 1)   -- what the HUD watches (a repeat gain still counts)
-	Telemetry.step(player, "first_code")
-	popup(plot.laptop, "+$" .. fmt(gain))
+	if Econ and Econ.Clients then Econ.Clients.tap(player) end
 	plot.screen.Color = CFG.GOOD
 	task.delay(0.12, function() plot.screen.Color = CFG.ACCENT end)
-	if s.clicks == CFG.CLICKS_TO_SHIP then shipFirstProduct(player, plot) end
-	-- v2.7.0 the active verb: every click after the first ship pushes the product bar
-	if Econ and Econ.V3 and s.shipped and s.clicks > CFG.CLICKS_TO_SHIP and not s.pendingProduct then
-		local team = 0
-		for _, r in ipairs(s.rigs or {}) do team += CFG.TIER_RATE[r.tier or 1] end
-		s.work = (s.work or 0) + math.max(1, team * Econ.CODE_WORK) * brew
-	end
 end
 
 --[[
@@ -2320,14 +2285,14 @@ local function tryUpgrade(player, plot, chosen)
 	task.delay(1.4, function() plot.busy = false end)
 end
 
-local function openDoor(plot)
+local function openDoor(plot, quiet)   -- quiet: the first client opens it (no "build on it" line yet)
 	if plot.doorOpened then return end
 	plot.doorOpened = true
 	for _, door in ipairs({ plot.hq.doorL, plot.hq.doorR }) do
 		TweenService:Create(door, TweenInfo.new(2.2, Enum.EasingStyle.Quad),
 			{ CFrame = door.CFrame * CFrame.new(0, 11, 0) }):Play()
 	end
-	task.delay(0.4, function() popup(plot.desk, "Your lot is outside. Build on it.", CFG.GOLD) end)
+	if not quiet then task.delay(0.4, function() popup(plot.desk, "Your lot is outside. Build on it.", CFG.GOLD) end) end
 end
 
 -- ============ ROOMS ============
@@ -3037,8 +3002,15 @@ end
 
 -- prompts are connected here, after every handler above exists
 local function wirePlot(plot)
-	local cp = prompt(plot.laptop, "WRITE CODE", "Your laptop", 14)
-	cp.Triggered:Connect(function(player) writeCode(player, plot) end)
+	local cp = prompt(plot.laptop, "HOLD TO CODE", "Your laptop", 14)
+	-- 16 Oct: the key is held, like the HUD button (it never "completes")
+	cp.HoldDuration = 600
+	cp.PromptButtonHoldBegan:Connect(function(player)
+		if plotOf(player) == plot and Econ and Econ.Clients then Econ.Clients.hold(player, true) end
+	end)
+	cp.PromptButtonHoldEnded:Connect(function(player)
+		if Econ and Econ.Clients then Econ.Clients.hold(player, false) end
+	end)
 	alsoClickable(plot.laptop, 16, function(player) writeCode(player, plot) end)
 	alsoClickable(plot.screen, 16, function(player) writeCode(player, plot) end)
 
@@ -3165,6 +3137,7 @@ spinOff = function(player, plot)
 	productReady:FireClient(player, nil)
 	s.spinoffs = math.min((s.spinoffs or 0) + 1, Prog.SPIN_CAP)
 	s.shipped = true; s.buildUnlocked = true
+	if Econ and Econ.Clients then Econ.Clients.reset(player) end   -- 16 Oct: a new line at the garage door, no tutorial
 	plot.doorOpened = true
 	for _, door in ipairs({ plot.hq.doorL, plot.hq.doorR }) do door.CFrame = door.CFrame * CFrame.new(0, 11, 0) end
 	for _, slot in ipairs(plot.slots) do slot.prompt.Enabled = true; slot.text.Text = "BUILD HERE" end
@@ -4180,11 +4153,23 @@ clientInfo.OnServerEvent:Connect(function(player, isMobile)
 	player:SetAttribute("Touch", isMobile == true)
 end)
 
+-- ============ CLIENTS AT THE DOOR (16 Oct) ============
+-- The core loop: clients walk up, you hold WRITE CODE at your laptop, carry the
+-- app out, get paid (ClientsServer.lua; rules in Clients.lua). Kept on Econ so
+-- refreshObjective, the bot and the doctor reach it without a new top-level local.
+if Econ then
+	Econ.Clients = require(ServerScriptService:WaitForChild("ClientsServer"))({
+		sessions = sessions, plotOf = plotOf, cashOf = cashOf, popup = popup, CFG = CFG, Econ = Econ,
+		openDoor = openDoor, shipFirstProduct = shipFirstProduct,
+	})
+end
+
 -- ============ STUDIO-ONLY DEV HOOK ============
 -- v4.2: the code lives in DevHook.lua. Studio only, same load point.
 if game:GetService("RunService"):IsStudio() then
 	require(ServerScriptService:WaitForChild("DevHook"))({
 		coreScript = script,
+		clients = Econ and Econ.Clients,
 		goPublic = function(p, pl) return goPublic(p, pl) end,
 		CFG = CFG,
 		Econ = Econ,

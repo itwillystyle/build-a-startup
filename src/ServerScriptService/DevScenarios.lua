@@ -39,7 +39,7 @@ local snapped = {} -- userId -> true once a snapshot was taken in THIS server
 Scen.LIST = {
 	"snapshot", "rich", "ready", "chase:skilled", "chase:star", "chase:genius",
 	"vip-chase", "hq:<n>", "home:<0-3>", "spinoff", "tp:hq", "tp:apt", "tp:car",
-	"tp:candidate:<tier>", "tp:vip", "tp:door", "geo", "restock", "health", "list",
+	"tp:candidate:<tier>", "tp:vip", "tp:door", "geo", "restock", "health", "fresh", "list",
 }
 
 local function allowed(userId)
@@ -262,6 +262,13 @@ function Scen.run(ctx, player, name)
 		step("wlevel", n .. "!")
 		local plot = ctx.plotOf(player)
 		return done(true, nil, { level = plot and plot.wafer and plot.wafer.level })
+	elseif kind == "fresh" then
+		-- 16 Oct: the garage and the first client, as a brand-new save meets them
+		-- (session only; the save is not touched)
+		step("wlevel", "1!")
+		local r = step("clients", "fresh")
+		if type(r) == "table" and r.ok == false then return done(false, r.err) end
+		return done(true)
 	elseif kind == "home" then
 		local n = tonumber(rest)
 		if not n then return done(false, "usage: home:<0-3>") end

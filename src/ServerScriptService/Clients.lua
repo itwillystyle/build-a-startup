@@ -103,7 +103,8 @@ local function remove(Q, c)
 	end
 end
 
---[[ One step of `dt` seconds. ctx = { level, stage, rate, holding, atLaptop, coders = {speed} }.
+--[[ One step of `dt` seconds. ctx = { level, stage, rate, holding, atLaptop, coders = {speed}, speedMult? }
+	(speedMult: a Cold Brew codes x3, as it tapped x3).
 	Returns a list of events { kind = "arrive"|"shipped"|"served"|"lost", client, pay?, tip? }. ]]
 function Clients.tick(Q, dt, ctx)
 	local events = {}
@@ -130,7 +131,7 @@ function Clients.tick(Q, dt, ctx)
 	local mine = (ctx.holding and ctx.atLaptop and not Q.carrying) and open[1] or nil
 	if mine then
 		mine.by = "you"
-		mine.done = math.min(mine.need, mine.done + TUNE.PLAYER_SPEED * dt)
+		mine.done = math.min(mine.need, mine.done + TUNE.PLAYER_SPEED * (ctx.speedMult or 1) * dt)
 		if mine.done >= mine.need then
 			Q.carrying = mine
 			table.insert(events, { kind = "shipped", client = mine })

@@ -197,6 +197,12 @@ test("the same seed gives the same clients", function()
 	for i = 1, #ea do assert(ea[i].kind == eb[i].kind and ea[i].client.ask == eb[i].client.ask, "event " .. i) end
 end)
 
+test("a Cold Brew codes faster (speedMult)", function()
+	local Q = C.new({ first = true, seed = 1 })
+	run(Q, 1, ctx({ holding = true, speedMult = 3 }))
+	assert(math.abs(Q.line[1].done - 3) < 0.01 or Q.carrying, "3 work in 1 s at x3, got " .. tostring(Q.line[1] and Q.line[1].done))
+end)
+
 -- the goal line (Clients.goal): one goal, taught when it is needed
 local function st(over)
 	local t = { served = 0, carrying = false, waiting = 1, staff = 0, cap = 1, level = 1, cash = 0,
