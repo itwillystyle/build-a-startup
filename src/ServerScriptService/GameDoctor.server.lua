@@ -256,6 +256,10 @@ local function run()
 		local gained = (cash and cash.Value or 0) - before
 		local want = Clients.TUNE.FLOOR * Clients.TUNE.WOW
 		check("first client pays the wow", gained >= want, "BUG", gained, ">= " .. want, s and s.err)
+		-- 17 Oct: the Shipped attribute is copied from the session by refreshObjective every
+		-- 0.4 s; reading it right after the serve raced that (measured: 0.40 s late, 1 run in 3)
+		local t0 = os.clock()
+		while player:GetAttribute("Shipped") ~= true and os.clock() - t0 < 1 do task.wait(0.05) end
 		check("first app shipped", player:GetAttribute("Shipped") == true, "BUG", player:GetAttribute("Shipped"), true)
 	end)
 
