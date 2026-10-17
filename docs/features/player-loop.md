@@ -4,17 +4,18 @@
 1. Nothing to do: playing sends it. The funnel's first step waits for the client's platform report, or 10 s (`src/ServerScriptService/Telemetry.lua:91`).
 2. Ship the first app and the TELL US tile (pink, last on the rail) appears (`src/StarterPlayer/StarterPlayerScripts/FeedbackClient.client.lua:21-24`). Type up to 300 characters and tap SEND (:105). The server answers with one line (:120).
 **Files:**
-- `src/ServerScriptService/Telemetry.lua`: `FUNNEL` :40 (joined, play, first_code, first_ship, first_hire, hq_2 to hq_5, public, spinoff), money kinds `SHOP` / `TIMED` / `SUMMED` :57, `FLUSH_EVERY` 300 s :60, `flush` :84, `joined` :91, `step` :125, `reached` :152 (a returning player's furthest step), `event` :166, `mark` :186 (session milestone `m_<name>`), `money` :195, `carryStart` :207, `carryEnd` :213, `left` :218.
-- Funnel steps are sent from `SiliconCore.server.lua`: the ladder at :2219, the backfill after load at :4045, `public` in `goPublic`, `spinoff` in `spinOff`. Income is summed at :3303.
+- `src/ServerScriptService/Telemetry.lua`: `FUNNEL` :40 (joined, play, first_code, first_ship, first_hire, hq_2 to hq_5, public, spinoff; since 16 Oct `first_code` is the first held code for a client and `first_ship` the first client's app, see below), money kinds `SHOP` / `TIMED` / `SUMMED` :57, `FLUSH_EVERY` 300 s :60, `flush` :84, `joined` :91, `step` :125, `reached` :152 (a returning player's furthest step), `event` :166, `mark` :186 (session milestone `m_<name>`), `money` :195, `carryStart` :207, `carryEnd` :213, `left` :218.
+- Funnel steps are sent from `SiliconCore.server.lua`: the ladder at :2226, the backfill after load at :4073, `public` in `goPublic`, `spinoff` in `spinOff`. Income is summed at :3327.
+- The client loop (16 Oct, `src/ServerScriptService/ClientsServer.lua` `paid` :424): money kinds `client` (the pay) and `client_tip` (the tip for 2-3 stars) (:430-433); event `client_served` with fields `who` and `tier` (:436); milestone `first_big_client` (:437); event `client_lost` when a client's patience runs out (:549); funnel step `first_code` on the first held code for a client (:521). See client-loop.md.
 - Recruit runs: `src/ServerScriptService/TalentDrop.lua` `endCarry` :452 (every end, with its outcome), `startCarry` :553, the poach :636.
 - Money: one `Telemetry.money` call beside every cash change, in SiliconCore, Apartments, Cars, DailyReward, Phone, SaveLoad and Valley (the full list is what `tests/offline/telemetry.spec.luau` checks).
-- `src/ServerScriptService/Feedback.lua`: `GAP` 60 s and 5 a session :20, `clean` :25 (pure), `key` :37, `receive` :44, `init` :71 (wired in `SiliconCore.server.lua:2970`), `latest` :89.
+- `src/ServerScriptService/Feedback.lua`: `GAP` 60 s and 5 a session :20, `clean` :25 (pure), `key` :37, `receive` :44, `init` :71 (wired in `SiliconCore.server.lua:2977`), `latest` :89.
 - `src/StarterPlayer/StarterPlayerScripts/FeedbackClient.client.lua`: the tile :21, the panel, the counter, SEND :105.
 **State:**
-- Dashboard: the onboarding funnel (once per user for life); custom events `m_recruit`, `m_chase`, `m_delivery`, `m_build`, `m_launch`, `m_room`, `m_rival`, `m_ten_minutes` (once per session, value = seconds in), `carry_start` (field `tier=`), `carry_end` (`tier=`, `out=`, value = seconds), `feedback`, `session_end`; economy events in currency `Cash` with the kind as the SKU.
+- Dashboard: the onboarding funnel (once per user for life); custom events `m_recruit`, `m_chase`, `m_delivery`, `m_build`, `m_launch`, `m_room`, `m_rival`, `m_ten_minutes`, `m_first_big_client` (once per session, value = seconds in), `carry_start` (field `tier=`), `carry_end` (`tier=`, `out=`, value = seconds), `client_served` (`who=`, `tier=`), `client_lost`, `feedback`, `session_end`; economy events in currency `Cash` with the kind as the SKU.
 - DataStore `SVFeedback_v1`: key `<unix time, 10 digits>_<userId>`, value `{ u, t, text, hq, wl, staff, spins, touch, place, studio }`.
 **Drive it:**
-- Read the feedback in Studio, in Play, SERVER datamodel: `game.ServerScriptService.SiliconCore.SVDev:Invoke("feedback", game.Players:GetPlayers()[1], 10)` (`DevHook.lua:511`). Studio entries say `studio = true`.
+- Read the feedback in Studio, in Play, SERVER datamodel: `game.ServerScriptService.SiliconCore.SVDev:Invoke("feedback", game.Players:GetPlayers()[1], 10)` (`DevHook.lua:552`). Studio entries say `studio = true`.
 - Watch events in Studio: Output shows `[FUNNEL]`, `[EVENT]` and `[MONEY]` lines. A robot run (`dev-tools.md`) gives a full carry_start to carry_end.
 - On the dashboard: Creator Hub, the experience, Analytics: Funnels, Economy, Custom Events. Charts fill daily; "View Events" shows calls within minutes.
 **Prove it:**
@@ -24,9 +25,9 @@
 **Gotchas:**
 - A funnel step that can come in any order lies: Roblox completes every earlier step when a later one arrives. Only add steps the game forces in order. The old `first_wing`, `first_product`, `first_rival` and `ten_minutes` became milestones for that reason (9 Oct). Read the funnel from the v2 publish date on.
 - Custom fields keep about 20 values each. Fields here are platform, tier and outcome. Never put a name, an amount or free text in one.
-- AnalyticsService allows about 120 + 20 per player calls a minute. Anything that happens every second is summed (income, code taps).
+- AnalyticsService allows about 120 + 20 per player calls a minute. Anything that happens every second is summed (income; `code` is still a summed kind but nothing sends it since taps stopped paying, 16 Oct).
 - TELL US text is shown to no other player, so it is stored as typed. If it is ever shown to anyone else, it must go through `TextService` first.
 - Each feedback message is a DataStore write out of the shared budget every save comes from; keep the 60 s gap.
 - Not built: the weekly routine that reads the dashboard needs the Analytics Query API and an Open Cloud key (Phase 3).
 
-**Last verified:** 2026-10-14 5079cec
+**Last verified:** 2026-10-17 f757f69
