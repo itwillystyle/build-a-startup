@@ -4043,6 +4043,14 @@ local function onJoin(player)
 		local s = sessions[player.UserId]
 		if s and plot then
 			Telemetry.reached(player, { shipped = s.shipped, staff = s.staff, hq = plot.hq.level, listed = s.listed, spinoffs = s.spinoffs })
+			-- 16 Oct: a new company starts with a name (no naming box in the first
+			-- minute); the player renames it by tapping the sign (Names.lua)
+			if not s.name then
+				s.name = require(ServerScriptService:WaitForChild("Names")).generate(player.UserId)
+				s.ticker = tickerOf(s.name)
+				refreshSign(plot)
+				pcall(function() if nameStore then nameStore:SetAsync(tostring(player.UserId), s.name) end end)
+			end
 		end
 	end
 	if plot then productLoop(player, plot); chatterLoop(player, plot); offerLoop(player, plot) end
