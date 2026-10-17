@@ -443,7 +443,7 @@ local function furnish(model, anchor, dept, r)
 			seatAt(x - 0.3, zOut - 2.6, true)
 		end
 		if dept == "lobby" and FK.has and FK.has("loungeSofa") then
-			pcall(FK.onFloor, "loungeSofa", anchor, 0, -r.d / 2 + 5, 0, model, { yaw = 0 })
+			pcall(FK.onFloor, "loungeSofa", anchor, T.LOBBY_SOFA.x, -r.d / 2 + T.LOBBY_SOFA.zFromBack, 0, model, { yaw = 0 })
 		end
 	elseif dept == "studio" then
 		pcall(FK.onFloor, "tableCross", anchor, 0, 0, 0, model)

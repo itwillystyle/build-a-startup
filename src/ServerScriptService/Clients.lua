@@ -32,6 +32,14 @@ Clients.TUNE = {
 	PATIENCE = 30,
 	BIG_PATIENCE = 45,
 	CAP = 3,              -- never more than 3 waiting (phones)
+	-- 17 Oct, Luke's pick 3A: tiers like the hires (Skilled from the lobby, Star from HQ stage 3)
+	SKILLED_CHANCE = 0.30,
+	STAR_CHANCE = 0.12,
+	TIER_PAY = { regular = 1, skilled = 2, star = 4 },
+	TIER_NEED = { regular = 1, skilled = 1.4, star = 2 },
+	-- 17 Oct, Luke's pick 2A: stars for speed (share of patience left) and the tip follows them
+	STAR3 = 0.6,
+	STAR2 = 1 / 3,
 	SPAWN_GARAGE = 9,
 	SPAWN_LOBBY = 7,
 	SPAWN_MIN = 4,
@@ -62,8 +70,8 @@ function Clients.coderSpeed(tier, role)
 	return s
 end
 
--- a new client of `kind`; picks its ask from the queue's generator
-function Clients.make(Q, kind)
+-- a new client of `kind` (and `tier` for a normal one); picks its ask from the queue's generator
+function Clients.make(Q, kind, tier)
 	local c = { id = Q.nextId, kind = kind, done = 0 }
 	Q.nextId += 1
 	if kind == "first" then
@@ -71,7 +79,8 @@ function Clients.make(Q, kind)
 	elseif kind == "big" then
 		c.ask, c.need, c.patience = "BIG", TUNE.NEED * TUNE.BIG_NEED, TUNE.BIG_PATIENCE
 	else
-		c.ask, c.need, c.patience = ASKS[1 + math.floor(roll(Q) * #ASKS)], TUNE.NEED, TUNE.PATIENCE
+		c.tier = tier or "regular"
+		c.ask, c.need, c.patience = ASKS[1 + math.floor(roll(Q) * #ASKS)], TUNE.NEED * TUNE.TIER_NEED[c.tier], TUNE.PATIENCE
 	end
 	c.left = c.patience
 	return c
@@ -85,14 +94,29 @@ function Clients.new(opts)
 	return Q
 end
 
--- pay for a finished job; `patienceLeft` is the share (0-1) of patience left at the hand-over
+-- stars for a hand-over: 3 fast, 2 ok, 1 slow (the share of patience left); the
+-- tutorial client and anyone without a clock always 3
+local function starsFor(share)
+	if share >= TUNE.STAR3 then return 3 end
+	if share >= TUNE.STAR2 then return 2 end
+	return 1
+end
+function Clients.stars(client)
+	if client.kind == "first" or not client.patience then return 3 end
+	return starsFor((client.left or 0) / client.patience)
+end
+
+-- pay for a finished job; `patienceLeft` is the share (0-1) of patience left at the hand-over.
+-- The speed tip follows the stars: full at 3, half at 2, none at 1; yours only.
 function Clients.pay(client, rate, patienceLeft)
 	local base = math.max(TUNE.FLOOR, (rate or 0) * TUNE.SECONDS)
-	local mult = client.kind == "first" and TUNE.WOW or client.kind == "big" and TUNE.BIG_MULT or 1
+	local mult = client.kind == "first" and TUNE.WOW or client.kind == "big" and TUNE.BIG_MULT
+		or TUNE.TIER_PAY[client.tier or "regular"] or 1
 	local pay = math.floor(base * mult)
 	local tip = 0
-	if client.by == "you" and client.kind ~= "first" and (patienceLeft or 0) >= 0.5 then
-		tip = math.floor(base * TUNE.TIP)
+	if client.by == "you" and client.kind ~= "first" then
+		local st = starsFor(patienceLeft or 0)
+		tip = st == 3 and math.floor(base * TUNE.TIP) or st == 2 and math.floor(base * TUNE.TIP / 2) or 0
 	end
 	return pay, tip
 end
@@ -114,7 +138,14 @@ function Clients.tick(Q, dt, ctx)
 	local newcomer
 	if not Q.tutorial and #Q.line < Clients.cap(ctx.level) and Q.t >= Q.nextAt then
 		local kind = ((ctx.level or 1) >= 2 and roll(Q) < TUNE.BIG_CHANCE) and "big" or "normal"
-		local c = Clients.make(Q, kind)
+		local tier
+		if kind == "normal" then
+			local r = roll(Q)
+			if (ctx.stage or 1) >= 3 and r < TUNE.STAR_CHANCE then tier = "star"
+			elseif (ctx.level or 1) >= 2 and r < TUNE.STAR_CHANCE + TUNE.SKILLED_CHANCE then tier = "skilled"
+			else tier = "regular" end
+		end
+		local c = Clients.make(Q, kind, tier)
 		table.insert(Q.line, c)
 		newcomer = c
 		Q.nextAt = Q.t + Clients.spawnEvery(ctx.level, ctx.stage)
@@ -179,15 +210,16 @@ end
 	`room` is TowerPlan.room(0, 1), plot-local (x right, +z toward the road).
 	Returns { counter = {x, z, w, d}, spots = {{x, z}...}, path = {{x, z}...} }. ]]
 function Clients.counterLine(room)
-	local cx = room.x0 + (room.x1 - room.x0) * 0.76
-	local counter = { x = cx, z = room.z0 + 4.4, w = 6, d = 1.6 }
+	-- 17 Oct, Luke's pick 1A: the desk takes the middle, facing the door; you serve from
+	-- behind it (the hall side), the line runs straight back to the entrance on a rug
+	local cx = room.cx or (room.x0 + room.x1) / 2
+	local counter = { x = cx, z = room.z0 + 8.5, w = 10, d = 2.2 }
 	local spots = {}
 	for i = 1, TUNE.CAP do
-		table.insert(spots, { x = cx, z = counter.z + 3.2 + 4.2 * (i - 1) })
+		table.insert(spots, { x = cx, z = counter.z + 3.4 + 4.3 * (i - 1) })
 	end
-	local doorX = room.cx or (room.x0 + room.x1) / 2
-	local path = { { x = doorX, z = room.z1 + 14 }, { x = doorX, z = room.z1 - 4 } }
-	return { counter = counter, spots = spots, path = path }
+	local path = { { x = cx, z = room.z1 + 14 }, { x = cx, z = room.z1 - 4 } }
+	return { counter = counter, spots = spots, path = path, serve = { x = cx, z = counter.z - 2.6 } }
 end
 
 --[[ The goal line (spec: "Teaching the rest when it's needed"; Tizzy's contextual

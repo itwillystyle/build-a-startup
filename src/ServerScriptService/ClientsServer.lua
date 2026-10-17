@@ -6,8 +6,8 @@
 
 	The rules are Clients.lua (pure, offline-tested). This module is the world:
 	it walks client rigs up to the garage door, draws their bubble, reads whether
-	you hold WRITE CODE at your laptop, hands the app over when you walk up to the
-	client, and adds the cash (with its Telemetry line). SiliconCore wires it from
+	you hold WRITE CODE at your laptop, hands the app over when you press GIVE next
+	to the client (17 Oct, Luke's pick 2A), and adds the cash (with its Telemetry line). SiliconCore wires it from
 	one do-block and keeps the returned table at Econ.Clients.
 
 	Per player: byUser[userId] = { Q, plot, rigs = {[clientId] = model}, hold, tapUntil,
@@ -23,7 +23,7 @@ local WaferPlan = require(ServerScriptService:WaitForChild("WaferPlan"))
 local TowerPlan = require(ReplicatedStorage:WaitForChild("TowerPlan"))
 
 local LAPTOP_RANGE = 12    -- studs: holding counts within this of your laptop
-local HAND_RANGE = 9       -- studs: walk this close to your client and the app changes hands
+local HAND_RANGE = 10      -- studs: this close to your client, GIVE (or E) hands the app over
 local WALK_SPEED = 10      -- studs a second, the walk up and away
 local TICK = 0.1
 local DRAW_EVERY = 0.25    -- bubbles and attributes at 4 Hz, not every frame (phones)
@@ -39,6 +39,19 @@ local GOLD_LIGHT = Color3.fromRGB(255, 241, 196)
 local RED = Color3.fromRGB(240, 78, 78)
 local BLUE = Color3.fromRGB(59, 139, 255)
 local BLUE_DEEP = Color3.fromRGB(27, 92, 196)
+local BLUE_LIGHT = Color3.fromRGB(221, 235, 255)
+local GO_DEEP = Color3.fromRGB(22, 118, 58)
+local GO_LIGHT = Color3.fromRGB(214, 245, 224)
+
+-- 17 Oct, Luke's pick 3A: a client's bubble wears its tier, in the recruit tiers' colours
+-- (card, its outline, the app tile, the tile's outline)
+local TIER_LOOK = {
+	regular = { PAPER, INK, BLUE, BLUE_DEEP },
+	skilled = { GO_LIGHT, GO_DEEP, GO, GO_DEEP },
+	star = { BLUE_LIGHT, BLUE_DEEP, BLUE, BLUE_DEEP },
+	big = { GOLD_LIGHT, GOLD_DEEP, GOLD, GOLD_DEEP },
+}
+local THANKS = { "Just what I needed!", "Thanks!", "Took a while..." }   -- by stars 3, 2, 1
 
 return function(core)
 	local sessions, plotOf, cashOf = core.sessions, core.plotOf, core.cashOf
@@ -53,7 +66,8 @@ return function(core)
 		return r
 	end
 	local codeHold = remote("CodeHold")      -- client -> server: true while the button is held
-	local clientPaid = remote("ClientPaid")  -- server -> client: { pay, tip, wow, at, who }
+	local clientPaid = remote("ClientPaid")  -- server -> client: { pay, tip, wow, at, who, stars, from }
+	local giveApp = remote("GiveApp")        -- client -> server: GIVE pressed (the HUD button)
 
 	-- ------------------------------------------------------------- the door line
 	--[[ where the clients queue: straight out of the garage door, away from the
@@ -86,7 +100,7 @@ return function(core)
 		return (plot.wafer and plot.wafer.level) or (plot.hq and plot.hq.level) or 1
 	end
 
-	-- from the lobby on, the reception counter (Luke's pick B, Clients.counterLine)
+	-- from the lobby on, the reception desk in the middle (Luke's pick 1A, Clients.counterLine)
 	local LOBBY_LINE = Clients.counterLine(TowerPlan.room(0, 1))
 	local function lobbyMode(plot) return levelOf(plot) >= 2 end
 	local function localAt(plot, x, z)
@@ -120,10 +134,13 @@ return function(core)
 		return { L.center + L.out * 34 + L.side * 14 }
 	end
 
-	-- the counter itself: Oak top, PaperWhite body, a BrandGold stripe, round ends (the
-	-- wafer rule), and a rope line on both sides of the queue (Palette anchors only)
+	--[[ the reception desk (1A): Oak top, PaperWhite body, a BrandGold stripe, round ends
+		(the wafer rule), a CLIENTS sign on its door-facing side, and a CaliforniaGold rug
+		under the line from the desk to the entrance. No rope line: the rug says where
+		to stand (Palette anchors only). ]]
 	local OAK, PAPER_W, BRAND, INK_C = Color3.fromRGB(192, 138, 85), Color3.fromRGB(243, 239, 230),
 		Color3.fromRGB(255, 194, 61), Color3.fromRGB(30, 37, 48)
+	local CAL_GOLD = Color3.fromRGB(224, 182, 90)
 	local function setCounter(plot, on)
 		if not on then
 			if plot.clientCounter then plot.clientCounter:Destroy(); plot.clientCounter = nil end
@@ -154,19 +171,35 @@ return function(core)
 			piece("End", cyl, Vector3.new(3.2, C0.d, C0.d), ex, 1.6, C0.z, PAPER_W, upright)
 			piece("TopEnd", cyl, Vector3.new(0.3, C0.d + 0.5, C0.d + 0.5), ex, 3.35, C0.z, OAK, upright)
 		end
-		-- rope line: a post at each end of the queue, both sides, gold rope between
+		-- the rug: from the desk's front to past the last spot, under the whole line
 		local first, last = LOBBY_LINE.spots[1], LOBBY_LINE.spots[#LOBBY_LINE.spots]
-		for _, sx in ipairs({ -1.7, 1.7 }) do
-			for _, z in ipairs({ first.z - 1, last.z + 1.5 }) do
-				piece("Post", cyl, Vector3.new(2.6, 0.35, 0.35), first.x + sx, 1.3, z, INK_C, upright)
-				piece("PostCap", Enum.PartType.Ball, Vector3.new(0.6, 0.6, 0.6), first.x + sx, 2.7, z, INK_C)
-			end
-			local len = (last.z + 1.5) - (first.z - 1)
-			piece("Rope", nil, Vector3.new(0.18, 0.18, len), first.x + sx, 2.35, (first.z - 1 + last.z + 1.5) / 2, BRAND)
-		end
-		for _, part in ipairs(m:GetChildren()) do
-			if part.Name == "Rope" or part.Name == "PostCap" then part.CanCollide = false end
-		end
+		local z0, z1 = C0.z + C0.d / 2 + 0.4, last.z + 2.4
+		local rug = piece("Rug", nil, Vector3.new(4.6, 0.12, z1 - z0), first.x, 0.06, (z0 + z1) / 2, CAL_GOLD)
+		rug.Material, rug.CanCollide = Enum.Material.Fabric, false
+		local trim = piece("RugTrim", nil, Vector3.new(5.2, 0.08, z1 - z0 + 0.6), first.x, 0.04, (z0 + z1) / 2, OAK)
+		trim.Material, trim.CanCollide = Enum.Material.Fabric, false
+		-- the sign: a board on the body's door side, read from the entrance
+		local board = piece("Sign", nil, Vector3.new(5.2, 1.5, 0.12), C0.x, 1.45, C0.z + C0.d / 2 + 0.07, INK_C)
+		local sg = Instance.new("SurfaceGui")
+		sg.Face = Enum.NormalId.Front
+		sg.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+		sg.PixelsPerStud = 40
+		sg.LightInfluence = 0
+		sg.Parent = board
+		local word = Instance.new("TextLabel")
+		word.BackgroundTransparency = 1
+		word.Size = UDim2.fromScale(1, 1)
+		word.Font = Enum.Font.FredokaOne
+		word.TextScaled = true
+		word.TextColor3 = BRAND
+		word.Text = "CLIENTS"
+		word.Parent = sg
+		local wpad = Instance.new("UIPadding")
+		wpad.PaddingTop, wpad.PaddingBottom = UDim.new(0.14, 0), UDim.new(0.14, 0)
+		wpad.Parent = word
+		-- the board faces the door (+z): turn it if plot.g's front points the other way
+		local toDoor = (plot.g(C0.x, 0, C0.z + 10).Position - board.Position) * Vector3.new(1, 0, 1)
+		if board.CFrame.LookVector:Dot(toDoor) < 0 then sg.Face = Enum.NormalId.Back end
 		m.Parent = plot.garage.Parent
 		plot.clientCounter = m
 	end
@@ -241,7 +274,7 @@ return function(core)
 	local function bubble(model, client)
 		local head = model:FindFirstChild("Head") or model.PrimaryPart
 		if not head then return end
-		local big = client.kind == "big"
+		local look = TIER_LOOK[client.kind == "big" and "big" or client.tier or "regular"] or TIER_LOOK.regular
 		local bb = Instance.new("BillboardGui")
 		bb.Name = "ClientBubble"
 		bb.Size = UDim2.fromOffset(190, client.patience and 74 or 50)
@@ -256,12 +289,12 @@ return function(core)
 		card.Position = UDim2.fromScale(0.5, 0)
 		card.Size = UDim2.fromOffset(0, 40)
 		card.AutomaticSize = Enum.AutomaticSize.X
-		card.BackgroundColor3 = big and GOLD_LIGHT or PAPER
+		card.BackgroundColor3 = look[1]
 		card.Parent = bb
 		Instance.new("UICorner", card).CornerRadius = UDim.new(0, 12)
 		local stroke = Instance.new("UIStroke")
 		stroke.Thickness = 2.5
-		stroke.Color = big and GOLD_DEEP or INK
+		stroke.Color = look[2]
 		stroke.Parent = card
 		local pad = Instance.new("UIPadding")
 		pad.PaddingLeft, pad.PaddingRight = UDim.new(0, 8), UDim.new(0, 10)
@@ -276,12 +309,12 @@ return function(core)
 		local icon = Instance.new("Frame")
 		icon.Name = "Icon"
 		icon.Size = UDim2.fromOffset(26, 26)
-		icon.BackgroundColor3 = big and GOLD or BLUE
+		icon.BackgroundColor3 = look[3]
 		icon.Parent = card
 		Instance.new("UICorner", icon).CornerRadius = UDim.new(0, 7)
 		local istroke = Instance.new("UIStroke")
 		istroke.Thickness = 2
-		istroke.Color = big and GOLD_DEEP or BLUE_DEEP
+		istroke.Color = look[4]
 		istroke.Parent = icon
 		for i = 0, 2 do
 			local line = Instance.new("Frame")
@@ -341,6 +374,7 @@ return function(core)
 		model.Name = "Client" .. client.id
 		model:SetAttribute("ClientOf", player.UserId)
 		model:SetAttribute("Ask", client.ask)
+		model:SetAttribute("Tier", client.kind == "big" and "big" or client.tier or "regular")
 		model:SetAttribute("Patience", 1)
 		for _, d in ipairs(model:GetDescendants()) do
 			if d:IsA("BasePart") then d.CanCollide = false; d.CanTouch = false; d.CanQuery = false end
@@ -362,8 +396,10 @@ return function(core)
 		local model = P.rigs[client.id]
 		P.rigs[client.id] = nil
 		if not model then return end
+		local gp = model:FindFirstChild("GivePrompt", true)
+		if gp then gp:Destroy() end
 		if line then say(model, line) end
-		task.delay(line and 1.4 or 0, function()
+		task.delay(line and 1.8 or 0, function()
 			if not model.Parent then return end
 			local path = entryPath(P.plot)
 			local back = {}
@@ -396,12 +432,20 @@ return function(core)
 			cash.Value += e.tip
 			Telemetry.money(player, "source", e.tip, "client_tip")
 		end
-		Telemetry.event(player, "client_served", 1, { { "who", who } })
+		local tier = e.client.kind == "big" and "big" or e.client.tier or "regular"
+		Telemetry.event(player, "client_served", 1, { { "who", who }, { "tier", tier } })
 		if who == "big" then Telemetry.mark(player, "first_big_client") end
 		P.lastWho = who
-		clientPaid:FireClient(player, { pay = e.pay, tip = e.tip or 0, wow = e.client.kind == "first", at = at, who = who })
-		if model then StaffRig.cheer(model) end
-		leave(P, e.client, "Just what I needed!")
+		-- 2A: stars for your own hand-overs (a coder's delivery is just the cash)
+		local stars = who ~= "coder" and Clients.stars(e.client) or nil
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		clientPaid:FireClient(player, { pay = e.pay, tip = e.tip or 0, wow = e.client.kind == "first", at = at, who = who,
+			stars = stars, from = root and root.Position or nil, tier = tier })
+		if model then
+			-- they open it (the card above them), then cheer: the FX takes about a second
+			task.delay(stars and 0.45 or 0, function() if model.Parent then StaffRig.cheer(model) end end)
+		end
+		leave(P, e.client, THANKS[4 - (stars or 3)])
 	end
 
 	local function handOverNow(player, P)
@@ -517,11 +561,28 @@ return function(core)
 				end
 			end
 
-			-- hand-over: walk up to the client you coded for
+			--[[ hand-over (17 Oct, Luke's pick 2A): walking up no longer hands it over by
+				itself. Near the client you coded for, the HUD button turns into a gold GIVE
+				and a GIVE prompt (E) sits on them; one press and it is yours to give. ]]
 			local carried = P.Q.carrying
 			local cm = carried and P.rigs[carried.id]
-			if cm and root and (root.Position - cm:GetPivot().Position).Magnitude <= HAND_RANGE then
-				handOverNow(player, P)
+			local near = cm ~= nil and root ~= nil and (root.Position - cm:GetPivot().Position).Magnitude <= HAND_RANGE
+			if near ~= P.canGive then
+				P.canGive = near
+				player:SetAttribute("CanGive", near)
+			end
+			if cm and not cm:FindFirstChild("GivePrompt", true) then
+				local at = cm:FindFirstChild("HumanoidRootPart") or cm.PrimaryPart
+				if at then
+					local pr = Instance.new("ProximityPrompt")
+					pr.Name = "GivePrompt"
+					pr.ActionText, pr.ObjectText = "GIVE", carried.ask or "Their app"
+					pr.KeyboardKeyCode, pr.GamepadKeyCode = Enum.KeyCode.E, Enum.KeyCode.ButtonX
+					pr.HoldDuration, pr.MaxActivationDistance, pr.RequiresLineOfSight = 0, HAND_RANGE, false
+					pr.Style = Enum.ProximityPromptStyle.Custom   -- the HUD's GIVE is the look; E still works
+					pr.Triggered:Connect(function(who) if who == player then api.give(player) end end)
+					pr.Parent = at
+				end
 			end
 
 			if os.clock() - lastDraw >= DRAW_EVERY then
@@ -555,6 +616,19 @@ return function(core)
 	function api.hold(player, on)
 		local P = byUser[player.UserId]
 		if P then P.hold = on == true end
+	end
+
+	-- GIVE: hand the app you carry to its client, if you are next to them
+	function api.give(player)
+		local P = byUser[player.UserId]
+		if not P or not P.Q.carrying then return nil end
+		local cm = P.rigs[P.Q.carrying.id]
+		local char = player.Character
+		local root = char and char:FindFirstChild("HumanoidRootPart")
+		if not (cm and root) or (root.Position - cm:GetPivot().Position).Magnitude > HAND_RANGE + 2 then return nil end
+		P.canGive = false
+		player:SetAttribute("CanGive", false)
+		return handOverNow(player, P)
 	end
 
 	-- an old tap (the WriteCode remote, a click on the laptop): a short hold
@@ -593,6 +667,7 @@ return function(core)
 		local P = byUser[player.UserId]
 		clear(player.UserId)
 		player:SetAttribute("CarryingApp", false)
+		player:SetAttribute("CanGive", false)
 		player:SetAttribute("CodeProgress", 0)
 		if P or first then
 			task.spawn(function()
@@ -619,6 +694,13 @@ return function(core)
 		local e = handOverNow(player, P)
 		return { ok = e ~= nil, pay = e and e.pay, tip = e and e.tip, kind = e and e.client.kind }
 	end
+
+	giveApp.OnServerEvent:Connect(function(player)
+		local P = byUser[player.UserId]
+		if not P or os.clock() - (P.lastGive or 0) < 0.3 then return end
+		P.lastGive = os.clock()
+		api.give(player)
+	end)
 
 	codeHold.OnServerEvent:Connect(function(player, on)
 		local P = byUser[player.UserId]

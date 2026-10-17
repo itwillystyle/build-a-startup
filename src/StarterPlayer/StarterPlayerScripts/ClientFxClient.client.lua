@@ -5,7 +5,10 @@
 	     coins fly into the cash counter (Moment.landMoney).
 	  3B, the first client only: gold rays, a tilted "SHIPPED!" stamp in the middle,
 	     then a big "+$X" that counts up and flies into the cash (Tizzy's 5x wow).
-	The server sends ClientPaid { pay, tip, wow, at, who } (ClientsServer). ]]
+	  2A (17 Oct), every hand-over you GIVE: the app flies from you to the client, they
+	     open it (a card over their head), stars pop (3 fast, 2 ok, 1 slow), then the cash.
+	     About a second, so it stays quick on the fiftieth client.
+	The server sends ClientPaid { pay, tip, wow, at, who, stars, from, tier } (ClientsServer). ]]
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -129,15 +132,117 @@ local function wow(d)
 	end)
 end
 
-clientPaid.OnClientEvent:Connect(function(d)
-	if type(d) ~= "table" or type(d.pay) ~= "number" then return end
-	if d.wow then wow(d) return end
-	local at = screenAt((typeof(d.at) == "Vector3" and d.at or Vector3.zero) + Vector3.new(0, 4, 0))
-	local coder = d.who == "coder"
+-- 2A, step 1: the app tile, from you to them along a little arc
+local function appTile(parent, size)
+	local tile = Instance.new("Frame")
+	tile.AnchorPoint = Vector2.new(0.5, 0.5)
+	tile.Size = UDim2.new(0, size, 0, size)
+	tile.BackgroundColor3 = UIKit.BLUE
+	tile.ZIndex = 6
+	tile.Parent = parent
+	Instance.new("UICorner", tile).CornerRadius = UDim.new(0, UIKit.RADIUS.md)
+	local st = Instance.new("UIStroke")
+	st.Thickness, st.Color = 2, UIKit.INK
+	st.Parent = tile
+	for i = 0, 2 do
+		local line = Instance.new("Frame")
+		line.BorderSizePixel = 0
+		line.BackgroundColor3 = UIKit.PAPER
+		line.Position = UDim2.new(0.22, 0, 0.22 + i * 0.2, 0)
+		line.Size = UDim2.new(i == 2 and 0.36 or 0.56, 0, 0.1, 0)
+		line.ZIndex = 7
+		line.Parent = tile
+	end
+	return tile
+end
+
+local function fly(from, to, seconds, done)
+	local tile = appTile(gui, 34)
+	local t0 = os.clock()
+	local conn
+	conn = game:GetService("RunService").RenderStepped:Connect(function()
+		local a = math.min(1, (os.clock() - t0) / seconds)
+		local e = 1 - (1 - a) ^ 3
+		local p = from:Lerp(to, e) - Vector2.new(0, math.sin(a * math.pi) * 70)
+		tile.Position = UDim2.new(0, p.X, 0, p.Y)
+		tile.Rotation = (1 - e) * -20
+		if a >= 1 then
+			conn:Disconnect()
+			tile:Destroy()
+			done()
+		end
+	end)
+end
+
+-- 2A, step 2: they open it (a card over the client) and the stars pop, one by one
+local function opened(at, stars)
+	local card = Instance.new("Frame")
+	card.AnchorPoint = Vector2.new(0.5, 1)
+	card.Position = UDim2.new(0, at.X, 0, at.Y - 6)
+	card.Size = UDim2.new(0, 132, 0, 46)
+	card.BackgroundColor3 = UIKit.PAPER
+	card.ZIndex = 6
+	card.Parent = gui
+	Instance.new("UICorner", card).CornerRadius = UDim.new(0, UIKit.RADIUS.md)
+	local st = Instance.new("UIStroke")
+	st.Thickness, st.Color = 2, UIKit.INK
+	st.Parent = card
+	local sc = Instance.new("UIScale")
+	sc.Parent = card
+	Moment.enter(sc, 0.4, 0.25)
+	for i = 1, 3 do
+		local on = i <= stars
+		local icon = UIKit.icon(card, "star", 34, on and UIKit.GOLD or UIKit.LINE_LIGHT, {
+			AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, (i - 2) * 38, 0.5, 0), ZIndex = 7,
+		})
+		local isc = Instance.new("UIScale")
+		isc.Scale = 0
+		isc.Parent = icon
+		task.delay(0.08 + i * 0.09, function()
+			if on then UIKit.sfx("ding", 1 + i * 0.12, 0.35) end
+			Moment.enter(isc, 0, on and 0.3 or 0.18)
+		end)
+	end
+	task.delay(1.1, function()
+		if not card.Parent then return end
+		ease(card, 0.3, { Position = card.Position - UDim2.new(0, 0, 0, 24), BackgroundTransparency = 1 })
+		ease(st, 0.3, { Transparency = 1 })
+		for _, c in ipairs(card:GetChildren()) do
+			if c:IsA("ImageLabel") then ease(c, 0.3, { ImageTransparency = 1 }) end
+		end
+		task.delay(0.32, function() card:Destroy() end)
+	end)
+end
+
+local function cash(d, at, coder)
 	pop("+" .. UIKit.money(d.pay), at, coder and UIKit.TYPE.title or UIKit.TYPE.headline, UIKit.MONEY)
 	if (d.tip or 0) > 0 then
-		pop("+" .. UIKit.money(d.tip) .. " TIP", at + Vector2.new(0, 34), UIKit.TYPE.label, UIKit.GOLD, 0.35)
+		pop("+" .. UIKit.money(d.tip) .. " TIP", at + Vector2.new(0, 34), UIKit.TYPE.label, UIKit.GOLD, 0.25)
 	end
 	Moment.landMoney(at, coder and 3 or 6)
 	if not coder then UIKit.sfx("ding", 1.2, 0.5) end
+end
+
+clientPaid.OnClientEvent:Connect(function(d)
+	if type(d) ~= "table" or type(d.pay) ~= "number" then return end
+	local where = typeof(d.at) == "Vector3" and d.at or Vector3.zero
+	if d.wow then
+		-- the tutorial client opens it too, then the 3B stamp
+		if typeof(d.from) == "Vector3" then
+			fly(screenAt(d.from + Vector3.new(0, 1.5, 0)), screenAt(where + Vector3.new(0, 3, 0)), 0.32, function() wow(d) end)
+		else
+			wow(d)
+		end
+		return
+	end
+	local at = screenAt(where + Vector3.new(0, 4, 0))
+	if d.who == "coder" or type(d.stars) ~= "number" or typeof(d.from) ~= "Vector3" then
+		cash(d, at, d.who == "coder")
+		return
+	end
+	fly(screenAt(d.from + Vector3.new(0, 1.5, 0)), screenAt(where + Vector3.new(0, 3, 0)), 0.32, function()
+		local head = screenAt(where + Vector3.new(0, 5.5, 0))
+		opened(head, math.clamp(math.floor(d.stars), 1, 3))
+		task.delay(0.45, function() cash(d, at + Vector2.new(0, 30), false) end)
+	end)
 end)

@@ -103,6 +103,23 @@ test("returning save gets no wow", function()
 	assert(e.pay == TUNE.FLOOR, "plain pay " .. tostring(e.pay))
 end)
 
+test("stars: 3 fast, 2 ok, 1 slow; the first client always 3", function()
+	assert(C.stars({ kind = "normal", patience = 30, left = 25 }) == 3, "fast")
+	assert(C.stars({ kind = "normal", patience = 30, left = 15 }) == 2, "ok")
+	assert(C.stars({ kind = "normal", patience = 30, left = 5 }) == 1, "slow")
+	assert(C.stars({ kind = "first" }) == 3, "the tutorial client")
+end)
+
+test("the tip follows the stars: full at 3, half at 2, none at 1", function()
+	local base = TUNE.FLOOR
+	local _, t3 = C.pay({ kind = "normal", by = "you" }, 0, 0.9)
+	local _, t2 = C.pay({ kind = "normal", by = "you" }, 0, 0.5)
+	local _, t1 = C.pay({ kind = "normal", by = "you" }, 0, 0.2)
+	assert(t3 == math.floor(base * TUNE.TIP) and t3 > 0, "3 stars, full tip " .. t3)
+	assert(t2 == math.floor(base * TUNE.TIP / 2), "2 stars, half tip " .. t2)
+	assert(t1 == 0, "1 star, no tip " .. t1)
+end)
+
 test("a fast hand-over pays a tip, a slow one does not", function()
 	local Q = oneNormal()
 	run(Q, TUNE.NEED + 0.05, ctx({ holding = true }))
@@ -216,21 +233,27 @@ test("counter: queue spots stand inside the lobby room, 2 studs off every wall",
 	end
 end)
 
-test("counter: clear of the sofa in the middle and the desks by the door", function()
+-- 17 Oct, Luke's pick 1A: a reception desk in the middle of the lobby, facing the door
+test("counter: clear of the sofa (moved to the right half) and the desks by the door", function()
 	local L = C.counterLine(LOBBY)
-	local sofa = { x = LOBBY.cx, z = LOBBY.z0 + 4.8 }   -- TowerArt's loungeSofa (measured 17 Oct: 0, 20.3)
+	local sofa = { x = LOBBY.cx + TP.LOBBY_SOFA.x, z = LOBBY.z0 + TP.LOBBY_SOFA.zFromBack }
 	for i, sp in ipairs(L.spots) do
-		assert(math.abs(sp.x - sofa.x) > 5, ("spot %d is at the sofa"):format(i))
+		assert(math.sqrt((sp.x - sofa.x) ^ 2 + (sp.z - sofa.z) ^ 2) > 6, ("spot %d is at the sofa"):format(i))
 		assert(sp.z < LOBBY.z1 - 10, ("spot %d is among the desks by the door"):format(i))
 	end
-	assert(math.abs(L.counter.x - sofa.x) > 6, "the counter is at the sofa")
+	assert(math.abs(L.counter.x - sofa.x) > L.counter.w / 2 + 3, "the desk is at the sofa")
 end)
 
-test("counter: at the back of the lobby, nearest the hall desk, queue toward the door", function()
+test("counter: a reception desk in the middle, facing the door, the line straight from the door", function()
 	local L = C.counterLine(LOBBY)
-	assert(L.counter.z < LOBBY.z0 + 7, "the counter is at the back wall")
-	for i = 2, #L.spots do assert(L.spots[i].z > L.spots[i - 1].z, "the line runs toward the entrance") end
-	assert(L.spots[1].z > L.counter.z, "the first client stands in front of the counter")
+	assert(math.abs(L.counter.x - LOBBY.cx) < 0.01, "the desk is on the lobby's centre line")
+	assert(L.counter.z > LOBBY.z0 + 6 and L.counter.z < LOBBY.z0 + 12, "the desk stands a few studs in from the back opening")
+	for i, sp in ipairs(L.spots) do
+		assert(math.abs(sp.x - LOBBY.cx) < 0.01, ("spot %d is off the centre line"):format(i))
+		assert(sp.z > L.counter.z, ("spot %d is behind the desk"):format(i))
+		if i > 1 then assert(sp.z > L.spots[i - 1].z, "the line runs toward the entrance") end
+	end
+	assert(L.serve and L.serve.z < L.counter.z, "you serve from behind the desk (the hall side)")
 end)
 
 test("counter: clients walk in through the entrance", function()
@@ -244,6 +267,30 @@ end)
 test("launches wait for the lobby (Luke: introduce it later)", function()
 	assert(C.productsOpen(1) == false, "no product bar in the garage")
 	assert(C.productsOpen(2) == true and C.productsOpen(18) == true, "from the lobby on")
+end)
+
+-- 17 Oct, Luke's pick 3A: client tiers like the hires
+test("tiers: Regular only in the garage, Skilled from the lobby, Star from HQ stage 3", function()
+	local seen = {}
+	local Q = C.new({ first = false, seed = 21 })
+	for _, e in ipairs(run(Q, 3000, ctx({ level = 1 }))) do if e.kind == "arrive" then seen[e.client.tier or "?"] = true end end
+	assert(seen.regular and not seen.skilled and not seen.star, "garage: Regular only")
+	seen = {}
+	Q = C.new({ first = false, seed = 21 })
+	for _, e in ipairs(run(Q, 3000, ctx({ level = 2, stage = 1 }))) do if e.kind == "arrive" and e.client.kind == "normal" then seen[e.client.tier] = true end end
+	assert(seen.regular and seen.skilled and not seen.star, "lobby: Regular and Skilled")
+	seen = {}
+	Q = C.new({ first = false, seed = 21 })
+	for _, e in ipairs(run(Q, 3000, ctx({ level = 9, stage = 3 }))) do if e.kind == "arrive" and e.client.kind == "normal" then seen[e.client.tier] = true end end
+	assert(seen.regular and seen.skilled and seen.star, "HQ 3: all three")
+end)
+
+test("tiers: Skilled pays x2 and Star x4, and each takes longer", function()
+	local Q = C.new({ first = false, seed = 1 })
+	local reg, sk, st = C.make(Q, "normal", "regular"), C.make(Q, "normal", "skilled"), C.make(Q, "normal", "star")
+	assert(sk.need > reg.need and st.need > sk.need, "longer jobs")
+	assert(C.pay(sk, 0, 1) == 2 * C.pay(reg, 0, 1), "Skilled x2")
+	assert(C.pay(st, 0, 1) == 4 * C.pay(reg, 0, 1), "Star x4")
 end)
 
 -- the goal line (Clients.goal): one goal, taught when it is needed

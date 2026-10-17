@@ -252,6 +252,7 @@ end)()
 local keyFlip = false
 
 local codeHold = remotes:WaitForChild("CodeHold", 10)   -- 16 Oct: WRITE CODE is held to code a client's job
+local giveApp = remotes:WaitForChild("GiveApp", 10)     -- 17 Oct (pick 2A): GIVE hands the app over
 local pickMarket = remotes:WaitForChild("PickMarket", 10)
 local productReady = remotes:WaitForChild("ProductReady", 10)
 local FULL = UDim2.new(0, 236, 0, 64)
@@ -362,15 +363,17 @@ local function syncCode()
 	launchBtn.Position = UDim2.new(0.5, 0, 1, inCar and -126 or -96)
 	-- 16 Oct, mock 2C: the button says what holding it does right now
 	local carrying = player:GetAttribute("CarryingApp") == true
+	local give = carrying and player:GetAttribute("CanGive") == true
 	local job = player:GetAttribute("JobWaiting") == true
 	local away = job and not carrying and player:GetAttribute("AtLaptop") ~= true
 	local prog = tonumber(player:GetAttribute("CodeProgress")) or 0
 	local loud = carrying or job or pulsing
 	codeBtn.Size = loud and FULL or QUIET
 	codeLabel.TextSize = loud and UIKit.TYPE.title or UIKit.TYPE.label
-	codeLabel.Text = carrying and "HAND IT OVER" or away and "GO TO LAPTOP"
+	-- 17 Oct (pick 2A): carrying, it says where to take it; next to them, a gold GIVE
+	codeLabel.Text = give and "GIVE" or carrying and "GO TO CLIENT" or away and "GO TO LAPTOP"
 		or (prog > 0 and prog < 1) and ("CODING " .. math.floor(prog * 100) .. "%") or "HOLD TO CODE"
-	local colour = carrying and UIKit.GOLD or away and UIKit.BLUE or loud and UIKit.GREEN or UIKit.PAPER
+	local colour = give and UIKit.GOLD or (carrying or away) and UIKit.BLUE or loud and UIKit.GREEN or UIKit.PAPER
 	-- v5: when the goal is out in the world (hire, build, drive...), WRITE CODE is
 	-- a quiet paper button, still one press away, and the goal is the loud thing
 	codeBtn:SetAttribute("FixedStroke", (not loud) and UIKit.GREEN or nil)
@@ -382,7 +385,7 @@ syncCode()
 player:GetAttributeChangedSignal("Shipped"):Connect(syncCode)
 player:GetAttributeChangedSignal("BuildModeOpen"):Connect(syncCode)
 player:GetAttributeChangedSignal("NamingOpen"):Connect(syncCode)
-for _, a in ipairs({ "CarryingApp", "JobWaiting", "AtLaptop" }) do player:GetAttributeChangedSignal(a):Connect(syncCode) end
+for _, a in ipairs({ "CarryingApp", "CanGive", "JobWaiting", "AtLaptop" }) do player:GetAttributeChangedSignal(a):Connect(syncCode) end
 UIKit.onMenuChange(function() syncCode() end)   -- menus are other scripts' guis: one shared watch
 -- v4.2: in a car the speedometer owns the bottom centre (it sat on top of WRITE CODE)
 local function watchSeat(char)
@@ -468,7 +471,12 @@ end
 local function pressInput(input)
 	return input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch
 end
-codeBtn.InputBegan:Connect(function(input) if pressInput(input) then setHold(true) end end)
+codeBtn.InputBegan:Connect(function(input)
+	if not pressInput(input) then return end
+	-- next to your client the same button is GIVE: one press, not a hold
+	if player:GetAttribute("CanGive") == true and giveApp then giveApp:FireServer() return end
+	setHold(true)
+end)
 codeBtn.InputEnded:Connect(function(input) if pressInput(input) then setHold(false) end end)
 codeBtn.MouseLeave:Connect(function() setHold(false) end)
 --[[ The verb the player presses most in the whole game made no sound at all.
