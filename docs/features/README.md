@@ -12,6 +12,7 @@ This is shared memory for agents and for you. Code wins when a page and the code
 | Page | System |
 |---|---|
 | [core-loop](core-loop.md) | write code, products, income, momentum, the guide |
+| [client-loop](client-loop.md) | clients at the door, hold to code, GIVE, stars, tiers, the lobby desk |
 | [hiring-talent](hiring-talent.md) | hiring, staff rigs, talent tiers, the staff index |
 | [chase](chase.md) | Talent Row and the headhunter chase |
 | [homes](homes.md) | apartments, downtown, the lift, the daily VIP |
@@ -42,8 +43,8 @@ This is shared memory for agents and for you. Code wins when a page and the code
 | ~~Live chase lengths are not the sim's~~ FIXED in a96f2d8: home is the doorstep, candidates spawn at 140-370 walking studs, the sim reads the same bands (map contract test) | **Live** + code |
 | Studio runs at 2-3 Hz on this PC (Edit and Play, GPU idle, threads asleep). Not the game. Cause unsolved: closing League gave one ~2-minute fast window only | **Live** |
 | A stray "Label" placeholder floats mid-screen during a chase; Daily Reward reopens after a catch | **Live** (video) |
-| The saved mute never restores: the server sends it in `MenuStats` (SiliconCore.server.lua:4054), and no client listens to `MenuStats` | **Code** |
-| `s.hqPath` is never cleared, so the path picker never returns after a spin-off, though the comment says it should (SiliconCore.server.lua:2150-2152, 2934) | **Code** |
+| The saved mute never restores: the server sends it in `MenuStats` (SiliconCore.server.lua:4090), and no client listens to `MenuStats` | **Code** |
+| `s.hqPath` is never cleared, and since 17 Oct the picker is gated by `s.pathAsked` (session only, also never cleared), so the picker does not return after a spin-off in the same session, though the comment says the style is committed only until a spin-off (SiliconCore.server.lua:2147-2148, 2158-2159) | **Code** |
 | Wafers mode builds no lots, so build mode may never place `needs` furniture | Agent |
 | `Apartments.vipSpot` still uses the old plaza coordinates | Agent |
 | `Phone.snapshot` and the `SVOpenDaily` event have no caller or listener | Agent |

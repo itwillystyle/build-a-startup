@@ -12,16 +12,16 @@
 - `src/ServerScriptService/Inventory.lua`: `load` :36, `save` :49, `grant` :56, `use` :74, `codeMult` :115, `scooterBonus` :119, `launchMult` :123, `onHire` :132, `onLaunch` :143, `init` :153 (makes `ItemEvent`, `UseItem`, `ItemsSeen`).
 - `src/ReplicatedStorage/Items.lua`: `LIST` :31 (ids `coffee`, `energy`, `noncompete`, `scout`, `frontpage`), `MAX` 99 :45, `encode` :48, `decode` :56, 3D icons `icon` :135.
 - `src/StarterPlayer/StarterPlayerScripts/InventoryClient.client.lua`: BAG tile :48, gui `Bag` :56, `WHERE` text :35-41, boost rows :234, `setOpen` :211.
-- Callers in `src/ServerScriptService/SiliconCore.server.lua`: `Econ.Daily` init :2875, `Econ.Inv` init :2912, `codeMult` :1381, `onHire` :1969, `launchMult` :3433, `onLaunch` :3436. Also `TalentDrop.lua:295, 892` (`scooterBonus`) and `SaveLoad.lua:434-435`.
+- Callers in `src/ServerScriptService/SiliconCore.server.lua`: `Econ.Daily` init :2882, `Econ.Inv` init :2919, `onHire` :1960, `launchMult` :3461, `onLaunch` :3464. `codeMult` is read by `ClientsServer.lua:535` (a Cold Brew codes a client's job x3). Also `TalentDrop.lua:295, 892` (`scooterBonus`) and `SaveLoad.lua:434-435`.
 **State:**
 - Session: `s.dailyDay` (UTC day number), `s.streak` (0 to 7), `s.items` (id to count), `s.lastUse`, `s.gotFirstCoffee`.
 - Attributes: `DailyReady`, `DailyStreak`, `DailyLast`, `DailyAmounts`, `DailyItems` (`DailyReward.lua:58-67`). `Items` as `coffee=2;energy=1`, `ItemsNew`, `BoostCode`, `BoostEnergy`, `ArmedScout`, `ArmedPress` (`Inventory.lua:1-12`).
 - Saved: `dailyDay`, `streak` (`SaveLoad.lua:133-134`, clamped :394-395). Item counts only (:143, load :434).
 - Not saved: boost timers, armed flags, `gotFirstCoffee`.
 **Drive it:**
-- `item <id>` puts one in the bag (`DevHook.lua:479`).
-- `ship` sets `s.shipped` so a claim works (`DevHook.lua:53`). `scenario hq:5` then `scenario home:1` unlocks the tile (HQ 2 and `JrRes`, `SiliconCore.server.lua:1907`).
-- Nothing resets `dailyDay` yet, so a second claim the same day is not testable. `wipe` deletes the whole save (`DevHook.lua:131`), so avoid it.
+- `item <id>` puts one in the bag (`DevHook.lua:520`).
+- `ship` sets `s.shipped` so a claim works (`DevHook.lua:53`). `scenario hq:5` then `scenario home:1` unlocks the tile (HQ 2 and `JrRes`, `SiliconCore.server.lua:1899`).
+- Nothing resets `dailyDay` yet, so a second claim the same day is not testable. `wipe` deletes the whole save (`DevHook.lua:150`), so avoid it.
 **Prove it:**
 - `tests/offline/clock.spec.luau`: daily pay is 5 percent of the goal on day 1 up to 35 percent on day 7 (:57-63).
 - `tests/offline/journey.spec.luau`: tip order launch, bag, index, ranks, daily (:122-132).
@@ -29,12 +29,12 @@
 - No offline spec for `nextDay` or `Inventory.use`: both load game services or `Progression` at load.
 **Gotchas:**
 - The day is `os.time() / 86400`, so it turns at 00:00 UTC (`DailyReward.lua:34`). A missed day goes back to day 1. After day 7 it wraps to day 1 (:37-43).
-- Pay is capped by `Progression.capWindfall("daily", ...)` against the next goal (`DailyReward.lua:48-52`). The card numbers change when the goal moves (`SiliconCore.server.lua:2046`).
+- Pay is capped by `Progression.capWindfall("daily", ...)` against the next goal (`DailyReward.lua:48-52`). The card numbers change when the goal moves (`SiliconCore.server.lua:2043`).
 - The item grant is in a `pcall`. If it fails the claim still counts (`DailyReward.lua:82-84`).
 - Item id `coffee` is shown as "Cold Brew" in `Items.lua` and as "COFFEE" on the quick button (`InventoryClient.client.lua:283`).
 - `InventoryClient` `WHERE` text is hard coded. Keep it in step with `DailyReward.ITEMS` and `Phone.lua:348-350`.
 - A refused use is not consumed (`Inventory.lua:69, 83-107`). Use has a 0.4 s cooldown. Cold Brew stops stacking at 120 s ahead, Energy at 90 s.
 - Armed Scout and Front Page are attributes, not saved. Leaving after arming loses an item that was already spent.
 - Stale: `DailyClient.client.lua:34-35` says there is no rail tile and the phone opens the card. There is a DAILY tile (:226), and the `SVOpenDaily` event (:37) is never fired in `src`.
-- Tips find `Rail.Column.BagButton` and `Rail.Column.DailyButton` by name (`Journey.lua:164, 173`). Do not rename them.
-**Last verified:** 2026-10-16 8c6b842
+- Tips find `Rail.Column.BagButton` and `Rail.Column.DailyButton` by name (`Journey.lua:167, 176`). Do not rename them.
+**Last verified:** 2026-10-17 0358b25

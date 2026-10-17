@@ -134,6 +134,19 @@ return function(core)
 		elseif action == "peek" then
 			local ok, d = pcall(function() return saveStore and saveStore:GetAsync(tostring(player.UserId)) end)
 			return ok and d or ("err " .. tostring(d))
+		elseif action == "clients" then
+			-- 16 Oct, the client loop: "fresh" = a new line with the first client (session only,
+			-- never the DataStore), "serve" = finish the job at the door and hand it over,
+			-- "state" = the line as JSON
+			local C = core.clients
+			if not C then return { ok = false, err = "no client loop" } end
+			if arg == "fresh" then C.reset(player, true) return { ok = true } end
+			if arg == "serve" then
+				local t0 = os.clock()
+				while not C.state(player).front and os.clock() - t0 < 10 do task.wait(0.2) end
+				return C.devServe(player)
+			end
+			return C.state(player)
 		elseif action == "wipe" then
 			pcall(function() saveStore:RemoveAsync(tostring(player.UserId)) end)
 			return "wiped"

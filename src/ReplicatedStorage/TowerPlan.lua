@@ -51,6 +51,9 @@ T.GARAGE_SPOTS = {
 }
 -- 1c (15 Oct): the garage's working parts stay through every upgrade (Wafers.garage keeps them, the
 -- lobby moment leaves them standing). Here, not in Wafers, so the client knows them too.
+-- 17 Oct (Luke's pick 1A): the lobby's sofa stands on the right half of the back wall, so the
+-- reception desk can take the middle (Clients.counterLine). Room-local x, studs in from the back.
+T.LOBBY_SOFA = { x = 14, zFromBack = 5 }
 T.GARAGE_KEEP = { Laptop = true, Desk = true, Chair = true, Monitor2 = true, Keyboard = true, HQPad = true, HirePad = true, Spawn = true }
 -- the garage chair: on its spot (GARAGE_SPOTS[2]), clear of the lift shaft (it stood at 4.6, -6.0 and
 -- reached into the cab's glass: the 1b "Ada clips the cab" finding)

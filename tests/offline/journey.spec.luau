@@ -25,8 +25,19 @@ end)
 test("the company car is followed by a task (it used to be followed by nothing)", function()
 	local t = J.task(st({ hq = 2, hasCar = true }))
 	assert(t and t.key == "car" and t.target == "car", "expected the hop-in task, got " .. tostring(t and t.key))
-	t = J.task(st({ hq = 2, hasCar = true, jr = { drove = true } }))
-	assert(t and t.key == "drive" and t.target == "residences", "expected the drive task, got " .. tostring(t and t.key))
+end)
+
+-- 17 Oct, Luke's playtest: "it's telling me to go to the residences when I literally don't have
+-- 40,000 for the apartment. That was just a waste of my time." A goal never points at a thing
+-- the player can't use yet: the drive to The Residences waits until the next home is affordable.
+test("no drive to The Residences while the next home is out of reach", function()
+	local home = { name = "STUDIO", price = 40000, slots = 1 }
+	local t = J.task(st({ hq = 2, hasCar = true, jr = { drove = true }, cash = 900, aptNext = home }))
+	assert(not (t and t.key == "drive"), "sent to a $40,000 home with $900")
+	t = J.task(st({ hq = 2, hasCar = true, jr = { drove = true }, cash = 0 }))
+	assert(not (t and t.key == "drive"), "sent to The Residences with no home to buy")
+	t = J.task(st({ hq = 2, hasCar = true, jr = { drove = true }, cash = 40000, aptNext = home }))
+	assert(t and t.key == "drive" and t.target == "residences", "the drive once the home is affordable, got " .. tostring(t and t.key))
 end)
 
 test("homes do not gate the guide: at HQ 2 and HQ 3, rich or poor, no task is ever the apartment", function()

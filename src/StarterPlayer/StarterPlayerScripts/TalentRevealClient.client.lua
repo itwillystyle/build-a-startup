@@ -312,6 +312,11 @@ remote.OnClientEvent:Connect(function(d)
 	-- v3.6: never under the WHILE YOU WERE AWAY card. HudClient sets WelcomeDone within ~20 s.
 	local t0 = os.clock()
 	while player:GetAttribute("WelcomeDone") ~= true and os.clock() - t0 < 25 do task.wait(0.2) end
+	-- 17 Oct (the client loop): a new player's first minutes have no cards; a rare hire
+	-- in the garage is revealed once the lobby is up
+	if player:GetAttribute("Returning") ~= true then
+		while (player:GetAttribute("WaferLevel") or player:GetAttribute("HQLevel") or 1) < 2 and player.Parent do task.wait(0.5) end
+	end
 	Notify.show({ lane = "top", priority = 1, key = "reveal",
 		open = function(done) showCard(d, done) end,
 		close = function() task.spawn(hide, serial) end })
