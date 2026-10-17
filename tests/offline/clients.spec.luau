@@ -197,4 +197,45 @@ test("the same seed gives the same clients", function()
 	for i = 1, #ea do assert(ea[i].kind == eb[i].kind and ea[i].client.ask == eb[i].client.ask, "event " .. i) end
 end)
 
+-- the goal line (Clients.goal): one goal, taught when it is needed
+local function st(over)
+	local t = { served = 0, carrying = false, waiting = 1, staff = 0, cap = 1, level = 1, cash = 0,
+		upgradeCost = 100, freeSeat = false, recruitTaught = false, tutorial = true }
+	for k, v in pairs(over or {}) do t[k] = v end
+	return t
+end
+
+test("goal: code the to-do app, then take it to your client", function()
+	local g = C.goal(st())
+	assert(g and g.key == "code" and g.title == "Code the to-do app" and g.target == "laptop", "step 1")
+	g = C.goal(st({ carrying = true }))
+	assert(g and g.key == "deliver" and g.title == "Take it to your client" and g.target == "client", "step 2")
+end)
+
+test("goal: too busy, hire a coder, when two wait and nobody works", function()
+	local g = C.goal(st({ served = 1, tutorial = false, waiting = 2 }))
+	assert(g and g.key == "hire" and g.title == "Too busy! Hire a coder" and g.target == "hirePad", "hire")
+	assert(C.goal(st({ served = 1, tutorial = false, waiting = 1 })) == nil, "one waiting is not busy")
+end)
+
+test("goal: in a full garage, upgrade your HQ", function()
+	local g = C.goal(st({ served = 3, tutorial = false, waiting = 2, staff = 1, cap = 1 }))
+	assert(g and g.key == "upgrade" and g.title == "Upgrade your HQ" and g.target == "hqPad", "full garage")
+	g = C.goal(st({ served = 3, tutorial = false, waiting = 0, staff = 1, cap = 1, cash = 120 }))
+	assert(g and g.key == "upgrade", "can afford it")
+end)
+
+test("goal: recruit on the street once, from the lobby", function()
+	local g = C.goal(st({ served = 9, tutorial = false, waiting = 2, staff = 1, cap = 8, level = 2, freeSeat = true }))
+	assert(g and g.key == "recruit" and g.title == "Recruit on the street" and g.target == "sidewalk", "recruit")
+	assert(C.goal(st({ served = 9, tutorial = false, waiting = 2, staff = 1, cap = 8, level = 2, freeSeat = true, recruitTaught = true })) == nil, "only once")
+end)
+
+test("goal: after the lobby there is always a goal", function()
+	local s = st({ served = 9, tutorial = false, waiting = 1, staff = 1, cap = 8, level = 2 })
+	local g = C.goal(s) or (function() return nil end)() or C.fallback(s)
+	assert(g and g.key == "serve" and g.title == "Serve your clients", "fallback when Journey has nothing")
+	assert(C.fallback(st({ waiting = 0, tutorial = false, served = 9 })) == nil, "nothing to say with nobody waiting")
+end)
+
 return T

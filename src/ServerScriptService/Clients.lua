@@ -170,6 +170,35 @@ function Clients.tick(Q, dt, ctx)
 	return events
 end
 
+--[[ The goal line (spec: "Teaching the rest when it's needed"; Tizzy's contextual
+	tutorial). One goal, the moment it is needed; nil = let Journey decide.
+	st = { served, carrying, waiting, staff, cap, level, cash, upgradeCost, freeSeat,
+	recruitTaught, tutorial }. Returns { key, title, target }; target is a place
+	name the server turns into a position (laptop, client, hirePad, hqPad, sidewalk). ]]
+function Clients.goal(st)
+	if st.tutorial and (st.served or 0) == 0 then
+		if st.carrying then return { key = "deliver", title = "Take it to your client", target = "client" } end
+		return { key = "code", title = "Code the to-do app", target = "laptop" }
+	end
+	local busy = (st.waiting or 0) >= 2
+	if (st.staff or 0) == 0 and busy then
+		return { key = "hire", title = "Too busy! Hire a coder", target = "hirePad" }
+	end
+	if (st.level or 1) <= 1 and (((st.staff or 0) >= (st.cap or 1) and busy) or (st.cash or 0) >= (st.upgradeCost or math.huge)) then
+		return { key = "upgrade", title = "Upgrade your HQ", target = "hqPad" }
+	end
+	if (st.level or 1) >= 2 and st.freeSeat and busy and not st.recruitTaught then
+		return { key = "recruit", title = "Recruit on the street", target = "sidewalk" }
+	end
+	return nil
+end
+
+-- when neither the client loop nor Journey has a goal: serve whoever is waiting
+function Clients.fallback(st)
+	if (st.waiting or 0) > 0 then return { key = "serve", title = "Serve your clients", target = "client" } end
+	return nil
+end
+
 -- hand the carried app to its client; nil when you carry nothing
 function Clients.handOver(Q, ctx)
 	local c = Q.carrying
