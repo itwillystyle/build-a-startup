@@ -15,7 +15,7 @@
 - `src/ServerScriptService/Progression.lua`: `spinMult` :33, `spinCost` :38, `runScale` :63 (prices of company n+1), `capWindfall` :92.
 - `src/ServerScriptService/Momentum.lua`: stock max 24 :37, `AWARD` :45, `discount` :70, `priceAfter` :75, `quote` :83. Up to 36% off the next build. A rebuild (a level at or below your record, after a spin-off) pays the plain price and spends no momentum.
 - `src/ServerScriptService/Journey.lua`: `task` :71, `milestone` :125, `TIPS` :159. Pure. SiliconCore builds a plain table and asks it what to show.
-- `src/StarterPlayer/StarterPlayerScripts/HudClient.client.lua`: cash and income line :542-578, `Celebrate` events :985, welcome-back card :1030.
+- `src/StarterPlayer/StarterPlayerScripts/HudClient.client.lua`: cash and income line :545-581, `Celebrate` events :988, welcome-back card :1033.
 - `src/StarterPlayer/StarterPlayerScripts/ProductClient.client.lua`: old 3-market picker :195 (non-V3), acquisition offer card :333, toasts :356.
 **State:**
 - `sessions[userId]` made in `onJoin` :4048 (clicks, shipped, rate, staff, rigs, placed). Later fields: `valuation`, `earned`, `milestones`, `work`, `workNeed`, `pendingProduct`, `momentum`, `listed`, `spinoffs`, `jr`, `tips`.
@@ -37,8 +37,8 @@
 - Launch boost is dead under V3: `launchProduct` sets `s.launch = nil` (:3430). A launch is a payday only.
 - Auto-launch after 60 s only happens once you have launched by hand (:3514-3519).
 - SaveLoad sets `s.momentum` on load (`SaveLoad.lua:400`) and the `Momentum` attribute the HUD reads (:401); the game also sets it at `SiliconCore.server.lua:2021`, :2179, :3446. (An older note here said nothing set it on load; that is no longer true, checked 14 Oct.)
-- The HUD copies momentum math: `math.min(mom, 12) * 3` (`HudClient.client.lua:570`). Changing `Momentum.SPEND_CAP` or `PER_POINT` will not change it.
+- The HUD copies momentum math: `math.min(mom, 12) * 3` (`HudClient.client.lua:573`). Changing `Momentum.SPEND_CAP` or `PER_POINT` will not change it.
 - `SiliconCore` is at Luau's 200 local limit (:440, :4043). New code goes in a module or a `do` block.
 - The objective attributes refresh every 0.4 s (:4116-4128). Tests that read them right after an action can see the old value (`DevHook.lua:276`).
 - `Journey.task` returns nil while you carry a recruit, a product waits, or nothing shipped (`Journey.lua:72`).
-**Last verified:** 2026-10-17 f757f69
+**Last verified:** 2026-10-17 0358b25

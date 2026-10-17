@@ -4,7 +4,7 @@
 1. Join. `MenuClient` fires `MenuDone` once (`MenuClient.client.lua:19`). The server sets the attribute (`SiliconCore.server.lua:4187-4190`). HUD guis wait for it.
 2. `IntroClient` waits for `MenuDone` (:151), then `Cine.play` flies to the laptop (:297). Returning players get a short "WELCOME BACK" shot (:159-167).
 3. `GuideClient` draws the goal the server picks (`GuideClient.client.lua:560-630`). Since 16 Oct the card is one line: the sub line, the price chip, the meter and the BIG GOAL footer are hidden (`applySub` :484-498). `refreshObjective` reads `Clients.goal` first (client-loop.md).
-4. A new company comes named: `Names.lua` generates it on join (`SiliconCore.server.lua:4074-4081`), no box. From the lobby on, the entrance sign has a RENAME prompt (`ClientsServer.lua:242-262`); it calls `askRename`, which sets `s.renaming` and fires `AskName` (`SiliconCore.server.lua:4208-4211`). `NameClient` shows the box through `Notify` (:166). SAVE fires `SetName` (:132-143). LATER sends an empty string (:126-130).
+4. A new company comes named: `Names.lua` generates it on join (`SiliconCore.server.lua:4074-4081`), no box. From the lobby on, the entrance sign has a RENAME prompt (`ClientsServer.lua:250-273`); it calls `askRename`, which sets `s.renaming` and fires `AskName` (`SiliconCore.server.lua:4208-4211`). `NameClient` shows the box through `Notify` (:166). SAVE fires `SetName` (:132-143). LATER sends an empty string (:126-130).
 5. The server picks a button tip, none before Wafer level 2 (`SiliconCore.server.lua:1883-1895`). A tip taken away without GOT IT waits its 25 s again (:1888). `CoachClient` draws it after 1.5 s of calm (:238). GOT IT fires `CoachSeen` (:120).
 6. `MusicClient` puts a round button top right (:60-71). A tap flips `MenuMuted` and fires `SetMuted` (:115-120).
 **Files:**
@@ -62,4 +62,4 @@
 - The colour rule lives in `Palette.compliant`. `SVStyle.classify` calls it (`SVStyle.lua:71-77`). Change it in `Palette` only.
 - Two sound tables: `UIKit.SOUNDS` (:892) for UI, `Sfx.ID` for the world. A bad id plays silence (`Sfx.lua:5-8`).
 - Security (9 Oct exploit check): `SetName` only works while the company has no name or a RENAME is open (`s.renaming`), one attempt in flight and one a second (`SiliconCore.server.lua:3398`). Each attempt costs a text filter and a DataStore write from the server's shared budget; spammed renames drained it (280 throttled writes) before the fix. Refusal popups are capped at one per anchor every 0.3 s (`popup`, `SiliconCore.server.lua:446`).
-**Last verified:** 2026-10-17 f757f69
+**Last verified:** 2026-10-17 0358b25

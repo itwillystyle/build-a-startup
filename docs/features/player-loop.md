@@ -6,7 +6,7 @@
 **Files:**
 - `src/ServerScriptService/Telemetry.lua`: `FUNNEL` :40 (joined, play, first_code, first_ship, first_hire, hq_2 to hq_5, public, spinoff; since 16 Oct `first_code` is the first held code for a client and `first_ship` the first client's app, see below), money kinds `SHOP` / `TIMED` / `SUMMED` :57, `FLUSH_EVERY` 300 s :60, `flush` :84, `joined` :91, `step` :125, `reached` :152 (a returning player's furthest step), `event` :166, `mark` :186 (session milestone `m_<name>`), `money` :195, `carryStart` :207, `carryEnd` :213, `left` :218.
 - Funnel steps are sent from `SiliconCore.server.lua`: the ladder at :2226, the backfill after load at :4073, `public` in `goPublic`, `spinoff` in `spinOff`. Income is summed at :3327.
-- The client loop (16 Oct, `src/ServerScriptService/ClientsServer.lua` `paid` :424): money kinds `client` (the pay) and `client_tip` (the tip for 2-3 stars) (:430-433); event `client_served` with fields `who` and `tier` (:436); milestone `first_big_client` (:437); event `client_lost` when a client's patience runs out (:549); funnel step `first_code` on the first held code for a client (:521). See client-loop.md.
+- The client loop (16 Oct, `src/ServerScriptService/ClientsServer.lua` `paid` :436): money kinds `client` (the pay) and `client_tip` (the tip for 2-3 stars) (:441-445); event `client_served` with fields `who` and `tier` (:448); milestone `first_big_client` (:449); event `client_lost` when a client's patience runs out (:576); funnel step `first_code` on the first held code for a client (:540). See client-loop.md.
 - Recruit runs: `src/ServerScriptService/TalentDrop.lua` `endCarry` :452 (every end, with its outcome), `startCarry` :553, the poach :636.
 - Money: one `Telemetry.money` call beside every cash change, in SiliconCore, Apartments, Cars, DailyReward, Phone, SaveLoad and Valley (the full list is what `tests/offline/telemetry.spec.luau` checks).
 - `src/ServerScriptService/Feedback.lua`: `GAP` 60 s and 5 a session :20, `clean` :25 (pure), `key` :37, `receive` :44, `init` :71 (wired in `SiliconCore.server.lua:2977`), `latest` :89.
@@ -30,4 +30,4 @@
 - Each feedback message is a DataStore write out of the shared budget every save comes from; keep the 60 s gap.
 - Not built: the weekly routine that reads the dashboard needs the Analytics Query API and an Open Cloud key (Phase 3).
 
-**Last verified:** 2026-10-17 f757f69
+**Last verified:** 2026-10-17 0358b25

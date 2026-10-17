@@ -13,7 +13,7 @@
 - `src/StarterPlayer/StarterPlayerScripts/HomeClient.client.lua`: sales card :72, fades :136, move-in and car shots :164, indoor zoom cap :209, HQ level-up orbit :244.
 - `src/StarterPlayer/StarterPlayerScripts/LiftClient.client.lua`: floor picker for HQ lifts, NOT the Residences lift. Covered in hq-paths.md.
 - `src/ServerScriptService/Progression.lua`: `APARTMENTS` :107, `KEEP_SLOTS` :126, `keepSlots` :128, `rankKeepers` :146, `chooseKeepers` :164, `HOME_SHARE` :208, `homePrice` :210.
-- Keeper slots in the spin-off: `SiliconCore.server.lua:2812` (SpinConfirm), `:3132-3170` (offer and keep). Card UI: `HudClient.client.lua:806` (spinAsk).
+- Keeper slots in the spin-off: `SiliconCore.server.lua:2812` (SpinConfirm), `:3132-3170` (offer and keep). Card UI: `HudClient.client.lua:809` (spinAsk).
 **State:**
 - Session: `s.apt` (0-3), `s.vipDay` (UTC day number), `s.lastBuy`. Price reads `s.spinoffs` (`Apartments.lua:50-53`).
 - Player attribute: `Apt` (`Apartments.lua:460`). I found no reader in `src`. Unclear if it is used.
@@ -41,4 +41,4 @@
 - If the Residences mesh is missing, no sales desk or lift exists. `init` waits 30 s, then gives up silently (`Apartments.lua:557-561`, `Downtown.lua:265`).
 - While a keeper choice is pending, the pad's second tap cannot confirm. Only the card can (`SiliconCore.server.lua:3157-3160`). Picks are opaque ids matched to staff entries, never positions (`Progression.lua:140-145`).
 - `SPINOFF_BASE` is asserted at load. A missing base would sell homes for $1 (`Apartments.lua:44-45`).
-**Last verified:** 2026-10-17 f757f69
+**Last verified:** 2026-10-17 0358b25

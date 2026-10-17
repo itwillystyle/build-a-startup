@@ -4,9 +4,9 @@
 1. Build to the top floor allowed. The cap rises with spin-offs: 18, 30, 43, 55, 68, 80, 93, 100 (`src/ServerScriptService/WaferPlan.lua:19,146`).
 2. The quest card says "GO PUBLIC!" (`src/ServerScriptService/Journey.lua:97-100`) and a gold GO PUBLIC button shows when `CanGoPublic` is true (`src/StarterPlayer/StarterPlayerScripts/IpoClient.client.lua:24-47`, attribute set at `SiliconCore.server.lua:1896-1898`).
 3. Tap it. The client fires `GoPublic` (`IpoClient.client.lua:40`). The server runs `goPublic` (`SiliconCore.server.lua:3771`). The HQ pad at the top calls it too (`wafersBuild` :2131). The bell card is `moment` (`IpoClient.client.lua:87`).
-4. The pad now reads "SPIN OFF $X revenue xN forever" (`refreshHqPad` :2033). Tap the pad, or the guide's "Spin off!". The first tap arms it and sends a `spinAsk` card (`SiliconCore.server.lua:3123-3150`, `HudClient.client.lua:806`).
-5. On the card, pick who comes along if more people qualify than the home has seats, then HOLD TO SPIN OFF (`HudClient.client.lua:901`). That fires `SpinConfirm {pick}` (:938) and the server runs `spinOff` again. NOT YET fires `SpinCancel` (:919).
-6. `Celebrate` kind `spin` plays the ceremony (`HudClient.client.lua:952`).
+4. The pad now reads "SPIN OFF $X revenue xN forever" (`refreshHqPad` :2033). Tap the pad, or the guide's "Spin off!". The first tap arms it and sends a `spinAsk` card (`SiliconCore.server.lua:3123-3150`, `HudClient.client.lua:809`).
+5. On the card, pick who comes along if more people qualify than the home has seats, then HOLD TO SPIN OFF (`HudClient.client.lua:904`). That fires `SpinConfirm {pick}` (:938) and the server runs `spinOff` again. NOT YET fires `SpinCancel` (:919).
+6. `Celebrate` kind `spin` plays the ceremony (`HudClient.client.lua:955`).
 **Files:**
 - `src/ServerScriptService/SiliconCore.server.lua`: price helpers :119-127, `refreshHqPad` :2033, `SpinConfirm` :2812, `SpinCancel` :2833, `spinOff` :3110-3219, `goPublic` :3771-3792, `GoPublic` remote :563 and :3793, `checkIPO` :3798 (old), `pushTicker` :3809.
 - `src/ServerScriptService/Progression.lua`: `SPIN_STEP` :23, `SPIN_CAP` :24, `spinMult` :33, `spinCost` :38, `runScale` :63, `CAPS` :59, `capWindfall` :92, `KEEP_SLOTS` :126, `rankKeepers` :146, `chooseKeepers` :164.
@@ -38,4 +38,4 @@
 - At 20 spin-offs `s.spinoffs` stops growing (`SiliconCore.server.lua:3189`), so price and multiplier stop too (`Progression.lua:24,28-30`).
 - The keep list is built only when `Econ.V3` is on (:3165).
 - A spin-off starts a new client line at the garage door, with no tutorial client (`Econ.Clients.reset`, :3191; see client-loop.md).
-**Last verified:** 2026-10-17 f757f69
+**Last verified:** 2026-10-17 0358b25
