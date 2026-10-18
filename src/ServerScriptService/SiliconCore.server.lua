@@ -1686,7 +1686,11 @@ local function refreshObjective(player)
 		-- v3.0: walking a candidate home is the only thing that matters right now
 		local c = Econ.Drop.carrying(player)
 		local left = math.max(0, math.floor(c.deadline - workspace:GetServerTimeNow()))
-		key, text, pos, sub = "carry", ("Bring %s home!"):format(c.name), posOf(plot.hqPad), ("%d seconds left"):format(left)
+		-- 18 Oct (playtest 22-54-32, 2:08): home is the doorstep since v4.6 (TalentDrop sets
+		-- CarryHome); the HQ pad sent the goal line to the upgrade pad, away from the DROP OFF ring
+		local home = player:GetAttribute("CarryHome")
+		home = typeof(home) == "Vector3" and home or posOf(plot.hqPad)
+		key, text, pos, sub = "carry", ("Bring %s home!"):format(c.name), home, ("%d seconds left"):format(left)
 	else
 		-- v4.3 THE JOURNEY: a story task (the car, the drive, the home, the VIP, the
 		-- first Genius, the Series A, GO PUBLIC) beats the cheapest-next-buy guide
