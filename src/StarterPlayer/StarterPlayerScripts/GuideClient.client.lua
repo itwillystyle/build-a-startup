@@ -36,6 +36,7 @@ local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
 local Notify = require(game:GetService("ReplicatedStorage"):WaitForChild("Notify"))
+local GoalDone = require(ReplicatedStorage:WaitForChild("GoalDone"))
 local Cine = ReplicatedStorage:FindFirstChild("Cine") and require(ReplicatedStorage.Cine)
 
 local GOLD, INK = UIKit.GOLD, UIKit.INK
@@ -545,16 +546,24 @@ local function showGoal(key, text)
 	tint(ic)
 end
 
--- was the goal that just went away actually FINISHED?
-local PASSIVE = { wait = true, watch = true, product = true }
+-- was the goal that just went away actually FINISHED? (GoalDone, pure and tested offline)
+-- 18 Oct (playtest 22-54-32, 0:44): "Upgrade your HQ" stepped aside after a GIVE and got a
+-- DONE! tick with nothing built; a goal with a visible finish now needs that finish
+local function levelNow()
+	return tonumber(player:GetAttribute("WaferLevel")) or tonumber(player:GetAttribute("HQLevel")) or 0
+end
+local function staffNow()
+	local l = player:FindFirstChild("leaderstats")
+	local st = l and l:FindFirstChild("Staff")
+	return st and st.Value or 0
+end
+local goalLevel, goalStaff = levelNow(), staffNow()   -- when the goal on the card first showed
 local function finished(prevKey, prevCost, newKey)
-	if not prevKey or not newKey then return false end
-	if PASSIVE[prevKey] or newKey == "product" then return false end
-	if prevCost and prevCost > 0 then
-		-- a purchase goal is done when the money for it left your pocket
-		return recentMax() - cashNow() >= prevCost * 0.8
-	end
-	return true
+	return GoalDone.finished(prevKey, newKey, {
+		cost = prevCost, spent = recentMax() - cashNow(),
+		levelUp = levelNow() > goalLevel, staffUp = staffNow() > goalStaff,
+		lineEmpty = (tonumber(player:GetAttribute("ClientsWaiting")) or 0) == 0,
+	})
 end
 
 local function readObjective()
@@ -565,7 +574,9 @@ local function readObjective()
 	cost = tonumber(player:GetAttribute("ObjectiveCost"))
 
 	if key ~= lastKey then
-		if finished(lastKey, lastCost, key) then
+		-- 18 Oct: one stamp at a time; a goal that changes again mid-stamp is shown when it ends
+		-- (a second stamp redrew DONE! and the first stamp's delay cut it short)
+		if not stamping and finished(lastKey, lastCost, key) then
 			-- a check stamps down, confetti, then the next goal springs in
 			stamping = true
 			title.Text = "DONE!"
@@ -594,6 +605,7 @@ local function readObjective()
 			showGoal(key, text)
 		end
 		lastKey = key
+		goalLevel, goalStaff = levelNow(), staffNow()
 		readyFor = nil
 	elseif not stamping then
 		title.Text = words(text)

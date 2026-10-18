@@ -25,6 +25,7 @@
 - `src/ReplicatedStorage/Sfx.lua`: `ID` :22, `CAR` :71, `ROOM` :88, `emitter` :100, `play` :120.
 - `src/StarterPlayer/StarterPlayerScripts/MenuClient.client.lua`: only the `MenuDone` handshake.
 - `src/StarterPlayer/StarterPlayerScripts/GuideClient.client.lua`: goal card, world pin, edge arrow. Dismiss attribute :267.
+- `src/ReplicatedStorage/GoalDone.lua` (18 Oct, pure): whether the goal card may stamp DONE! when the goal changes. A goal with a visible finish needs it (`upgrade` a new level, `hire`/`carry` a bigger team, `serve` an empty line); a purchase needs the cash spent. Tested by `tests/offline/goaldone.spec.luau`. Before it, "Upgrade your HQ" got a DONE! tick each time the line went 2 -> 1 (playtest 22-54-32, 0:44).
 - `src/StarterPlayer/StarterPlayerScripts/CoachClient.client.lua`: `place` :60, `build` :120, loop :223-236.
 - `src/StarterPlayer/StarterPlayerScripts/IntroClient.client.lua`: `runIntro` :133, ghost tower and neighbour shot :175-260.
 - `src/StarterPlayer/StarterPlayerScripts/NameClient.client.lua`: gui `CompanyName` :31, `suggest` :59.
