@@ -489,12 +489,21 @@ codeBtn.MouseLeave:Connect(function() setHold(false) end)
 codeBtn:GetPropertyChangedSignal("Visible"):Connect(function() if not codeBtn.Visible then setHold(false) end end)
 --[[ The verb the player presses most in the whole game made no sound at all.
 	Two alternating key samples at a jittered pitch while the code is going in,
-	so holding reads as typing rather than as one sample retriggering. ]]
+	so holding reads as typing rather than as one sample retriggering.
+	18 Oct (playtest 22-54-32, 4:07, Luke: the keyboard "just goes blank sometimes"): it only
+	played for a HUD-button hold, so holding E at the laptop prompt was silent. Now it types
+	while the server's CodeProgress is going up, whatever is holding: the server publishes it
+	every 0.25 s, so a rise in the last 0.45 s counts as coding. ]]
+local lastCode, codeRoseAt = 0, -math.huge
+player:GetAttributeChangedSignal("CodeProgress"):Connect(function()
+	local p = tonumber(player:GetAttribute("CodeProgress")) or 0
+	if p > lastCode then codeRoseAt = os.clock() end
+	lastCode = p
+end)
 task.spawn(function()
 	while true do
 		task.wait(0.17)
-		local p = tonumber(player:GetAttribute("CodeProgress")) or 0
-		if holdingCode and Sfx and p > 0 and p < 1 then
+		if Sfx and os.clock() - codeRoseAt < 0.45 then
 			local head = player.Character and player.Character:FindFirstChild("Head")
 			if head then
 				keyFlip = not keyFlip
