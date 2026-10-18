@@ -379,7 +379,12 @@ local function syncCode()
 	codeBtn:SetAttribute("FixedStroke", (not loud) and UIKit.GREEN or nil)
 	codeBtn:SetAttribute("FixedText", (not loud) and UIKit.GREEN_DEEP or nil)
 	UIKit.setButtonColor(codeBtn, colour)
-	slotArt.Visible = not (carrying or away)
+	local art = not (carrying or away)
+	slotArt.Visible = art
+	-- 18 Oct (playtest 22-54-32): the label kept the icon's 56 px inset with the icon hidden,
+	-- so GO TO LAPTOP / GO TO CLIENT / GIVE sat right of centre; no icon, the full width
+	codeLabel.Position = art and UDim2.new(0, 56, 0, 0) or UDim2.new(0, 8, 0, 0)
+	codeLabel.Size = art and UDim2.new(1, -64, 1, -5) or UDim2.new(1, -16, 1, -5)
 end
 syncCode()
 player:GetAttributeChangedSignal("Shipped"):Connect(syncCode)
