@@ -157,6 +157,9 @@ local function appTile(parent, size)
 end
 
 local function fly(from, to, seconds, done)
+	-- 18 Oct (playtest 22-54-32, 3:49, Luke: "add a sound effect when we give the app"): a soft
+	-- low click as it leaves your hands (no toss sound exists; "tap" pitched down is the closest)
+	UIKit.sfx("tap", 0.75, 0.5)
 	local tile = appTile(gui, 34)
 	local t0 = os.clock()
 	local conn
@@ -190,6 +193,8 @@ local function opened(at, stars)
 	local sc = Instance.new("UIScale")
 	sc.Parent = card
 	Moment.enter(sc, 0.4, 0.25)
+	-- 18 Oct (playtest 22-54-32): they open it with a click (the switch "thunk", pitched up), then the stars ding
+	UIKit.sfx("thunk", 1.25, 0.4)
 	for i = 1, 3 do
 		local on = i <= stars
 		local icon = UIKit.icon(card, "star", 34, on and UIKit.GOLD or UIKit.LINE_LIGHT, {

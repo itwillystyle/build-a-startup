@@ -293,6 +293,23 @@ test("tiers: Skilled pays x2 and Star x4, and each takes longer", function()
 	assert(C.pay(st, 0, 1) == 4 * C.pay(reg, 0, 1), "Star x4")
 end)
 
+-- 18 Oct (playtest 22-54-32, 4:01, Luke: "the coding is a little too slow"): every job about 30%
+-- shorter than the 17 Oct build (first 2 s, normal 2.5, Skilled 3.5, Star 5, BIG 7.5)
+test("jobs are short: seconds of holding per kind of client", function()
+	local Q = C.new({ first = false, seed = 1 })
+	local function secs(c) return c.need / TUNE.PLAYER_SPEED end
+	local want = {
+		{ "first", C.make(Q, "first"), 1.5 },
+		{ "regular", C.make(Q, "normal", "regular"), 1.75 },
+		{ "skilled", C.make(Q, "normal", "skilled"), 2.3 },
+		{ "star", C.make(Q, "normal", "star"), 3.0 },
+		{ "BIG", C.make(Q, "big"), 4.4 },
+	}
+	for _, w in ipairs(want) do
+		assert(secs(w[2]) <= w[3] + 1e-9, ("%s takes %.2f s, want at most %.2f"):format(w[1], secs(w[2]), w[3]))
+	end
+end)
+
 -- the goal line (Clients.goal): one goal, taught when it is needed
 local function st(over)
 	local t = { served = 0, carrying = false, waiting = 1, staff = 0, cap = 1, level = 1, cash = 0,

@@ -22,13 +22,14 @@ Clients.TUNE = {
 	TIP = 0.35,           -- speed tip, as a share of the pay, when you hand over with half your patience left
 	WOW = 5,              -- the first client pays this many normal jobs
 	BIG_MULT = 5,         -- a BIG client pays this many
-	BIG_NEED = 3,         -- and is this many jobs of work
+	BIG_NEED = 2.5,       -- and is this many jobs of work (18 Oct: was 3)
 	BIG_CHANCE = 0.12,    -- chance a new client is BIG, from the lobby on
 	PLAYER_SPEED = 1,     -- work per second while you hold at the laptop
 	CODER_SPEED = 0.4,    -- a tier-1 engineer's work per second
 	OFF_ROLE = 1 / 1.5,   -- other roles code this much slower (RoomEconomy.FIT_MULT)
-	FIRST_NEED = 2,       -- the first job: about 2 s of holding (17 Oct: 3 s felt slow)
-	NEED = 2.5,           -- a normal job (17 Oct, Luke: "coding feels a little too slow"; was 4)
+	FIRST_NEED = 1.5,     -- the first job: about 1.5 s of holding (17 Oct: 3 s felt slow; 18 Oct: was 2)
+	NEED = 1.75,          -- a normal job (17 Oct, Luke: "coding feels a little too slow"; was 4, then 2.5;
+	                      -- 18 Oct playtest 22-54-32: still slow, every job about 30% shorter)
 	PATIENCE = 30,
 	BIG_PATIENCE = 45,
 	CAP = 3,              -- never more than 3 waiting (phones)
@@ -38,7 +39,7 @@ Clients.TUNE = {
 	SKILLED_CHANCE = 0.30,
 	STAR_CHANCE = 0.12,
 	TIER_PAY = { regular = 1, skilled = 2, star = 4 },
-	TIER_NEED = { regular = 1, skilled = 1.4, star = 2 },
+	TIER_NEED = { regular = 1, skilled = 1.3, star = 1.7 },   -- 18 Oct: was 1.4 / 2
 	-- 17 Oct, Luke's pick 2A: stars for speed (share of patience left) and the tip follows them
 	STAR3 = 0.6,
 	STAR2 = 1 / 3,
