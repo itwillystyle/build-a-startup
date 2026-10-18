@@ -48,7 +48,7 @@ local function tween(o, t, props, style)
 end
 
 -- which rendered icon a goal wears (the card and the pin show the same one)
-local ICON_FOR = { code = "code", watch = "code", wait = "code", hire = "hire", hire2 = "hire", recruit = "hire",
+local ICON_FOR = { code = "code", finish = "code", watch = "code", wait = "code", hire = "hire", hire2 = "hire", recruit = "hire",
 	carry = "hire", product = "rocket", spin = "rocket", hq = "hq", decor = "home", desk = "office",
 	apartment = "key", car = "car" }
 local ROOM_WORDS = { { "office", "office" }, { "studio", "studio" }, { "caf", "cafe" }, { "server", "servers" } }
@@ -106,6 +106,10 @@ pin.Size = UDim2.new(0, 72, 0, 88)
 local PIN_CLEAR_PX = 46        -- screen gap kept between the marker and the target
 local PIN_NEAR = 22            -- inside this, you can see the thing: no marker
 local PIN_MAX_LIFT = 70
+-- 18 Oct (option A, Luke's pick: "Coding. You're there, so no line."): inside this you are at
+-- the target (the laptop's 12-stud hold range, the client's 10-stud GIVE range): the ground
+-- line and the ring go, and the bottom button (HOLD TO CODE, GIVE) is the one loud thing
+local ARRIVED = 10
 pin.AlwaysOnTop = true          -- a goal behind a wall still shows where it is
 pin.MaxDistance = 600
 pin.LightInfluence = 0
@@ -768,10 +772,12 @@ RunService.RenderStepped:Connect(function()
 	pinPart.Position = target + Vector3.new(0, lift, 0)
 	pin.StudsOffset = Vector3.new(0, 1.2, 0)
 	local pulse = 0.5 + 0.5 * math.sin(now * 3)
+	local there = root ~= nil and dist <= ARRIVED
 	ring.CFrame = CFrame.new(target + Vector3.new(0, 0.12, 0)) * CFrame.Angles(0, 0, math.rad(90))
 	ring.Size = Vector3.new(0.12, 7 + pulse * 2, 7 + pulse * 2)
-	ring.Transparency = 0.55 + 0.25 * pulse
+	ring.Transparency = there and 1 or (0.55 + 0.25 * pulse)
 	beamEnd.Position = target + Vector3.new(0, 0.6, 0)
+	beam.Enabled = not there   -- beamEnd is only parented while a marker shows (readObjective)
 
 	-- screen-edge arrow when the target is off-screen
 	local vp = camera.ViewportSize
