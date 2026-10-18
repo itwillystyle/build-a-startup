@@ -210,8 +210,8 @@ local function placeMoney()
 	local origin, h = gui.AbsolutePosition, gui.AbsoluteSize.Y
 	local right = MONEY_X + math.max(pill.AbsoluteSize.X, 200) + 8
 	local lift = MONEY_GAP
-	local function clear(o)
-		if not (o and o:IsA("GuiObject") and o.Visible and o.AbsoluteSize.X > 2) then return end
+	local function clear(o, held)
+		if not (o and o:IsA("GuiObject") and (o.Visible or held) and o.AbsoluteSize.X > 2) then return end
 		local sg = o:FindFirstAncestorWhichIsA("ScreenGui")
 		if sg and not sg.Enabled then return end
 		local a = o.AbsolutePosition - origin
@@ -223,7 +223,10 @@ local function placeMoney()
 	if touch then clear(touch:FindFirstChild("ThumbstickStart", true)) end
 	local items = pg:FindFirstChild("ItemQuick")
 	if items then for _, c in ipairs(items:GetDescendants()) do if c:IsA("GuiButton") then clear(c) end end end
-	clear(gui:FindFirstChild("WriteCode"))      -- made further down this script
+	-- 18 Oct (option A): the bottom slot comes and goes as you reach the laptop or the client;
+	-- its space stays held (SlotHeld, syncCode) so the money does not jump each time it pops in
+	local slot = gui:FindFirstChild("WriteCode")      -- made further down this script
+	clear(slot, slot ~= nil and slot:GetAttribute("SlotHeld") == true)
 	local ph = pill.AbsoluteSize.Y > 0 and pill.AbsoluteSize.Y or 46
 	pill.Position = UDim2.new(0, MONEY_X, 1, -lift)
 	rateText.Position = UDim2.new(0, MONEY_X + 4, 1, -lift - ph - 2)
@@ -244,7 +247,11 @@ that filled it: his Wilz run never pressed it in 19 minutes).
 
 When something else is the goal (build, hire, upgrade), WRITE CODE steps down
 a size so the goal card and the world marker are the loud things (DESIGN.md
-principle 1). It pulses only when writing code IS the goal. ]]
+principle 1). It pulses only when writing code IS the goal.
+
+18 Oct (option A, Luke's pick): out of date above. LAUNCH! is its own button (16 Oct)
+and the main button is only on screen when pressing it does something (HOLD TO CODE
+at the laptop, GIVE next to your client); no quiet size, no GO TO. See syncCode. ]]
 local Sfx = (function()
 	local ok, m = pcall(require, game:GetService("ReplicatedStorage"):WaitForChild("Sfx", 5))
 	return ok and m or nil
@@ -255,8 +262,7 @@ local codeHold = remotes:WaitForChild("CodeHold", 10)   -- 16 Oct: WRITE CODE is
 local giveApp = remotes:WaitForChild("GiveApp", 10)     -- 17 Oct (pick 2A): GIVE hands the app over
 local pickMarket = remotes:WaitForChild("PickMarket", 10)
 local productReady = remotes:WaitForChild("ProductReady", 10)
-local FULL = UDim2.new(0, 236, 0, 64)
-local QUIET = UDim2.new(0, 206, 0, 56)
+local FULL = UDim2.new(0, 236, 0, 64)   -- 18 Oct (option A): no QUIET size; on screen, it is always the verb
 local MINT = UIKit.GREEN_LIGHT
 local codeBtn, codeLabel = UIKit.button(gui, "WRITE CODE", UIKit.GREEN, {
 	Name = "WriteCode", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -22),
@@ -351,40 +357,52 @@ end
 -- while-away COLLECT, the spin-off confirm). The bottom row, WRITE CODE and CAR,
 -- steps aside for it, so a thumb slip can't hit the wrong thing
 local function menuOpen() return UIKit.menuOpen() end
+--[[ 18 Oct (option A, Luke's pick; board silicon-startup/ui/2026-10-18-button-vs-instruction):
+	the button only names what pressing it does right now. At the laptop with a job waiting it
+	is HOLD TO CODE (CODING n% while it fills); next to the client you carry for it is a gold
+	GIVE. Anywhere else it is not on screen: GO TO LAPTOP and GO TO CLIENT were directions
+	dressed as buttons (playtest 22-54-32, 0:12 and 4:04), and the way is the goal card, the
+	marker and the ground line's job. It pops in quietly so the thumb notices it. ]]
+local shownVerb   -- "code" | "give" | nil (hidden): the verb on screen at the last sync
+local launchY     -- LAUNCH's slot offset last set (so a 4 Hz sync does not restart its slide)
 local function syncCode()
 	local inCar = seated()
 	-- in a car the speedometer owns the bottom centre: a waiting LAUNCH sits above it
 	-- v5: it also steps aside while the company-name box is up (it pulsed behind
 	-- the box, two loud things at once, and its caption ran under the box's edge)
 	local free = player:GetAttribute("BuildModeOpen") ~= true and player:GetAttribute("NamingOpen") ~= true and not menuOpen()
-	codeBtn.Visible = free and not inCar
-	launchBtn.Visible = free and launchState ~= nil
-	-- 17 Oct: above WRITE CODE (beside it, the CAR button covered it: Luke's recording 3:46)
-	launchBtn.Position = UDim2.new(0.5, 0, 1, inCar and -126 or -96)
-	-- 16 Oct, mock 2C: the button says what holding it does right now
 	local carrying = player:GetAttribute("CarryingApp") == true
 	local give = carrying and player:GetAttribute("CanGive") == true
-	local job = player:GetAttribute("JobWaiting") == true
-	local away = job and not carrying and player:GetAttribute("AtLaptop") ~= true
+	local code = not carrying and player:GetAttribute("JobWaiting") == true and player:GetAttribute("AtLaptop") == true
+	local verb = give and "give" or code and "code" or nil
+	codeBtn.Visible = free and not inCar and verb ~= nil
+	codeBtn:SetAttribute("SlotHeld", free and not inCar)   -- placeMoney keeps the slot's space
+	launchBtn.Visible = free and launchState ~= nil
+	-- 17 Oct: above WRITE CODE (beside it, the CAR button covered it: Luke's recording 3:46)
+	-- 18 Oct (option A): with the button hidden, LAUNCH sits in the bottom slot itself; it
+	-- slides up when HOLD TO CODE or GIVE pops in under it
+	local y = inCar and -126 or codeBtn.Visible and -96 or -22
+	if y ~= launchY then
+		launchY = y
+		local at = UDim2.new(0.5, 0, 1, y)
+		if launchBtn.Visible then tween(launchBtn, 0.2, { Position = at }) else launchBtn.Position = at end
+	end
 	local prog = tonumber(player:GetAttribute("CodeProgress")) or 0
-	local loud = carrying or job or pulsing
-	codeBtn.Size = loud and FULL or QUIET
-	codeLabel.TextSize = loud and UIKit.TYPE.title or UIKit.TYPE.label
-	-- 17 Oct (pick 2A): carrying, it says where to take it; next to them, a gold GIVE
-	codeLabel.Text = give and "GIVE" or carrying and "GO TO CLIENT" or away and "GO TO LAPTOP"
-		or (prog > 0 and prog < 1) and ("CODING " .. math.floor(prog * 100) .. "%") or "HOLD TO CODE"
-	local colour = give and UIKit.GOLD or (carrying or away) and UIKit.BLUE or loud and UIKit.GREEN or UIKit.PAPER
-	-- v5: when the goal is out in the world (hire, build, drive...), WRITE CODE is
-	-- a quiet paper button, still one press away, and the goal is the loud thing
-	codeBtn:SetAttribute("FixedStroke", (not loud) and UIKit.GREEN or nil)
-	codeBtn:SetAttribute("FixedText", (not loud) and UIKit.GREEN_DEEP or nil)
-	UIKit.setButtonColor(codeBtn, colour)
-	local art = not (carrying or away)
+	-- 16 Oct, mock 2C: the button says what holding it does right now
+	-- 17 Oct (pick 2A): next to them, a gold GIVE
+	codeLabel.TextSize = UIKit.TYPE.title
+	codeLabel.Text = give and "GIVE" or (prog > 0 and prog < 1) and ("CODING " .. math.floor(prog * 100) .. "%") or "HOLD TO CODE"
+	UIKit.setButtonColor(codeBtn, give and UIKit.GOLD or UIKit.GREEN)
+	local art = not give
 	slotArt.Visible = art
 	-- 18 Oct (playtest 22-54-32): the label kept the icon's 56 px inset with the icon hidden,
-	-- so GO TO LAPTOP / GO TO CLIENT / GIVE sat right of centre; no icon, the full width
+	-- so GIVE sat right of centre; no icon, the full width
 	codeLabel.Position = art and UDim2.new(0, 56, 0, 0) or UDim2.new(0, 8, 0, 0)
 	codeLabel.Size = art and UDim2.new(1, -64, 1, -5) or UDim2.new(1, -16, 1, -5)
+	-- 18 Oct (option A): a short, calm pop (no overshoot) when it appears or its verb changes
+	local now = codeBtn.Visible and verb or nil
+	if now and now ~= shownVerb then UIKit.popIn(codeBtn, 0.85) end
+	shownVerb = now
 end
 syncCode()
 player:GetAttributeChangedSignal("Shipped"):Connect(syncCode)
@@ -1008,7 +1026,8 @@ if celebrate then
 			local vp = fx.AbsoluteSize
 			-- the coins fly out of the button you just pressed (they used to burst
 			-- out of the top-right corner, over the goal card)
-			local slot = gui:FindFirstChild("WriteCode")
+			-- 18 Oct (option A): from LAUNCH! itself (its own button since 16 Oct; WRITE CODE is often hidden now)
+			local slot = gui:FindFirstChild("Launch")
 			local from = slot and (slot.AbsolutePosition + slot.AbsoluteSize / 2) or (fx.AbsolutePosition + Vector2.new(vp.X / 2, vp.Y - 60))
 			coinStream(from, 12, nil, e.payday)     -- the payday counts in as the coins land
 			popUnderCash("+" .. UIKit.money(e.payday or 0), UIKit.GOLD, 1.4)

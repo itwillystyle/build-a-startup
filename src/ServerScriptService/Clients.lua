@@ -165,6 +165,7 @@ function Clients.tick(Q, dt, ctx)
 	local mine = (ctx.holding and ctx.atLaptop and not Q.carrying) and open[1] or nil
 	if mine then
 		mine.by = "you"
+		mine.yours = true   -- 18 Oct (option A): you started it; a coder taking `by` on a let-go does not undo that
 		mine.done = math.min(mine.need, mine.done + TUNE.PLAYER_SPEED * (ctx.speedMult or 1) * dt)
 		if mine.done >= mine.need then
 			Q.carrying = mine
@@ -227,14 +228,23 @@ end
 
 --[[ The goal line (spec: "Teaching the rest when it's needed"; Tizzy's contextual
 	tutorial). One goal, the moment it is needed; nil = let Journey decide.
-	st = { served, carrying, waiting, staff, cap, level, cash, upgradeCost, freeSeat,
+	st = { served, carrying, midJob, waiting, staff, cap, level, cash, upgradeCost, freeSeat,
 	recruitTaught, tutorial }. Returns { key, title, target }; target is a place
-	name the server turns into a position (laptop, client, hirePad, hqPad, sidewalk). ]]
+	name the server turns into a position (laptop, client, hirePad, hqPad, sidewalk).
+
+	18 Oct (option A, Luke's pick): the job in your hands comes first. While you carry an
+	app, or have put code into a job (midJob, Clients.started), the card, the marker and
+	the ground line all name that job, and "Build level 4" waits until you GIVE (playtest
+	22-54-32, 3:44 and 4:04: the card and the line said build while you carried an app).
+	Only mid-job: in the lobby a client arrives every 4 s, so "a job is waiting" would
+	hide the build goals forever. ]]
 function Clients.goal(st)
 	if st.tutorial and (st.served or 0) == 0 then
 		if st.carrying then return { key = "deliver", title = "Take it to your client", target = "client" } end
 		return { key = "code", title = "Code the to-do app", target = "laptop" }
 	end
+	if st.carrying then return { key = "give", title = "Give it to your client", target = "client" } end
+	if st.midJob then return { key = "finish", title = "Finish the app", target = "laptop" } end
 	local busy = (st.waiting or 0) >= 2
 	local staff = st.staff or 0
 	if staff == 0 and (busy or (st.served or 0) >= TUNE.HIRE_AFTER) then
@@ -247,6 +257,18 @@ function Clients.goal(st)
 	-- not gated on `busy`: it flipped with Journey's goal every few seconds as the line went 1-2-1
 	if (st.level or 1) >= 2 and st.freeSeat and not st.recruitTaught then
 		return { key = "recruit", title = "Recruit on the street", target = "sidewalk" }
+	end
+	return nil
+end
+
+--[[ 18 Oct (option A): the job you have started coding and not finished, or nil. "Started"
+	means you put code into it (`yours`, set in `tick`), not who holds it this tick: let go
+	for a moment with a coder in the room and the coder takes `by` for a tick, which would
+	flip the goal card away from "Finish the app" and back. The app you carry is not
+	"started" (it is the "give" goal). ]]
+function Clients.started(Q)
+	for _, c in ipairs(Q.line) do
+		if c ~= Q.carrying and c.yours and c.done > 0 and c.done < c.need then return c end
 	end
 	return nil
 end

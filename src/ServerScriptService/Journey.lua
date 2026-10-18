@@ -161,7 +161,9 @@ J.TIPS = {
 	-- LAUNCH lives in the bottom slot, the Index tip waits for a SECOND kind of
 	-- hire (at the first it landed on top of "walk to your lot"), and the daily
 	-- reward has its own rail button
-	{ id = "launch", target = "Hud.WriteCode", title = "LAUNCH",
+	-- 18 Oct (option A): LAUNCH! is its own button (Hud.Launch) since 16 Oct, and WRITE CODE
+	-- is hidden away from the laptop now, so a tip pointed at it would never show
+	{ id = "launch", target = "Hud.Launch", title = "LAUNCH",
 		body = "Tap it for a big payday. Wait too long: half pay.",
 		when = function(st) return st.productReady and not (st.jr and st.jr.launched) end },
 	{ id = "bag", target = "Rail.Column.BagButton", title = "BAG",
