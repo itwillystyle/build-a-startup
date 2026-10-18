@@ -684,7 +684,10 @@ return function(core)
 
 	function api.goalState(player)
 		local st = api.state(player)
-		return { served = st.served, carrying = st.carrying, waiting = st.line, tutorial = st.tutorial }
+		local P = byUser[player.UserId]
+		-- 18 Oct (option A): a job you started coding wins the goal line ("Finish the app")
+		return { served = st.served, carrying = st.carrying, waiting = st.line, tutorial = st.tutorial,
+			midJob = P ~= nil and Clients.started(P.Q) ~= nil }
 	end
 
 	local function clear(uid)

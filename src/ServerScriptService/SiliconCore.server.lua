@@ -1648,7 +1648,10 @@ local function refreshObjective(player)
 		(Clients.goal): code the to-do app, take it to your client, too busy so hire,
 		a full garage so upgrade, recruit on the street once. It replaces "Write your
 		first app / Tap the laptop (0 of 3)", "Hire your first intern" and "Your intern
-		is coding" (Luke's playtest: the old card sent him to click the laptop). ]]
+		is coding" (Luke's playtest: the old card sent him to click the laptop).
+		18 Oct (option A, Luke's pick): mid-job (carrying an app, or a job you started
+		coding) Clients.goal names that job first, so it beats Journey's build goals below;
+		the "client" target is the client you carry for (ClientsServer frontPos). ]]
 	local cg, gs
 	if Econ and Econ.Clients then
 		gs = Econ.Clients.goalState(player)

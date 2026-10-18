@@ -15,7 +15,12 @@
 local GoalDone = {}
 
 -- goals you wait on: they end, nobody finished them
-GoalDone.PASSIVE = { wait = true, watch = true, product = true }
+-- 18 Oct (option A): and the job in your hands (Clients.goal "finish" / "give"): it comes
+-- around every few seconds, finishing turns it into "give", and the GIVE has its own stars
+GoalDone.PASSIVE = { wait = true, watch = true, product = true, finish = true, give = true }
+
+-- goals that interrupt the one underneath: it comes back afterwards, unfinished
+GoalDone.INTERRUPT = { product = true, finish = true, give = true }
 
 -- goals with a finish the client can see, and which one
 GoalDone.NEEDS = {
@@ -28,8 +33,8 @@ GoalDone.NEEDS = {
 function GoalDone.finished(prevKey, newKey, ctx)
 	ctx = ctx or {}
 	if not prevKey or not newKey then return false end
-	-- the LAUNCH interruption never stamps DONE on the goal underneath
-	if GoalDone.PASSIVE[prevKey] or newKey == "product" then return false end
+	-- the LAUNCH interruption (and, 18 Oct, the job in your hands) never stamps DONE on the goal underneath
+	if GoalDone.PASSIVE[prevKey] or GoalDone.INTERRUPT[newKey] then return false end
 	if ctx.cost and ctx.cost > 0 then
 		-- a purchase goal is done when the money for it left your pocket
 		return (ctx.spent or 0) >= ctx.cost * 0.8

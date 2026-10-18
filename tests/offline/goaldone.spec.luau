@@ -41,4 +41,14 @@ test("passive goals, LAUNCH and missing keys never stamp", function()
 	assert(G.finished("code", "deliver", nil) == true, "nil context is allowed")
 end)
 
+-- 18 Oct (option A): the job in your hands interrupts the goal underneath and comes back
+-- around every few seconds; it never stamps DONE (the GIVE has its own stars and pay)
+test("the job in your hands never stamps DONE, going in or coming out", function()
+	assert(G.finished("upgrade", "finish", { levelUp = false }) == false, "started coding: upgrade not done")
+	assert(G.finished("car", "give", {}) == false, "a Journey goal with no visible finish is interrupted, not done")
+	assert(G.finished("build", "finish", { cost = 200, spent = 0 }) == false, "a purchase goal interrupted")
+	assert(G.finished("finish", "give", {}) == false, "finishing the app turns into 'give': no stamp")
+	assert(G.finished("give", "upgrade", { lineEmpty = true }) == false, "after GIVE the old goal returns: no stamp")
+end)
+
 return T

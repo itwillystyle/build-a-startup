@@ -372,6 +372,64 @@ test("goal: after the lobby there is always a goal", function()
 	assert(C.fallback(st({ waiting = 0, tutorial = false, served = 9 })) == nil, "nothing to say with nobody waiting")
 end)
 
+-- 18 Oct (option A, Luke's pick): the job in your hands comes first. Playtest 22-54-32, 3:44
+-- and 4:04: the card and the ground line said "Build level 4" while you carried an app.
+test("goal: carrying an app beats an affordable upgrade", function()
+	local g = C.goal(st({ served = 3, tutorial = false, waiting = 2, staff = 1, cap = 1, cash = 500, upgradeCost = 60, carrying = true }))
+	assert(g and g.key == "give" and g.title == "Give it to your client" and g.target == "client", "carrying: give it")
+	g = C.goal(st({ served = 1, tutorial = false, waiting = 2, carrying = true }))
+	assert(g and g.key == "give", "carrying beats 'Too busy! Hire a coder'")
+	g = C.goal(st({ served = 9, tutorial = false, staff = 1, cap = 8, level = 2, freeSeat = true, carrying = true }))
+	assert(g and g.key == "give", "carrying beats 'Recruit on the street'")
+end)
+
+test("goal: a job you started coding beats a build goal", function()
+	-- level 2, recruiting taught: Clients.goal used to say nil here, so Journey's build goal won
+	local g = C.goal(st({ served = 9, tutorial = false, waiting = 2, staff = 2, cap = 8, level = 2, recruitTaught = true, midJob = true }))
+	assert(g and g.key == "finish" and g.title == "Finish the app" and g.target == "laptop", "started: finish it")
+	g = C.goal(st({ served = 3, tutorial = false, waiting = 2, staff = 1, cap = 1, cash = 500, upgradeCost = 60, midJob = true }))
+	assert(g and g.key == "finish", "started beats an affordable upgrade")
+end)
+
+test("goal: nothing in hand, the build and Journey goals show (a waiting job alone does not win)", function()
+	-- in the lobby a client arrives every 4 s: 'any job waiting' would hide the build goals forever
+	assert(C.goal(st({ served = 9, tutorial = false, waiting = 3, staff = 2, cap = 8, level = 2, recruitTaught = true })) == nil,
+		"Journey decides")
+	local g = C.goal(st({ served = 3, tutorial = false, waiting = 2, staff = 1, cap = 1, cash = 500, upgradeCost = 60 }))
+	assert(g and g.key == "upgrade", "the upgrade still shows")
+end)
+
+test("goal: the tutorial keeps its own lines", function()
+	local g = C.goal(st({ carrying = true, midJob = false }))
+	assert(g and g.key == "deliver" and g.title == "Take it to your client", "tutorial carry")
+	g = C.goal(st({ midJob = true }))
+	assert(g and g.key == "code" and g.title == "Code the to-do app", "tutorial coding")
+end)
+
+-- Clients.started: the job you have put code into and not finished (the 'Finish the app' goal)
+test("started: nothing until you code; then your job, until it ships", function()
+	local Q = oneNormal()
+	assert(C.started(Q) == nil, "nobody has coded yet")
+	run(Q, 0.5, ctx({ holding = true }))
+	local c = C.started(Q)
+	assert(c ~= nil and c == Q.line[1] and c.done > 0, "you started the front job")
+	run(Q, 0.3, ctx({ holding = false, atLaptop = false }))
+	assert(C.started(Q) == c, "walking away does not forget it")
+	run(Q, TUNE.NEED, ctx({ holding = true }))
+	assert(Q.carrying == c and C.started(Q) == nil, "shipped: you carry it, it is no longer 'started'")
+end)
+
+test("started: a coder's job is not yours; yours stays yours when a coder helps", function()
+	local Q = oneNormal()
+	run(Q, 0.3, ctx({ coders = { C.coderSpeed(1, "engineer") } }))
+	assert(Q.line[1].done > 0 and C.started(Q) == nil, "the coder's job is not 'started' by you")
+	local Q2 = oneNormal()
+	run(Q2, 0.4, ctx({ holding = true }))
+	-- you let go for a moment with a coder in the room: the coder picks up the same job
+	run(Q2, 0.2, ctx({ coders = { C.coderSpeed(1, "engineer") } }))
+	assert(C.started(Q2) == Q2.line[1], "a short let-go does not flip the goal away (no flicker)")
+end)
+
 -- 17 Oct final review, Important 2: a phone tap is 50-100 ms, so the 0.1 s debounce dropped
 -- the release and the server held forever (every job then coded itself at the laptop)
 test("hold: a release is never dropped, however soon after the press", function()
