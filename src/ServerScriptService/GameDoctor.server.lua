@@ -512,6 +512,28 @@ local function run()
 		check("live character views", (ui.viewports or 0) <= 9, "FEEL", ui.viewports or 0, "<= 9")
 	end)
 
+	--[[ 19 Oct (Luke's playtest: "head pokes through the hatchback roof"): every dealer car, built
+		the real way, with the player in the seat. A closed car's roof must clear the head; the
+		open race cars show it by design. ]]
+	step("cars", function()
+		local rows = sv:Invoke("carfit", player)
+		if type(rows) ~= "table" or rows.err then
+			check("cars built", false, "BUG", rows and rows.err or "no answer", "every dealer car")
+			return
+		end
+		for _, r in ipairs(rows) do
+			if r.err then
+				check(r.id .. ": built", false, "BUG", r.err, "a model")
+			elseif r.open then
+				info(r.id .. ": open top", r.seated and "seated" or "NOT seated", ("head %.2f, body top %.2f"):format(r.headTop or 0, r.roof or 0))
+			else
+				check(r.id .. ": roof clears the head", r.seated and r.clear ~= nil and r.clear >= 0.1, "BUG",
+					r.clear and ("%.2f studs"):format(r.clear) or "no roof found", ">= 0.10",
+					("seated %s, head top %.2f, roof %.2f above the ground"):format(tostring(r.seated), r.headTop or 0, r.roof or 0))
+			end
+		end
+	end)
+
 	step("errors", function()
 		task.wait(1)
 		local seen, uniq = {}, {}
