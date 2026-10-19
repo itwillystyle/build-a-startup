@@ -240,6 +240,13 @@ local function run()
 			return
 		end
 		check("fresh save", r and r.ok, "BLOCKER", r and (r.ok and "ok" or r.err), "ok")
+		-- 18 Oct: a brand-new save in the garage (product work nil) threw inside the once-a-second
+		-- economy loop and stopped it for the whole server: no staff income, no product bar
+		local core = game:GetService("ServerScriptService"):WaitForChild("SiliconCore")
+		local tick0 = core:GetAttribute("EconTick") or 0
+		task.wait(3.5)
+		local tick1 = core:GetAttribute("EconTick") or 0
+		check("economy loop alive", tick1 >= tick0 + 2, "BLOCKER", tick1 - tick0 .. " ticks in 3.5 s", ">= 2")
 		local Clients = require(game:GetService("ServerScriptService"):WaitForChild("Clients"))
 		local t0 = os.clock()
 		local rig

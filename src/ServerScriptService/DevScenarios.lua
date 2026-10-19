@@ -266,6 +266,7 @@ function Scen.run(ctx, player, name)
 		-- 16 Oct: the garage and the first client, as a brand-new save meets them
 		-- (session only; the save is not touched)
 		step("wlevel", "1!")
+		step("work", "nil")   -- 18 Oct: a brand-new save has no product work yet (it crashed the economy loop)
 		local r = step("clients", "fresh")
 		if type(r) == "table" and r.ok == false then return done(false, r.err) end
 		return done(true)

@@ -192,7 +192,8 @@ return function(core)
 			if plot then hire(player, plot) end
 			return ("staff=%d"):format(s.staff or 0)
 		elseif action == "work" then
-			s.work = tonumber(arg) or 0
+			-- "nil": as a brand-new save starts (18 Oct: that nil stopped the economy loop)
+			if arg == "nil" then s.work = nil else s.work = tonumber(arg) or 0 end
 			return "work set"
 		elseif action == "product" then
 			if plot then offerProduct(player, plot) end

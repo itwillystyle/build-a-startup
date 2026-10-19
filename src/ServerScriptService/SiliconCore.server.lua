@@ -3283,9 +3283,17 @@ end
 -- ============ INCOME ============
 
 task.spawn(function()
+	local econTick = 0
+	local econWarned = {}
 	while true do
 		task.wait(1)
+		econTick += 1
+		script:SetAttribute("EconTick", econTick)   -- 18 Oct: the doctor checks this loop is alive
 		for _, player in ipairs(Players:GetPlayers()) do
+			-- 18 Oct: one player's error stopped this loop for every player on the server (no staff
+			-- income, no product bar, for everyone, until the server restarted). Each player's
+			-- second is protected; the first error per player is still reported.
+			local okStep, stepErr = pcall(function()
 			local s = sessions[player.UserId]
 			local cash = cashOf(player)
 			if s then
@@ -3361,8 +3369,15 @@ task.spawn(function()
 				s.work = (s.work or 0) + work * afk * (1 + (Econ and Econ.WAFERS and (s.labs or 0) * 0.15 or 0))      -- AFK: products slow too; v4.6 AI Labs speed them
 				end
 				s.workNeed = s.workNeed or CFG.WORK_FIRST
-				player:SetAttribute("ProductProgress", math.clamp(s.work / s.workNeed, 0, 1))
+				-- 18 Oct: (s.work or 0): a brand-new save has no product work until the lobby (the gate
+				-- above), and this division threw, stopping the loop for the whole server
+				player:SetAttribute("ProductProgress", math.clamp((s.work or 0) / s.workNeed, 0, 1))
 				s.playtime = (s.playtime or 0) + 1
+			end
+			end)
+			if not okStep and not econWarned[player.UserId] then
+				econWarned[player.UserId] = true
+				warn("[ECON] " .. player.Name .. ": " .. tostring(stepErr))
 			end
 		end
 	end
@@ -4053,7 +4068,7 @@ local function onJoin(player)
 	Telemetry.joined(player)
 	local plot = assignPlot(player)
 	sessions[player.UserId] = {
-		clicks = 0, shipped = false, rate = 0,
+		clicks = 0, shipped = false, rate = 0, work = 0,
 		staff = 0, desks = 0, hireCost = CFG.HIRE_BASE,
 		quality = 0, morale = 0, compute = 0,
 		buildUnlocked = false,
