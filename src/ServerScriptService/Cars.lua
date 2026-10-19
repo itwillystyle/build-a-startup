@@ -28,12 +28,12 @@ local Telemetry = require(script.Parent:WaitForChild("Telemetry"))   -- the play
 local Cars = {}
 
 Cars.CATALOG = {
-	{ id = "hatch", name = "HATCHBACK", model = "hatchback-sports", price = 0, speed = 64, accel = 38, blurb = "Your company car." },
+	{ id = "hatch", name = "HATCHBACK", model = "hatchback-sports", price = 0, speed = 64, accel = 38, blurb = "Your company car.", seatDrop = 1.0 },
 	{ id = "sedan", name = "SEDAN", model = "sedan", price = 60000, speed = 74, accel = 44, blurb = "Room for the whole founding team." },
 	{ id = "suv", name = "LUXURY SUV", model = "suv-luxury", fallback = "suv", price = 450000, speed = 80, accel = 48, blurb = "Arrive like you raised a Series A." },
-	{ id = "sports", name = "SPORTS COUPE", model = "sedan-sports", price = 3000000, speed = 98, accel = 60, blurb = "Quick. Loud. Very Palo Alto." },
-	{ id = "racer", name = "RACER", model = "race", fallback = "sedan-sports", price = 20000000, speed = 114, accel = 70, blurb = "Built for a track. Driven to standups." },
-	{ id = "hyper", name = "HYPERCAR", model = "race-future", fallback = "sedan-sports", price = 90000000, speed = 132, accel = 82, blurb = "The unicorn of cars." },
+	{ id = "sports", name = "SPORTS COUPE", model = "sedan-sports", price = 3000000, speed = 98, accel = 60, blurb = "Quick. Loud. Very Palo Alto.", seatDrop = 1.0 },
+	{ id = "racer", name = "RACER", model = "race", fallback = "sedan-sports", price = 20000000, speed = 114, accel = 70, blurb = "Built for a track. Driven to standups.", open = true },
+	{ id = "hyper", name = "HYPERCAR", model = "race-future", fallback = "sedan-sports", price = 90000000, speed = 132, accel = 82, blurb = "The unicorn of cars.", open = true },
 }
 local BY_ID = {}
 for i, c in ipairs(Cars.CATALOG) do c.order = i; BY_ID[c.id] = c end
@@ -139,7 +139,9 @@ local function build(player, entry, cf)
 	seat.MaxSpeed = 0
 	seat.Torque = 0
 	seat.HeadsUpDisplay = false
-	seat.CFrame = chassis.CFrame * CFrame.new(-size.X * 0.18, 0.6, size.Z * 0.08)
+	-- seatDrop (19 Oct, measured with Cars.fitCheck): the hatchback's and coupe's roofs sat 0.63
+	-- below a seated R15 head; 1.0 lower gives them the sedan's ~0.35 of headroom
+	seat.CFrame = chassis.CFrame * CFrame.new(-size.X * 0.18, 0.6 - (entry.seatDrop or 0), size.Z * 0.08)
 	seat.Parent = m
 	local sw = Instance.new("WeldConstraint")
 	sw.Part0 = chassis
@@ -200,6 +202,56 @@ local function build(player, entry, cf)
 	CollectionService:AddTag(m, "SVCar")
 	m.Parent = workspace
 	return m
+end
+
+--[[ 19 Oct (Luke: "the head pokes through the hatchback roof"): every car in the dealer, built
+	by the real build(), with the player seated in it, high above the map. Returns one row per
+	car: { id, open, headTop, roof, clear } (studs above the car's ground; clear = roof - headTop,
+	roof = the body's top surface straight above the head). The game doctor checks the closed
+	cars clear the head. Studio checks only: it moves and seats the player. ]]
+function Cars.fitCheck(player)
+	local char = player.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	local head = char and char:FindFirstChild("Head")
+	if not (hum and head) then return nil, "no character" end
+	local home = char:GetPivot()
+	local rows = {}
+	for i, entry in ipairs(Cars.CATALOG) do
+		local ground = CFrame.new(i * 30, 600, 900)
+		local m = build(player, entry, ground)
+		if not m then
+			table.insert(rows, { id = entry.id, err = "no model" })
+			continue
+		end
+		m.Name = "FitCheck_" .. entry.id
+		m.Parent = workspace
+		local seat = m:FindFirstChild("DriverSeat")
+		char:PivotTo(seat.CFrame + Vector3.new(0, 3, 0))
+		task.wait(0.3)
+		seat:Sit(hum)
+		local t0 = os.clock()
+		while hum.SeatPart ~= seat and os.clock() - t0 < 2 do task.wait(0.1) end
+		task.wait(0.5)
+		local parts = {}
+		for _, d in ipairs(m:GetDescendants()) do
+			if d:IsA("BasePart") and d.Name ~= "Chassis" and d ~= seat then d.CanQuery = true; table.insert(parts, d) end
+		end
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Include
+		params.FilterDescendantsInstances = parts
+		local top = head.Position.Y + head.Size.Y / 2
+		local hit = workspace:Raycast(Vector3.new(head.Position.X, top + 20, head.Position.Z), Vector3.new(0, -40, 0), params)
+		local gy = ground.Position.Y
+		table.insert(rows, {
+			id = entry.id, open = entry.open == true, seated = hum.SeatPart == seat,
+			headTop = top - gy, roof = hit and hit.Position.Y - gy, clear = hit and hit.Position.Y - top,
+		})
+		hum.Sit = false
+		task.wait(0.3)
+		m:Destroy()
+	end
+	char:PivotTo(home)
+	return rows
 end
 
 function Cars.despawn(player)

@@ -191,6 +191,11 @@ return function(core)
 			-- v4.3 test hook: one hire through the real hire() (after a spin-off the HQ needs staff)
 			if plot then hire(player, plot) end
 			return ("staff=%d"):format(s.staff or 0)
+		elseif action == "carfit" then
+			-- 19 Oct: every dealer car built and sat in (the doctor's head-under-the-roof check)
+			if not (Econ and Econ.Cars and Econ.Cars.fitCheck) then return { err = "no Cars.fitCheck" } end
+			local rows, err = Econ.Cars.fitCheck(player)
+			return rows or { err = err }
 		elseif action == "work" then
 			s.work = tonumber(arg) or 0
 			return "work set"
