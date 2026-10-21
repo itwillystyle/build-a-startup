@@ -102,69 +102,58 @@ local function newPerson(kind)
 	return p
 end
 
---[[ where people go (v9: the campus is a RING).
+--[[ where people go: WalkLanes (ReplicatedStorage, pure, 20 Oct). The lanes used to be
+	built here, where nothing else could check them; Luke's live screenshot (20 Oct) caught a
+	walker inside his HQ's glass. WalkLanes says what moved and why, walklanes.spec checks it
+	offline, and the doctor sweeps the same lanes through the real world at every HQ level.
 
-	These lanes used to run x -540 to 900 along z +-19.5 -- straight through
-	what is now the central park, so every pedestrian would have walked across
-	the lawn and through the fountain. The cross-street lanes were inside the
-	ring too.
-
-	A lane is a STRAIGHT a->b segment (an agent carries a scalar `s` along it
-	and REVERSES at either end, line 430), so a circle has to be chords. Twelve
-	chords of 30 degrees at r=208 are 107 studs long and bow 7 studs off the
-	true circle -- inside the width of the sidewalk they sit on, so nobody
-	walks on the grass. Fewer, longer chords would cut the corner visibly.
-
-	Also: the six radial streets (genuinely straight, 388 studs) and the east
-	approach to downtown. ]]
-local ROAD_Z, SIDEWALK, BIKELANE = 0, 19.5, 15
-local R_RING, R_OUT = 208, 596                 -- CampusHub.R_ROAD_IN / R_ROAD_OUT
-local Y_WALK = 1.5
-local lanes = {}
-
-local function chordRing(radius, n, foot)
-	for i = 0, n - 1 do
-		local a0, a1 = i * 2 * math.pi / n, (i + 1) * 2 * math.pi / n
-		table.insert(lanes, {
-			a = Vector3.new(math.cos(a0) * radius, Y_WALK, math.sin(a0) * radius),
-			b = Vector3.new(math.cos(a1) * radius, Y_WALK, math.sin(a1) * radius),
-			foot = foot, ring = true,
-		})
-	end
-end
-chordRing(R_RING - 22, 12, true)               -- the two ring sidewalks
-chordRing(R_RING + 22, 12, true)
-chordRing(R_RING - 34, 12, false)              -- a bike loop just inside them
-
--- Out to each plot along its own drive. The drive is DIVIDED (CampusHub pass
--- 4): the pavement is on the median side of each arm, 72.6 studs off the axis.
--- At the old +-17 these lanes ran up the forecourt walk and straight through
--- the player's own building.
-local ARM_WALK = 72.6
-for i = 0, 5 do
-	local a = math.rad(30 + i * 60)
-	local ca, sa = math.cos(a), math.sin(a)
-	local tx, tz = -sa, ca                      -- tangent, for the two sides
-	for _, side in ipairs({ -1, 1 }) do
-		table.insert(lanes, {
-			a = Vector3.new(ca * (R_RING + 30) + tx * side * ARM_WALK, Y_WALK, sa * (R_RING + 30) + tz * side * ARM_WALK),
-			b = Vector3.new(ca * (R_OUT - 30) + tx * side * ARM_WALK, Y_WALK, sa * (R_OUT - 30) + tz * side * ARM_WALK),
-			foot = true,
-		})
-	end
-end
-
--- the east approach to downtown, the one straight road left
-for _, s in ipairs({ -1, 1 }) do
-	table.insert(lanes, { a = Vector3.new(R_OUT + 20, Y_WALK, ROAD_Z + s * SIDEWALK), b = Vector3.new(900, Y_WALK, ROAD_Z + s * SIDEWALK), foot = true })
-	table.insert(lanes, { a = Vector3.new(R_OUT + 20, Y_WALK, ROAD_Z + s * BIKELANE), b = Vector3.new(900, Y_WALK, ROAD_Z + s * BIKELANE), bike = true })
-end
+	A lane is a STRAIGHT a->b segment (an agent carries a scalar `s` along it and REVERSES at
+	either end), so the rings are chords. ]]
+local WalkLanes = require(game:GetService("ReplicatedStorage"):WaitForChild("WalkLanes"))
+local lanes = WalkLanes.build()
 local footLanes, bikeLanes = {}, {}
 for _, l in ipairs(lanes) do
-	l.len = (l.b - l.a).Magnitude
-	l.dir = (l.b - l.a).Unit
-	l.side = Vector3.new(-l.dir.Z, 0, l.dir.X)          -- keep-right offset axis
 	table.insert(l.foot and footLanes or bikeLanes, l)
+end
+
+--[[ 20 Oct: the bike loop crosses the 8 park ramps, and a fixed height put the wheels under
+	their surface. Once the park is built, each bike lane is sampled every 2 studs and a
+	cyclist rides up onto a ramp it crosses. Only ramps: a raycast that lands on a bench or a
+	bin must not lift anybody onto it. ]]
+local RAMP_STEP = 2
+local function sampleRamps()
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	local ramps = {}
+	for _, d in ipairs(workspace:GetDescendants()) do
+		if d:IsA("BasePart") and d.Name == "ParkRamp" then table.insert(ramps, d) end
+	end
+	if #ramps == 0 then return false end
+	params.FilterDescendantsInstances = ramps
+	for _, l in ipairs(bikeLanes) do
+		local h = {}
+		for k = 0, math.ceil(l.len / RAMP_STEP) do
+			local p = l.a + l.dir * math.min(k * RAMP_STEP, l.len)
+			local hit = workspace:Raycast(Vector3.new(p.X, 30, p.Z), Vector3.new(0, -40, 0), params)
+			h[k] = hit and math.max(0, hit.Position.Y - WalkLanes.Y) or 0
+		end
+		l.lift = h
+	end
+	return true
+end
+task.spawn(function()
+	for _ = 1, 60 do
+		if sampleRamps() then return end
+		task.wait(1)
+	end
+end)
+local function liftAt(lane, s)
+	local h = lane.lift
+	if not h then return 0 end
+	local k = s / RAMP_STEP
+	local k0 = math.floor(k)
+	local a, b = h[k0] or 0, h[k0 + 1] or h[k0] or 0
+	return a + (b - a) * (k - k0)
 end
 
 local agents = {}
@@ -192,7 +181,7 @@ for _ = 1, 6 do spawnAgent("bike") end
 
 local function poseAgent(a, parts, cfs)
 	local lane = a.lane
-	local pos = lane.a + lane.dir * a.s + lane.side * (a.way * 1.3)
+	local pos = lane.a + lane.dir * a.s + lane.side * (a.way * lane.keep) + Vector3.new(0, liftAt(lane, a.s), 0)
 	local root = CFrame.lookAt(pos, pos + lane.dir * a.way)
 	local function put(p, cf) if p then table.insert(parts, p); table.insert(cfs, cf) end end
 	if a.kind == "bike" then

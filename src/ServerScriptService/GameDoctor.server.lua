@@ -43,6 +43,7 @@ local SSS = game:GetService("ServerScriptService")
 
 local WH = require(SSS:WaitForChild("WorldHealth"))
 local HQF = require(SSS:WaitForChild("HQFloors"))
+local WalkLanes = require(ReplicatedStorage:WaitForChild("WalkLanes"))   -- 20 Oct: the pedestrians' lanes
 
 local LEVELS = { 5, 9, 13, 18, 43, 100 }   -- v9 (14 Oct): the tower is checked at its top too (spec §8.2)
 local TIERS = { "skilled", "star", "genius" }
@@ -171,6 +172,42 @@ local function slopChecks(ui)
 	check("cut off", #(ui.cutOff or {}) == 0, "BUG", #(ui.cutOff or {}), 0, short(ui.cutOff or {}, 4))
 end
 
+--[[ 20 Oct (Luke's live screenshot: a walker inside his HQ's glass). Every pedestrian and
+	cyclist lane (WalkLanes, the same table LifeClient walks) swept through the real world: a box
+	as wide as a walker's swinging arms, from the knees to the shoulders, both keep-right sides.
+	Ground does not count (the box starts above kerbs and pavements; the park ramps are ridden),
+	and nothing that moves does (players, cars, candidates, clients).
+	-> list of "Part.Name at (x, z)" for every distinct thing a lane walks through ]]
+local function walkerSweep()
+	local op = OverlapParams.new()
+	op.FilterType = Enum.RaycastFilterType.Exclude
+	local skip = {}
+	for _, p in ipairs(Players:GetPlayers()) do if p.Character then table.insert(skip, p.Character) end end
+	for _, d in ipairs(workspace:GetDescendants()) do
+		if d:IsA("Model") and (d.Name:match("^Car_") or d:FindFirstChildOfClass("Humanoid")) then table.insert(skip, d) end
+	end
+	op.FilterDescendantsInstances = skip
+	local hits, seen = {}, {}
+	for _, l in ipairs(WalkLanes.build()) do
+		for s = 0, l.len, 1.5 do
+			for _, way in ipairs({ -1, 1 }) do
+				local p = l.a + l.dir * s + l.side * (way * l.keep)
+				local box = CFrame.lookAt(p + Vector3.new(0, 2.1, 0), p + Vector3.new(0, 2.1, 0) + l.dir)
+				for _, q in ipairs(workspace:GetPartBoundsInBox(box, Vector3.new(3.8, 2.8, 1), op)) do
+					if q.Transparency < 1 and q.Name ~= "ParkRamp" then
+						local k = q:GetFullName():gsub("^Workspace%.SiliconValley%.", "")
+						if not seen[k] then
+							seen[k] = true
+							table.insert(hits, ("%s (lane %s) at (%d, %d)"):format(k, l.name, p.X, p.Z))
+						end
+					end
+				end
+			end
+		end
+	end
+	return hits
+end
+
 -- ---------------------------------------------------------------- the journey
 local function run()
 	report = { version = 1, startedAt = os.time(), placeId = game.PlaceId, steps = {}, notChecked = {
@@ -210,6 +247,26 @@ local function run()
 			if pl.door ~= nil and not tostring(pl.door):match("^ok") then table.insert(noRoute, pl.index) end
 		end
 		check("drop-off reaches the street", #noRoute == 0, "BLOCKER", #noRoute, 0, #noRoute > 0 and ("plots " .. table.concat(noRoute, ", ")) or nil)
+		-- 20 Oct: the pedestrians walk clear of everything the world has built (see walkerSweep)
+		local walk = walkerSweep()
+		check("walkers through walls and props", #walk == 0, "BUG", #walk, 0, short(walk, 5))
+		--[[ 20 Oct: the VIP stood at the OLD downtown address, ~1,000 studs from the Residences
+			v9 moved onto the ring. Every plot's spot must be at the building, on the ground, clear. ]]
+		local Apt = require(SSS:WaitForChild("Apartments"))
+		local desk = Apt.deskPosition and Apt.deskPosition()
+		local far, blocked = {}, {}
+		for i = 1, 6 do
+			local spot = Apt.vipSpot(i)
+			local dist = (spot and desk) and (Vector3.new(spot.X, 0, spot.Z) - Vector3.new(desk.X, 0, desk.Z)).Magnitude or math.huge
+			if dist > 45 then table.insert(far, ("plot %d: %s studs"):format(i, dist == math.huge and "no spot" or math.floor(dist))) end
+			if spot then
+				for _, q in ipairs(workspace:GetPartBoundsInBox(CFrame.new(spot + Vector3.new(0, 3.5, 0)), Vector3.new(3, 5, 3))) do
+					if q.CanCollide and q.Transparency < 1 then table.insert(blocked, ("plot %d: %s"):format(i, q.Name)) end
+				end
+			end
+		end
+		check("VIP waits at the Residences", #far == 0, "BUG", #far, 0, #far > 0 and short(far, 6) or nil)
+		check("VIP spot is clear", #blocked == 0, "BUG", #blocked, 0, #blocked > 0 and short(blocked, 6) or nil)
 		--[[ Two scripts with one name. 11 Oct: two Rojo plugins (the local one and the
 			Creator Store copy, auto-reconnect on) were both syncing, so every file made
 			since 10 Oct existed twice -- and was published twice. Here it split the
@@ -284,6 +341,9 @@ local function run()
 			local door = geo and geo.door
 			check("drop-off on the ground", door ~= nil and door.Y < 3, "BUG", door and math.floor(door.Y * 10) / 10 or "none",
 				"under 3 (the forecourt)", "the drop-off ring, beam and sign are drawn there, and routes home start there")
+			-- 20 Oct: the wings grow sideways with the levels; walkers must clear them at every one
+			local walk = walkerSweep()
+			check("walkers through walls and props", #walk == 0, "BUG", #walk, 0, short(walk, 5))
 			-- the level-up cards are on screen now: anything printed over anything else?
 			local ui = probe(player, "ui", {}, 15)
 			if ui then
