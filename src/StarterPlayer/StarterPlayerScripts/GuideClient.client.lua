@@ -50,7 +50,7 @@ end
 -- which rendered icon a goal wears (the card and the pin show the same one)
 local ICON_FOR = { code = "code", finish = "code", watch = "code", wait = "code", hire = "hire", hire2 = "hire", recruit = "hire",
 	carry = "hire", product = "rocket", spin = "rocket", hq = "hq", decor = "home", desk = "office",
-	apartment = "key", car = "car" }
+	apartment = "key", car = "car", drive = "car", buyhome = "key" }   -- 20 Oct: drive + buyhome (Journey)
 local ROOM_WORDS = { { "office", "office" }, { "studio", "studio" }, { "caf", "cafe" }, { "server", "servers" } }
 local TINT = { code = UIKit.GREEN, hire = UIKit.BLUE, rocket = UIKit.ORANGE, hq = UIKit.BLUE, home = UIKit.GREEN,
 	office = UIKit.BLUE, studio = UIKit.PINK, cafe = UIKit.ORANGE, servers = UIKit.SLATE,

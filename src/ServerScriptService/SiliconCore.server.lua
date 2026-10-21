@@ -1703,7 +1703,12 @@ local function refreshObjective(player)
 			-- v5: no world arrow for the car: the goal says "Tap CAR" (the button calls
 			-- the car to you) and an arrow to the parked car 27 m away said otherwise
 			if jt.target == "car" then at = nil
-			elseif jt.target == "residences" then at = Econ and Econ.Apt and Econ.Apt.deskPosition and Econ.Apt.deskPosition()
+			elseif jt.target == "residences" then
+				at = Econ and Econ.Apt and Econ.Apt.deskPosition and Econ.Apt.deskPosition()
+				-- 20 Oct: the drive step marks your car until you are in it (Journey.driveTarget)
+				if jt.key == "drive" then
+					at = Journey.driveTarget(st.seated, Econ and Econ.Cars and Econ.Cars.carPos and Econ.Cars.carPos(player), at)
+				end
 			elseif jt.target == "vip" then at = Econ and Econ.Drop and Econ.Drop.vipPos and Econ.Drop.vipPos(player)
 			elseif jt.target == "genius" then at = st.geniusPos
 			elseif jt.target == "gopublic" then at = posOf(plot.hqPad)

@@ -17,7 +17,9 @@ local GoalDone = {}
 -- goals you wait on: they end, nobody finished them
 -- 18 Oct (option A): and the job in your hands (Clients.goal "finish" / "give"): it comes
 -- around every few seconds, finishing turns it into "give", and the GIVE has its own stars
-GoalDone.PASSIVE = { wait = true, watch = true, product = true, finish = true, give = true }
+-- 20 Oct: buyhome too. It steps aside when you walk off the Residences without buying, which
+-- is not a finish; a purchase has its own moment (HomeClient's WELCOME HOME)
+GoalDone.PASSIVE = { wait = true, watch = true, product = true, finish = true, give = true, buyhome = true }
 
 -- goals that interrupt the one underneath: it comes back afterwards, unfinished
 GoalDone.INTERRUPT = { product = true, finish = true, give = true }

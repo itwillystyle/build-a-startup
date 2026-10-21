@@ -40,6 +40,36 @@ test("no drive to The Residences while the next home is out of reach", function(
 	assert(t and t.key == "drive" and t.target == "residences", "the drive once the home is affordable, got " .. tostring(t and t.key))
 end)
 
+-- 20 Oct, Luke's live run: "when it says go to the residences, it assumes you should already
+-- have enough to buy something, and then it should forward you to buy the apartment, not
+-- forward you back to the design studio, because then you went to the residences for nothing."
+-- Arriving used to end the step (nearRes sets jr.res) with nothing after it.
+test("arriving at The Residences hands you the purchase, not the next thing on the lot", function()
+	local home = { name = "STUDIO", price = 40000, slots = 1 }
+	-- the same tick SiliconCore sees you arrive it also sets jr.res
+	local t = J.task(st({ hq = 2, hasCar = true, jr = { drove = true, res = true }, nearRes = true, cash = 41000, aptNext = home }))
+	assert(t and t.key == "buyhome", "at the door with the money: expected the purchase, got " .. tostring(t and t.key))
+	assert(t.target == "residences", "it points at the sales desk")
+	assert(t.title:find("Studio", 1, true), "it names the home: " .. t.title)
+	-- spent the money on the way: no purchase step for a home you can't pay for
+	t = J.task(st({ hq = 2, hasCar = true, jr = { drove = true, res = true }, nearRes = true, cash = 900, aptNext = home }))
+	assert(not (t and t.key == "buyhome"), "a $40,000 purchase step with $900")
+	-- bought it: the step is over
+	t = J.task(st({ hq = 2, hasCar = true, apt = 1, jr = { drove = true, res = true }, nearRes = true, cash = 41000,
+		aptNext = { name = "LOFT", price = 3e6, slots = 3 } }))
+	assert(not (t and t.key == "buyhome"), "still told to buy after buying")
+end)
+
+-- 20 Oct, Luke: during "Drive to The Residences" a marker should hover over your car so you
+-- can find it, without more words on screen. The goal marker IS that marker: it marks the car
+-- until you sit in it, then the sales desk.
+test("the drive step's marker is your car until you are in it, then the desk", function()
+	local car, desk = Vector3.new(10, 0, 20), Vector3.new(-226, 3, -381)
+	assert(J.driveTarget(false, car, desk) == car, "on foot: the marker goes on the car")
+	assert(J.driveTarget(true, car, desk) == desk, "at the wheel: the marker goes on the desk")
+	assert(J.driveTarget(false, nil, desk) == desk, "no car out (not called yet): the desk")
+end)
+
 test("homes do not gate the guide: at HQ 2 and HQ 3, rich or poor, no task is ever the apartment", function()
 	for hq = 2, 3 do
 		for _, cash in { 0, 25000, 160000, 5e6 } do
