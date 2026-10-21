@@ -492,9 +492,20 @@ local function lib(name)
 	local ok, mod = pcall(function() return m and require(m) end)
 	return ok and mod or nil
 end
+--[[ Outside the Residences' front doors, one step apart per plot.
+	20 Oct: this was Vector3.new(640 + 9 * i, 0, 36), the OLD downtown address. v9 moved the
+	Residences onto the campus ring (Downtown.RES, about 1,000 studs away) and this one
+	position stayed behind, so "Pick up your VIP recruit" sent a new home owner across the
+	map. It is built from the building's own CFrame now (front = local +Z), measured clear
+	and on the forecourt slab in Studio, and the doctor's world step checks every plot's
+	spot against the sales desk. ]]
+Apartments.VIP_FRONT = 34    -- studs out from the tower's centre (its front face is at 20)
+Apartments.VIP_STEP = 4      -- between plots, along the front
 function Apartments.vipSpot(plotIndex)
-	-- outside the Residences on the road side, one step apart per plot
-	return Vector3.new(640 + 9 * (plotIndex or 1), 0, 36)
+	local res = Downtown and Downtown.RES
+	if not res then return nil end
+	local i = math.clamp(plotIndex or 1, 1, 6)
+	return (res * CFrame.new((i - 3.5) * Apartments.VIP_STEP, 0, Apartments.VIP_FRONT)).Position
 end
 function Apartments.trySpawnVip(player, force)
 	local s = api and api.session(player)
@@ -505,7 +516,9 @@ function Apartments.trySpawnVip(player, force)
 	if not (TD and TD.spawnVip) or TD.hasVip(player) then return false end
 	local plot = api.plotOf(player)
 	local apt = math.clamp(s.apt, 1, 3)
-	local model = TD.spawnVip(player, Apartments.vipSpot(plot and plot.index), Apartments.VIP_FLOOR[apt], Apartments.VIP_LUCK[apt],
+	local spot = Apartments.vipSpot(plot and plot.index)
+	if not spot then return false end   -- the Residences are not built yet
+	local model = TD.spawnVip(player, spot, Apartments.VIP_FLOOR[apt], Apartments.VIP_LUCK[apt],
 		function(p)
 			local ss = api.session(p)
 			if ss then ss.vipDay = today() end
@@ -516,7 +529,7 @@ function Apartments.trySpawnVip(player, force)
 		local ph = lib("Phone")
 		if ph and ph.notice then
 			ph.notice(player, "vip_desk", "Front desk", "The Residences",
-				("A %s candidate is waiting outside your building downtown. Get them home before a headhunter does."):format(
+				("A %s candidate is waiting outside The Residences. Get them home before a headhunter does."):format(
 					model:GetAttribute("TierName") or "VIP"))
 		end
 	end

@@ -34,6 +34,7 @@ pcall(function() player:WaitForChild("PlayerGui").ScreenOrientation = Enum.Scree
 local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
 local Notify = require(ReplicatedStorage:WaitForChild("Notify"))
 local Moment = require(ReplicatedStorage:WaitForChild("Moment"))
+local HudSlots = require(ReplicatedStorage:WaitForChild("HudSlots"))   -- 20 Oct: the bottom centre's numbers, shared with CarClient
 local remotes = ReplicatedStorage:WaitForChild("SVRemotes")
 
 -- hide the default leaderboard (retry: CoreGui can refuse for the first frames)
@@ -262,10 +263,10 @@ local codeHold = remotes:WaitForChild("CodeHold", 10)   -- 16 Oct: WRITE CODE is
 local giveApp = remotes:WaitForChild("GiveApp", 10)     -- 17 Oct (pick 2A): GIVE hands the app over
 local pickMarket = remotes:WaitForChild("PickMarket", 10)
 local productReady = remotes:WaitForChild("ProductReady", 10)
-local FULL = UDim2.new(0, 236, 0, 64)   -- 18 Oct (option A): no QUIET size; on screen, it is always the verb
+local FULL = UDim2.new(0, HudSlots.CODE.width, 0, HudSlots.CODE.height)   -- 18 Oct (option A): no QUIET size; on screen, it is always the verb
 local MINT = UIKit.GREEN_LIGHT
 local codeBtn, codeLabel = UIKit.button(gui, "WRITE CODE", UIKit.GREEN, {
-	Name = "WriteCode", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -22),
+	Name = "WriteCode", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -HudSlots.CODE.bottom),
 	Size = FULL, ClipsDescendants = false,
 }, { textSize = 24, silent = true })
 local charge = Instance.new("Frame")
@@ -293,7 +294,7 @@ codeWrap.Parent = codeLabel
 -- the full-pay time left on a waiting LAUNCH: a thin strip draining along the
 -- bottom of the face. v5: it used to be a light fill over the WHOLE face, so the
 -- loudest button in the game read pale gold for its first minute.
-local LAUNCH_SIZE = UDim2.new(0, 164, 0, 58)
+local LAUNCH_SIZE = UDim2.new(0, HudSlots.LAUNCH.width, 0, HudSlots.LAUNCH.height)
 local TIME_W = LAUNCH_SIZE.X.Offset - 24
 local timeBar = Instance.new("Frame")
 timeBar.Name = "TimeLeft"
@@ -381,7 +382,9 @@ local function syncCode()
 	-- 17 Oct: above WRITE CODE (beside it, the CAR button covered it: Luke's recording 3:46)
 	-- 18 Oct (option A): with the button hidden, LAUNCH sits in the bottom slot itself; it
 	-- slides up when HOLD TO CODE or GIVE pops in under it
-	local y = inCar and -126 or codeBtn.Visible and -96 or -22
+	-- 20 Oct (live run 5:56, 7:18): -126 left 24 px of it under the two-row speed panel; HudSlots
+	-- holds both, and hudslots.spec lays them out against each other
+	local y = -HudSlots.launchBottom(inCar, codeBtn.Visible)
 	if y ~= launchY then
 		launchY = y
 		local at = UDim2.new(0.5, 0, 1, y)

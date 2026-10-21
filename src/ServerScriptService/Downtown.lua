@@ -7,7 +7,7 @@
 	roundabout on a paved downtown plaza (x 620-790), inside the valley, and
 	the buildings are the Blender set (blender/city2.py), in the HQ's language:
 
-	  THE RESIDENCES   (668, 64)  apartments. Its lobby has a sales desk and the
+	  THE RESIDENCES   Downtown.RES on the campus ring since v9 (it was at (668, 64))  apartments. Its lobby has a sales desk and the
 	                               residents' lift; each owner's unit is a REAL
 	                               floor of this tower (Apartments.lua).
 	  VALLEY MOTORS    (664, -62) the car dealership (Cars.lua)

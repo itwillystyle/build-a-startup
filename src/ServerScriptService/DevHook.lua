@@ -472,7 +472,8 @@ return function(core)
 								if L then wl = (last > L) and ("levels %d-%d"):format(L, last) or ("level %d"):format(L) end
 							end
 							if c and cash.Value >= c then tryUpgrade(player, plot); did = wl and ("build " .. wl) or "hq" end
-						elseif key == "apartment" and Econ and Econ.Apt and Econ.Apt.botBuy and not farFromDesk then
+						-- 20 Oct: arriving at the Residences with the money is its own step now (Journey buyhome)
+						elseif (key == "apartment" or key == "buyhome") and Econ and Econ.Apt and Econ.Apt.botBuy and not farFromDesk then
 							if Econ.Apt.botBuy(player) then did = "apartment" end
 						elseif key == "spin" then
 							if cash.Value >= spinoffCostOf(s) then
@@ -540,6 +541,13 @@ return function(core)
 			s.apt = math.clamp(math.floor(tonumber(arg) or 0), 0, 3)
 			recompute(player)
 			return "apt=" .. s.apt
+		elseif action == "jr" then
+			-- 20 Oct test hook: set or clear one journey flag ("res false", "drove true")
+			local k, v = tostring(arg or ""):match("^(%a+)%s+(%a+)$")
+			if not k then return "usage: jr <flag> <true|false>" end
+			s.jr = s.jr or {}
+			s.jr[k] = (v == "true") or nil
+			return ("jr.%s=%s"):format(k, tostring(s.jr[k]))
 		elseif action == "vip" then
 			-- v4.2 test hook: the daily VIP now, ignoring the day
 			local okV = Econ and Econ.Apt and Econ.Apt.trySpawnVip and Econ.Apt.trySpawnVip(player, true)

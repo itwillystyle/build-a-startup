@@ -79,8 +79,17 @@ function J.task(st)
 	-- 17 Oct (Luke's playtest): only once the next home is affordable; it sent a new player to
 	-- a $40,000 home with $900 ("a waste of my time")
 	local home = st.aptNext
-	if hq >= 2 and (st.apt or 0) == 0 and not jr.res and home and (st.cash or 0) >= (home.price or math.huge) then
-		return { key = "drive", title = "Drive to The Residences", sub = "Downtown, the east end of the road", target = "residences" }
+	local canBuy = hq >= 2 and (st.apt or 0) == 0 and home and (st.cash or 0) >= (home.price or math.huge)
+	-- 20 Oct (Luke's live run): arriving used to END the step (nearRes sets jr.res) with nothing
+	-- after it, so the guide sent him back to the Design Studio: "you went to the residences for
+	-- nothing". At the door with the money, the step is the purchase.
+	if canBuy and st.nearRes then
+		local name = tostring(home.name or "home")
+		name = name:sub(1, 1):upper() .. name:sub(2):lower()
+		return { key = "buyhome", title = ("Buy your %s at the front desk"):format(name), sub = money(home.price), target = "residences" }
+	end
+	if canBuy and not jr.res then
+		return { key = "drive", title = "Drive to The Residences", sub = "On the ring, south-west of the park", target = "residences" }
 	end
 	-- the VIP that comes with your first home
 	if (st.apt or 0) >= 1 and st.vipStanding and not st.vipDone then
@@ -118,6 +127,14 @@ function J.task(st)
 			target = "residences" }
 	end
 	return nil
+end
+
+-- 20 Oct (Luke): during the drive step a marker should hover over your car so you can find it,
+-- without more words on screen. The goal marker is that marker: on the car while you are on
+-- foot, on the sales desk once you sit down (or when no car is out yet).
+function J.driveTarget(seated, carPos, deskPos)
+	if not seated and carPos then return carPos end
+	return deskPos
 end
 
 -- ---------------------------------------------------------------- the big goal

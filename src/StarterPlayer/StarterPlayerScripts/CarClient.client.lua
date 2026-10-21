@@ -30,6 +30,7 @@ local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 local UIKit = require(RS:WaitForChild("UIKit"))
+local HudSlots = require(RS:WaitForChild("HudSlots"))   -- 20 Oct: LAUNCH! sits above this panel by these numbers
 local Notify = require(RS:WaitForChild("Notify"))
 local remotes = RS:WaitForChild("SVRemotes")
 local callCar = remotes:WaitForChild("CallCar")
@@ -395,7 +396,8 @@ end
 	                        you drive. It reuses the Objective attributes the
 	                        guide already publishes, so no new server state. ]]
 local speedo = UIKit.card and UIKit.card(gui, {
-	Name = "Speedo", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -24), Size = UDim2.new(0, 320, 0, 126), Visible = false,
+	Name = "Speedo", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -HudSlots.SPEEDO.bottom),
+	Size = UDim2.new(0, HudSlots.SPEEDO.width, 0, HudSlots.SPEEDO.height), Visible = false,
 }) or Instance.new("Frame")
 -- v5: two rows, so nothing overlaps: the key hints on top, the speed under them
 local carNameLbl = UIKit.label(speedo, "COMPANY CAR", UIKit.TYPE.caption, UIKit.INK, {
