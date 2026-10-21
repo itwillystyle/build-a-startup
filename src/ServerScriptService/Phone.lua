@@ -27,6 +27,16 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 local Telemetry = require(script.Parent:WaitForChild("Telemetry"))   -- the player loop: cash in and out
+local PhoneClock = require(script.Parent:WaitForChild("PhoneClock"))   -- 20 Oct: an investor waits while you drive
+
+-- in your own car's seat (Cars names it Car_<UserId>)
+local function driving(player)
+	local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	local seat = hum and hum.SeatPart
+	local car = seat and seat:FindFirstAncestorOfClass("Model")
+	while car and car.Parent and car.Parent:IsA("Model") do car = car.Parent end
+	return car ~= nil and car.Name == "Car_" .. player.UserId
+end
 local TextService = game:GetService("TextService")
 local TextChatService = game:GetService("TextChatService")
 local RunService = game:GetService("RunService")
@@ -673,13 +683,19 @@ function Phone.init(a)
 					if plot.hq.level >= 2 and s.shipped then
 						if not st.nextAt then st.nextAt = os.clock() + 25 end
 						local th = st.active
-						if th and th.status == "wait" and os.clock() > (th.deadline or math.huge) then
+						-- 20 Oct (live run 5:58): the clock stands still while you drive or carry a recruit
+						local busy = PhoneClock.busy({
+							driving = driving(player),
+							carrying = player:GetAttribute("Carrying") ~= nil,
+						})
+						local verdict = th and PhoneClock.tick(th, os.clock(), 1, busy)
+						if verdict == "timeout" then
 							say(player, th, "them", "Looks like you're busy. Another time!")
 							close(player, th, "timeout")
-						elseif th and th.status == "offer" and os.clock() > (th.deadline or math.huge) + 120 then
+						elseif verdict == "withdrawn" then
 							say(player, th, "them", "Offer's off the table for now. Talk later.")
 							close(player, th, "timeout")
-						elseif not th and os.clock() >= st.nextAt then
+						elseif not th and PhoneClock.canStart(os.clock(), st.nextAt, busy) then
 							st.nextAt = math.huge
 							task.spawn(startThread, player)
 						end
