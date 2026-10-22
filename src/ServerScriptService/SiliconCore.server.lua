@@ -3070,6 +3070,9 @@ end
 -- prompts are connected here, after every handler above exists
 local function wirePlot(plot)
 	local cp = prompt(plot.laptop, "HOLD TO CODE", "Your laptop", 14)
+	-- 22 Oct (Luke's look review): the card sat centred on the laptop and hid the desk it points at;
+	-- PromptClient lifts a card by UIOffset (in px of its 58 px height): this floats it above the desk
+	cp.UIOffset = Vector2.new(0, 80)
 	-- 16 Oct: the key is held, like the HUD button (it never "completes")
 	cp.HoldDuration = 600
 	cp.PromptButtonHoldBegan:Connect(function(player)

@@ -66,7 +66,9 @@ L.COLORS = {
 	cladding = { 226, 211, 183 },  -- a warmer, darker wall than v3's (238, 226, 204); the nearest on-palette tone to the mock's
 	wainscot = { 40, 150, 160 },   -- Palette Teal: the band under the oak rail (was v3's sage)
 	runner = { 40, 150, 160 },     -- Palette Teal: the rug down the middle (was navy)
-	sofa = { 236, 104, 84 },       -- Palette Coral: the lounge sofa, the room's one warm accent
+	-- 22 Oct, Luke's look review: coral over the sofa mesh read dark red and "popped out too much";
+	-- Palette ValleyBlue, the calm blue of style A's sofa and the beanbag beside it
+	sofa = { 62, 110, 158 },
 }
 
 L.PIECES = {

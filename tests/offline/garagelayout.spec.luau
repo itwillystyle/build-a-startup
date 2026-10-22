@@ -92,7 +92,7 @@ test("art pass: the room's new colours are the mock's and stay on the palette", 
 	game = game or { GetService = function() return { HasTag = function() return false end } end }
 	local Palette = require("../../src/ReplicatedStorage/Palette")
 	local want = { wainscot = { 40, 150, 160 }, runner = { 40, 150, 160 }, cladding = { 226, 211, 183 }, floor = { 150, 104, 64 },
-		sofa = { 236, 104, 84 } }
+		sofa = { 62, 110, 158 } }
 	for k, rgb in want do
 		local c = L.COLORS and L.COLORS[k]
 		assert(c and c[1] == rgb[1] and c[2] == rgb[2] and c[3] == rgb[3], "L.COLORS." .. k)
