@@ -1676,8 +1676,10 @@ local function refreshObjective(player)
 		return nil
 	end
 	local recruitCarry = Econ and Econ.Drop and Econ.Drop.carrying(player)
+	local targetKind   -- 22 Oct: what the marker points at ("client": GuideClient hides its pin, the bubble marks them)
 	if cg and not recruitCarry then
 		key, text, pos, sub = cg.key, cg.title, clientTarget(cg.target), ""
+		targetKind = cg.target
 	elseif not recruitCarry and s.pendingProduct then
 		-- launches are taught when the first app is ready (Luke: "introduce it later")
 		key, text, pos, sub = "product", "Your app is ready: LAUNCH it", nil, ""
@@ -1914,12 +1916,17 @@ local function refreshObjective(player)
 	if player:GetAttribute("Shipped") ~= (s.shipped == true) then player:SetAttribute("Shipped", s.shipped == true) end
 	if player:GetAttribute("BuildOpen") ~= (s.buildUnlocked == true) then player:SetAttribute("BuildOpen", s.buildUnlocked == true) end
 	if player:GetAttribute("HQLevel") ~= plot.hq.level then player:SetAttribute("HQLevel", plot.hq.level) end   -- v3.1: DECOR unlocks at HQ 2
+	if CampusArch and CampusArch.garageYard then   -- 22 Oct (art pass 1): the garage's yard, only while it is a garage
+		local lv = (plot.wafer and plot.wafer.level) or plot.hq.level
+		pcall(CampusArch.garageYard, plot, lv <= 1)
+	end
 	if CampusArch and CampusArch.lotState then   -- v3.2: every empty lot's gate sign and crane
 		pcall(CampusArch.lotState, plot, s.buildUnlocked == true, (Econ and Econ.V3 and Econ.SLOTS_BY_HQ[plot.hq.level]) or 6, plot.hq.level + 1)
 	end
 	if player:GetAttribute("Objective") ~= key then player:SetAttribute("Objective", key) end
 	if player:GetAttribute("ObjectiveText") ~= text then player:SetAttribute("ObjectiveText", text) end
 	if player:GetAttribute("ObjectivePos") ~= pos then player:SetAttribute("ObjectivePos", pos) end
+	if player:GetAttribute("ObjectiveOn") ~= targetKind then player:SetAttribute("ObjectiveOn", targetKind) end
 	if player:GetAttribute("ObjectiveSub") ~= sub then player:SetAttribute("ObjectiveSub", sub) end
 	cost = cost and math.floor(cost) or nil
 	if player:GetAttribute("ObjectiveCost") ~= cost then player:SetAttribute("ObjectiveCost", cost) end
@@ -3066,6 +3073,9 @@ end
 -- prompts are connected here, after every handler above exists
 local function wirePlot(plot)
 	local cp = prompt(plot.laptop, "HOLD TO CODE", "Your laptop", 14)
+	-- 22 Oct (Luke's look review): the card sat centred on the laptop and hid the desk it points at;
+	-- PromptClient lifts a card by UIOffset (in px of its 58 px height): this floats it above the desk
+	cp.UIOffset = Vector2.new(0, 80)
 	-- 16 Oct: the key is held, like the HUD button (it never "completes")
 	cp.HoldDuration = 600
 	cp.PromptButtonHoldBegan:Connect(function(player)

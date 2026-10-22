@@ -108,7 +108,9 @@ end
 
 -- what the client copies of the garage for the fold: everything the server stashes, except the floor
 -- (it stays where it is: copied, it flickered on the lobby floor and rose through the desk; final review I3)
-local COPY_SKIP = { GarageFloor = true }
+-- 22 Oct (art pass 1, final review): the oak FloorBoards (inside Dressing) are a floor too; the client
+-- checks every descendant of the copy against this, not only the garage's direct children
+local COPY_SKIP = { GarageFloor = true, FloorBoards = true }
 function LobbyMoment.inCopy(name) return not COPY_SKIP[name] end
 
 -- which way a garage part folds: a wall on a side folds out on that side; the roof, anything that

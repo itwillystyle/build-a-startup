@@ -16,6 +16,8 @@
 	    object, so a piece's own parts may touch, two pieces may not ]]
 local RS = game:GetService("ReplicatedStorage")
 local CollectionService = game:GetService("CollectionService")
+local KEEP_MAT = { [Enum.Material.Wood] = true, [Enum.Material.WoodPlanks] = true,
+	[Enum.Material.Fabric] = true, [Enum.Material.Metal] = true }   -- FlatLook.KEEP_TAGGED
 local L = require(RS:WaitForChild("GarageLayout"))
 
 local GarageDress = {}
@@ -57,6 +59,8 @@ local function part(parent, name, size, cf, color, extra)
 	p.CFrame = cf
 	p.Color = color
 	for k, v in extra or {} do p[k] = v end
+	-- 22 Oct (art pass 1): wood, fabric and metal keep their grain; FlatLook skips tagged parts
+	if KEEP_MAT[p.Material] then CollectionService:AddTag(p, "SVKeepMaterial") end
 	p.Parent = parent
 	return p
 end
@@ -112,6 +116,19 @@ local B = {}
 
 function B.kit(p, M, pivot, FK)
 	local m = FK.put(p.key, pivot * CFrame.new(p.x, F, p.z), M, { yaw = p.yaw, scale = p.scale, canCollide = p.solid })
+	-- 22 Oct (art pass 1): a piece with a tint (the coral sofa) multiplies its mesh by it, as fabric
+	if m and p.tint then
+		-- FK.put hands back the MeshPart itself for single-mesh pieces (the sofa), a Model otherwise
+		local all = m:GetDescendants()
+		table.insert(all, m)
+		for _, d in all do
+			if d:IsA("BasePart") then
+				d.Color = rgb(p.tint)
+				d.Material = Enum.Material.Fabric
+				CollectionService:AddTag(d, "SVKeepMaterial")
+			end
+		end
+	end
 	if m and p.light then
 		local host = FK.body(m)
 		if host then light(host, 12, 0.9) end
@@ -119,9 +136,38 @@ function B.kit(p, M, pivot, FK)
 end
 
 function B.runner(p, M, pivot)
-	part(M, "Runner", Vector3.new(p.w, 0.06, p.d), pivot * CFrame.new(p.x, F + 0.03, p.z), Color3.fromRGB(44, 70, 98))
+	part(M, "Runner", Vector3.new(p.w, 0.06, p.d), pivot * CFrame.new(p.x, F + 0.03, p.z), rgb(p.color) or Color3.fromRGB(44, 70, 98),
+		{ Material = Enum.Material.Fabric })
 	for _, s in { -1, 1 } do
 		part(M, "RunnerLine", Vector3.new(0.22, 0.07, p.d - 0.7), pivot * CFrame.new(p.x + s * (p.w / 2 - 0.45), F + 0.035, p.z), C.concrete)
+	end
+end
+
+-- 22 Oct (art pass 1): oak planks wall to wall, top 0.02 above the floor (under rugs and glows)
+function B.boards(p, M, pivot)
+	local t = p.top or 0.02
+	part(M, "FloorBoards", Vector3.new(p.w, t, p.d), pivot * CFrame.new(p.x, F + t / 2, p.z), rgb(L.COLORS.floor),
+		{ Material = Enum.Material.WoodPlanks })
+end
+
+-- 22 Oct (art pass 1): the mock's string lights. A cable sagging from y1 to y0 across the front,
+-- warm Neon bulbs every 2.5 studs, no light sources (garagelayout.spec: the budget is spent)
+function B.stringLights(p, M, pivot)
+	local n = math.floor(p.w / 2.5)
+	local function sag(t) return p.y1 - (p.y1 - p.y0) * (1 - (2 * t - 1) ^ 2) end
+	local prev
+	for i = 0, n do
+		local t = i / n
+		local pos = Vector3.new(p.x - p.w / 2 + p.w * t, sag(t), p.z)
+		if prev then
+			local mid, len = (prev + pos) / 2, (pos - prev).Magnitude
+			part(M, "Cable", Vector3.new(0.06, 0.06, len), pivot * CFrame.lookAt(mid, pos), C.ink)
+		end
+		if i > 0 and i < n then
+			part(M, "Bulb", Vector3.new(0.38, 0.38, 0.38), pivot * CFrame.new(pos - Vector3.new(0, 0.25, 0)), C.warm,
+				neon({ Shape = Enum.PartType.Ball }))
+		end
+		prev = pos
 	end
 end
 
@@ -434,7 +480,7 @@ local function aOf(wall, du) return (wall == "left") and -du or du end
 
 -- v3: the wall's own skin, warm cream, cut round the window (the mesh is a flat white)
 function B.cladding(p, f, M)
-	local col = Color3.fromRGB(238, 226, 204)
+	local col = rgb(L.COLORS.cladding)   -- 22 Oct: warmer and a step darker (was 238, 226, 204)
 	local u0, u1 = p.u - p.w / 2, p.u + p.w / 2
 	local win = L.WINDOWS[p.wall]
 	local function slab(a0, a1, y0, y1)
@@ -453,7 +499,8 @@ function B.wainscot(p, f, M)
 	local h = p.y1 - p.y0
 	-- the one deliberate palette exemption in the room (Palette.exempt reads the tag):
 	-- measured 12 Oct, the sweep pulled this sage onto CampusLawn and it read as grass
-	local band = part(M, "Band", Vector3.new(p.w, h, 0.05), at(f, 0, p.y0 + h / 2, 0.07), Color3.fromRGB(146, 170, 136))
+	-- 22 Oct (art pass 1): Palette Teal now (an accent anchor, so the sweep keeps it); the tag stays harmless
+	local band = part(M, "Band", Vector3.new(p.w, h, 0.05), at(f, 0, p.y0 + h / 2, 0.07), rgb(L.COLORS.wainscot))
 	CollectionService:AddTag(band, "SVNoPalette")
 	part(M, "Rail", Vector3.new(p.w, 0.2, 0.12), at(f, 0, p.y1, 0.1), C.oak, { Material = Enum.Material.Wood })
 	part(M, "Skirting", Vector3.new(p.w, 0.3, 0.1), at(f, 0, p.y0 + 0.15, 0.1), C.asphalt)

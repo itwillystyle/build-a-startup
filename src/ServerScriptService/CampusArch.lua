@@ -1057,8 +1057,11 @@ function CampusArch.grounds(folder, pivot, slab, path, seed)
 		end
 	end
 	-- the entrance court in front of the HQ door, joining the axis to the loop
+	-- 22 Oct (art pass 1): a value step down (ForecourtPlan.COURT): at PATH it was the pale slab the
+	-- outside review camera measured at contrast 0.28
+	local court = require(game:GetService("ReplicatedStorage"):WaitForChild("ForecourtPlan")).COURT
 	mk(f, { Name = "EntranceCourt", Size = Vector3.new(34, 0.5, 18), CFrame = g(0, 0.34, 30),
-		Color = PATH, Material = Enum.Material.Pavement, CanQuery = false, CastShadow = false })
+		Color = Color3.fromRGB(court[1], court[2], court[3]), Material = Enum.Material.Pavement, CanQuery = false, CastShadow = false })
 	--[[ THE FORECOURT (pass 4). The walk from the drive to your own door.
 
 	Measured before this existed: the radial street's asphalt and its painted
@@ -1498,5 +1501,155 @@ function CampusArch.skinHQ(plot, level, w, d, h, parent)
 	return true
 end
 
+
+--[[ 22 Oct (art pass 1): THE GARAGE YARD. Luke's picked mock (ui/art-pass/garage-outside.png) fills
+	the ground in front of the garage: a bench, a bike rack, planters, a mailbox, and on the right a
+	fenced lot with a crane ("you are about to grow"). Positions and every keep-out are in
+	ForecourtPlan (pure, spec-checked).
+
+	It is NOT part of Grounds: Wafers.clearFootprint deletes anything taller than the paving inside
+	the tower's future podium when a plot loads, and the garage's yard is exactly there. So it is its
+	own folder, built while the plot is a garage (level 1) and gone the moment the lobby replaces
+	the garage (and back after a spin-off). Only the planter boxes collide (1 stud tall, outside every
+	path, line and walk-in, so you step onto them or around them); nothing else in a yard can catch you. ]]
+local YARD_Y = { court = 0.59, lawn = 0.3 }   -- EntranceCourt's top; the plot slab's top
+local YARD_KEEP = { [Enum.Material.Wood] = true, [Enum.Material.WoodPlanks] = true, [Enum.Material.Metal] = true }
+local Y_OAK, Y_INK, Y_TEAL, Y_CORAL = Color3.fromRGB(150, 104, 64), Color3.fromRGB(30, 37, 48), Color3.fromRGB(40, 150, 160), Color3.fromRGB(236, 104, 84)
+local Y_CONCRETE, Y_LEAF, Y_GOLD = Color3.fromRGB(207, 198, 182), Color3.fromRGB(74, 150, 84), Color3.fromRGB(255, 194, 61)
+local Y_BLUE, Y_PAPER, Y_DIRT = Color3.fromRGB(62, 110, 158), Color3.fromRGB(243, 239, 230), Color3.fromRGB(150, 118, 80)
+
+local function yardPart(parent, name, size, cf, color, extra)
+	local props = { Name = name, Size = size, CFrame = cf, Color = color, CanCollide = false, CanQuery = false, CastShadow = true }
+	for k, v in pairs(extra or {}) do props[k] = v end
+	local p = mk(parent, props)
+	if YARD_KEEP[p.Material] then game:GetService("CollectionService"):AddTag(p, "SVKeepMaterial") end
+	return p
+end
+
+local YARD = {}
+function YARD.bench(m, at, p)
+	for _, s in ipairs({ -1, 1 }) do
+		yardPart(m, "BenchLeg", Vector3.new(1.6, 1.4, 0.3), at * CFrame.new(0, 0.7, s * (p.d / 2 - 0.5)), Y_INK, { Material = Enum.Material.Metal })
+	end
+	yardPart(m, "BenchSeat", Vector3.new(1.6, 0.3, p.d), at * CFrame.new(0, 1.5, 0), Y_OAK, { Material = Enum.Material.WoodPlanks })
+	yardPart(m, "BenchBack", Vector3.new(0.3, 1.0, p.d), at * CFrame.new(-0.75, 2.1, 0) * CFrame.Angles(0, 0, math.rad(-10)), Y_OAK,
+		{ Material = Enum.Material.WoodPlanks })
+end
+function YARD.bikerack(m, at)
+	for k = -1, 1 do
+		local x = k * 1.3
+		for _, s in ipairs({ -1, 1 }) do
+			yardPart(m, "RackPost", Vector3.new(0.18, 1.8, 0.18), at * CFrame.new(x, 0.9, s * 0.45), Y_INK, { Material = Enum.Material.Metal })
+		end
+		yardPart(m, "RackTop", Vector3.new(0.18, 0.18, 1.08), at * CFrame.new(x, 1.8, 0), Y_INK, { Material = Enum.Material.Metal })
+	end
+	-- one blue bike in the rack, as in the mock
+	for _, s in ipairs({ -1, 1 }) do
+		yardPart(m, "BikeWheel", Vector3.new(0.18, 1.5, 1.5), at * CFrame.new(-1.05, 0.75, s * 1.0), Y_INK, { Shape = Enum.PartType.Cylinder })
+	end
+	yardPart(m, "BikeFrame", Vector3.new(0.16, 0.16, 2.0), at * CFrame.new(-1.05, 1.2, 0), Y_BLUE)
+	yardPart(m, "BikeSeat", Vector3.new(0.3, 0.16, 0.6), at * CFrame.new(-1.05, 1.6, -0.6), Y_INK)
+end
+function YARD.planter(m, at, p)
+	-- solid (ForecourtPlan p.solid): a 3 x 3 box you can step onto must hold you (the doctor's sinking check)
+	yardPart(m, "PlanterBox", Vector3.new(p.w, 1.0, p.d), at * CFrame.new(0, 0.5, 0), Y_CONCRETE,
+		{ CanCollide = p.solid == true, CanQuery = p.solid == true })
+	yardPart(m, "PlanterGreen", Vector3.new(p.w * 0.85, 1.4, p.d * 0.85), at * CFrame.new(0, 1.5, 0), Y_LEAF, { Shape = Enum.PartType.Ball })
+	for _, o in ipairs({ { 0.7, 0.5 }, { -0.6, -0.7 } }) do
+		yardPart(m, "Flower", Vector3.new(0.45, 0.45, 0.45), at * CFrame.new(o[1], 2.15, o[2]), Y_PAPER, { Shape = Enum.PartType.Ball })
+	end
+end
+function YARD.mailbox(m, at)
+	yardPart(m, "MailPost", Vector3.new(0.35, 2.6, 0.35), at * CFrame.new(0, 1.3, 0), Y_OAK, { Material = Enum.Material.Wood })
+	yardPart(m, "MailBox", Vector3.new(1.1, 0.9, 1.4), at * CFrame.new(0, 3.05, 0), Y_INK)
+	yardPart(m, "MailFlag", Vector3.new(0.1, 0.7, 0.3), at * CFrame.new(0.62, 3.3, 0.3), Y_CORAL)
+end
+function YARD.lotFence(m, at, p)
+	yardPart(m, "LotDirt", Vector3.new(p.w - 0.6, 0.1, p.d - 0.6), at * CFrame.new(0, 0.05, 0), Y_DIRT)
+	local function run(a, b)
+		local len = (b - a).Magnitude
+		local n = math.max(1, math.floor(len / 3))
+		for i = 0, n do
+			yardPart(m, "FencePost", Vector3.new(0.25, p.h, 0.25), at * CFrame.new(a + (b - a) * (i / n) + Vector3.new(0, p.h / 2, 0)), Y_INK,
+				{ Material = Enum.Material.Metal })
+		end
+		for _, y in ipairs({ p.h * 0.45, p.h - 0.1 }) do
+			yardPart(m, "FenceRail", Vector3.new(0.12, 0.12, len),
+				at * CFrame.lookAt((a + b) / 2 + Vector3.new(0, y, 0), b + Vector3.new(0, y, 0)), Y_INK, { Material = Enum.Material.Metal })
+		end
+	end
+	local hx, hz = p.w / 2, p.d / 2
+	run(Vector3.new(-hx, 0, -hz), Vector3.new(hx, 0, -hz))
+	run(Vector3.new(-hx, 0, -hz), Vector3.new(-hx, 0, hz))
+	run(Vector3.new(hx, 0, -hz), Vector3.new(hx, 0, hz))
+	run(Vector3.new(-hx, 0, hz), Vector3.new(-3.5, 0, hz))    -- the front, open where the frame stands
+	run(Vector3.new(3.5, 0, hz), Vector3.new(hx, 0, hz))
+	for _, c in ipairs({ { -5, 9 }, { 5.5, 9.5 } }) do      -- two cones by the opening
+		yardPart(m, "Cone", Vector3.new(0.9, 1.2, 0.9), at * CFrame.new(c[1], 0.6, c[2]), Y_CORAL)
+	end
+end
+function YARD.crane(m, at, p)
+	yardPart(m, "CraneMast", Vector3.new(1.2, p.h, 1.2), at * CFrame.new(0, p.h / 2, 0), Y_GOLD)
+	yardPart(m, "CraneJib", Vector3.new(12, 0.8, 0.8), at * CFrame.new(-3.5, p.h - 0.4, 0), Y_GOLD)
+	yardPart(m, "CraneWeight", Vector3.new(2, 1.4, 1.4), at * CFrame.new(2.6, p.h - 1.3, 0), Y_INK)
+	yardPart(m, "CraneCable", Vector3.new(0.1, 6, 0.1), at * CFrame.new(-8.5, p.h - 3.4, 0), Y_INK)
+	yardPart(m, "CraneLoad", Vector3.new(2, 1.4, 2), at * CFrame.new(-8.5, p.h - 7.1, 0), Y_OAK, { Material = Enum.Material.Wood })
+end
+function YARD.comingSoon(m, at, p)
+	-- a framed board with NO words (ForecourtPlan: the world never draws text for this): striped
+	-- like a barrier, with the company teal in the middle
+	for _, s in ipairs({ -1, 1 }) do
+		yardPart(m, "SoonLeg", Vector3.new(0.3, p.h, 0.3), at * CFrame.new(s * (p.w / 2 - 0.3), p.h / 2, 0), Y_INK, { Material = Enum.Material.Metal })
+	end
+	yardPart(m, "SoonBoard", Vector3.new(p.w, p.h * 0.55, 0.25), at * CFrame.new(0, p.h * 0.62, 0), Y_TEAL)
+	for i = 0, 3 do
+		yardPart(m, "SoonStripe", Vector3.new(p.w / 4, 0.4, 0.3), at * CFrame.new(-p.w / 2 + p.w / 8 + i * p.w / 4, p.h * 0.28, 0),
+			(i % 2 == 0) and Y_CORAL or Y_PAPER)
+	end
+end
+
+-- 22 Oct (the look review): the mock's dark greens carry its contrast (ForecourtPlan.HEDGE)
+local function hedgeGreen(FP) return Color3.fromRGB(FP.HEDGE[1], FP.HEDGE[2], FP.HEDGE[3]) end
+function YARD.hedge(m, at, p, FP)
+	yardPart(m, "Hedge", Vector3.new(p.w, p.h, p.d), at * CFrame.new(0, p.h / 2, 0), hedgeGreen(FP))
+end
+function YARD.bush(m, at, p, FP)
+	yardPart(m, "Bush", Vector3.new(p.w, p.h, p.d), at * CFrame.new(0, p.h * 0.42, 0), hedgeGreen(FP), { Shape = Enum.PartType.Ball })
+end
+
+-- 22 Oct (look review, night): a porch lamp. The head is tagged SVLamp: SkyClient gives the nearest
+-- lamp heads a light after dark; "LampHead" is on Palette.EMISSIVE_OK, so its Neon is allowed
+function YARD.lamp(m, at, p)
+	yardPart(m, "LampPost", Vector3.new(0.35, p.h, 0.35), at * CFrame.new(0, p.h / 2, 0), Y_INK, { Material = Enum.Material.Metal })
+	local head = yardPart(m, "LampHead", Vector3.new(1.2, 0.8, 1.2), at * CFrame.new(0, p.h + 0.4, 0), Color3.fromRGB(255, 214, 160),
+		{ Material = Enum.Material.Neon, CastShadow = false })
+	game:GetService("CollectionService"):AddTag(head, "SVLamp")
+end
+
+function CampusArch.garageYard(plot, show)
+	local folder = plot and plot.folder
+	if not (folder and plot.pivot) then return end
+	local yard = folder:FindFirstChild("GarageYard")
+	if not show then
+		if yard then yard:Destroy() end
+		return
+	end
+	if yard then return end
+	local FP = require(game:GetService("ReplicatedStorage"):WaitForChild("ForecourtPlan"))
+	yard = Instance.new("Folder")
+	yard.Name = "GarageYard"
+	local lot = { lotFence = true, crane = true, comingSoon = true }
+	for _, p in ipairs(FP.PROPS) do
+		local m = Instance.new("Model")
+		m.Name = p.name
+		-- on the entrance court (34 x 18 at z 30) or on the lawn
+		local onCourt = not lot[p.kind] and math.abs(p.x) <= 17 and p.z >= 21 and p.z <= 39
+		local y = onCourt and YARD_Y.court or YARD_Y.lawn
+		local at = plot.pivot * CFrame.new(p.x, y, p.z) * CFrame.Angles(0, math.rad(p.yaw or 0), 0)
+		if YARD[p.kind] then YARD[p.kind](m, at, p, FP) end
+		m.Parent = yard
+	end
+	yard.Parent = folder
+end
 
 return CampusArch

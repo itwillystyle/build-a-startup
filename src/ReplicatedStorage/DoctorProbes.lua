@@ -12,6 +12,9 @@
 	            behind a building wall (CameraWalls' stand-ins)
 	  chasecam  a whole carry, every frame: camera cuts, lens behind walls, the
 	            hunter moving with no run animation, the hunter stuttering
+	  lookcam   (22 Oct, art pass) holds the camera on a named review spot so a
+	            screenshot can be measured by tools/look_stats.py. The one probe
+	            that moves the camera; it hands it back when the hold ends.
 
 	The judging numbers are pure (bottom of the file) and tested offline in
 	tests/offline/doctor.spec.luau. ]]
@@ -363,6 +366,31 @@ function Probes.liftride(args)
 		end
 	end
 	return { maxSlip = math.floor(maxSlip * 100) / 100, fell = fell, rideSeconds = movedFrom and math.floor((movedTo - movedFrom) * 100) / 100 or -1 }
+end
+
+--[[ 22 Oct (art pass 1, spec section 6): the review cameras, in the garage's own
+	frame (SiliconCore buildShell: GarageFloor sits at g(0, -2, 0); the desk at z -9,
+	the door at z +14.5). C1 matches Luke's 21 Oct shot from beside the laptop; C2 is
+	the garage-outside mock's view of the forecourt. C3/C4 belong to plans 3 and 4. ]]
+Probes.LOOK_CAMS = {
+	C1 = { eye = Vector3.new(-5.5, 7.5, -13.5), at = Vector3.new(9, 3.5, 5) },
+	C2 = { eye = Vector3.new(0, 9, 52), at = Vector3.new(0, 5, 10) },
+}
+function Probes.lookcam(args)
+	local name = args and args.cam or "C1"
+	local spot = Probes.LOOK_CAMS[name]
+	if not spot then return { ok = false, why = "no camera " .. tostring(name) .. " yet (plans 3 and 4)" } end
+	local player = game:GetService("Players").LocalPlayer
+	local plotNo = player:GetAttribute("Plot")
+	local plot = plotNo and workspace:FindFirstChild("SiliconValley") and workspace.SiliconValley.Plots:FindFirstChild("Plot" .. plotNo)
+	local floor = plot and plot:FindFirstChild("GarageFloor", true)
+	if not floor then return { ok = false, why = "no garage (the review cameras are for the garage levels)" } end
+	local g = floor.CFrame * CFrame.new(0, 2, 0)
+	local cam = workspace.CurrentCamera
+	cam.CameraType = Enum.CameraType.Scriptable
+	cam.CFrame = CFrame.lookAt(g:PointToWorldSpace(spot.eye), g:PointToWorldSpace(spot.at))
+	task.delay(tonumber(args.hold) or 6, function() cam.CameraType = Enum.CameraType.Custom end)
+	return { ok = true, cam = name }
 end
 
 return Probes

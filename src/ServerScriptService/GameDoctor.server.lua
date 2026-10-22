@@ -267,6 +267,22 @@ local function run()
 		end
 		check("VIP waits at the Residences", #far == 0, "BUG", #far, 0, #far > 0 and short(far, 6) or nil)
 		check("VIP spot is clear", #blocked == 0, "BUG", #blocked, 0, #blocked > 0 and short(blocked, 6) or nil)
+		--[[ 22 Oct (art pass 1): parts tagged SVKeepMaterial keep real wood, fabric or metal. Only those
+			four, and never on lawn-coloured ground (FlatLook keeps lawns flat on purpose). ]]
+		local FL = require(SSS:WaitForChild("FlatLook"))
+		local CS = game:GetService("CollectionService")
+		local wrongMat, kept = {}, 0
+		for _, p in ipairs(CS:GetTagged("SVKeepMaterial")) do
+			if p:IsA("BasePart") then
+				kept += 1
+				local hue, sat = p.Color:ToHSV()
+				local lawn = p.Size.X * p.Size.Z >= 60 and p.Size.Y <= 5 and sat > 0.18 and hue > 0.20 and hue < 0.45
+				if not FL.KEEP_TAGGED[p.Material] or lawn then
+					table.insert(wrongMat, ("%s (%s%s)"):format(p.Name, p.Material.Name, lawn and ", lawn" or ""))
+				end
+			end
+		end
+		check("kept materials", #wrongMat == 0, "BUG", #wrongMat, 0, #wrongMat > 0 and short(wrongMat, 5) or ("%d tagged parts"):format(kept))
 		--[[ Two scripts with one name. 11 Oct: two Rojo plugins (the local one and the
 			Creator Store copy, auto-reconnect on) were both syncing, so every file made
 			since 10 Oct existed twice -- and was published twice. Here it split the
@@ -314,6 +330,27 @@ local function run()
 			if not rig then task.wait(0.5) end
 		until rig or os.clock() - t0 > 20
 		check("client arrives", rig ~= nil, "BUG", rig and "at the door" or "none in 20 s", "at the door")
+		--[[ 22 Oct (Luke's look review: "the client is floating"; measured 1.01 studs over the path):
+			once they have walked to their spot, their lowest part rests on the ground (+-0.3). ]]
+		if rig then
+			task.wait(4)
+			local lowest = math.huge
+			for _, d in ipairs(rig:GetDescendants()) do
+				if d:IsA("BasePart") and d.Transparency < 1 and d.Name ~= "HumanoidRootPart" then
+					lowest = math.min(lowest, d.Position.Y - d.Size.Y / 2)
+				end
+			end
+			local params = RaycastParams.new()
+			params.FilterType = Enum.RaycastFilterType.Exclude
+			params.RespectCanCollide = true
+			params.FilterDescendantsInstances = { rig, char }
+			local at = rig:GetPivot().Position
+			local hit = workspace:Raycast(at + Vector3.new(0, 1, 0), Vector3.new(0, -14, 0), params)
+			local gap = hit and (lowest - hit.Position.Y) or nil
+			check("client stands on the ground", gap ~= nil and math.abs(gap) <= 0.3, "BUG",
+				gap and ("%.2f studs"):format(gap) or "no ground under them", "within 0.30",
+				hit and ("on " .. hit.Instance.Name) or nil)
+		end
 		local cash = player:FindFirstChild("leaderstats") and player.leaderstats:FindFirstChild("Cash")
 		local before = cash and cash.Value or 0
 		local s = sv:Invoke("clients", player, "serve")

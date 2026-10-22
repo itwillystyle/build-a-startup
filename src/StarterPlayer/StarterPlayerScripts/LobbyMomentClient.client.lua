@@ -36,7 +36,9 @@ local function snapshot()
 		if not T.GARAGE_KEEP[c.Name] and LM.inCopy(c.Name) and not STRIP[c.ClassName] then
 			local ok, k = pcall(function() return c:Clone() end)
 			if ok and k then
-				for _, d in ipairs(k:GetDescendants()) do if STRIP[d.ClassName] then d:Destroy() end end
+				for _, d in ipairs(k:GetDescendants()) do
+					if STRIP[d.ClassName] or not LM.inCopy(d.Name) then d:Destroy() end   -- 22 Oct: the oak boards too
+				end
 				k.Parent = m
 			end
 		end
