@@ -33,6 +33,22 @@ test("the number by the coins counts in step: each coin adds its share, the last
 	assert(SM.given(total, 0, n) == 0, "before any coin: 0")
 end)
 
+test("coins that land out of order still count up and end exact (live, 22 Oct: it ended on +$275)", function()
+	-- each coin's flight is 0.42-0.50 s, so coin 12 can land before coin 11; the number counts
+	-- LANDINGS, never which coin it was
+	local land = SM.lander(300, 12)
+	local prev, lastSeen = 0, 0
+	for i = 1, 12 do
+		local shown, isLast = land()
+		assert(shown > prev, ("landing %d moved the number up (%d -> %d)"):format(i, prev, shown))
+		assert(isLast == (i == 12), "only the 12th landing is the last")
+		prev, lastSeen = shown, shown
+	end
+	assert(lastSeen == 300, "ends on the exact total, got " .. lastSeen)
+	local after = land()
+	assert(after == 300, "a stray extra landing stays at the total")
+end)
+
 test("an amount smaller than the coin count never counts down and still ends exact", function()
 	local prev = 0
 	for k = 1, 12 do

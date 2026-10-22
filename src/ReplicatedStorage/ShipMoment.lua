@@ -33,6 +33,17 @@ function ShipMoment.given(total, k, n)
 	return math.floor(total * k / n + 0.5)
 end
 
+--[[ one call per coin that LANDS -> (what the number says now, was that the last one).
+	Found live 22 Oct: each coin's flight is 0.42-0.50 s, so coin 12 can land before coin 11.
+	Counting by the coin's index made the number go backwards and end on +$275 of $300. ]]
+function ShipMoment.lander(total, n)
+	local landed = 0
+	return function()
+		landed = math.min(n, landed + 1)
+		return ShipMoment.given(total, landed, n), landed == n
+	end
+end
+
 function ShipMoment.plays(d)
 	return type(d) == "table" and d.wow == true
 end

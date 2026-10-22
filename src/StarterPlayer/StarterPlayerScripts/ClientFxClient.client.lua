@@ -282,10 +282,13 @@ local function wow(d)
 		end
 		local hands2 = screenAt(where + Vector3.new(0, 2.5, 0))
 		if held then
+			-- count LANDINGS, not which coin it was: they land out of order (ShipMoment.lander)
+			local land = ShipMoment.lander(total, ShipMoment.COINS)
 			stream(hands2, ShipMoment.COINS, leave, total, {
 				prepaid = true,
-				onCoin = function(k, n)
-					if label.Parent then label.Text = "+" .. UIKit.money(ShipMoment.given(total, k, n)) end
+				onCoin = function()
+					local shown = land()
+					if label.Parent then label.Text = "+" .. UIKit.money(shown) end
 				end,
 			})
 		else

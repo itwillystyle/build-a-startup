@@ -684,6 +684,9 @@ local function coinStream(fromAbs, n, done, amount, opts)
 	opts = opts or {}
 	if not opts.prepaid then held += amount end
 	local per, given = amount / n, 0
+	-- 22 Oct: coins land in LANDING order, not launch order (each flight is 0.42-0.50 s), so the
+	-- last coin to arrive gives the remainder, rings the ching and calls done (ShipMoment.lander)
+	local landed = 0
 	local base = fx.AbsolutePosition
 	local to = coin.AbsolutePosition + coin.AbsoluteSize / 2 - base
 	local from = fromAbs - base
@@ -702,13 +705,15 @@ local function coinStream(fromAbs, n, done, amount, opts)
 				Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 			task.delay(t, function()
 				c:Destroy()
-				local give = (k == n) and (amount - given) or per
+				landed += 1
+				local last = landed == n
+				local give = last and (amount - given) or per
 				given += give
 				held = math.max(0, held - give)
-				bumpCash(k == n and 1.14 or 1.06)
-				UIKit.sfx("tap", 1 + 0.6 * (k / n), 0.28)
-				if opts.onCoin then task.spawn(opts.onCoin, k, n) end
-				if k == n then
+				bumpCash(last and 1.14 or 1.06)
+				UIKit.sfx("tap", 1 + 0.6 * (landed / n), 0.28)
+				if opts.onCoin then task.spawn(opts.onCoin, landed, n) end
+				if last then
 					UIKit.sfx("ding", 1.65, 0.5)
 					UIKit.sfx("coins", 1.05, 0.5)
 					if done then done() end
