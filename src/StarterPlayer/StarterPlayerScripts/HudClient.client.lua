@@ -673,11 +673,16 @@ end)
 	         amount moves into the number with that coin (`held`), so it COUNTS UP
 	         as they arrive instead of jumping before they get there
 	  CHING  the last coin: a bright high ping and the coin sound, a bigger bump
-	The ping and the coins are the game's licensed sounds (no unverified uploads). ]]
-local function coinStream(fromAbs, n, done, amount)
+	The ping and the coins are the game's licensed sounds (no unverified uploads).
+	22 Oct (ShipMoment, the first-ship celebration): opts.prepaid = the amount was already
+	held back (SVCashHold) when the moment began, so the counter never ran ahead of the
+	coins; opts.onCoin(k, n) runs as each coin lands, so a number by the coins can count
+	in step with the cash. ]]
+local function coinStream(fromAbs, n, done, amount, opts)
 	n = math.max(1, n or 12)
 	amount = tonumber(amount) or 0
-	held += amount
+	opts = opts or {}
+	if not opts.prepaid then held += amount end
 	local per, given = amount / n, 0
 	local base = fx.AbsolutePosition
 	local to = coin.AbsolutePosition + coin.AbsoluteSize / 2 - base
@@ -702,6 +707,7 @@ local function coinStream(fromAbs, n, done, amount)
 				held = math.max(0, held - give)
 				bumpCash(k == n and 1.14 or 1.06)
 				UIKit.sfx("tap", 1 + 0.6 * (k / n), 0.28)
+				if opts.onCoin then task.spawn(opts.onCoin, k, n) end
 				if k == n then
 					UIKit.sfx("ding", 1.65, 0.5)
 					UIKit.sfx("coins", 1.05, 0.5)
@@ -712,6 +718,12 @@ local function coinStream(fromAbs, n, done, amount)
 	end
 end
 _G.SVCoinStream = coinStream   -- DailyClient reuses it
+-- hold money back from the counter until its coins fly (ClientFxClient's first ship: the server
+-- pays before the moment's coins leave); quiet, so the big-jump pop does not say it twice
+_G.SVCashHold = function(amount)
+	held += math.max(0, tonumber(amount) or 0)
+	quietUntil = os.clock() + 3
+end
 
 -- ============ CELEBRATIONS ============
 

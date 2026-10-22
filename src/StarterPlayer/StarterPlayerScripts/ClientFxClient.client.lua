@@ -3,8 +3,8 @@
 	Mocks Luke picked (ui/2026-10-16-client-loop/mockups.html):
 	  3A, every client: "+$X" pops over the client, "+$Y TIP" under it a beat later,
 	     coins fly into the cash counter (Moment.landMoney).
-	  3B, the first client only: gold rays, a tilted "SHIPPED!" stamp in the middle,
-	     then a big "+$X" that counts up and flies into the cash (Tizzy's 5x wow).
+	  3B, the first client only (16 Oct): gold rays and a tilted "SHIPPED!". REPLACED 22 Oct
+	     by ShipMoment (mock A, the client's moment): see wow() below.
 	  2A (17 Oct), every hand-over you GIVE: the app flies from you to the client, they
 	     open it (a card over their head), stars pop (3 fast, 2 ok, 1 slow), then the cash.
 	     About a second, so it stays quick on the fiftieth client.
@@ -12,9 +12,12 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
 local Moment = require(ReplicatedStorage:WaitForChild("Moment"))
+local ShipMoment = require(ReplicatedStorage:WaitForChild("ShipMoment"))
 
 local player = Players.LocalPlayer
 local remotes = ReplicatedStorage:WaitForChild("SVRemotes")
@@ -64,74 +67,6 @@ local function pop(text, at, size, colour, delay)
 	end)
 end
 
--- 3B: rays turning behind the stamp
-local function rays(centre)
-	local holder = Instance.new("Frame")
-	holder.BackgroundTransparency = 1
-	holder.AnchorPoint = Vector2.new(0.5, 0.5)
-	holder.Position = UDim2.new(0, centre.X, 0, centre.Y)
-	holder.Size = UDim2.new(0, 520, 0, 520)
-	holder.ZIndex = 1
-	holder.Parent = gui
-	for i = 0, 11 do
-		local ray = Instance.new("Frame")
-		ray.BorderSizePixel = 0
-		ray.BackgroundColor3 = UIKit.GOLD
-		ray.BackgroundTransparency = 1
-		ray.AnchorPoint = Vector2.new(0.5, 0.5)
-		ray.Position = UDim2.fromScale(0.5, 0.5)
-		ray.Size = UDim2.new(0, 34, 1, 0)
-		ray.Rotation = i * 15
-		ray.ZIndex = 1
-		ray.Parent = holder
-		local g = Instance.new("UIGradient")
-		g.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0), NumberSequenceKeypoint.new(1, 1) })
-		g.Parent = ray
-		ease(ray, 0.3, { BackgroundTransparency = 0.35 })
-	end
-	ease(holder, 2.2, { Rotation = 40 })
-	task.delay(1.8, function()
-		for _, r in ipairs(holder:GetChildren()) do
-			if r:IsA("Frame") then ease(r, 0.4, { BackgroundTransparency = 1 }) end
-		end
-	end)
-	task.delay(2.3, function() holder:Destroy() end)
-end
-
-local function wow(d)
-	local vp = workspace.CurrentCamera.ViewportSize
-	local centre = Vector2.new(vp.X / 2, vp.Y * 0.42)
-	UIKit.sfx("ding", 1)
-	rays(centre)
-	Moment.ring(gui, centre, UIKit.GOLD, 320)
-	local stamp = UIKit.outlined(gui, "SHIPPED!", UIKit.TYPE.money, UIKit.GREEN, {
-		AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0, 420, 0, 70),
-		Position = UDim2.new(0, centre.X, 0, centre.Y - 30), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 5,
-	})
-	stamp.Rotation = -8
-	local sc = Instance.new("UIScale")
-	sc.Parent = stamp
-	Moment.enter(sc, 0.3, 0.45)
-	task.delay(0.9, function()
-		local big = UIKit.outlined(gui, "+$0", UIKit.TYPE.money, UIKit.MONEY, {
-			AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0, 320, 0, 60),
-			Position = UDim2.new(0, centre.X, 0, centre.Y + 50), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 5,
-		})
-		Moment.countUp(big, 0, d.pay, function(n) return "+" .. UIKit.money(math.floor(n)) end, 0.8)
-		Moment.burst(gui, centre, 28, 260)
-		task.delay(1.3, function()
-			Moment.landMoney(Vector2.new(centre.X, centre.Y + 50), 16)
-			ease(big, 0.4, { TextTransparency = 1 })
-			ease(stamp, 0.4, { TextTransparency = 1 })
-			for _, l in ipairs({ big, stamp }) do
-				local st = l:FindFirstChildOfClass("UIStroke")
-				if st then ease(st, 0.4, { Transparency = 1 }) end
-			end
-			task.delay(0.45, function() big:Destroy(); stamp:Destroy() end)
-		end)
-	end)
-end
-
 -- 2A, step 1: the app tile, from you to them along a little arc
 local function appTile(parent, size)
 	local tile = Instance.new("Frame")
@@ -163,7 +98,7 @@ local function fly(from, to, seconds, done)
 	local tile = appTile(gui, 34)
 	local t0 = os.clock()
 	local conn
-	conn = game:GetService("RunService").RenderStepped:Connect(function()
+	conn = RunService.RenderStepped:Connect(function()
 		local a = math.min(1, (os.clock() - t0) / seconds)
 		local e = 1 - (1 - a) ^ 3
 		local p = from:Lerp(to, e) - Vector2.new(0, math.sin(a * math.pi) * 70)
@@ -173,6 +108,189 @@ local function fly(from, to, seconds, done)
 			conn:Disconnect()
 			tile:Destroy()
 			done()
+		end
+	end)
+end
+
+--[[ THE FIRST SHIP (22 Oct, ShipMoment; Luke's pick, mock A "the client's moment").
+	It replaced 3B (gold rays turning in the middle of the screen, a tilted "SHIPPED!", a
+	count-up on its own clock): "really ugly". Now everything happens AT the client:
+	the box lifts out of your hands and glows, flies to them, freezes for 80 ms on the
+	handoff (the box shakes, the screen does not), they cheer (the server's StaffRig.cheer)
+	under a "!", and their coins fly one by one into your cash while the "+$X" beside them
+	counts in step. Banned (the references' slop list): rays, text that repeats what you
+	just watched, a full-screen flash, a screen shake, anything pinned to the middle of the
+	screen. A click or a tap skips it; the coins still land, they carry the money. ]]
+local function sparks(at, n)
+	for i = 1, n do
+		local s = Instance.new("Frame")
+		s.BorderSizePixel = 0
+		s.BackgroundColor3 = (i % 2 == 0) and UIKit.GOLD or UIKit.BLUE
+		s.AnchorPoint = Vector2.new(0.5, 0.5)
+		s.Size = UDim2.new(0, 7, 0, 7)
+		s.Position = UDim2.new(0, at.X, 0, at.Y)
+		s.ZIndex = 8
+		s.Parent = gui
+		Instance.new("UICorner", s).CornerRadius = UDim.new(1, 0)
+		local a = math.random() * math.pi * 2
+		local r = 22 + math.random() * 20
+		ease(s, 0.38, { Position = UDim2.new(0, at.X + math.cos(a) * r, 0, at.Y + math.sin(a) * r), BackgroundTransparency = 1 })
+		task.delay(0.4, function() s:Destroy() end)
+	end
+end
+
+-- a BillboardGui held to a point in the world, so the "!" and the number stay on the client
+local function anchorAt(world)
+	local p = Instance.new("Part")
+	p.Name = "ShipMomentAnchor"
+	p.Anchored, p.CanCollide, p.CanQuery, p.CanTouch = true, false, false, false
+	p.Transparency = 1
+	p.Size = Vector3.new(0.2, 0.2, 0.2)
+	p.Position = world
+	p.Parent = workspace
+	return p
+end
+local function board(anchor, size, offset)
+	local b = Instance.new("BillboardGui")
+	b.Adornee = anchor
+	b.AlwaysOnTop = true
+	b.Size = size
+	b.StudsOffset = offset
+	b.LightInfluence = 0
+	b.Name = "ShipMoment"
+	-- in the world, under its anchor, like DropOffClient's sign: a BillboardGui inside a
+	-- ScreenGui is never drawn (found live, 22 Oct)
+	b.Parent = anchor
+	return b
+end
+
+local function wow(d)
+	local B = ShipMoment.BEATS
+	local where = typeof(d.at) == "Vector3" and d.at or Vector3.zero
+	local total = ShipMoment.total(d)
+	-- the server has already paid: hold it back so the counter takes it with the coins
+	local hold = rawget(_G, "SVCashHold")
+	local stream = rawget(_G, "SVCoinStream")
+	local held = type(hold) == "function" and type(stream) == "function"
+	if held then hold(total) end
+
+	local anchor = anchorAt(where)
+	local alive = {}   -- what a skip takes away (never the coins: they carry the money)
+	local skipped = false
+	local function gone(o) if o and o.Parent then o:Destroy() end end
+	local skipConn
+	local function finish()
+		if skipConn then skipConn:Disconnect(); skipConn = nil end
+		for _, o in ipairs(alive) do gone(o) end
+		task.delay(0.5, function() gone(anchor) end)
+	end
+	skipConn = UserInputService.InputBegan:Connect(function(input, processed)
+		if processed or skipped then return end
+		local t = input.UserInputType
+		if t == Enum.UserInputType.MouseButton1 or t == Enum.UserInputType.Touch then
+			skipped = true
+			finish()
+		end
+	end)
+
+	-- 0.0 s: the box lifts out of your hands and glows; a rising tone
+	local hands = typeof(d.from) == "Vector3" and d.from + Vector3.new(0, 1.5, 0) or where + Vector3.new(0, 3, 0)
+	local tile = appTile(gui, 34)
+	table.insert(alive, tile)
+	local glow = tile:FindFirstChildOfClass("UIStroke")
+	if glow then glow.Color, glow.Thickness = UIKit.GOLD, 3 end
+	local tileScale = Instance.new("UIScale")
+	tileScale.Parent = tile
+	UIKit.sfx("ding", 0.75, 0.3)
+	task.delay(0.12, function() UIKit.sfx("ding", 0.95, 0.3) end)
+	local t0 = os.clock()
+	local liftAt = B.handoff * 0.3
+	local conn
+	conn = RunService.RenderStepped:Connect(function()
+		local t = os.clock() - t0
+		if not tile.Parent or t >= B.handoff + B.hitstop then
+			conn:Disconnect()
+			return
+		end
+		local start = screenAt(hands)
+		local goal = screenAt(where + Vector3.new(0, 3, 0))
+		local p
+		if t < liftAt then
+			local k = t / liftAt
+			p = start - Vector2.new(0, 16 * k)
+			tileScale.Scale = 1 + 0.12 * k
+		elseif t < B.handoff then
+			local k = (t - liftAt) / (B.handoff - liftAt)
+			local e = 1 - (1 - k) ^ 3
+			p = (start - Vector2.new(0, 16)):Lerp(goal, e) - Vector2.new(0, math.sin(k * math.pi) * 50)
+		else
+			-- 0.4 s: the hit-stop, 80 ms: the box shakes in place
+			p = goal + Vector2.new((math.floor(t * 120) % 2 == 0) and 2 or -2, 0)
+		end
+		tile.Position = UDim2.new(0, p.X, 0, p.Y)
+	end)
+	task.delay(B.handoff, function()
+		if skipped then return end
+		UIKit.sfx("thunk", 0.8, 0.45)
+		sparks(screenAt(where + Vector3.new(0, 3, 0)), 10)
+	end)
+	task.delay(B.handoff + B.hitstop, function()
+		if not tile.Parent then return end
+		ease(tileScale, 0.1, { Scale = 0 })
+		task.delay(0.1, function() gone(tile) end)
+	end)
+
+	-- 0.5 s: the client cheers (the server); a "!" pops over them
+	task.delay(B.react, function()
+		if skipped then return end
+		local bang = board(anchor, UDim2.new(0, 44, 0, 44), Vector3.new(0, 4.2, 0))
+		table.insert(alive, bang)
+		local dot = Instance.new("Frame")
+		dot.Size = UDim2.fromScale(1, 1)
+		dot.BackgroundColor3 = UIKit.GOLD
+		dot.Parent = bang
+		Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
+		local st = Instance.new("UIStroke")
+		st.Thickness, st.Color = 2, UIKit.INK
+		st.Parent = dot
+		UIKit.label(dot, "!", UIKit.TYPE.title, UIKit.INK, {
+			Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center,
+		}, UIKit.HEAD)
+		local sc = Instance.new("UIScale")
+		sc.Parent = dot
+		Moment.enter(sc, 0.2, 0.22)
+	end)
+
+	-- 0.6 s: their coins fly to your cash; the number beside them counts in step
+	task.delay(B.coins, function()
+		local num = board(anchor, UDim2.new(0, 220, 0, 50), Vector3.new(3.4, 2.4, 0))
+		table.insert(alive, num)
+		local label = UIKit.outlined(num, "+" .. UIKit.money(held and 0 or total), UIKit.TYPE.headline, UIKit.MONEY, {
+			Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Left,
+		})
+		local sc = Instance.new("UIScale")
+		sc.Parent = label
+		Moment.enter(sc, 0.4, 0.26)
+		if skipped then gone(num) end
+		local function leave()
+			if label.Parent then
+				ease(label, ShipMoment.FADE, { TextTransparency = 1, Position = UDim2.new(0, 0, 0, -14) })
+				local ls = label:FindFirstChildOfClass("UIStroke")
+				if ls then ease(ls, ShipMoment.FADE, { Transparency = 1 }) end
+			end
+			task.delay(ShipMoment.FADE, finish)
+		end
+		local hands2 = screenAt(where + Vector3.new(0, 2.5, 0))
+		if held then
+			stream(hands2, ShipMoment.COINS, leave, total, {
+				prepaid = true,
+				onCoin = function(k, n)
+					if label.Parent then label.Text = "+" .. UIKit.money(ShipMoment.given(total, k, n)) end
+				end,
+			})
+		else
+			Moment.landMoney(hands2, ShipMoment.COINS)
+			task.delay(1.2, leave)
 		end
 	end)
 end
@@ -231,13 +349,9 @@ end
 clientPaid.OnClientEvent:Connect(function(d)
 	if type(d) ~= "table" or type(d.pay) ~= "number" then return end
 	local where = typeof(d.at) == "Vector3" and d.at or Vector3.zero
-	if d.wow then
-		-- the tutorial client opens it too, then the 3B stamp
-		if typeof(d.from) == "Vector3" then
-			fly(screenAt(d.from + Vector3.new(0, 1.5, 0)), screenAt(where + Vector3.new(0, 3, 0)), 0.32, function() wow(d) end)
-		else
-			wow(d)
-		end
+	if ShipMoment.plays(d) then
+		-- the first ship: the moment carries its own handoff (no 2A fly and stars on top)
+		wow(d)
 		return
 	end
 	--[[ 17 Oct review: a coder's delivery fired every few seconds in the late game, and an
