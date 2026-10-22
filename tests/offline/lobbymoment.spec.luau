@@ -131,4 +131,13 @@ test("I3: the garage copy leaves the floor out (it stays; it would flicker and r
 	assert(LM.inCopy("Wall") and LM.inCopy("Dressing") and LM.inCopy("Roof"), "walls, dressing and the roof are")
 end)
 
+-- 22 Oct (art pass 1, final review Important 1): the garage's new oak FloorBoards live inside Dressing.
+-- Copied into the fold, a room-sized sheet would flicker on the lobby floor and rise through the desk,
+-- the I3 bug the GarageFloor skip fixed. Every floor-level sheet stays out of the copy, at any depth.
+test("the copy leaves the floors out: GarageFloor and the oak FloorBoards", function()
+	assert(not LM.inCopy("GarageFloor"), "the garage floor")
+	assert(not LM.inCopy("FloorBoards"), "the oak boards (a descendant of Dressing)")
+	assert(LM.inCopy("Dressing") and LM.inCopy("Rug"), "the dressing itself and its rugs still fold")
+end)
+
 return TT
