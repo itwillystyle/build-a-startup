@@ -32,10 +32,7 @@ local PhoneClock = require(script.Parent:WaitForChild("PhoneClock"))   -- 20 Oct
 -- in your own car's seat (Cars names it Car_<UserId>)
 local function driving(player)
 	local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-	local seat = hum and hum.SeatPart
-	local car = seat and seat:FindFirstAncestorOfClass("Model")
-	while car and car.Parent and car.Parent:IsA("Model") do car = car.Parent end
-	return car ~= nil and car.Name == "Car_" .. player.UserId
+	return PhoneClock.inOwnCar(hum and hum.SeatPart, player.UserId)
 end
 local TextService = game:GetService("TextService")
 local TextChatService = game:GetService("TextChatService")

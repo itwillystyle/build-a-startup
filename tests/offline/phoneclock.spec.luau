@@ -35,6 +35,23 @@ test("no new investor texts you while you are busy; they come once you are free"
 	assert(not C.canStart(30, 40, false), "not due yet")
 end)
 
+test("sitting in your own car counts as driving (live, 22 Oct: it never did)", function()
+	-- Phone.driving() climbed to the TOP model above the seat, and Workspace IS a Model, so it
+	-- always landed on "Workspace" and never on "Car_<id>": the clock never stood still
+	local roblox = require("@lune/roblox") :: any
+	local dm = roblox.Instance.new("DataModel")
+	local ws = dm:GetService("Workspace")
+	assert(ws:IsA("Model"), "the trap: Workspace is a Model")
+	local car = roblox.Instance.new("Model"); car.Name = "Car_7"; car.Parent = ws
+	local body = roblox.Instance.new("Model"); body.Name = "Body"; body.Parent = car
+	local seat = roblox.Instance.new("VehicleSeat"); seat.Parent = body
+	assert(C.inOwnCar(seat, 7) == true, "seated in Car_7 (seat nested in the car's body) is driving")
+	assert(C.inOwnCar(seat, 8) == false, "someone else's car is not yours")
+	local bench = roblox.Instance.new("Seat"); bench.Parent = ws
+	assert(C.inOwnCar(bench, 7) == false, "a park bench is not driving")
+	assert(C.inOwnCar(nil, 7) == false, "standing is not driving")
+end)
+
 test("busy means driving or carrying a recruit, nothing else", function()
 	assert(C.busy({ driving = true }) and C.busy({ carrying = true }), "driving and carrying are busy")
 	assert(not C.busy({}), "standing around is not busy")
