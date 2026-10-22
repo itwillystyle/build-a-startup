@@ -13,7 +13,6 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 
 local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
 local Moment = require(ReplicatedStorage:WaitForChild("Moment"))
@@ -120,7 +119,8 @@ end
 	under a "!", and their coins fly one by one into your cash while the "+$X" beside them
 	counts in step. Banned (the references' slop list): rays, text that repeats what you
 	just watched, a full-screen flash, a screen shake, anything pinned to the middle of the
-	screen. A click or a tap skips it; the coins still land, they carry the money. ]]
+	screen. No skip (22 Oct, Luke): it is 2.3 s, and on a phone the first touch of any
+	camera drag would have skipped it. ]]
 local function sparks(at, n)
 	for i = 1, n do
 		local s = Instance.new("Frame")
@@ -175,23 +175,12 @@ local function wow(d)
 	if held then hold(total) end
 
 	local anchor = anchorAt(where)
-	local alive = {}   -- what a skip takes away (never the coins: they carry the money)
-	local skipped = false
+	local alive = {}   -- cleared when the moment ends (the billboards go with the anchor)
 	local function gone(o) if o and o.Parent then o:Destroy() end end
-	local skipConn
 	local function finish()
-		if skipConn then skipConn:Disconnect(); skipConn = nil end
 		for _, o in ipairs(alive) do gone(o) end
 		task.delay(0.5, function() gone(anchor) end)
 	end
-	skipConn = UserInputService.InputBegan:Connect(function(input, processed)
-		if processed or skipped then return end
-		local t = input.UserInputType
-		if t == Enum.UserInputType.MouseButton1 or t == Enum.UserInputType.Touch then
-			skipped = true
-			finish()
-		end
-	end)
 
 	-- 0.0 s: the box lifts out of your hands and glows; a rising tone
 	local hands = typeof(d.from) == "Vector3" and d.from + Vector3.new(0, 1.5, 0) or where + Vector3.new(0, 3, 0)
@@ -230,7 +219,6 @@ local function wow(d)
 		tile.Position = UDim2.new(0, p.X, 0, p.Y)
 	end)
 	task.delay(B.handoff, function()
-		if skipped then return end
 		UIKit.sfx("thunk", 0.8, 0.45)
 		sparks(screenAt(where + Vector3.new(0, 3, 0)), 10)
 	end)
@@ -242,7 +230,6 @@ local function wow(d)
 
 	-- 0.5 s: the client cheers (the server); a "!" pops over them
 	task.delay(B.react, function()
-		if skipped then return end
 		local bang = board(anchor, UDim2.new(0, 44, 0, 44), Vector3.new(0, 4.2, 0))
 		table.insert(alive, bang)
 		local dot = Instance.new("Frame")
@@ -271,7 +258,6 @@ local function wow(d)
 		local sc = Instance.new("UIScale")
 		sc.Parent = label
 		Moment.enter(sc, 0.4, 0.26)
-		if skipped then gone(num) end
 		local function leave()
 			if label.Parent then
 				ease(label, ShipMoment.FADE, { TextTransparency = 1, Position = UDim2.new(0, 0, 0, -14) })

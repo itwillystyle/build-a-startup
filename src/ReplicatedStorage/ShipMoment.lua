@@ -10,7 +10,7 @@
 	  0.5 s   the client reacts (the server's cheer) and a "!" pops over them
 	  0.6 s   coins burst from the client and fly one by one into your cash; the "+$X"
 	          by the coins counts in step with them, and the cash takes each coin
-	  ~2.3 s  done; any key skips
+	  ~2.3 s  done (no skip: 22 Oct, Luke)
 
 	COIN mirrors HudClient's coinStream (the HUD flies the coins and moves the money into
 	the counter coin by coin). Tested by tests/offline/shipmoment.spec.luau. ]]
