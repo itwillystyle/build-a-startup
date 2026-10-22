@@ -65,4 +65,24 @@ test("the new anchors repaint nothing that exists: all 3 finishes and 7 departme
 	end
 end)
 
+-- 22 Oct (final review, Important 2): accent anchors may keep ONLY the accent itself. As first written,
+-- compliant() accepted anything near Teal or Coral, so 11 existing world colours stopped being snapped:
+-- desk chairs, red parasols and district cars, barrier arms, wall art, the level-4 roof beacon. Each
+-- must map exactly as it did on main 292cb14 (the full scan of all 478 literals in src found these).
+local BEFORE = {
+	{ { 150, 60, 50 }, { 150, 103, 56 } }, { { 180, 60, 50 }, { 180, 123, 67 } },
+	{ { 198, 72, 62 }, { 198, 136, 74 } }, { { 206, 72, 64 }, { 206, 141, 77 } },
+	{ { 214, 70, 60 }, { 214, 146, 80 } }, { { 226, 112, 96 }, { 226, 160, 96 } },
+	{ { 240, 110, 80 }, { 240, 164, 90 } }, { { 241, 94, 87 }, { 241, 165, 90 } },
+	{ { 255, 96, 80 }, { 245, 168, 92 } }, { { 40, 150, 170 }, { 102, 149, 170 } },
+	{ { 60, 200, 230 }, { 139, 202, 230 } },
+}
+test("accents keep only themselves: every other near-teal or near-coral colour maps as before", function()
+	for _, row in BEFORE do
+		local c = row[1]
+		local got = rgb(Palette.map(Color3.fromRGB(c[1], c[2], c[3])))
+		assert(near(got, row[2]), ("%d,%d,%d now maps to %d,%d,%d (was %d,%d,%d)"):format(c[1], c[2], c[3], got[1], got[2], got[3], row[2][1], row[2][2], row[2][3]))
+	end
+end)
+
 return T

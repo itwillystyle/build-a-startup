@@ -123,7 +123,7 @@ local function anchors()
 		for _, a in ipairs(Palette.ANCHORS) do
 			local c = Color3.fromRGB(a.rgb[1], a.rgb[2], a.rgb[3])
 			local h, s, v = c:ToHSV()
-			table.insert(hsv, { name = a.name, h = h, s = s, v = v, vmax = a.vmax, accent = a.accent })
+			table.insert(hsv, { name = a.name, h = h, s = s, v = v, vmax = a.vmax, accent = a.accent, rgb = a.rgb })
 		end
 	end
 	return hsv
@@ -178,7 +178,15 @@ function Palette.compliant(c)
 	if s < Palette.NEUTRAL_MIN then return false end
 	local tol = hueTolFor(s)
 	for _, a in ipairs(anchors()) do
-		if hueGap(h, a.h) <= tol and math.abs(s - a.s) <= Palette.SAT_TOL then
+		if a.accent then
+			-- 22 Oct (final review): an accent keeps only ITSELF (within 2 steps of 8-bit rounding).
+			-- A hue band let 11 existing colours (desk chairs, red parasols, the roof beacon) stop
+			-- being snapped; palette.spec pins all of them to their old mapping.
+			local r, g, b = math.round(c.R * 255), math.round(c.G * 255), math.round(c.B * 255)
+			if math.abs(r - a.rgb[1]) <= 2 and math.abs(g - a.rgb[2]) <= 2 and math.abs(b - a.rgb[3]) <= 2 then
+				return true, a.name
+			end
+		elseif hueGap(h, a.h) <= tol and math.abs(s - a.s) <= Palette.SAT_TOL then
 			return true, a.name
 		end
 	end
