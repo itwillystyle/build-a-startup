@@ -66,4 +66,26 @@ test("the court's colour is a value step down and stays on the palette", functio
 	local _ = h + s
 end)
 
+-- 22 Oct, the look review (Task 6): the outside camera measured contrast 0.32 after the yard went
+-- in; a live experiment with dark hedges along the court and bushes on the lawn took it to 0.495
+-- (the mock's dark greens are what carry its contrast). They are part of the plan now.
+test("the yard has the mock's dark greens: court hedges, path hedges and bushes", function()
+	local k = kinds()
+	assert((k.hedge or 0) >= 4, "hedges along both court sides and both sides of the path")
+	assert((k.bush or 0) >= 6, "bushes on the lawn either side of the garage")
+end)
+
+test("the hedge green is the mock's deep green and stays on the palette", function()
+	-- selene: allow(incorrect_standard_library_use)
+	game = game or { GetService = function() return { HasTag = function() return false end } end }
+	local Palette = require("../../src/ReplicatedStorage/Palette")
+	local c = FP.HEDGE
+	local _, _, v = Color3.fromRGB(c[1], c[2], c[3]):ToHSV()
+	assert(v <= 0.40, ("hedge value %.2f: it must be the frame's darkest green"):format(v))
+	local m = Palette.map(Color3.fromRGB(c[1], c[2], c[3]))
+	local back = { math.round(m.R * 255), math.round(m.G * 255), math.round(m.B * 255) }
+	assert(math.abs(back[1] - c[1]) <= 2 and math.abs(back[2] - c[2]) <= 2 and math.abs(back[3] - c[3]) <= 2,
+		("%d,%d,%d is repainted to %d,%d,%d"):format(c[1], c[2], c[3], back[1], back[2], back[3]))
+end)
+
 return T

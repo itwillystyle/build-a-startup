@@ -21,6 +21,9 @@ local FP = {}
 
 FP.COURT = { 190, 182, 170 }   -- the entrance court, a value step down from PATH (214, 208, 196)
 FP.MARGIN = 2                  -- studs between a prop and anything the game moves through
+-- 22 Oct (the look review): the frame's darkest green. With the yard in, the outside camera measured
+-- contrast 0.32; dark hedges and bushes, tried live, took it to 0.495. The mock's contrast is its greens.
+FP.HEDGE = { 38, 88, 50 }
 
 -- name, kind, centre x/z (plot frame), footprint w x d, height h, yaw (degrees, about Y)
 FP.PROPS = {
@@ -33,6 +36,19 @@ FP.PROPS = {
 	{ name = "LotFence", kind = "lotFence", x = 34, z = 0, w = 18, d = 24, h = 3 },
 	{ name = "Crane", kind = "crane", x = 38, z = -4, w = 4, d = 4, h = 18 },
 	{ name = "ComingSoon", kind = "comingSoon", x = 34, z = 12.5, w = 6, d = 0.4, h = 4 },
+	-- the dark greens: hedges down both sides of the court and either side of the path past the
+	-- promenade, bushes on the lawn round the garage
+	{ name = "HedgeCourtL", kind = "hedge", x = -19.5, z = 29, w = 2.4, d = 16, h = 3.0 },
+	{ name = "HedgeCourtR", kind = "hedge", x = 19.5, z = 29, w = 2.4, d = 16, h = 3.0 },
+	{ name = "HedgePathL", kind = "hedge", x = -9, z = 53, w = 2.4, d = 4, h = 3.0 },
+	{ name = "HedgePathR", kind = "hedge", x = 9, z = 53, w = 2.4, d = 4, h = 3.0 },
+	{ name = "BushL1", kind = "bush", x = -26, z = 20, w = 4.8, d = 4.8, h = 3.4 },
+	{ name = "BushR1", kind = "bush", x = 26, z = 20, w = 4.8, d = 4.8, h = 3.4 },
+	{ name = "BushL2", kind = "bush", x = -29, z = 13, w = 4.0, d = 4.0, h = 2.8 },
+	{ name = "BushL3", kind = "bush", x = -31, z = 29, w = 5.2, d = 5.2, h = 3.6 },
+	{ name = "BushR3", kind = "bush", x = 31, z = 29, w = 5.2, d = 5.2, h = 3.6 },
+	{ name = "BushL4", kind = "bush", x = -26, z = 34, w = 4.4, d = 4.4, h = 3.0 },
+	{ name = "BushR4", kind = "bush", x = 27, z = 34, w = 4.4, d = 4.4, h = 3.0 },
 }
 
 -- axis-aligned keep-out boxes { name, x0, x1, z0, z1 }

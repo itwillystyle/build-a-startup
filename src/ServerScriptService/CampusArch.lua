@@ -1605,6 +1605,15 @@ function YARD.comingSoon(m, at, p)
 	end
 end
 
+-- 22 Oct (the look review): the mock's dark greens carry its contrast (ForecourtPlan.HEDGE)
+local function hedgeGreen(FP) return Color3.fromRGB(FP.HEDGE[1], FP.HEDGE[2], FP.HEDGE[3]) end
+function YARD.hedge(m, at, p, FP)
+	yardPart(m, "Hedge", Vector3.new(p.w, p.h, p.d), at * CFrame.new(0, p.h / 2, 0), hedgeGreen(FP))
+end
+function YARD.bush(m, at, p, FP)
+	yardPart(m, "Bush", Vector3.new(p.w, p.h, p.d), at * CFrame.new(0, p.h * 0.42, 0), hedgeGreen(FP), { Shape = Enum.PartType.Ball })
+end
+
 function CampusArch.garageYard(plot, show)
 	local folder = plot and plot.folder
 	if not (folder and plot.pivot) then return end
@@ -1621,9 +1630,11 @@ function CampusArch.garageYard(plot, show)
 	for _, p in ipairs(FP.PROPS) do
 		local m = Instance.new("Model")
 		m.Name = p.name
-		local y = lot[p.kind] and YARD_Y.lawn or YARD_Y.court
+		-- on the entrance court (34 x 18 at z 30) or on the lawn
+		local onCourt = not lot[p.kind] and math.abs(p.x) <= 17 and p.z >= 21 and p.z <= 39
+		local y = onCourt and YARD_Y.court or YARD_Y.lawn
 		local at = plot.pivot * CFrame.new(p.x, y, p.z) * CFrame.Angles(0, math.rad(p.yaw or 0), 0)
-		if YARD[p.kind] then YARD[p.kind](m, at, p) end
+		if YARD[p.kind] then YARD[p.kind](m, at, p, FP) end
 		m.Parent = yard
 	end
 	yard.Parent = folder
