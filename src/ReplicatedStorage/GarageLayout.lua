@@ -59,6 +59,16 @@ L.KEEP = {
 	door = { -17.5, 17.5, 12.5, 14.5 },
 }
 
+-- 22 Oct, art pass 1 (Luke's picked mock, ui/art-pass/garage-outside.png): the room's colours,
+-- here so garagelayout.spec can check each one stays on the palette (the sweep repaints what is off it)
+L.COLORS = {
+	floor = { 150, 104, 64 },      -- oak planks (WoodPlanks, kept by SVKeepMaterial)
+	cladding = { 226, 211, 183 },  -- a warmer, darker wall than v3's (238, 226, 204); the nearest on-palette tone to the mock's
+	wainscot = { 40, 150, 160 },   -- Palette Teal: the band under the oak rail (was v3's sage)
+	runner = { 40, 150, 160 },     -- Palette Teal: the rug down the middle (was navy)
+	sofa = { 236, 104, 84 },       -- Palette Coral: the lounge sofa, the room's one warm accent
+}
+
 L.PIECES = {
 	-- ---------------------------------------------------------- already here
 	{ id = "bench", kind = "fixed", x = 0, z = -9, w = 8.64, d = 2.31, h = 2.26, may = { "desk" } },
@@ -66,7 +76,11 @@ L.PIECES = {
 	{ id = "boxes", kind = "fixed", x = 13.9, z = -13.3, w = 4.3, d = 1.9, h = 3.3 },
 
 	-- ---------------------------------------------------------- the floor
-	{ id = "runner", kind = "rug", build = "runner", x = 0, z = 3.7, w = 4.8, d = 20.8, may = { "walkway", "desk", "door" } },
+	-- 22 Oct (art pass): oak planks wall to wall, under every rug, pad and glow (top 0.02)
+	{ id = "floorBoards", kind = "rug", build = "boards", x = 0, z = 0, w = 35, d = 29, top = 0.02,
+		may = { "walkway", "desk", "hirePad", "hqPad", "door" } },
+	{ id = "runner", kind = "rug", build = "runner", x = 0, z = 3.7, w = 4.8, d = 20.8, may = { "walkway", "desk", "door" },
+		color = L.COLORS.runner },
 	{ id = "deskRug", kind = "rug", build = "rug", x = 0, z = -9.3, w = 11, d = 5.4, may = { "desk", "walkway" },
 		color = { 192, 138, 85 } },
 	{ id = "loungeRug", kind = "rug", build = "rug", x = 13.2, z = -0.6, w = 6.4, d = 6.6,
@@ -92,7 +106,8 @@ L.PIECES = {
 	{ id = "rack", kind = "floor", build = "rack", x = 16.25, z = -10.3, w = 2.4, d = 2.6, h = 6.5 },
 
 	-- the lounge (right side, under the window): sofa, two bean bags, a low table, a lamp
-	{ id = "sofa", kind = "floor", build = "kit", key = "loungeDesignSofa", yaw = -90, x = 16.1, z = -0.6, w = 2.4, d = 6.6, h = 2.4 },
+	{ id = "sofa", kind = "floor", build = "kit", key = "loungeDesignSofa", yaw = -90, x = 16.1, z = -0.6, w = 2.4, d = 6.6, h = 2.4,
+		tint = L.COLORS.sofa },
 	{ id = "beanA", kind = "floor", build = "beanbag", x = 11.0, z = -2.9, w = 2.4, d = 2.4, h = 1.7, color = { 224, 182, 90 } },
 	{ id = "beanB", kind = "floor", build = "beanbag", x = 11.2, z = 1.4, w = 2.4, d = 2.4, h = 1.7, color = { 62, 110, 158 } },
 	{ id = "lowTable", kind = "floor", build = "lowTable", x = 13.4, z = -0.6, w = 1.6, d = 3.2, h = 1.4 },
@@ -146,6 +161,9 @@ L.PIECES = {
 	{ id = "meetingLamps", kind = "ceil", build = "pendants", x = -12.5, z = -9.0, w = 3.4, d = 1.2, y0 = 10.2, y1 = 13.1, n = 2, light = true },
 	{ id = "duct", kind = "ceil", build = "duct", x = -9.5, z = -7.2, w = 0.9, d = 14, y0 = 12.0, y1 = 12.9 },
 	{ id = "track", kind = "ceil", build = "track", x = 0, z = 4.2, w = 16, d = 0.6, y0 = 12.1, y1 = 12.9 },
+	-- 22 Oct (art pass): a run of warm bulbs across the front, the mock's string lights. Neon only
+	-- (no light sources: the room's budget of 6 is spent), sagging from 12.9 to 11.0
+	{ id = "stringLights", kind = "ceil", build = "stringLights", x = 0, z = 10.5, w = 30, d = 0.6, y0 = 11.0, y1 = 12.9 },
 }
 
 local function overlap(a0, a1, b0, b1) return a0 < b1 and b0 < a1 end

@@ -63,4 +63,44 @@ test("a phone can afford the lights: at most 6 new ones", function()
 	assert(L.lights() <= 6, ("%d lights"):format(L.lights()))
 end)
 
+-- 22 Oct, art pass 1 (Luke's picked mock ui/art-pass/garage-outside.png; spec
+-- docs/superpowers/specs/2026-10-22-art-pass-design.md): a wood floor, string lights,
+-- a teal wainscot and runner, a warmer wall. Colours live in L.COLORS so they can be
+-- checked here against the palette (a colour the sweep repaints is not the mock's).
+local function piece(id)
+	for _, p in L.PIECES do if p.id == id then return p end end
+	return nil
+end
+
+test("art pass: string lights hang overhead and add no light sources", function()
+	local s = piece("stringLights")
+	assert(s and s.kind == "ceil", "a ceiling piece named stringLights")
+	assert(s.y0 >= 8, ("its lowest bulb at %.1f studs: it must clear every head"):format(s and s.y0 or -1))
+	assert(not s.light, "bulbs are Neon only; the room's light budget is already spent")
+	assert(#L.check() == 0, "the layout is still clean: " .. tostring(L.check()[1]))
+end)
+
+test("art pass: an oak floor under everything, below every rug and pad", function()
+	local f = piece("floorBoards")
+	assert(f and f.kind == "rug", "a floor-level piece named floorBoards")
+	assert(f.w >= 2 * L.HALF_X - 1 and f.d >= (L.FRONT - L.BACK) - 1, "it covers the room wall to wall")
+	assert((f.top or 1) <= 0.02, "its top sits under the rugs (0.05) and the pad glows (0.06)")
+end)
+
+test("art pass: the room's new colours are the mock's and stay on the palette", function()
+	-- selene: allow(incorrect_standard_library_use)
+	game = game or { GetService = function() return { HasTag = function() return false end } end }
+	local Palette = require("../../src/ReplicatedStorage/Palette")
+	local want = { wainscot = { 40, 150, 160 }, runner = { 40, 150, 160 }, cladding = { 226, 211, 183 }, floor = { 150, 104, 64 },
+		sofa = { 236, 104, 84 } }
+	for k, rgb in want do
+		local c = L.COLORS and L.COLORS[k]
+		assert(c and c[1] == rgb[1] and c[2] == rgb[2] and c[3] == rgb[3], "L.COLORS." .. k)
+		local m = Palette.map(Color3.fromRGB(c[1], c[2], c[3]))
+		local back = { math.round(m.R * 255), math.round(m.G * 255), math.round(m.B * 255) }
+		assert(math.abs(back[1] - c[1]) <= 2 and math.abs(back[2] - c[2]) <= 2 and math.abs(back[3] - c[3]) <= 2,
+			("%s %d,%d,%d is repainted to %d,%d,%d by the palette sweep"):format(k, c[1], c[2], c[3], back[1], back[2], back[3]))
+	end
+end)
+
 return T
