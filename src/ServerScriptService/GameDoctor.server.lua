@@ -267,6 +267,22 @@ local function run()
 		end
 		check("VIP waits at the Residences", #far == 0, "BUG", #far, 0, #far > 0 and short(far, 6) or nil)
 		check("VIP spot is clear", #blocked == 0, "BUG", #blocked, 0, #blocked > 0 and short(blocked, 6) or nil)
+		--[[ 22 Oct (art pass 1): parts tagged SVKeepMaterial keep real wood, fabric or metal. Only those
+			four, and never on lawn-coloured ground (FlatLook keeps lawns flat on purpose). ]]
+		local FL = require(SSS:WaitForChild("FlatLook"))
+		local CS = game:GetService("CollectionService")
+		local wrongMat, kept = {}, 0
+		for _, p in ipairs(CS:GetTagged("SVKeepMaterial")) do
+			if p:IsA("BasePart") then
+				kept += 1
+				local hue, sat = p.Color:ToHSV()
+				local lawn = p.Size.X * p.Size.Z >= 60 and p.Size.Y <= 5 and sat > 0.18 and hue > 0.20 and hue < 0.45
+				if not FL.KEEP_TAGGED[p.Material] or lawn then
+					table.insert(wrongMat, ("%s (%s%s)"):format(p.Name, p.Material.Name, lawn and ", lawn" or ""))
+				end
+			end
+		end
+		check("kept materials", #wrongMat == 0, "BUG", #wrongMat, 0, #wrongMat > 0 and short(wrongMat, 5) or ("%d tagged parts"):format(kept))
 		--[[ Two scripts with one name. 11 Oct: two Rojo plugins (the local one and the
 			Creator Store copy, auto-reconnect on) were both syncing, so every file made
 			since 10 Oct existed twice -- and was published twice. Here it split the

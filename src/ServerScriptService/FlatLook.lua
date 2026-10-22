@@ -75,8 +75,21 @@ local function groundMaterial(p)
 	return v < 0.45 and Enum.Material.Asphalt or Enum.Material.Concrete
 end
 
+--[[ 22 Oct (art pass 1, spec section 5): Luke's picked mocks have a wood floor, fabric rugs and
+	metal trim, and FlatLook was turning them back into plastic the moment GarageDress built them.
+	A builder that tags a part SVKeepMaterial keeps one of these four. Anything else tagged is still
+	flattened, loudly, so the exception cannot grow into the grain FlatLook was written to remove. ]]
+local KEEP_TAGGED = { [Enum.Material.Wood] = true, [Enum.Material.WoodPlanks] = true,
+	[Enum.Material.Fabric] = true, [Enum.Material.Metal] = true }
+local CS = game:GetService("CollectionService")
+FlatLook.KEEP_TAGGED = KEEP_TAGGED
+
 local function flatten(p)
 	if KEEP[p.Material] then return false end
+	if CS:HasTag(p, "SVKeepMaterial") then
+		if KEEP_TAGGED[p.Material] then return false end
+		warn(("[SV] flat look: %s is tagged SVKeepMaterial but is %s (only Wood, WoodPlanks, Fabric, Metal)"):format(p:GetFullName(), p.Material.Name))
+	end
 	if p.MaterialVariant ~= "" then return false end     -- SV_CampusPavers and anything like it
 	--[[ The ground branch sits ABOVE the already-flat early-out, so a floor the
 		sweep flattened on an earlier pass still gets upgraded, and so the live

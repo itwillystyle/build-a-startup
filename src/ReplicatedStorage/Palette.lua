@@ -52,6 +52,12 @@ Palette.ANCHORS = {
 	{ name = "Asphalt", rgb = { 56, 58, 66 } },
 	{ name = "Ink", rgb = { 30, 37, 48 } },
 	{ name = "BrandGold", rgb = { 255, 194, 61 } },
+	-- 22 Oct (art pass, Luke's picked mocks in ui/art-pass/): the cozy garage's teal and the campus
+	-- office's coral. ACCENTS: a colour authored on them is kept, but they never pull anything else
+	-- in (map's nearest-anchor snap skips them). As plain anchors, Coral captured the Studio
+	-- department's pink (236,164,192 -> 236,118,100); palette.spec caught it.
+	{ name = "Teal", rgb = { 40, 150, 160 }, accent = true },
+	{ name = "Coral", rgb = { 236, 104, 84 }, accent = true },
 }
 
 Palette.HUE_TOL = 0.02
@@ -117,7 +123,7 @@ local function anchors()
 		for _, a in ipairs(Palette.ANCHORS) do
 			local c = Color3.fromRGB(a.rgb[1], a.rgb[2], a.rgb[3])
 			local h, s, v = c:ToHSV()
-			table.insert(hsv, { name = a.name, h = h, s = s, v = v, vmax = a.vmax })
+			table.insert(hsv, { name = a.name, h = h, s = s, v = v, vmax = a.vmax, accent = a.accent })
 		end
 	end
 	return hsv
@@ -221,7 +227,7 @@ function Palette.map(c)
 	local best, bestGap = nil, math.huge
 	for _, a in ipairs(anchors()) do
 		local g = hueGap(h, a.h)
-		if g < bestGap then best, bestGap = a, g end
+		if not a.accent and g < bestGap then best, bestGap = a, g end
 	end
 	if not best then return c end
 	--[[ Snap INSIDE the band, not onto its edge. A colour sitting 0.0017 past
