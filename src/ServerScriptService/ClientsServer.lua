@@ -108,13 +108,28 @@ return function(core)
 		return Vector3.new(p.X, plot.hqPad.Position.Y, p.Z)
 	end
 
+	-- 22 Oct: the ground's real height at a spot outside (the path is 0.6, the garage floor 1.0, the
+	-- pad 1.2); people, clients and anything not solid are ignored
+	local groundParams = RaycastParams.new()
+	groundParams.FilterType = Enum.RaycastFilterType.Exclude
+	groundParams.RespectCanCollide = true
+	local function groundAt(plot, p)
+		local skip = {}
+		for _, pl in ipairs(game:GetService("Players"):GetPlayers()) do if pl.Character then table.insert(skip, pl.Character) end end
+		local cf = plot.folder and plot.folder:FindFirstChild("Clients")
+		if cf then table.insert(skip, cf) end
+		groundParams.FilterDescendantsInstances = skip
+		local hit = workspace:Raycast(Vector3.new(p.X, p.Y + 6, p.Z), Vector3.new(0, -14, 0), groundParams)
+		return hit and Vector3.new(p.X, hit.Position.Y, p.Z) or p
+	end
+
 	local function spot(plot, i)
 		if lobbyMode(plot) then
 			local sp = LOBBY_LINE.spots[math.min(i, #LOBBY_LINE.spots)]
 			return localAt(plot, sp.x, sp.z)
 		end
 		local L = doorLine(plot)
-		return L.center + L.out * (4 + 4.5 * (i - 1)) + L.side * ((i % 2 == 0) and 1.5 or -1.5)
+		return groundAt(plot, L.center + L.out * (4 + 4.5 * (i - 1)) + L.side * ((i % 2 == 0) and 1.5 or -1.5))
 	end
 
 	-- where a waiting client looks: the counter, or the garage door
@@ -131,7 +146,7 @@ return function(core)
 			return out
 		end
 		local L = doorLine(plot)
-		return { L.center + L.out * 34 + L.side * 14 }
+		return { groundAt(plot, L.center + L.out * 34 + L.side * 14) }
 	end
 
 	--[[ the reception desk (1A): Oak top, PaperWhite body, a BrandGold stripe, round ends
@@ -205,15 +220,20 @@ return function(core)
 	end
 
 	-- ------------------------------------------------------------- one client's body
-	local function heightOf(model)
-		local _, size = model:GetBoundingBox()
-		return size.Y
+	--[[ 22 Oct (Luke's look review: "the client is floating"; measured 1.01 studs above the path).
+		Two causes. The rig was stood at half its bounding box above the spot, but the box includes the
+		hair and accessories, so the pivot (the root) sat higher than the feet need; it now stands by
+		the measured distance from the pivot down to its lowest part. And the garage's line spots were
+		at the HQ pad's height (1.2) while outside the door the path is at 0.6: see groundAt. ]]
+	local function footOffsetOf(model)
+		local cf, size = model:GetBoundingBox()
+		return model:GetPivot().Position.Y - (cf.Position.Y - size.Y / 2)
 	end
 
 	local function standAt(model, pos, facing)
-		local h = model:GetAttribute("StandH") or heightOf(model)
-		model:SetAttribute("StandH", h)
-		local p = pos + Vector3.new(0, h / 2, 0)
+		local off = model:GetAttribute("FootOff") or footOffsetOf(model)
+		model:SetAttribute("FootOff", off)
+		local p = pos + Vector3.new(0, off, 0)
 		model:PivotTo(CFrame.lookAt(p, Vector3.new(facing.X, p.Y, facing.Z)))
 	end
 
@@ -226,8 +246,8 @@ return function(core)
 		model:SetAttribute("WalkId", id)
 		task.spawn(function()
 			local start = model:GetPivot().Position
-			local h = model:GetAttribute("StandH") or heightOf(model)
-			local from = Vector3.new(start.X, start.Y - h / 2, start.Z)
+			local off = model:GetAttribute("FootOff") or footOffsetOf(model)
+			local from = Vector3.new(start.X, start.Y - off, start.Z)
 			local dist = (Vector3.new(to.X, from.Y, to.Z) - from).Magnitude
 			local t, T = 0, math.max(0.2, dist / WALK_SPEED)
 			while t < T and model.Parent and model:GetAttribute("WalkId") == id do

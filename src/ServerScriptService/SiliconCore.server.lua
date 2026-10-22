@@ -1676,8 +1676,10 @@ local function refreshObjective(player)
 		return nil
 	end
 	local recruitCarry = Econ and Econ.Drop and Econ.Drop.carrying(player)
+	local targetKind   -- 22 Oct: what the marker points at ("client": GuideClient hides its pin, the bubble marks them)
 	if cg and not recruitCarry then
 		key, text, pos, sub = cg.key, cg.title, clientTarget(cg.target), ""
+		targetKind = cg.target
 	elseif not recruitCarry and s.pendingProduct then
 		-- launches are taught when the first app is ready (Luke: "introduce it later")
 		key, text, pos, sub = "product", "Your app is ready: LAUNCH it", nil, ""
@@ -1924,6 +1926,7 @@ local function refreshObjective(player)
 	if player:GetAttribute("Objective") ~= key then player:SetAttribute("Objective", key) end
 	if player:GetAttribute("ObjectiveText") ~= text then player:SetAttribute("ObjectiveText", text) end
 	if player:GetAttribute("ObjectivePos") ~= pos then player:SetAttribute("ObjectivePos", pos) end
+	if player:GetAttribute("ObjectiveOn") ~= targetKind then player:SetAttribute("ObjectiveOn", targetKind) end
 	if player:GetAttribute("ObjectiveSub") ~= sub then player:SetAttribute("ObjectiveSub", sub) end
 	cost = cost and math.floor(cost) or nil
 	if player:GetAttribute("ObjectiveCost") ~= cost then player:SetAttribute("ObjectiveCost", cost) end

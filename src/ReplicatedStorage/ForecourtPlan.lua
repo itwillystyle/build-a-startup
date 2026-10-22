@@ -49,6 +49,10 @@ FP.PROPS = {
 	{ name = "BushR3", kind = "bush", x = 31, z = 29, w = 5.2, d = 5.2, h = 3.6 },
 	{ name = "BushL4", kind = "bush", x = -26, z = 34, w = 4.4, d = 4.4, h = 3.0 },
 	{ name = "BushR4", kind = "bush", x = 27, z = 34, w = 4.4, d = 4.4, h = 3.0 },
+	-- 22 Oct (Luke's look review at night: "a little too dark" where the first client stands): a porch
+	-- lamp either side of the door; the head is tagged SVLamp, so SkyClient lights it after dark
+	{ name = "PorchLampL", kind = "lamp", x = -11.5, z = 20.8, w = 1, d = 1, h = 7 },
+	{ name = "PorchLampR", kind = "lamp", x = 13, z = 21, w = 1, d = 1, h = 7 },
 }
 
 -- axis-aligned keep-out boxes { name, x0, x1, z0, z1 }

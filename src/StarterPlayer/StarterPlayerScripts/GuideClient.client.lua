@@ -708,6 +708,26 @@ local function bounds(vp)
 	return left, right, top, bottom, colBottom
 end
 
+-- 22 Oct: the ground under a target (cached per target: a ray every frame is not needed)
+local groundRay = RaycastParams.new()
+groundRay.FilterType = Enum.RaycastFilterType.Exclude
+groundRay.RespectCanCollide = true
+local groundFor, groundY
+local function groundUnder(at)
+	if groundFor and (groundFor - at).Magnitude < 0.5 then return groundY end
+	local skip = { pinPart, ring, beamEnd }
+	for _, pl in ipairs(Players:GetPlayers()) do if pl.Character then table.insert(skip, pl.Character) end end
+	local sv = workspace:FindFirstChild("SiliconValley")
+	for _, plot in ipairs(sv and sv:FindFirstChild("Plots") and sv.Plots:GetChildren() or {}) do
+		local cl = plot:FindFirstChild("Clients")
+		if cl then table.insert(skip, cl) end
+	end
+	groundRay.FilterDescendantsInstances = skip
+	local down = workspace:Raycast(at + Vector3.new(0, 2, 0), Vector3.new(0, -12, 0), groundRay)
+	groundFor, groundY = at, down and down.Position.Y or at.Y
+	return groundY
+end
+
 RunService.RenderStepped:Connect(function()
 	local now = os.clock()
 
@@ -718,7 +738,9 @@ RunService.RenderStepped:Connect(function()
 		local studsPerScreen = 2 * d * math.tan(math.rad(cam.FieldOfView) / 2)
 		local lift = PIN_CLEAR_PX * studsPerScreen / math.max(1, cam.ViewportSize.Y)
 		pin.StudsOffsetWorldSpace = Vector3.new(0, math.clamp(lift, 1.5, PIN_MAX_LIFT), 0)
-		pin.Enabled = d > PIN_NEAR
+		-- 22 Oct (Luke's look review: "two UIs above them"): a client already wears a speech bubble
+		-- saying what they want; the pin over them was a second marker on the same person
+		pin.Enabled = d > PIN_NEAR and player:GetAttribute("ObjectiveOn") ~= "client"
 	end
 	table.insert(history, { now, cashNow() })
 	while history[1] and now - history[1][1] > 2.5 do table.remove(history, 1) end
@@ -773,10 +795,13 @@ RunService.RenderStepped:Connect(function()
 	pin.StudsOffset = Vector3.new(0, 1.2, 0)
 	local pulse = 0.5 + 0.5 * math.sin(now * 3)
 	local there = root ~= nil and dist <= ARRIVED
-	ring.CFrame = CFrame.new(target + Vector3.new(0, 0.12, 0)) * CFrame.Angles(0, 0, math.rad(90))
+	-- 22 Oct (Luke's look review): a client's target is their body's centre, so the ring cut through
+	-- them at the waist; the ring and the beam sit on the ground under the target
+	local floor = groundUnder(target)
+	ring.CFrame = CFrame.new(Vector3.new(target.X, floor + 0.12, target.Z)) * CFrame.Angles(0, 0, math.rad(90))
 	ring.Size = Vector3.new(0.12, 7 + pulse * 2, 7 + pulse * 2)
 	ring.Transparency = there and 1 or (0.55 + 0.25 * pulse)
-	beamEnd.Position = target + Vector3.new(0, 0.6, 0)
+	beamEnd.Position = Vector3.new(target.X, floor + 0.6, target.Z)
 	beam.Enabled = not there   -- beamEnd is only parented while a marker shows (readObjective)
 
 	-- screen-edge arrow when the target is off-screen

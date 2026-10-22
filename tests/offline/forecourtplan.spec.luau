@@ -88,4 +88,15 @@ test("the hedge green is the mock's deep green and stays on the palette", functi
 		("%d,%d,%d is repainted to %d,%d,%d"):format(c[1], c[2], c[3], back[1], back[2], back[3]))
 end)
 
+-- 22 Oct, Luke's look review at night: "a little too dark" at the door, where the first client
+-- stands. Two porch lamps by the door; SkyClient lights SVLamp heads near the camera after dark.
+test("two porch lamps light the door at night", function()
+	local lamps = {}
+	for _, p in FP.PROPS do if p.kind == "lamp" then table.insert(lamps, p) end end
+	assert(#lamps >= 2, "a lamp either side of the door")
+	for _, l in lamps do
+		assert(math.abs(l.x) <= 14 and l.z <= 24, ("%s at (%d, %d): it must stand by the door"):format(l.name, l.x, l.z))
+	end
+end)
+
 return T

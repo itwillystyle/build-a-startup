@@ -1614,6 +1614,15 @@ function YARD.bush(m, at, p, FP)
 	yardPart(m, "Bush", Vector3.new(p.w, p.h, p.d), at * CFrame.new(0, p.h * 0.42, 0), hedgeGreen(FP), { Shape = Enum.PartType.Ball })
 end
 
+-- 22 Oct (look review, night): a porch lamp. The head is tagged SVLamp: SkyClient gives the nearest
+-- lamp heads a light after dark; "LampHead" is on Palette.EMISSIVE_OK, so its Neon is allowed
+function YARD.lamp(m, at, p)
+	yardPart(m, "LampPost", Vector3.new(0.35, p.h, 0.35), at * CFrame.new(0, p.h / 2, 0), Y_INK, { Material = Enum.Material.Metal })
+	local head = yardPart(m, "LampHead", Vector3.new(1.2, 0.8, 1.2), at * CFrame.new(0, p.h + 0.4, 0), Color3.fromRGB(255, 214, 160),
+		{ Material = Enum.Material.Neon, CastShadow = false })
+	game:GetService("CollectionService"):AddTag(head, "SVLamp")
+end
+
 function CampusArch.garageYard(plot, show)
 	local folder = plot and plot.folder
 	if not (folder and plot.pivot) then return end

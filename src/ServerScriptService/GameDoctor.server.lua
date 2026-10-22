@@ -330,6 +330,27 @@ local function run()
 			if not rig then task.wait(0.5) end
 		until rig or os.clock() - t0 > 20
 		check("client arrives", rig ~= nil, "BUG", rig and "at the door" or "none in 20 s", "at the door")
+		--[[ 22 Oct (Luke's look review: "the client is floating"; measured 1.01 studs over the path):
+			once they have walked to their spot, their lowest part rests on the ground (+-0.3). ]]
+		if rig then
+			task.wait(4)
+			local lowest = math.huge
+			for _, d in ipairs(rig:GetDescendants()) do
+				if d:IsA("BasePart") and d.Transparency < 1 and d.Name ~= "HumanoidRootPart" then
+					lowest = math.min(lowest, d.Position.Y - d.Size.Y / 2)
+				end
+			end
+			local params = RaycastParams.new()
+			params.FilterType = Enum.RaycastFilterType.Exclude
+			params.RespectCanCollide = true
+			params.FilterDescendantsInstances = { rig, char }
+			local at = rig:GetPivot().Position
+			local hit = workspace:Raycast(at + Vector3.new(0, 1, 0), Vector3.new(0, -14, 0), params)
+			local gap = hit and (lowest - hit.Position.Y) or nil
+			check("client stands on the ground", gap ~= nil and math.abs(gap) <= 0.3, "BUG",
+				gap and ("%.2f studs"):format(gap) or "no ground under them", "within 0.30",
+				hit and ("on " .. hit.Instance.Name) or nil)
+		end
 		local cash = player:FindFirstChild("leaderstats") and player.leaderstats:FindFirstChild("Cash")
 		local before = cash and cash.Value or 0
 		local s = sv:Invoke("clients", player, "serve")
