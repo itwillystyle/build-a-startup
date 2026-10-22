@@ -1,0 +1,69 @@
+-- forecourtplan.spec.luau: what stands in front of the garage, against everything that moves there (22 Oct 2026).
+-- Spec: silicon-startup/docs/superpowers/specs/2026-10-22-art-pass-design.md (Luke's picked mock
+-- ui/art-pass/garage-outside.png: a bench, a bike rack, planters, a mailbox, and a fenced lot with a crane).
+-- Measured 22 Oct (Studio, camera C2): the view outside had contrast 0.28 against 0.60 in the mock: a pale
+-- empty court in front of a small bare garage. Nothing placed there may block the game.
+local FP = require("../../src/ReplicatedStorage/ForecourtPlan")
+local W = require("../../src/ReplicatedStorage/WalkLanes")
+local T = {}
+local function test(name, fn) table.insert(T, { name = name, fn = fn }) end
+
+local function kinds()
+	local k = {}
+	for _, p in FP.PROPS do k[p.kind] = (k[p.kind] or 0) + 1 end
+	return k
+end
+
+test("the mock's pieces are all there", function()
+	local k = kinds()
+	for _, want in { "bench", "bikerack", "planter", "mailbox", "lotFence", "crane", "comingSoon" } do
+		assert(k[want], "missing " .. want)
+	end
+	assert(k.planter >= 3, "at least 3 planters")
+end)
+
+test("the real plan is clean: nothing on the path, the client line, the clients' walk-in, the promenade, the garage, the drop-off or the car", function()
+	local problems = FP.check()
+	assert(#problems == 0, problems[1])
+end)
+
+test("check() catches a bench dropped on the client line", function()
+	local bad = { { name = "BadBench", kind = "bench", x = 0, z = 25, w = 5, d = 1.6, h = 2.2 } }
+	local problems = FP.check(bad)
+	assert(#problems >= 1, "a bench in the door line must be refused")
+end)
+
+test("check() catches a planter on the clients' diagonal walk-in", function()
+	local bad = { { name = "BadPlanter", kind = "planter", x = -8, z = 40, w = 3, d = 3, h = 2 } }
+	assert(#FP.check(bad) >= 1, "a planter on the walk-in line must be refused")
+end)
+
+test("everything stays clear of the drive pavements' walkers (WalkLanes)", function()
+	local reach = W.ARM_WALK - W.ARM_KEEP - 1.9 - 1
+	for _, p in FP.PROPS do
+		assert(math.abs(p.x) + p.w / 2 <= reach, ("%s reaches x %.1f; the walkers start at %.1f"):format(p.name, math.abs(p.x) + p.w / 2, reach))
+	end
+end)
+
+test("the coming-soon frame carries no words", function()
+	for _, p in FP.PROPS do
+		if p.kind == "comingSoon" then assert(p.text == nil, "the world never draws words for this") end
+	end
+end)
+
+test("the court's colour is a value step down and stays on the palette", function()
+	-- selene: allow(incorrect_standard_library_use)
+	game = game or { GetService = function() return { HasTag = function() return false end } end }
+	local Palette = require("../../src/ReplicatedStorage/Palette")
+	local c = FP.COURT
+	local h, s, v = Color3.fromRGB(c[1], c[2], c[3]):ToHSV()
+	local _, _, v0 = Color3.fromRGB(214, 208, 196):ToHSV()
+	assert(v <= v0 - 0.05, ("value %.2f, was %.2f"):format(v, v0))
+	local m = Palette.map(Color3.fromRGB(c[1], c[2], c[3]))
+	local back = { math.round(m.R * 255), math.round(m.G * 255), math.round(m.B * 255) }
+	assert(math.abs(back[1] - c[1]) <= 2 and math.abs(back[2] - c[2]) <= 2 and math.abs(back[3] - c[3]) <= 2,
+		("%d,%d,%d is repainted to %d,%d,%d"):format(c[1], c[2], c[3], back[1], back[2], back[3]))
+	local _ = h + s
+end)
+
+return T

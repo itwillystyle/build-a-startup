@@ -1914,6 +1914,10 @@ local function refreshObjective(player)
 	if player:GetAttribute("Shipped") ~= (s.shipped == true) then player:SetAttribute("Shipped", s.shipped == true) end
 	if player:GetAttribute("BuildOpen") ~= (s.buildUnlocked == true) then player:SetAttribute("BuildOpen", s.buildUnlocked == true) end
 	if player:GetAttribute("HQLevel") ~= plot.hq.level then player:SetAttribute("HQLevel", plot.hq.level) end   -- v3.1: DECOR unlocks at HQ 2
+	if CampusArch and CampusArch.garageYard then   -- 22 Oct (art pass 1): the garage's yard, only while it is a garage
+		local lv = (plot.wafer and plot.wafer.level) or plot.hq.level
+		pcall(CampusArch.garageYard, plot, lv <= 1)
+	end
 	if CampusArch and CampusArch.lotState then   -- v3.2: every empty lot's gate sign and crane
 		pcall(CampusArch.lotState, plot, s.buildUnlocked == true, (Econ and Econ.V3 and Econ.SLOTS_BY_HQ[plot.hq.level]) or 6, plot.hq.level + 1)
 	end
