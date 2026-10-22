@@ -37,6 +37,7 @@ local camera = workspace.CurrentCamera
 local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
 local Notify = require(game:GetService("ReplicatedStorage"):WaitForChild("Notify"))
 local GoalDone = require(ReplicatedStorage:WaitForChild("GoalDone"))
+local GoalCard = require(ReplicatedStorage:WaitForChild("GoalCard"))
 local Cine = ReplicatedStorage:FindFirstChild("Cine") and require(ReplicatedStorage.Cine)
 
 local GOLD, INK = UIKit.GOLD, UIKit.INK
@@ -228,7 +229,8 @@ holder.BackgroundTransparency = 1
 holder.Parent = questGui
 UIKit.fitMenu(holder, 430, 84, Instance.new("UIScale", holder))
 
-local card = UIKit.card(holder, { Name = "Quest", Size = UDim2.new(1, 0, 1, 0), Visible = false })
+local card = UIKit.card(holder, { Name = "Quest", Size = UDim2.new(1, 0, 1, 0), Visible = false,
+	AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 0) })
 local cardStroke = card:FindFirstChildOfClass("UIStroke")
 local cardScale = Instance.new("UIScale", card)
 
@@ -241,6 +243,7 @@ tile.BorderSizePixel = 0
 tile.Parent = card
 Instance.new("UICorner", tile).CornerRadius = UDim.new(0, UIKit.RADIUS.md)
 local tileStroke = Instance.new("UIStroke", tile)
+local tileScale = Instance.new("UIScale", tile)
 tileStroke.Thickness = 2
 local tileIcon = UIKit.art(tile, "target", 50, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, -2), ZIndex = 3 })
 local stamp = UIKit.art(tile, "check", 56, { Name = "Stamp", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), ZIndex = 6, Visible = false })
@@ -258,50 +261,14 @@ local sub = UIKit.label(card, "", UIKit.TYPE.body, UIKit.MUTED_TEXT, {
 	Name = "Sub", Position = UDim2.new(0, TEXT_X, 0, 36), Size = UDim2.new(1, -(TEXT_X + PAD + 24), 0, 20),
 	TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top,
 }, UIKit.BODY)
---[[ DISMISS (v4.9). Reported 4 Oct: "there's no way for me to get rid of this
-	genius goal popping up on my screen." There was not. The card was permanent
-	by design and that design is wrong the moment the player does not want it.
-
-	Dismissing hides THIS objective only. The moment the game asks for something
-	else the card comes back, because the key no longer matches -- so you can
-	wave off a goal you are ignoring without switching the guide off for good. ]]
---[[ The dismissed goal is a player ATTRIBUTE, not an upvalue. Two reasons:
-	it can be read and set from anywhere (so the behaviour is testable, which
-	an upvalue buried in a LocalScript is not), and it survives this card being
-	rebuilt. ]]
-local DISMISS_ATTR = "GuideDismissed"
-local closeBtn = Instance.new("TextButton")
-closeBtn.Name = "Dismiss"
--- v6 (11 Oct): the tap target is 44x44 (DESIGN.md: no tap under 44); the round
--- 26 px X you see is drawn inside it, where it always was
-closeBtn.AnchorPoint = Vector2.new(1, 0)
-closeBtn.Position = UDim2.new(1, 1, 0, -1)
-closeBtn.Size = UDim2.new(0, 44, 0, 44)
-closeBtn.BackgroundTransparency = 1
-closeBtn.BorderSizePixel = 0
-closeBtn.Text = ""
-local closeDot = Instance.new("TextLabel")
-closeDot.Name = "Dot"
-closeDot.AnchorPoint = Vector2.new(0.5, 0.5)
-closeDot.Position = UDim2.fromScale(0.5, 0.5)
-closeDot.Size = UDim2.new(0, 26, 0, 26)
-closeDot.BackgroundColor3 = UIKit.SURFACE_2
-closeDot.BorderSizePixel = 0
-closeDot.Text = "\u{00D7}"
-closeDot.TextColor3 = UIKit.MUTED_TEXT
-closeDot.TextSize = UIKit.TYPE.label
-closeDot.FontFace = UIKit.BOLD
-closeDot.Parent = closeBtn
-Instance.new("UICorner", closeDot).CornerRadius = UDim.new(1, 0)
---[[ ABOVE "Hit" (ZIndex 20), which is the whole-card tap target that turns the
-	camera to the goal. At ZIndex 8 the X was UNDER it, so every click on the X
-	went to Hit and swung the camera instead -- which from the player's seat
-	looks exactly like a button that does nothing. Found with
-	PlayerGui:GetGuiObjectsAtPosition on the X's own centre. ]]
-closeBtn.ZIndex = 21
-closeBtn.AutoButtonColor = true
-closeBtn.Parent = card
-Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(1, 0)
+--[[ 22 Oct: NO X. v4.9 added one ("there's no way for me to get rid of this genius goal
+	popping up on my screen", 4 Oct) and by 22 Oct he was pressing it on every goal: "kind of
+	annoying". Option A, his pick: a new goal shows full for 4 s, then the card shrinks to a pill
+	(icon and title) on its own; tap the pill to open it again. GoalCard decides, offline-tested. ]]
+local gc = GoalCard.new()
+local PILL_H, PILL_TILE = 44, 32   -- 44: DESIGN.md, no tap under 44
+local PILL_X = 6 + PILL_TILE + 10
+local isPill = nil   -- the shape last drawn
 
 -- a reward reads as a green chip ("x1.5 money, forever", "Unlocks STAR hires"); it
 -- wraps to a second line instead of shrinking (v4.4 shrank it to 10 pt)
@@ -451,10 +418,50 @@ local function textHeight(label, width)
 	return TextService:GetTextSize(label.Text, fontSize, UIKit.HEAD, Vector2.new(width, 1000)).Y
 end
 
+local function textWidth(label)
+	if label.Text == "" then return 0 end
+	local ok, size = pcall(function()
+		local p = Instance.new("GetTextBoundsParams")
+		p.Text = label.Text
+		p.Font = label.FontFace
+		p.Size = label.TextSize
+		p.Width = 2000
+		return TextService:GetTextBoundsAsync(p)
+	end)
+	if ok and size then return size.X end
+	return TextService:GetTextSize(label.Text, label.TextSize, UIKit.HEAD, Vector2.new(2000, 100)).X
+end
+
+local function setSize(size, shapeChanged)
+	if shapeChanged and card.Visible then
+		tween(card, 0.22, { Size = size }, Enum.EasingStyle.Quad)
+	else
+		card.Size = size
+	end
+end
+
 local function layout()
-	local w = card.AbsoluteSize.X > 0 and card.AbsoluteSize.X or 250
-	local textW = w - TEXT_X - PAD
+	local W = holder.Size.X.Offset   -- design width; the holder's UIScale fits it to the screen
+	local pill = not GoalCard.full(gc, os.clock())
+	local changed = pill ~= isPill
+	isPill = pill
+	tileScale.Scale = pill and PILL_TILE / TILE or 1
+	tile.Position = pill and UDim2.new(0, 6, 0, 6) or UDim2.new(0, PAD, 0, PAD)
+	title.TextWrapped = not pill
+	title.TextTruncate = pill and Enum.TextTruncate.AtEnd or Enum.TextTruncate.None
+	title.TextYAlignment = pill and Enum.TextYAlignment.Center or Enum.TextYAlignment.Top
+	if pill then
+		-- the pill: icon and title on one line, as wide as the title needs
+		chip.Visible, meter.Visible, footer.Visible = false, false, false
+		local w = math.min(W, PILL_X + textWidth(title) + 14)
+		title.Position = UDim2.new(0, PILL_X, 0, 0)
+		title.Size = UDim2.new(1, -(PILL_X + 10), 1, 0)
+		setSize(UDim2.new(0, w, 0, PILL_H), changed)
+		return
+	end
+	local textW = W - TEXT_X - PAD
 	local th = math.max(24, textHeight(title, textW) + 2)
+	title.Position = UDim2.new(0, TEXT_X, 0, PAD)
 	title.Size = UDim2.new(1, -(TEXT_X + PAD), 0, th)
 	local y = PAD + th + 4
 	local lineH = 0
@@ -478,12 +485,26 @@ local function layout()
 		footer.Position = UDim2.new(0, PAD, 0, bottom + 8)
 		bottom += 8 + 46
 	end
-	card.Size = UDim2.new(1, 0, 0, bottom + PAD + 4)
+	setSize(UDim2.new(0, W, 0, bottom + PAD + 4), changed)
 end
-card:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-	-- width changes (viewport) re-wrap the text; height changes are ours
-	local w = card.AbsoluteSize.X
-	if w ~= card:GetAttribute("LaidW") then card:SetAttribute("LaidW", w); task.defer(layout) end
+
+-- the full card shrinks back to the pill when its seconds run out
+local function openNow()
+	layout()
+	task.delay(gc.fullUntil - os.clock() + 0.05, function()
+		if not GoalCard.full(gc, os.clock()) then layout() end
+	end)
+end
+-- the card just showed: a goal owed its full look gets it now
+local function markShown()
+	local before = gc.fullUntil
+	GoalCard.shown(gc, os.clock())
+	if gc.fullUntil ~= before then openNow() end
+end
+holder:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+	-- the screen changed size (the holder's UIScale refit): re-measure. Not the card's own
+	-- size: that is ours, and it tweens between the pill and the full card
+	task.defer(layout)
 end)
 
 local function applySub()
@@ -602,6 +623,7 @@ local function readObjective()
 				if cardStroke then cardStroke.Color = UIKit.CARD_LINE end
 				showGoal(player:GetAttribute("Objective"), player:GetAttribute("ObjectiveText"))
 				applySub()
+				if card.Visible then markShown() end
 				cardScale.Scale = 0.94
 				tween(cardScale, 0.25, { Scale = 1 })
 			end)
@@ -609,6 +631,7 @@ local function readObjective()
 			showGoal(key, text)
 		end
 		lastKey = key
+		GoalCard.goal(gc, key, os.clock())
 		goalLevel, goalStaff = levelNow(), staffNow()
 		readyFor = nil
 	elseif not stamping then
@@ -628,9 +651,11 @@ local function readObjective()
 	-- v8: and it steps aside while a card that matters holds the screen (Notify.loud:
 	-- a level-up, a rare hire, LOST!, the chase): one loud thing at a time
 	card.Visible = show and player:GetAttribute("NamingOpen") ~= true
-		and key ~= player:GetAttribute(DISMISS_ATTR) and not menu and not Notify.loud()
+		and not menu and not Notify.loud()
 		and player:GetAttribute("RailTrayOpen") ~= true      -- the MORE tray is open over it
 	gui.Enabled = show and player:GetAttribute("NamingOpen") ~= true and not menu
+	-- the DONE! stamp keeps the shape it has; the next goal opens when the stamp ends
+	if card.Visible and not stamping then markShown() end
 	local showMarker = show and target ~= nil
 	pin.Enabled = showMarker
 	pinPart.Parent = showMarker and workspace or nil
@@ -678,8 +703,13 @@ local function lookAtGoal()
 	if camera.CameraType == Enum.CameraType.Scriptable then camera.CameraType = Enum.CameraType.Custom end
 	looking = false
 end
-hit.MouseButton1Click:Connect(function()
+-- Activated, not MouseButton1Click: it covers touch and gamepad as well as the
+-- mouse, and this game is meant to be played on a phone
+hit.Activated:Connect(function()
 	UIKit.sfx("tap")
+	-- 22 Oct: a tap opens the pill for 4 s as well as turning the camera
+	GoalCard.tap(gc, os.clock())
+	openNow()
 	task.spawn(lookAtGoal)
 end)
 
@@ -841,19 +871,6 @@ RunService.RenderStepped:Connect(function()
 	edgeDist.Text = ("%dm"):format(math.floor(dist / 3.5 + 0.5))
 	edge.Visible = true
 end)
-
--- Activated, not MouseButton1Click: it covers touch and gamepad as well as the
--- mouse, and this game is meant to be played on a phone
-local function dismissCurrent()
-	player:SetAttribute(DISMISS_ATTR, lastKey)
-	card.Visible = false
-	Notify.reserveTop(0)
-end
-
-closeBtn.Activated:Connect(dismissCurrent)
-
--- the card re-reads the attribute, so clearing it anywhere brings the goal back
-player:GetAttributeChangedSignal(DISMISS_ATTR):Connect(function() pcall(readObjective) end)
 
 --[[ TELL THE DIRECTOR WHERE THE TOP ENDS. Measured, not assumed: the card's
 	own height changes with a wrapped subtitle and with the big-goal meter, so a
