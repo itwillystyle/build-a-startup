@@ -1510,7 +1510,8 @@ end
 	It is NOT part of Grounds: Wafers.clearFootprint deletes anything taller than the paving inside
 	the tower's future podium when a plot loads, and the garage's yard is exactly there. So it is its
 	own folder, built while the plot is a garage (level 1) and gone the moment the lobby replaces
-	the garage (and back after a spin-off). No collisions: a yard is never what a player is stuck on. ]]
+	the garage (and back after a spin-off). Only the planter boxes collide (1 stud tall, outside every
+	path, line and walk-in, so you step onto them or around them); nothing else in a yard can catch you. ]]
 local YARD_Y = { court = 0.59, lawn = 0.3 }   -- EntranceCourt's top; the plot slab's top
 local YARD_KEEP = { [Enum.Material.Wood] = true, [Enum.Material.WoodPlanks] = true, [Enum.Material.Metal] = true }
 local Y_OAK, Y_INK, Y_TEAL, Y_CORAL = Color3.fromRGB(150, 104, 64), Color3.fromRGB(30, 37, 48), Color3.fromRGB(40, 150, 160), Color3.fromRGB(236, 104, 84)
@@ -1550,7 +1551,9 @@ function YARD.bikerack(m, at)
 	yardPart(m, "BikeSeat", Vector3.new(0.3, 0.16, 0.6), at * CFrame.new(-1.05, 1.6, -0.6), Y_INK)
 end
 function YARD.planter(m, at, p)
-	yardPart(m, "PlanterBox", Vector3.new(p.w, 1.0, p.d), at * CFrame.new(0, 0.5, 0), Y_CONCRETE)
+	-- solid (ForecourtPlan p.solid): a 3 x 3 box you can step onto must hold you (the doctor's sinking check)
+	yardPart(m, "PlanterBox", Vector3.new(p.w, 1.0, p.d), at * CFrame.new(0, 0.5, 0), Y_CONCRETE,
+		{ CanCollide = p.solid == true, CanQuery = p.solid == true })
 	yardPart(m, "PlanterGreen", Vector3.new(p.w * 0.85, 1.4, p.d * 0.85), at * CFrame.new(0, 1.5, 0), Y_LEAF, { Shape = Enum.PartType.Ball })
 	for _, o in ipairs({ { 0.7, 0.5 }, { -0.6, -0.7 } }) do
 		yardPart(m, "Flower", Vector3.new(0.45, 0.45, 0.45), at * CFrame.new(o[1], 2.15, o[2]), Y_PAPER, { Shape = Enum.PartType.Ball })

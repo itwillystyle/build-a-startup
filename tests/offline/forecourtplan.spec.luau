@@ -99,4 +99,14 @@ test("two porch lamps light the door at night", function()
 	end
 end)
 
+-- 22 Oct (the doctor's "sinking surfaces", WorldHealth): a 3 x 3 planter you can step onto must hold
+-- you; as decor with no collision a player sank 0.9 studs into it. Anything that wide and that low is solid.
+test("anything 3 studs wide and under 2.5 tall you could step onto is solid", function()
+	for _, p in FP.PROPS do
+		if math.min(p.w, p.d) >= 3 and p.h <= 2.5 and p.kind ~= "lotFence" then
+			assert(p.solid, ("%s (%s) is %.1f x %.1f and %.1f tall: a player would sink into it"):format(p.name, p.kind, p.w, p.d, p.h))
+		end
+	end
+end)
+
 return T

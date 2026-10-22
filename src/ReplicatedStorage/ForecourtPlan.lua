@@ -29,9 +29,9 @@ FP.HEDGE = { 38, 88, 50 }
 FP.PROPS = {
 	{ name = "Bench", kind = "bench", x = -14, z = 27, w = 1.8, d = 5, h = 2.4, yaw = 0 },
 	{ name = "BikeRack", kind = "bikerack", x = -15, z = 21.5, w = 4, d = 1.2, h = 2.2, yaw = 0 },
-	{ name = "PlanterL", kind = "planter", x = -9, z = 22, w = 3, d = 3, h = 1.6 },
-	{ name = "PlanterR1", kind = "planter", x = 9, z = 22, w = 3, d = 3, h = 1.6 },
-	{ name = "PlanterR2", kind = "planter", x = 9, z = 34, w = 3, d = 3, h = 1.6 },
+	{ name = "PlanterL", kind = "planter", x = -9, z = 22, w = 3, d = 3, h = 1.6, solid = true },
+	{ name = "PlanterR1", kind = "planter", x = 9, z = 22, w = 3, d = 3, h = 1.6, solid = true },
+	{ name = "PlanterR2", kind = "planter", x = 9, z = 34, w = 3, d = 3, h = 1.6, solid = true },
 	{ name = "Mailbox", kind = "mailbox", x = 12.5, z = 27, w = 1.2, d = 1.2, h = 3.6 },
 	{ name = "LotFence", kind = "lotFence", x = 34, z = 0, w = 18, d = 24, h = 3 },
 	{ name = "Crane", kind = "crane", x = 38, z = -4, w = 4, d = 4, h = 18 },
