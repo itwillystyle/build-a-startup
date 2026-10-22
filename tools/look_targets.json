@@ -1,0 +1,9 @@
+{
+  "_why": "art-pass spec section 3 (22 Oct): live shots were 46-79% near white; the picked mocks 1-4%",
+  "blown_max": 0.10,
+  "mean_min": 0.45,
+  "mean_max": 0.68,
+  "spread_min": 0.50,
+  "sat_min": 0.32,
+  "lowq": { "spread_min": 0.40 }
+}
