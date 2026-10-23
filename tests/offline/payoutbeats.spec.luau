@@ -41,6 +41,17 @@ test("a coder's pop is quieter than your own payout", function()
 	assert(PB.coderDuration() < PB.duration(), "shorter")
 end)
 
+test("the stars card rises from where the app lands to above the client's speech bubble (FINAL.md W3, W4)", function()
+	-- the app tile ends ~3 studs over the client; the bubble (ClientsServer: head + 3.6) sits ~5.1; the
+	-- card is pushed up a fraction of its OWN pixel height (BillboardGui.SizeOffset), so it clears a
+	-- 50-74 px bubble at any distance, where a stud offset alone would not
+	local C = PB.CARD
+	assert(C.fromY and C.atY and C.fromY < C.atY, "it rises")
+	assert(C.fromY >= 3 and C.fromY < C.atY, "starts at or above where the tile lands")
+	assert(C.lift and C.lift * C.h >= 74 / 2 + C.h / 2, ("lift %.2f x %d px clears a 74 px bubble"):format(C.lift or 0, C.h or 0))
+	assert(C.h == 46 and C.w == 132, "the card is 132 x 46 px, offset-sized (does not scale with distance)")
+end)
+
 test("a coder's delivery flies no coins (23 Oct, FINAL.md W2: 3 coins every few seconds meant 3 ticks and a ching)", function()
 	-- coinStream always plays a tick per coin and a ching on the last (HudClient), and asking it for
 	-- 0 coins still flies 1 (math.max(1, n)); so the coder path skips it and flies none

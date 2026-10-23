@@ -15,7 +15,12 @@
 	Tested by tests/offline/payoutbeats.spec.luau. ]]
 local PayoutBeats = {}
 PayoutBeats.FLY = { seconds = 0.28, arc = 50, tilt = -12 }
-PayoutBeats.CARD = { from = 0.94, enter = 0.15, leaveAt = 0.75, leave = 0.2, rise = 12 }
+PayoutBeats.CARD = { from = 0.94, enter = 0.15, leaveAt = 0.75, leave = 0.2, rise = 12,
+	-- 23 Oct (FINAL.md W3, W4): a billboard at the client. It rises from where the app tile lands
+	-- (fromY studs over the client) to the speech bubble's height (atY: ClientsServer's bubble is
+	-- head + 3.6), and BillboardGui.SizeOffset lifts it `lift` of its own 46 px height so it sits above
+	-- a 50-74 px bubble at any distance (a stud offset alone shrinks with distance)
+	w = 132, h = 46, fromY = 3.4, atY = 5.1, lift = 1.4 }
 PayoutBeats.STAR = { first = 0.06, gap = 0.04, from = 0.9, enter = 0.12 }
 PayoutBeats.MONEY = { at = 0.40, from = 0.94, enter = 0.15, hold = 0.6, leave = 0.2, rise = 8, tipGap = 30 }
 PayoutBeats.COINS = 6

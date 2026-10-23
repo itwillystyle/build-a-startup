@@ -51,13 +51,14 @@ end
 -- a word that fades in at a screen point, holds, then rises a little and fades out
 -- 23 Oct (animation review): it used to enter with a Back overshoot from nothing, hold 0.7 s and
 -- drift 40 px over 0.6 s (1.4 s a client, all game). Now: fade in from 0.94 scale, hold, lift 8 px.
-local function pop(text, at, size, colour, delay, hold)
+-- 23 Oct (FINAL.md W3): drawn into `parent` (the payout's billboard at the client) at `pos`
+local function pop(parent, text, pos, size, colour, delay, hold)
 	local M = PayoutBeats.MONEY
 	hold = hold or M.hold
 	task.delay(delay or 0, function()
-		local l = UIKit.outlined(gui, text, size, colour, {
+		local l = UIKit.outlined(parent, text, size, colour, {
 			AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0, 260, 0, size + 10),
-			Position = UDim2.new(0, at.X, 0, at.Y), TextXAlignment = Enum.TextXAlignment.Center,
+			Position = pos, TextXAlignment = Enum.TextXAlignment.Center,
 		})
 		local st = l:FindFirstChildOfClass("UIStroke")
 		local sc = Instance.new("UIScale")
@@ -322,14 +323,25 @@ local function wow(d)
 end
 
 -- 2A, step 2: they open it (a card over the client) and the stars pop, one by one
-local function opened(at, stars)
+--[[ 23 Oct (the visual judge, FINAL.md W3, W4): the card was a screen point taken when the event
+	arrived, so a turning camera or a drive left it hanging in the air; and it appeared 2.5 studs above
+	where the app tile vanished. It is now a billboard at the client (like the first ship): it rises
+	from where the tile lands to above the client's "Thanks!" bubble while it fades in. ]]
+local function opened(where, stars)
+	local C = PayoutBeats.CARD
+	local anchor = anchorAt(where)
+	anchor.Name = "PayoutAnchor"
+	local bb = board(anchor, UDim2.new(0, C.w, 0, C.h + C.rise), Vector3.new(0, C.fromY, 0))
+	bb.Name = "PayoutCard"
+	bb.SizeOffset = Vector2.new(0, C.lift)
+	ease(bb, C.enter, { StudsOffset = Vector3.new(0, C.atY, 0) })
 	local card = Instance.new("Frame")
 	card.AnchorPoint = Vector2.new(0.5, 1)
-	card.Position = UDim2.new(0, at.X, 0, at.Y - 6)
-	card.Size = UDim2.new(0, 132, 0, 46)
+	card.Position = UDim2.new(0.5, 0, 1, 0)
+	card.Size = UDim2.new(0, C.w, 0, C.h)
 	card.BackgroundColor3 = UIKit.PAPER
 	card.ZIndex = 6
-	card.Parent = gui
+	card.Parent = bb
 	Instance.new("UICorner", card).CornerRadius = UDim.new(0, UIKit.RADIUS.md)
 	local st = Instance.new("UIStroke")
 	st.Thickness, st.Color = 2, UIKit.INK
@@ -337,7 +349,7 @@ local function opened(at, stars)
 	-- 23 Oct (animation review): the card used to Back-bounce in, the stars Back-bounced from
 	-- nothing, and it all lasted 1.4 s. Now the card fades in from 0.94 scale, each star from 0.9,
 	-- 0.04 s apart, and the card is gone by 0.75 s (PayoutBeats.CARD / STAR).
-	local C, S = PayoutBeats.CARD, PayoutBeats.STAR
+	local S = PayoutBeats.STAR
 	local sc = Instance.new("UIScale")
 	sc.Scale = C.from
 	sc.Parent = card
@@ -370,7 +382,7 @@ local function opened(at, stars)
 		for _, c in ipairs(card:GetChildren()) do
 			if c:IsA("ImageLabel") then ease(c, C.leave, { ImageTransparency = 1 }) end
 		end
-		task.delay(C.leave + 0.02, function() card:Destroy() end)
+		task.delay(C.leave + 0.02, function() anchor:Destroy() end)
 	end)
 end
 
@@ -410,14 +422,23 @@ local function coderPop(d, at)
 end
 
 -- your own hand-over's payout
-local function cash(d, at)
+local MONEY_Y, MONEY_DROP = 4, 30   -- studs over the client, then px down (where the number always sat)
+local function cash(d, where)
 	-- 23 Oct (animation review): "+$X" and the tip arrive together (the tip 30 px below), and the
 	-- 6 coins carry the amount, so the counter counts up with them (the caller held it back first)
+	-- 23 Oct (FINAL.md W3): on a billboard at the client, so it stays with them when the camera moves
+	local M = PayoutBeats.MONEY
 	local tip = d.tip or 0
-	pop("+" .. UIKit.money(d.pay), at, UIKit.TYPE.headline, UIKit.MONEY)
+	local anchor = anchorAt(where)
+	anchor.Name = "PayoutAnchor"
+	local bb = board(anchor, UDim2.new(0, 260, 0, 2 * (MONEY_DROP + M.tipGap + 30)), Vector3.new(0, MONEY_Y, 0))
+	bb.Name = "PayoutMoney"
+	pop(bb, "+" .. UIKit.money(d.pay), UDim2.new(0.5, 0, 0.5, MONEY_DROP), UIKit.TYPE.headline, UIKit.MONEY)
 	if tip > 0 then
-		pop("+" .. UIKit.money(tip) .. " TIP", at + Vector2.new(0, PayoutBeats.MONEY.tipGap), UIKit.TYPE.label, UIKit.GOLD)
+		pop(bb, "+" .. UIKit.money(tip) .. " TIP", UDim2.new(0.5, 0, 0.5, MONEY_DROP + M.tipGap), UIKit.TYPE.label, UIKit.GOLD)
 	end
+	task.delay(M.enter + M.hold + M.leave + 0.1, function() anchor:Destroy() end)
+	local at = screenAt(where + Vector3.new(0, MONEY_Y, 0)) + Vector2.new(0, MONEY_DROP)
 	local stream = rawget(_G, "SVCoinStream")
 	if type(rawget(_G, "SVCashHold")) == "function" and type(stream) == "function" then
 		stream(at, PayoutBeats.COINS, nil, d.pay + tip, { prepaid = true })
@@ -452,16 +473,14 @@ clientPaid.OnClientEvent:Connect(function(d)
 		end
 		return
 	end
-	local at = screenAt(where + Vector3.new(0, 4, 0))
 	if type(d.stars) ~= "number" or typeof(d.from) ~= "Vector3" then
 		holdPayout(d)
-		cash(d, at)
+		cash(d, where)
 		return
 	end
 	holdPayout(d)
 	fly(d.from + Vector3.new(0, 1.5, 0), where + Vector3.new(0, 3, 0), function()
-		local head = screenAt(where + Vector3.new(0, 5.5, 0))
-		opened(head, math.clamp(math.floor(d.stars), 1, 3))
-		task.delay(PayoutBeats.MONEY.at - PayoutBeats.FLY.seconds, function() cash(d, at + Vector2.new(0, 30)) end)
+		opened(where, math.clamp(math.floor(d.stars), 1, 3))
+		task.delay(PayoutBeats.MONEY.at - PayoutBeats.FLY.seconds, function() cash(d, where) end)
 	end)
 end)
