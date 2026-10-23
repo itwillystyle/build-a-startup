@@ -876,7 +876,8 @@ local function hqBanner(e, done)
 	local function leave()
 		if gone then return end
 		gone = true
-		tween(card, 0.35, { Position = UDim2.new(0, x, 0, -180) }, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
+		-- 23 Oct (finding 7): it left with ease-IN over 0.35 s, so a tap to dismiss started slow; out, 0.2 s
+		tween(card, UIKit.T.ui, { Position = UDim2.new(0, x, 0, -180) }, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 		task.delay(0.4, function()
 			card:Destroy()
 			player:SetAttribute("Celebrating", nil)
