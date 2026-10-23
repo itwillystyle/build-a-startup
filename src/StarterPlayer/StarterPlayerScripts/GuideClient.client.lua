@@ -715,12 +715,20 @@ local function lookAtGoal()
 		if camera.CameraType == Enum.CameraType.Scriptable then camera.CameraType = Enum.CameraType.Custom end
 	end
 	-- the player's own camera input (right-drag, wheel, a touch, the right stick) takes it back at once
-	local function take(input)
+	-- the judge's review: a player walking with the left thumb (the touch thumbstick) would have
+	-- cancelled the turn on its first InputChanged. Input the game already handled (the thumbstick,
+	-- a button) never counts; a touch counts only when it STARTS during the turn; the right stick
+	-- only past a 0.2 dead zone
+	local function took(input, processed)
+		if processed then return false end
 		local t = input.UserInputType
-		if t == Enum.UserInputType.MouseButton2 or t == Enum.UserInputType.MouseWheel or t == Enum.UserInputType.Touch
-			or input.KeyCode == Enum.KeyCode.Thumbstick2 then
-			giveBack()
-		end
+		if t == Enum.UserInputType.MouseButton2 or t == Enum.UserInputType.MouseWheel then return true end
+		if t == Enum.UserInputType.Touch then return input.UserInputState == Enum.UserInputState.Begin end
+		if input.KeyCode == Enum.KeyCode.Thumbstick2 then return input.Position.Magnitude > 0.2 end
+		return false
+	end
+	local function take(input, processed)
+		if took(input, processed) then giveBack() end
 	end
 	table.insert(conns, UserInputService.InputBegan:Connect(take))
 	table.insert(conns, UserInputService.InputChanged:Connect(take))

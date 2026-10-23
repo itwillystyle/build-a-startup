@@ -642,7 +642,7 @@ end
 --[[ 23 Oct (the animation audit, finding 6; mockup ui/animation-review/mp4/4-money-pop.mp4, panel B):
 	each pop grew from 40% size over 0.35 s at the SAME spot, so on an auto-launch "+$X" and, 0.4 s
 	later, "Auto-launched: half pay" landed on each other. Now a pop fades in from 92% (T.fast), the
-	newest takes the bottom line and pushes older ones up one line (Quart InOut, T.ui), at most two
+	newest takes the bottom line and pushes older ones up one line (Quint Out, T.ui), at most two
 	lines (PopStack, tested), and each leaves with a fade in place (T.ui). ]]
 local POP_LINE = 44   -- px between stacked pops: TYPE.display (36) + 8
 local pops = PopStack.new(2)
@@ -652,16 +652,22 @@ local function popY(line) return UDim2.new(0, MONEY_X, 1, -(moneyTop + 4) - line
 local function placePops()
 	for id, l in pairs(popLabels) do
 		local line = PopStack.line(pops, id)
-		if line and l.Parent then tween(l, UIKit.T.ui, { Position = popY(line) }, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut) end
+		-- ease OUT, not in-out: measured 23 Oct, an in-out push barely moves in its first ~50 ms, so the
+		-- old pop still sat on the line while the new one faded in over it (16 double-exposed frames).
+		-- Making room is a response: it must start moving at once
+		if line and l.Parent then tween(l, UIKit.T.ui, { Position = popY(line) }, Enum.EasingStyle.Quint, Enum.EasingDirection.Out) end
 	end
 end
 local function dropPop(id, t)
 	local l = popLabels[id]
+	local line = PopStack.line(pops, id) or 0
 	popLabels[id] = nil
 	PopStack.remove(pops, id)
 	if l and l.Parent then
-		-- fade in place: a UIStroke does not fade with TextTransparency (fadeText fades both)
-		fadeText(l, t)
+		-- a UIStroke does not fade with TextTransparency (fadeText fades both). The judge's review: it
+		-- faded where it stood while a neighbour slid onto its line (two texts in one spot for ~0.2 s),
+		-- so a leaving pop rises one line as it fades (Reduce Motion drops the rise: an exit fades in place)
+		fadeText(l, t, { Position = popY(line + 1) })
 		task.delay(t + 0.05, function() l:Destroy() end)
 	end
 end

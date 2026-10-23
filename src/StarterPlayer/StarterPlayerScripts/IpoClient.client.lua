@@ -144,7 +144,7 @@ local function moment(e, done)
 		UIKit.tween(sc, fade, { Scale = 0.96 })
 		for _, o in ipairs(shade:GetDescendants()) do
 			if o:IsA("GuiObject") then UIKit.tween(o, fade, { BackgroundTransparency = 1 }) end
-			if o:IsA("TextLabel") or o:IsA("TextButton") then UIKit.tween(o, fade, { TextTransparency = 1 }) end
+			if o:IsA("TextLabel") or o:IsA("TextButton") then UIKit.tween(o, fade, { TextTransparency = 1, TextStrokeTransparency = 1 }) end
 			if o:IsA("ImageLabel") or o:IsA("ImageButton") then UIKit.tween(o, fade, { ImageTransparency = 1 }) end
 			if o:IsA("UIStroke") then UIKit.tween(o, fade, { Transparency = 1 }) end
 		end

@@ -305,7 +305,16 @@ local function wow(d)
 			task.delay(ShipMoment.FADE, finish)
 		end
 		-- if no coin ever lands (no HUD to fly them to), the moment still ends
-		task.delay(2.5, function() if not label then show(total) end leave() end)
+		task.delay(2.5, function()
+			-- no coin landed: show the total and give it a moment before it leaves (the judge's review:
+			-- showing and leaving in the same tick flashed it)
+			if not label then
+				show(total)
+				task.delay(0.6, leave)
+			else
+				leave()
+			end
+		end)
 		local hands2 = screenAt(where + Vector3.new(0, 2.5, 0))
 		if held then
 			-- count LANDINGS, not which coin it was: they land out of order (ShipMoment.lander)
@@ -333,8 +342,11 @@ local function opened(where, stars)
 	anchor.Name = "PayoutAnchor"
 	local bb = board(anchor, UDim2.new(0, C.w, 0, C.h + C.rise), Vector3.new(0, C.fromY, 0))
 	bb.Name = "PayoutCard"
-	bb.SizeOffset = Vector2.new(0, C.lift)
-	ease(bb, C.enter, { StudsOffset = Vector3.new(0, C.atY, 0) })
+	-- the lift rises WITH the card (the judge's review of W4: lifted from the first frame, the card
+	-- still appeared ~80 px above where the tile vanished). Measured 23 Oct: +SizeOffset moves a
+	-- billboard UP by that many of its own heights
+	bb.SizeOffset = Vector2.new(0, 0)
+	ease(bb, C.enter, { StudsOffset = Vector3.new(0, C.atY, 0), SizeOffset = Vector2.new(0, C.lift) })
 	local card = Instance.new("Frame")
 	card.AnchorPoint = Vector2.new(0.5, 1)
 	card.Position = UDim2.new(0.5, 0, 1, 0)
