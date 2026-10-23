@@ -133,8 +133,14 @@ end
 -- -> how far it rests above the solid thing under it, and what that is
 local function settleAt(char, cf)
 	char:PivotTo(cf)
-	task.wait(1.2)
 	local root = char:FindFirstChild("HumanoidRootPart")
+	-- 23 Oct: wait until it has landed (WH.settled), up to 5 s; a fixed 1.2 s read the drop
+	-- height itself when the client had not simulated the fall yet (rest exactly 4.00)
+	local dropY, ys, t0 = root.Position.Y, {}, os.clock()
+	repeat
+		task.wait(0.1)
+		table.insert(ys, root.Position.Y)
+	until WH.settled(ys, dropY) or os.clock() - t0 > 5
 	local hit = groundUnder(char, root.Position)
 	return hit and (root.Position.Y - hit.Position.Y) or nil, hit and hit.Instance.Name or "nothing", root.Position.Y
 end

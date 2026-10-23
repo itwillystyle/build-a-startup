@@ -166,4 +166,13 @@ function WorldHealth.liftLandings(lifts)
 	return { checked = checked, found = #bad, bad = bad }
 end
 
+-- 23 Oct: has a teleported character come to rest? `ys` = its root's heights, oldest first;
+-- settled once it has left the drop point and the last 3 heights sit within 0.02 studs. A fixed
+-- wait read the drop height itself when the client had not simulated the fall yet.
+function WorldHealth.settled(ys, dropY)
+	local n = #ys
+	if n < 3 or math.abs(ys[n] - dropY) <= 0.05 then return false end
+	return math.abs(ys[n] - ys[n - 1]) < 0.02 and math.abs(ys[n - 1] - ys[n - 2]) < 0.02
+end
+
 return WorldHealth
