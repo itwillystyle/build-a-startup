@@ -70,10 +70,10 @@ fx.IgnoreGuiInset = true
 UIKit.safe(fx)
 fx.Parent = player.PlayerGui
 
-local function tween(o, t, props, style, dir)
-	local tw = TweenService:Create(o, TweenInfo.new(t, style or Enum.EasingStyle.Quint, dir or Enum.EasingDirection.Out), props)
-	tw:Play()
-	return tw
+-- 23 Oct: through the motion layer (UIKit.tween: Reduce Motion, finish-not-freeze); opts.kind = "progress"
+-- for a fill that measures time
+local function tween(o, t, props, style, dir, opts)
+	return UIKit.tween(o, t, props, style, dir, opts)
 end
 -- fading outlined text: the UIStroke has its own Transparency and must fade too,
 -- or a black ghost of the words stays on screen
@@ -434,7 +434,7 @@ local function setCoding()
 	if p < charge.Size.X.Scale then
 		charge.Size = UDim2.new(p, 0, 1, -5) -- a reset (the app is finished) snaps; it never drains backwards
 	else
-		chargeTween = tween(charge, CODE_TICK, { Size = UDim2.new(p, 0, 1, -5) }, Enum.EasingStyle.Linear)
+		chargeTween = tween(charge, CODE_TICK, { Size = UDim2.new(p, 0, 1, -5) }, Enum.EasingStyle.Linear, nil, { kind = "progress" })
 	end
 	syncCode()
 end
@@ -553,9 +553,11 @@ syncPulse()
 player:GetAttributeChangedSignal("Objective"):Connect(syncPulse)
 RunService.RenderStepped:Connect(function()
 	local t = os.clock()
+	-- 23 Oct: Reduce Motion (read every frame, it can change mid-session): the pulses hold still
+	local still = UIKit.reducedMotion()
 	if launchState then
 		codeWrap.Scale = 1
-		launchWrap.Scale = 1 + 0.07 * (0.5 + 0.5 * math.sin(t * 5.5))
+		launchWrap.Scale = still and 1 or (1 + 0.07 * (0.5 + 0.5 * math.sin(t * 5.5)))
 		local at = launchState.autoAt
 		if at then
 			local left = math.max(0, at - workspace:GetServerTimeNow())
@@ -569,7 +571,7 @@ RunService.RenderStepped:Connect(function()
 		-- a coach tip on screen has the stage: the pulse waits
 		local coach = player.PlayerGui:FindFirstChild("Coach")
 		local tip = coach and coach:FindFirstChild("CoachCard")
-		codeWrap.Scale = (pulsing and not (tip and tip.Visible) and player:GetAttribute("Celebrating") ~= true) and (1 + 0.06 * (0.5 + 0.5 * math.sin(t * 5))) or 1
+		codeWrap.Scale = (not still and pulsing and not (tip and tip.Visible) and player:GetAttribute("Celebrating") ~= true) and (1 + 0.06 * (0.5 + 0.5 * math.sin(t * 5))) or 1
 	end
 end)
 
@@ -689,6 +691,16 @@ local function coinStream(fromAbs, n, done, amount, opts)
 	n = math.max(1, n or 12)
 	amount = tonumber(amount) or 0
 	opts = opts or {}
+	-- 23 Oct: Reduce Motion: no coins fly; money held back for them is released at once, the
+	-- counter bumps once and the ching still plays (feedback, not movement)
+	if UIKit.reducedMotion() then
+		if opts.prepaid then held = math.max(0, held - amount) end
+		bumpCash(1.06)
+		UIKit.sfx("ding", 1.65, 0.5)
+		if opts.onCoin then task.spawn(opts.onCoin, n, n) end
+		if done then task.defer(done) end
+		return
+	end
 	if not opts.prepaid then held += amount end
 	local per, given = amount / n, 0
 	-- 22 Oct: coins land in LANDING order, not launch order (each flight is 0.42-0.50 s), so the
@@ -990,7 +1002,7 @@ local function spinAsk(e, done)
 		local mine = {}
 		holding = mine
 		UIKit.sfx("tap")
-		local tw = TweenService:Create(fill, TweenInfo.new(1, Enum.EasingStyle.Linear), { Size = UDim2.new(1, 0, 1, -5) })
+		local tw = TweenService:Create(fill, TweenInfo.new(1, Enum.EasingStyle.Linear), { Size = UDim2.new(1, 0, 1, -5) })   -- motion: progress
 		tw.Completed:Connect(function(state)
 			if holding ~= mine or state ~= Enum.PlaybackState.Completed then return end
 			holding = nil

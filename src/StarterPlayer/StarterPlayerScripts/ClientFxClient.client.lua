@@ -14,7 +14,6 @@
 	The server sends ClientPaid { pay, tip, wow, at, who, stars, from, tier } (ClientsServer). ]]
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 
 local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
@@ -44,10 +43,9 @@ local function screenAt(world)
 	return Vector2.new(v.X, v.Y)
 end
 
+-- 23 Oct: through the motion layer (UIKit.tween: Reduce Motion, finish-not-freeze)
 local function ease(obj, seconds, goal)
-	local tw = TweenService:Create(obj, TweenInfo.new(seconds, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), goal)
-	tw:Play()
-	return tw
+	return UIKit.tween(obj, seconds, goal)
 end
 
 -- a word that fades in at a screen point, holds, then rises a little and fades out
@@ -111,6 +109,11 @@ local function fly(fromWorld, toWorld, done)
 	-- low click as it leaves your hands (no toss sound exists; "tap" pitched down is the closest)
 	UIKit.sfx("tap", 0.75, 0.5)
 	local F = PayoutBeats.FLY
+	-- 23 Oct: Reduce Motion: the app does not fly; the hand-over goes on at the same moment
+	if UIKit.reducedMotion() then
+		task.delay(F.seconds, done)
+		return
+	end
 	local tile = appTile(gui, 34)
 	local t0 = os.clock()
 	local conn
@@ -201,7 +204,11 @@ local function wow(d)
 
 	-- 0.0 s: the box lifts out of your hands and glows; a rising tone
 	local hands = typeof(d.from) == "Vector3" and d.from + Vector3.new(0, 1.5, 0) or where + Vector3.new(0, 3, 0)
+	-- 23 Oct: Reduce Motion: no flying box and no sparks (movement); the sounds, the "!" and the
+	-- count still play
+	local still = UIKit.reducedMotion()
 	local tile = appTile(gui, 34)
+	if still then tile.Visible = false end
 	table.insert(alive, tile)
 	local glow = tile:FindFirstChildOfClass("UIStroke")
 	if glow then glow.Color, glow.Thickness = UIKit.GOLD, 3 end
@@ -237,7 +244,7 @@ local function wow(d)
 	end)
 	task.delay(B.handoff, function()
 		UIKit.sfx("thunk", 0.8, 0.45)
-		sparks(screenAt(where + Vector3.new(0, 3, 0)), 10)
+		if not still then sparks(screenAt(where + Vector3.new(0, 3, 0)), 10) end
 	end)
 	task.delay(B.handoff + B.hitstop, function()
 		if not tile.Parent then return end

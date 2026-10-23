@@ -39,11 +39,13 @@ end
 -- 2. the one overshoot: scale `sc` (a UIScale) from `from` to 1
 function Moment.enter(sc, from, seconds)
 	sc.Scale = from or 0.6
-	TweenService:Create(sc, TweenInfo.new(seconds or 0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()   -- reward
+	-- 23 Oct: through the motion layer; under Reduce Motion a big pop lands at once, a small one still plays
+	UIKit.tween(sc, seconds or 0.45, { Scale = 1 }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)   -- reward
 end
 
 -- 1. a ring that opens behind the card and fades: the "hit"
 function Moment.ring(gui, at, colour, size)
+	if UIKit.reducedMotion() then return end   -- 23 Oct: Reduce Motion: no expanding ring
 	size = size or 260
 	local r = Instance.new("Frame")
 	r.Name = "MomentRing"
@@ -65,6 +67,7 @@ end
 
 -- confetti that bursts out of a point and falls a short way: it stays around the card
 function Moment.burst(gui, at, count, spread)
+	if UIKit.reducedMotion() then return end   -- 23 Oct: Reduce Motion skips particles
 	spread = spread or 220
 	local colours = { UIKit.GOLD, UIKit.GREEN, UIKit.BLUE, UIKit.ORANGE, UIKit.PINK }
 	local base = local2(gui, at)
