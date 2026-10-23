@@ -31,4 +31,14 @@ test("UI moves stay under 300 ms", function()
 	assert(PB.MONEY.leave <= 0.3, "money out")
 end)
 
+test("a coder's pop is under 0.6 s (it fires every few seconds late game)", function()
+	local d = PB.coderDuration()
+	assert(d <= 0.6, ("%.2f s"):format(d))
+end)
+
+test("a coder's pop is quieter than your own payout", function()
+	assert(PB.CODER.coins < PB.COINS, "fewer coins")
+	assert(PB.coderDuration() < PB.duration(), "shorter")
+end)
+
 return T

@@ -366,16 +366,40 @@ local function holdPayout(d)
 	return false
 end
 
-local function cash(d, at, coder)
-	if coder then
-		-- a hired coder's delivery: unchanged in this pass (the 23 Oct coder pass is separate)
-		pop("+" .. UIKit.money(d.pay), at, UIKit.TYPE.title, UIKit.MONEY)
-		if (d.tip or 0) > 0 then
-			pop("+" .. UIKit.money(d.tip) .. " TIP", at + Vector2.new(0, 34), UIKit.TYPE.label, UIKit.GOLD, 0.25)
-		end
-		Moment.landMoney(at, 3)
-		return
+-- 23 Oct (animation review): a hired coder's delivery fires every few seconds late game and is not
+-- your reward, so it is a whisper: a small "+$X" that fades in rising 6 px (no scale, no
+-- overshoot), holds 0.3 s and fades out; 3 coins that carry the amount so the counter counts
+-- with them; no sound (PayoutBeats.CODER)
+local function coderPop(d, at)
+	local C = PayoutBeats.CODER
+	local hold = rawget(_G, "SVCashHold")
+	local stream = rawget(_G, "SVCoinStream")
+	local held = type(hold) == "function" and type(stream) == "function"
+	if held then hold(d.pay) end
+	local l = UIKit.outlined(gui, "+" .. UIKit.money(d.pay), UIKit.TYPE.label, UIKit.MONEY, {
+		AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0, 200, 0, UIKit.TYPE.label + 10),
+		Position = UDim2.new(0, at.X, 0, at.Y + C.rise), TextXAlignment = Enum.TextXAlignment.Center,
+	})
+	local st = l:FindFirstChildOfClass("UIStroke")
+	l.TextTransparency = 1
+	if st then st.Transparency = 1 end
+	ease(l, C.enter, { Position = UDim2.new(0, at.X, 0, at.Y), TextTransparency = 0 })
+	if st then ease(st, C.enter, { Transparency = 0 }) end
+	task.delay(C.enter + C.hold, function()
+		if not l.Parent then return end
+		ease(l, C.leave, { TextTransparency = 1 })
+		if st then ease(st, C.leave, { Transparency = 1 }) end
+	end)
+	task.delay(C.enter + C.hold + C.leave + 0.02, function() l:Destroy() end)
+	if held then
+		stream(at, C.coins, nil, d.pay, { prepaid = true })
+	else
+		Moment.landMoney(at, C.coins)
 	end
+end
+
+-- your own hand-over's payout
+local function cash(d, at)
 	-- 23 Oct (animation review): "+$X" and the tip arrive together (the tip 30 px below), and the
 	-- 6 coins carry the amount, so the counter counts up with them (the caller held it back first)
 	local tip = d.tip or 0
@@ -409,20 +433,20 @@ clientPaid.OnClientEvent:Connect(function(d)
 		local v, onScreen = cam:WorldToViewportPoint(where + Vector3.new(0, 4, 0))
 		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 		if onScreen and root and (root.Position - where).Magnitude <= 60 then
-			cash(d, Vector2.new(v.X, v.Y), true)
+			coderPop(d, Vector2.new(v.X, v.Y))
 		end
 		return
 	end
 	local at = screenAt(where + Vector3.new(0, 4, 0))
 	if type(d.stars) ~= "number" or typeof(d.from) ~= "Vector3" then
 		holdPayout(d)
-		cash(d, at, false)
+		cash(d, at)
 		return
 	end
 	holdPayout(d)
 	fly(d.from + Vector3.new(0, 1.5, 0), where + Vector3.new(0, 3, 0), function()
 		local head = screenAt(where + Vector3.new(0, 5.5, 0))
 		opened(head, math.clamp(math.floor(d.stars), 1, 3))
-		task.delay(PayoutBeats.MONEY.at - PayoutBeats.FLY.seconds, function() cash(d, at + Vector2.new(0, 30), false) end)
+		task.delay(PayoutBeats.MONEY.at - PayoutBeats.FLY.seconds, function() cash(d, at + Vector2.new(0, 30)) end)
 	end)
 end)
