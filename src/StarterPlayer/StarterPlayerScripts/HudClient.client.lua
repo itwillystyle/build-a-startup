@@ -425,10 +425,17 @@ player.CharacterAdded:Connect(watchSeat)
 -- 16 Oct, mock 2C: the button IS the coding bar (CodeProgress, from ClientsServer)
 charge.BackgroundColor3 = UIKit.GREEN_DEEP
 local chargeTween
+local CODE_TICK = 0.25 -- ClientsServer publishes CodeProgress every 0.25 s
 local function setCoding()
 	local p = math.clamp(tonumber(player:GetAttribute("CodeProgress")) or 0, 0, 1)
 	if chargeTween then chargeTween:Cancel() end
-	chargeTween = tween(charge, 0.2, { Size = UDim2.new(p, 0, 1, -5) })
+	-- 23 Oct (animation review): the fill used Quint Out over 0.2 s, so it surged and stopped four
+	-- times a second. Constant motion is linear, one update long, so it flows at one steady speed.
+	if p < charge.Size.X.Scale then
+		charge.Size = UDim2.new(p, 0, 1, -5) -- a reset (the app is finished) snaps; it never drains backwards
+	else
+		chargeTween = tween(charge, CODE_TICK, { Size = UDim2.new(p, 0, 1, -5) }, Enum.EasingStyle.Linear)
+	end
 	syncCode()
 end
 setCoding()

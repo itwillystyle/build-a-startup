@@ -8,6 +8,9 @@
 	  2A (17 Oct), every hand-over you GIVE: the app flies from you to the client, they
 	     open it (a card over their head), stars pop (3 fast, 2 ok, 1 slow), then the cash.
 	     About a second, so it stays quick on the fiftieth client.
+	     23 Oct (animation review, picked mock 1-payout panel B): it had grown to about 2.4 s
+	     with six Back pops; it is now about 1.4 s with no bounce, and the cash counter counts
+	     up with the coins. The beats live in PayoutBeats (tested), not here.
 	The server sends ClientPaid { pay, tip, wow, at, who, stars, from, tier } (ClientsServer). ]]
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -17,6 +20,7 @@ local RunService = game:GetService("RunService")
 local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
 local Moment = require(ReplicatedStorage:WaitForChild("Moment"))
 local ShipMoment = require(ReplicatedStorage:WaitForChild("ShipMoment"))
+local PayoutBeats = require(ReplicatedStorage:WaitForChild("PayoutBeats"))
 
 local player = Players.LocalPlayer
 local remotes = ReplicatedStorage:WaitForChild("SVRemotes")
@@ -46,23 +50,33 @@ local function ease(obj, seconds, goal)
 	return tw
 end
 
--- a word that pops up at a screen point, rises and fades
-local function pop(text, at, size, colour, delay)
+-- a word that fades in at a screen point, holds, then rises a little and fades out
+-- 23 Oct (animation review): it used to enter with a Back overshoot from nothing, hold 0.7 s and
+-- drift 40 px over 0.6 s (1.4 s a client, all game). Now: fade in from 0.94 scale, hold, lift 8 px.
+local function pop(text, at, size, colour, delay, hold)
+	local M = PayoutBeats.MONEY
+	hold = hold or M.hold
 	task.delay(delay or 0, function()
 		local l = UIKit.outlined(gui, text, size, colour, {
 			AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0, 260, 0, size + 10),
 			Position = UDim2.new(0, at.X, 0, at.Y), TextXAlignment = Enum.TextXAlignment.Center,
 		})
+		local st = l:FindFirstChildOfClass("UIStroke")
 		local sc = Instance.new("UIScale")
+		sc.Scale = M.from
 		sc.Parent = l
-		Moment.enter(sc, 0.4, 0.3)
-		task.delay(0.7, function()
+		-- outlined text: the UIStroke has its own Transparency and must fade too
+		l.TextTransparency = 1
+		if st then st.Transparency = 1 end
+		ease(sc, M.enter, { Scale = 1 })
+		ease(l, M.enter, { TextTransparency = 0 })
+		if st then ease(st, M.enter, { Transparency = 0 }) end
+		task.delay(M.enter + hold, function()
 			if not l.Parent then return end
-			ease(l, 0.6, { Position = l.Position - UDim2.new(0, 0, 0, 40), TextTransparency = 1 })
-			local st = l:FindFirstChildOfClass("UIStroke")
-			if st then ease(st, 0.6, { Transparency = 1 }) end
+			ease(l, M.leave, { Position = l.Position - UDim2.new(0, 0, 0, M.rise), TextTransparency = 1 })
+			if st then ease(st, M.leave, { Transparency = 1 }) end
 		end)
-		task.delay(1.4, function() l:Destroy() end)
+		task.delay(M.enter + hold + M.leave + 0.02, function() l:Destroy() end)
 	end)
 end
 
@@ -90,19 +104,22 @@ local function appTile(parent, size)
 	return tile
 end
 
-local function fly(from, to, seconds, done)
+-- 23 Oct (animation review): takes WORLD points and re-projects them every frame, so a moving
+-- camera (or a car) no longer leaves the tile behind; 0.28 s, Quint Out, a 50 px arc.
+local function fly(fromWorld, toWorld, done)
 	-- 18 Oct (playtest 22-54-32, 3:49, Luke: "add a sound effect when we give the app"): a soft
 	-- low click as it leaves your hands (no toss sound exists; "tap" pitched down is the closest)
 	UIKit.sfx("tap", 0.75, 0.5)
+	local F = PayoutBeats.FLY
 	local tile = appTile(gui, 34)
 	local t0 = os.clock()
 	local conn
 	conn = RunService.RenderStepped:Connect(function()
-		local a = math.min(1, (os.clock() - t0) / seconds)
-		local e = 1 - (1 - a) ^ 3
-		local p = from:Lerp(to, e) - Vector2.new(0, math.sin(a * math.pi) * 70)
+		local a = math.min(1, (os.clock() - t0) / F.seconds)
+		local e = 1 - (1 - a) ^ 5
+		local p = screenAt(fromWorld):Lerp(screenAt(toWorld), e) - Vector2.new(0, math.sin(a * math.pi) * F.arc)
 		tile.Position = UDim2.new(0, p.X, 0, p.Y)
-		tile.Rotation = (1 - e) * -20
+		tile.Rotation = (1 - e) * F.tilt
 		if a >= 1 then
 			conn:Disconnect()
 			tile:Destroy()
@@ -297,9 +314,18 @@ local function opened(at, stars)
 	local st = Instance.new("UIStroke")
 	st.Thickness, st.Color = 2, UIKit.INK
 	st.Parent = card
+	-- 23 Oct (animation review): the card used to Back-bounce in, the stars Back-bounced from
+	-- nothing, and it all lasted 1.4 s. Now the card fades in from 0.94 scale, each star from 0.9,
+	-- 0.04 s apart, and the card is gone by 0.75 s (PayoutBeats.CARD / STAR).
+	local C, S = PayoutBeats.CARD, PayoutBeats.STAR
 	local sc = Instance.new("UIScale")
+	sc.Scale = C.from
 	sc.Parent = card
-	Moment.enter(sc, 0.4, 0.25)
+	card.BackgroundTransparency = 1
+	st.Transparency = 1
+	ease(sc, C.enter, { Scale = 1 })
+	ease(card, C.enter, { BackgroundTransparency = 0 })
+	ease(st, C.enter, { Transparency = 0 })
 	-- 18 Oct (playtest 22-54-32): they open it with a click (the switch "thunk", pitched up), then the stars ding
 	UIKit.sfx("thunk", 1.25, 0.4)
 	for i = 1, 3 do
@@ -308,31 +334,86 @@ local function opened(at, stars)
 			AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, (i - 2) * 38, 0.5, 0), ZIndex = 7,
 		})
 		local isc = Instance.new("UIScale")
-		isc.Scale = 0
+		isc.Scale = S.from
 		isc.Parent = icon
-		task.delay(0.08 + i * 0.09, function()
+		icon.ImageTransparency = 1
+		task.delay(S.first + (i - 1) * S.gap, function()
 			if on then UIKit.sfx("ding", 1 + i * 0.12, 0.35) end
-			Moment.enter(isc, 0, on and 0.3 or 0.18)
+			ease(isc, S.enter, { Scale = 1 })
+			ease(icon, S.enter, { ImageTransparency = 0 })
 		end)
 	end
-	task.delay(1.1, function()
+	task.delay(C.leaveAt, function()
 		if not card.Parent then return end
-		ease(card, 0.3, { Position = card.Position - UDim2.new(0, 0, 0, 24), BackgroundTransparency = 1 })
-		ease(st, 0.3, { Transparency = 1 })
+		ease(card, C.leave, { Position = card.Position - UDim2.new(0, 0, 0, C.rise), BackgroundTransparency = 1 })
+		ease(st, C.leave, { Transparency = 1 })
 		for _, c in ipairs(card:GetChildren()) do
-			if c:IsA("ImageLabel") then ease(c, 0.3, { ImageTransparency = 1 }) end
+			if c:IsA("ImageLabel") then ease(c, C.leave, { ImageTransparency = 1 }) end
 		end
-		task.delay(0.32, function() card:Destroy() end)
+		task.delay(C.leave + 0.02, function() card:Destroy() end)
 	end)
 end
 
-local function cash(d, at, coder)
-	pop("+" .. UIKit.money(d.pay), at, coder and UIKit.TYPE.title or UIKit.TYPE.headline, UIKit.MONEY)
-	if (d.tip or 0) > 0 then
-		pop("+" .. UIKit.money(d.tip) .. " TIP", at + Vector2.new(0, 34), UIKit.TYPE.label, UIKit.GOLD, 0.25)
+-- the server has already paid: hold the amount back so the cash counter climbs coin by coin
+-- instead of jumping before any coin arrives (the same trick as wow(); false = no HUD to hold it)
+local function holdPayout(d)
+	local hold = rawget(_G, "SVCashHold")
+	local stream = rawget(_G, "SVCoinStream")
+	if type(hold) == "function" and type(stream) == "function" then
+		hold(d.pay + (d.tip or 0))
+		return true
 	end
-	Moment.landMoney(at, coder and 3 or 6)
-	if not coder then UIKit.sfx("ding", 1.2, 0.5) end
+	return false
+end
+
+-- 23 Oct (animation review): a hired coder's delivery fires every few seconds late game and is not
+-- your reward, so it is a whisper: a small "+$X" that fades in rising 6 px (no scale, no
+-- overshoot), holds 0.3 s and fades out; 3 coins that carry the amount so the counter counts
+-- with them; no sound (PayoutBeats.CODER)
+local function coderPop(d, at)
+	local C = PayoutBeats.CODER
+	local hold = rawget(_G, "SVCashHold")
+	local stream = rawget(_G, "SVCoinStream")
+	local held = type(hold) == "function" and type(stream) == "function"
+	if held then hold(d.pay) end
+	local l = UIKit.outlined(gui, "+" .. UIKit.money(d.pay), UIKit.TYPE.label, UIKit.MONEY, {
+		AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0, 200, 0, UIKit.TYPE.label + 10),
+		Position = UDim2.new(0, at.X, 0, at.Y + C.rise), TextXAlignment = Enum.TextXAlignment.Center,
+	})
+	local st = l:FindFirstChildOfClass("UIStroke")
+	l.TextTransparency = 1
+	if st then st.Transparency = 1 end
+	ease(l, C.enter, { Position = UDim2.new(0, at.X, 0, at.Y), TextTransparency = 0 })
+	if st then ease(st, C.enter, { Transparency = 0 }) end
+	task.delay(C.enter + C.hold, function()
+		if not l.Parent then return end
+		ease(l, C.leave, { TextTransparency = 1 })
+		if st then ease(st, C.leave, { Transparency = 1 }) end
+	end)
+	task.delay(C.enter + C.hold + C.leave + 0.02, function() l:Destroy() end)
+	if held then
+		stream(at, C.coins, nil, d.pay, { prepaid = true })
+	else
+		Moment.landMoney(at, C.coins)
+	end
+end
+
+-- your own hand-over's payout
+local function cash(d, at)
+	-- 23 Oct (animation review): "+$X" and the tip arrive together (the tip 30 px below), and the
+	-- 6 coins carry the amount, so the counter counts up with them (the caller held it back first)
+	local tip = d.tip or 0
+	pop("+" .. UIKit.money(d.pay), at, UIKit.TYPE.headline, UIKit.MONEY)
+	if tip > 0 then
+		pop("+" .. UIKit.money(tip) .. " TIP", at + Vector2.new(0, PayoutBeats.MONEY.tipGap), UIKit.TYPE.label, UIKit.GOLD)
+	end
+	local stream = rawget(_G, "SVCoinStream")
+	if type(rawget(_G, "SVCashHold")) == "function" and type(stream) == "function" then
+		stream(at, PayoutBeats.COINS, nil, d.pay + tip, { prepaid = true })
+	else
+		Moment.landMoney(at, PayoutBeats.COINS)
+	end
+	UIKit.sfx("ding", 1.2, 0.5)
 end
 
 clientPaid.OnClientEvent:Connect(function(d)
@@ -352,18 +433,20 @@ clientPaid.OnClientEvent:Connect(function(d)
 		local v, onScreen = cam:WorldToViewportPoint(where + Vector3.new(0, 4, 0))
 		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 		if onScreen and root and (root.Position - where).Magnitude <= 60 then
-			cash(d, Vector2.new(v.X, v.Y), true)
+			coderPop(d, Vector2.new(v.X, v.Y))
 		end
 		return
 	end
 	local at = screenAt(where + Vector3.new(0, 4, 0))
 	if type(d.stars) ~= "number" or typeof(d.from) ~= "Vector3" then
-		cash(d, at, false)
+		holdPayout(d)
+		cash(d, at)
 		return
 	end
-	fly(screenAt(d.from + Vector3.new(0, 1.5, 0)), screenAt(where + Vector3.new(0, 3, 0)), 0.32, function()
+	holdPayout(d)
+	fly(d.from + Vector3.new(0, 1.5, 0), where + Vector3.new(0, 3, 0), function()
 		local head = screenAt(where + Vector3.new(0, 5.5, 0))
 		opened(head, math.clamp(math.floor(d.stars), 1, 3))
-		task.delay(0.45, function() cash(d, at + Vector2.new(0, 30), false) end)
+		task.delay(PayoutBeats.MONEY.at - PayoutBeats.FLY.seconds, function() cash(d, at + Vector2.new(0, 30)) end)
 	end)
 end)
