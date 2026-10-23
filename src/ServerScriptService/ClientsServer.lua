@@ -125,7 +125,7 @@ return function(core)
 
 	local function spot(plot, i)
 		if lobbyMode(plot) then
-			local sp = LOBBY_LINE.spots[math.min(i, #LOBBY_LINE.spots)]
+			local sp = LOBBY_LINE.spots[math.clamp(i, 1, #LOBBY_LINE.spots)]
 			return localAt(plot, sp.x, sp.z)
 		end
 		local L = doorLine(plot)
@@ -573,7 +573,7 @@ return function(core)
 					if not model then continue end
 					local path = entryPath(P.plot)
 					standAt(model, path[1], lookAtOf(P.plot))
-					local idx = table.find(P.Q.line, e.client) or #P.Q.line
+					local idx = Clients.spotOf(P.Q, e.client)
 					model:SetAttribute("Spot", idx)
 					local legs = {}
 					for k = 2, #path do table.insert(legs, path[k]) end
