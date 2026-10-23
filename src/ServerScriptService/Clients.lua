@@ -130,6 +130,13 @@ local function remove(Q, c)
 	end
 end
 
+-- where in the line client `c` stands (1 = the front). A long tick can serve or lose a client in
+-- the tick it arrives, so one already gone gets the back of the line, never 0 (23 Oct: spot 0 in
+-- the lobby ended the client loop)
+function Clients.spotOf(Q, c)
+	return table.find(Q.line, c) or math.max(1, #Q.line)
+end
+
 --[[ One step of `dt` seconds. ctx = { level, stage, rate, holding, atLaptop, coders = {speed}, speedMult? }
 	(speedMult: a Cold Brew codes x3, as it tapped x3).
 	Returns a list of events { kind = "arrive"|"shipped"|"served"|"lost", client, pay?, tip? }. ]]
