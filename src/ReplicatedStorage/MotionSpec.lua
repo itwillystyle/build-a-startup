@@ -36,6 +36,9 @@ MotionSpec.CURVE = {
 }
 
 MotionSpec.SMALL_SCALE = 0.06
+-- Roblox stores a UIScale as a 32-bit float: 0.94 reads back as 0.9399999976 (found by the doctor's
+-- motion probe, 23 Oct), so the edge needs more slack than a Lua double does
+local FLOAT32 = 1e-4
 
 local APPEARANCE = {
 	BackgroundTransparency = true, TextTransparency = true, TextStrokeTransparency = true,
@@ -67,7 +70,7 @@ function MotionSpec.plan(props, current, reduced, opts)
 	for k, v in pairs(props) do
 		local appearance = MotionSpec.classify(k) == "appearance"
 		local feedback = not exit and k == "Scale" and type(v) == "number" and type(current.Scale) == "number"
-			and math.abs(v - current.Scale) <= MotionSpec.SMALL_SCALE + 1e-9
+			and math.abs(v - current.Scale) <= MotionSpec.SMALL_SCALE + FLOAT32
 		if appearance or feedback then
 			out.tween[k] = v
 		elseif exit then

@@ -445,10 +445,12 @@ function Probes.motion()
 		-- a fade still plays
 		local c = frame()
 		c.BackgroundTransparency = 0
-		UIKit.tween(c, 0.4, { BackgroundTransparency = 0.8 })
+		-- linear, so the halfway value is unambiguous (Quint Out is already at 97% halfway: the first
+		-- live run read 0.77 and called a playing fade "not playing")
+		UIKit.tween(c, 0.4, { BackgroundTransparency = 0.8 }, Enum.EasingStyle.Linear)
 		task.wait(0.2)
 		local mid = c.BackgroundTransparency
-		add("a fade still plays", mid > 0.05 and mid < 0.75, math.floor(mid * 100) / 100, "between 0 and 0.8 at 0.2 s")
+		add("a fade still plays", mid > 0.2 and mid < 0.6, math.floor(mid * 100) / 100, "about 0.4 at 0.2 s (linear 0 -> 0.8 over 0.4 s)")
 		-- an exit fades in place: its drift is dropped
 		local d = frame()
 		local te = UIKit.tween(d, 0.3, { Position = UDim2.new(0, 0, 0, -40), BackgroundTransparency = 1 })

@@ -70,6 +70,13 @@ test("reduced: a small scale change is feedback and keeps playing; a big one lan
 	assert(keys(unknown.instant) == "Scale", "no current value: default-deny, instant")
 end)
 
+test("a press from 0.94 counts as small even after Roblox stores it as a 32-bit float (live, 23 Oct)", function()
+	-- the doctor's motion probe: UIScale.Scale = 0.94 reads back as 0.9399999976158142, so
+	-- 1 - Scale was 0.0600000024 and the press snapped under Reduce Motion
+	local p = MS.plan({ Scale = 1 }, { Scale = 0.9399999976158142 }, true)
+	assert(keys(p.tween) == "Scale", "0.94 (float32) -> 1 still plays: " .. keys(p.tween) .. " / instant " .. keys(p.instant))
+end)
+
 test("overlap: a new tween replaces an old one only when they share a property", function()
 	assert(MS.overlaps({ Size = 1, BackgroundTransparency = 0 }, { Size = 2 }) == true, "Size shared")
 	assert(MS.overlaps({ Position = 1 }, { TextTransparency = 1 }) == false, "different props run side by side")
