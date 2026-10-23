@@ -34,6 +34,7 @@ pcall(function() player:WaitForChild("PlayerGui").ScreenOrientation = Enum.Scree
 local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
 local Notify = require(ReplicatedStorage:WaitForChild("Notify"))
 local Moment = require(ReplicatedStorage:WaitForChild("Moment"))
+local PopStack = require(ReplicatedStorage:WaitForChild("PopStack"))   -- 23 Oct: the pops over the cash stack (finding 6)
 local HudSlots = require(ReplicatedStorage:WaitForChild("HudSlots"))   -- 20 Oct: the bottom centre's numbers, shared with CarClient
 local remotes = ReplicatedStorage:WaitForChild("SVRemotes")
 
@@ -434,7 +435,11 @@ local function setCoding()
 	if p < charge.Size.X.Scale then
 		charge.Size = UDim2.new(p, 0, 1, -5) -- a reset (the app is finished) snaps; it never drains backwards
 	else
-		chargeTween = tween(charge, CODE_TICK, { Size = UDim2.new(p, 0, 1, -5) }, Enum.EasingStyle.Linear, nil, { kind = "progress" })
+		-- 23 Oct (FINAL.md W6, measured: the fill stalled to 0.010/s when an update came late): run a
+		-- quarter past the update so a late one never stops the bar; the last step is quicker so the
+		-- bar is SEEN full before the reset snaps it
+		local span = p >= 1 and CODE_TICK * 0.6 or CODE_TICK * 1.25
+		chargeTween = tween(charge, span, { Size = UDim2.new(p, 0, 1, -5) }, Enum.EasingStyle.Linear, nil, { kind = "progress" })
 	end
 	syncCode()
 end
@@ -634,20 +639,61 @@ end
 -- v8 (11 Oct, step 5): right above the money block. It still popped at the top
 -- centre, where the cash was before v7 moved it to the bottom-left corner, so a
 -- payday landed on the quest card or the level-up banner (found at phone size).
+--[[ 23 Oct (the animation audit, finding 6; mockup ui/animation-review/mp4/4-money-pop.mp4, panel B):
+	each pop grew from 40% size over 0.35 s at the SAME spot, so on an auto-launch "+$X" and, 0.4 s
+	later, "Auto-launched: half pay" landed on each other. Now a pop fades in from 92% (T.fast), the
+	newest takes the bottom line and pushes older ones up one line (Quint Out, T.ui), at most two
+	lines (PopStack, tested), and each leaves with a fade in place (T.ui). ]]
+local POP_LINE = 44   -- px between stacked pops: TYPE.display (36) + 8
+local pops = PopStack.new(2)
+local popLabels = {}
+local popSerial = 0
+local function popY(line) return UDim2.new(0, MONEY_X, 1, -(moneyTop + 4) - line * POP_LINE) end
+local function placePops()
+	for id, l in pairs(popLabels) do
+		local line = PopStack.line(pops, id)
+		-- ease OUT, not in-out: measured 23 Oct, an in-out push barely moves in its first ~50 ms, so the
+		-- old pop still sat on the line while the new one faded in over it (16 double-exposed frames).
+		-- Making room is a response: it must start moving at once
+		if line and l.Parent then tween(l, UIKit.T.ui, { Position = popY(line) }, Enum.EasingStyle.Quint, Enum.EasingDirection.Out) end
+	end
+end
+local function dropPop(id, t)
+	local l = popLabels[id]
+	local line = PopStack.line(pops, id) or 0
+	popLabels[id] = nil
+	PopStack.remove(pops, id)
+	if l and l.Parent then
+		-- a UIStroke does not fade with TextTransparency (fadeText fades both). The judge's review: it
+		-- faded where it stood while a neighbour slid onto its line (two texts in one spot for ~0.2 s),
+		-- so a leaving pop rises one line as it fades (Reduce Motion drops the rise: an exit fades in place)
+		fadeText(l, t, { Position = popY(line + 1) })
+		task.delay(t + 0.05, function() l:Destroy() end)
+	end
+end
 local function popUnderCash(text, color, hold)
+	popSerial += 1
+	local id = popSerial
 	local l = UIKit.outlined(gui, text, UIKit.TYPE.display, color or UIKit.GOLD, {
-		AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, MONEY_X, 1, -(moneyTop + 4)), Size = UDim2.new(0, 320, 0, 40),
+		AnchorPoint = Vector2.new(0, 1), Position = popY(0), Size = UDim2.new(0, 320, 0, 40),
 		TextXAlignment = Enum.TextXAlignment.Left,
 	})
+	popLabels[id] = l
+	for _, old in ipairs(PopStack.push(pops, id)) do dropPop(old, UIKit.T.fast) end
+	placePops()
 	local sc = Instance.new("UIScale", l)
-	sc.Scale = 0.4
-	tween(sc, 0.35, { Scale = 1 }, Enum.EasingStyle.Quint)
+	sc.Scale = 0.92
+	l.TextTransparency = 1
+	local st = l:FindFirstChildOfClass("UIStroke")
+	if st then st.Transparency = 1 end
+	tween(sc, UIKit.T.fast, { Scale = 1 })
+	tween(l, UIKit.T.fast, { TextTransparency = 0 })
+	if st then tween(st, UIKit.T.fast, { Transparency = 0 }) end
 	task.delay(hold or 1.2, function()
-		-- fade in place: rising put it over the income line, and a UIStroke
-		-- does not fade with TextTransparency (it left a black ghost of the number)
-		fadeText(l, 0.4)
-		tween(sc, 0.4, { Scale = 0.85 })
-		task.delay(0.45, function() l:Destroy() end)
+		if popLabels[id] then
+			dropPop(id, UIKit.T.ui)
+			placePops()
+		end
 	end)
 end
 
@@ -759,6 +805,11 @@ _G.SVCashHold = function(amount)
 	held += math.max(0, tonumber(amount) or 0)
 	quietUntil = os.clock() + 3
 end
+-- 23 Oct: quiet the big-jump pop without holding money back (a coder's delivery: it is not your
+-- moment and it has no coins, FINAL.md W2)
+_G.SVCashQuiet = function(seconds)
+	quietUntil = math.max(quietUntil, os.clock() + (tonumber(seconds) or 1))
+end
 
 -- ============ CELEBRATIONS ============
 
@@ -867,7 +918,8 @@ local function hqBanner(e, done)
 	local function leave()
 		if gone then return end
 		gone = true
-		tween(card, 0.35, { Position = UDim2.new(0, x, 0, -180) }, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
+		-- 23 Oct (finding 7): it left with ease-IN over 0.35 s, so a tap to dismiss started slow; out, 0.2 s
+		tween(card, UIKit.T.ui, { Position = UDim2.new(0, x, 0, -180) }, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 		task.delay(0.4, function()
 			card:Destroy()
 			player:SetAttribute("Celebrating", nil)

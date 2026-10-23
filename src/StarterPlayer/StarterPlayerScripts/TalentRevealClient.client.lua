@@ -239,9 +239,9 @@ local function hide(mine)
 		if f then f() end
 		return
 	end
-	local tw = TweenService:Create(card, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
-		{ Position = UDim2.new(0, cardX, 0, -CARD_H - 20) })
-	tw:Play()
+	-- 23 Oct (finding 10): it left with a weak ease-IN (Quad In 0.25), slow at the moment you
+	-- dismissed it; through the motion layer, Quint Out 0.2 s (Reduce Motion: gone at once)
+	local tw = UIKit.tween(card, UIKit.T.ui, { Position = UDim2.new(0, cardX, 0, -CARD_H - 20) })
 	tw.Completed:Wait()
 	if serial == mine then
 		card.Visible = false

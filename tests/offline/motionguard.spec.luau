@@ -35,8 +35,8 @@ end
 local BASELINE = {
 	BuildClient = 2, BuildModeClient = 3, CarClient = 1, ChaseCamClient = 6, ChaseFxClient = 7, CoachClient = 1,
 	DailyClient = 1, GarageMoodClient = 2, GuideClient = 2, HudClient = 1, IndexClient = 1, IntroClient = 1,
-	InventoryClient = 4, IpoClient = 6, LiftClient = 1, PhoneClient = 4, ProductClient = 1, PromptClient = 3,
-	RocketClient = 1, TalentRevealClient = 6, TalentRowClient = 2, TeamClient = 1, WaferClient = 4,
+	InventoryClient = 4, IpoClient = 4, LiftClient = 1, PhoneClient = 4, ProductClient = 1, PromptClient = 3,
+	RocketClient = 1, TalentRevealClient = 5, TalentRowClient = 2, TeamClient = 1, WaferClient = 4,
 	WorldFxClient = 5, Cine = 7, Moment = 5, Notify = 2,
 }
 

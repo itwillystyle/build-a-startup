@@ -75,14 +75,24 @@ local function track(obj, tw, goal)
 	running[obj] = list
 end
 
+local TWEENABLE = { number = true, UDim2 = true, UDim = true, Color3 = true, Vector2 = true, Vector3 = true, CFrame = true }
 function UIKit.set(obj, props)
 	finishOverlapping(obj, props)
 	for k, v in pairs(props) do obj[k] = v end
 	-- review of the layer: a tween UIKit is not tracking (or lost track of) would still overwrite the
-	-- direct write next frame (M2); a 0 s tween to the same values cancels it and holds (M3, M8)
-	local hold = TweenService:Create(obj, TweenInfo.new(0), props)
-	hold:Play()
-	track(obj, hold, props)
+	-- direct write next frame (M2); a 0 s tween to the same values cancels it and holds (M3, M8).
+	-- Only values TweenService can tween go in it (Text or Visible would make Create throw)
+	local tweenable = {}
+	for k, v in pairs(props) do
+		if TWEENABLE[typeof(v)] then tweenable[k] = v end
+	end
+	if next(tweenable) then
+		local ok, hold = pcall(TweenService.Create, TweenService, obj, TweenInfo.new(0), tweenable)
+		if ok then
+			hold:Play()
+			track(obj, hold, tweenable)
+		end
+	end
 end
 
 -- opts: { kind = "progress" } for a fill that measures time (never changed by Reduce Motion)
@@ -1246,55 +1256,6 @@ arbitrate = function()
 		local mode = (lift and not tray.Visible) and ((best == lift) and "full" or "dot") or nil
 		paintBadge(moreBadge, moreBadgeText, mode, lift and lift.label)
 	end
-end
-
--- a reward that pops out of a HUD element and floats away (paydays, sales)
-function UIKit.popReward(parent, text, at, color)
-	local TweenService = game:GetService("TweenService")
-	local l = Instance.new("TextLabel")
-	l.BackgroundTransparency = 1
-	l.AnchorPoint = Vector2.new(0.5, 0.5)
-	l.Position = at
-	l.Size = UDim2.new(0, 240, 0, 40)
-	l.Font = UIKit.HEAD
-	l.TextSize = UIKit.TYPE.headline
-	l.Text = text
-	l.TextColor3 = color or UIKit.GOLD
-	l.TextStrokeColor3 = UIKit.INK
-	l.TextStrokeTransparency = 0.2
-	l.ZIndex = 20
-	l.Parent = parent
-	local sc = Instance.new("UIScale")
-	sc.Scale = 0.3
-	sc.Parent = l
-	TweenService:Create(sc, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Scale = 1 }):Play()
-	-- coins burst out of the same point
-	for k = 1, 8 do
-		local c = Instance.new("Frame")
-		c.AnchorPoint = Vector2.new(0.5, 0.5)
-		c.Position = at
-		c.Size = UDim2.new(0, 12, 0, 12)
-		c.BackgroundColor3 = UIKit.GOLD
-		c.BorderSizePixel = 0
-		c.ZIndex = 19
-		c.Parent = parent
-		Instance.new("UICorner", c).CornerRadius = UDim.new(1, 0)
-		local st = Instance.new("UIStroke", c)
-		st.Color = darker(UIKit.GOLD, 0.55)
-		st.Thickness = 1.5
-		local a = (k / 8) * math.pi * 2 + math.random() * 0.4
-		local r = 70 + math.random() * 40
-		local goal = at + UDim2.new(0, math.cos(a) * r, 0, math.sin(a) * r * 0.6)
-		TweenService:Create(c, TweenInfo.new(0.55, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-			{ Position = goal, BackgroundTransparency = 1 }):Play()
-		TweenService:Create(st, TweenInfo.new(0.55), { Transparency = 1 }):Play()
-		task.delay(0.6, function() c:Destroy() end)
-	end
-	task.delay(0.55, function()
-		TweenService:Create(l, TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
-			{ Position = at - UDim2.new(0, 0, 0, 46), TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
-	end)
-	task.delay(1.5, function() l:Destroy() end)
 end
 
 -- money formatting, one place

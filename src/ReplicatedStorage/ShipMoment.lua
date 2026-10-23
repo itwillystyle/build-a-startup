@@ -40,7 +40,9 @@ function ShipMoment.lander(total, n)
 	local landed = 0
 	return function()
 		landed = math.min(n, landed + 1)
-		return ShipMoment.given(total, landed, n), landed == n
+		-- 23 Oct: never "+$0": a small total over 12 coins rounded the first coin down to nothing
+		local shown = math.max(ShipMoment.given(total, landed, n), math.min(total, 1))
+		return shown, landed == n
 	end
 end
 

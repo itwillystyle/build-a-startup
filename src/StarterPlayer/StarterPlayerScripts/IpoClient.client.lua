@@ -136,9 +136,19 @@ local function moment(e, done)
 	UIKit.sfx("levelup", 1, 0.6)
 	task.delay(5.5, function()
 		local from = Moment.centreOf(raised)
-		TweenService:Create(shade, TweenInfo.new(0.35), { BackgroundTransparency = 1 }):Play()
-		TweenService:Create(sc, TweenInfo.new(0.3), { Scale = 0.8 }):Play()
-		task.delay(0.36, function()
+		-- 23 Oct (finding 10): the card is a child of the shade and BackgroundTransparency does not
+		-- fade children, so the opaque card shrank and then vanished in one frame. Every part of it
+		-- now fades with the shade (the repo's own pattern), a little settle, no hard cut
+		local fade = UIKit.T.ui
+		UIKit.tween(shade, fade, { BackgroundTransparency = 1 })
+		UIKit.tween(sc, fade, { Scale = 0.96 })
+		for _, o in ipairs(shade:GetDescendants()) do
+			if o:IsA("GuiObject") then UIKit.tween(o, fade, { BackgroundTransparency = 1 }) end
+			if o:IsA("TextLabel") or o:IsA("TextButton") then UIKit.tween(o, fade, { TextTransparency = 1, TextStrokeTransparency = 1 }) end
+			if o:IsA("ImageLabel") or o:IsA("ImageButton") then UIKit.tween(o, fade, { ImageTransparency = 1 }) end
+			if o:IsA("UIStroke") then UIKit.tween(o, fade, { Transparency = 1 }) end
+		end
+		task.delay(fade + 0.02, function()
 			shade:Destroy()
 			Moment.landMoney(from, 16)     -- the money goes where it lives
 			done()
