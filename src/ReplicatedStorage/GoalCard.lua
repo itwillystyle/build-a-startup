@@ -11,7 +11,12 @@
 	screen) gets its seconds when it shows. Tested by tests/offline/goalcard.spec.luau.
 
 	GuideClient calls goal() when the key changes, shown() on every render the card is
-	visible, tap() on a tap, and full() to pick the shape. ]]
+	visible, tap() on a tap, and full() to pick the shape.
+
+	23 Oct (Luke picked A; ui/animation-review/judge/FINAL.md L1): the full card was a 430 x 76
+	box holding one line for 4 s over the view (since 16 Oct no second line ever shows). The card
+	is now ALWAYS the pill; a new goal (the same "owed" rule) gets one cue instead: cue() is true
+	exactly once, on the showing that reveals it. full()/tap() stay for the tests' history. ]]
 local GoalCard = {}
 
 GoalCard.FULL_FOR = 4
@@ -42,6 +47,14 @@ end
 
 function GoalCard.full(s, now)
 	return now < s.fullUntil
+end
+
+-- should THIS showing play the new-goal cue? true once per owed goal (the same rule as the
+-- full card had: a goal not seen for REPEAT_AFTER s, or one that arrived while hidden)
+function GoalCard.cue(s, now)
+	if not s.owed then return false end
+	GoalCard.shown(s, now)
+	return true
 end
 
 return GoalCard

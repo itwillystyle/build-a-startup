@@ -63,4 +63,27 @@ test("no goal (nil key) never opens the card", function()
 	assert(GC.full(s, 100) == false, "nil key")
 end)
 
+-- 23 Oct (Luke picked A: no full card; FINAL.md L1): the card is always the pill, and a NEW goal
+-- gets one cue (its outline glows gold once). GoalCard.cue answers "cue on this showing?"
+test("a new goal cues exactly once, on the showing that reveals it", function()
+	local s = GC.new()
+	GC.goal(s, "code", 100)
+	assert(GC.cue(s, 100) == true, "new goal: cue")
+	assert(GC.cue(s, 100.5) == false, "the next render of the same goal: no second cue")
+end)
+
+test("a goal seen in the last 90 s does not cue (the client loop's code/deliver/give)", function()
+	local s = GC.new()
+	GC.goal(s, "give", 100); GC.cue(s, 100)
+	GC.goal(s, "code", 105); GC.cue(s, 105)
+	GC.goal(s, "give", 110)
+	assert(GC.cue(s, 110) == false, "give again after 10 s: no cue")
+end)
+
+test("a goal that arrived while the card was hidden cues when it first shows", function()
+	local s = GC.new()
+	GC.goal(s, "recruit", 100)   -- a level-up holds the screen
+	assert(GC.cue(s, 107) == true, "cues at 107, when it is seen")
+end)
+
 return T

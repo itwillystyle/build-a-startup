@@ -442,7 +442,9 @@ end
 
 local function layout()
 	local W = holder.Size.X.Offset   -- design width; the holder's UIScale fits it to the screen
-	local pill = not GoalCard.full(gc, os.clock())
+	-- 23 Oct (Luke picked A, FINAL.md L1): always the pill. The full card was a 430 x 76 box holding
+	-- one line for 4 s over the view (studio-goalcard-full.jpg); a new goal glows instead (cue below)
+	local pill = true
 	local changed = pill ~= isPill
 	isPill = pill
 	tileScale.Scale = pill and PILL_TILE / TILE or 1
@@ -488,18 +490,14 @@ local function layout()
 	setSize(UDim2.new(0, W, 0, bottom + PAD + 4), changed)
 end
 
--- the full card shrinks back to the pill when its seconds run out
-local function openNow()
-	layout()
-	task.delay(gc.fullUntil - os.clock() + 0.05, function()
-		if not GoalCard.full(gc, os.clock()) then layout() end
-	end)
-end
--- the card just showed: a goal owed its full look gets it now
+--[[ 23 Oct (option A): a NEW goal's one cue. Its outline glows gold and fades back to the card's
+	line over CUE seconds (Quint Out). Colour only, no motion: goals change every few seconds early
+	on, and frequent UI should barely move (AUDIT section 1; mockup 5-goal-card-a.mp4, panel A1).
+	Drawn in the per-frame block below, which owns the stroke (it resets it every frame). ]]
+local CUE = 0.6
+local cueAt = -math.huge
 local function markShown()
-	local before = gc.fullUntil
-	GoalCard.shown(gc, os.clock())
-	if gc.fullUntil ~= before then openNow() end
+	if GoalCard.cue(gc, os.clock()) then cueAt = os.clock() end
 end
 holder:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
 	-- the screen changed size (the holder's UIScale refit): re-measure. Not the card's own
@@ -739,9 +737,7 @@ end
 -- mouse, and this game is meant to be played on a phone
 hit.Activated:Connect(function()
 	UIKit.sfx("tap")
-	-- 22 Oct: a tap opens the pill for 4 s as well as turning the camera
-	GoalCard.tap(gc, os.clock())
-	openNow()
+	-- 23 Oct (option A): the card has one shape now; a tap turns the camera to the goal
 	task.spawn(lookAtGoal)
 end)
 
@@ -843,8 +839,12 @@ RunService.RenderStepped:Connect(function()
 			end
 		end
 	elseif cardStroke and not stamping then
-		cardStroke.Color = UIKit.CARD_LINE
-		cardStroke.Thickness = 2
+		-- the new-goal glow (option A): gold fading back to the card's line
+		local since = now - cueAt
+		-- 1 - QuintOut(x) = (1 - x)^5: bright at once, settled by CUE
+		local g = since < CUE and (1 - math.clamp(since / CUE, 0, 1)) ^ 5 or 0
+		cardStroke.Color = g > 0 and UIKit.CARD_LINE:Lerp(UIKit.GOLD_DEEP, g) or UIKit.CARD_LINE
+		cardStroke.Thickness = 2 + 1.5 * g
 	end
 
 	if not target then edge.Visible = false return end
