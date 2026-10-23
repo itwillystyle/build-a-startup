@@ -54,6 +54,7 @@ if not okCine then Cine = nil end
 local ChaseCam = require(ReplicatedStorage:WaitForChild("ChaseCam"))
 local CameraWalls = require(ReplicatedStorage:WaitForChild("CameraWalls"))
 local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
+local MotionSpec = require(ReplicatedStorage:WaitForChild("MotionSpec"))   -- 23 Oct: the camera under Reduce Motion
 CameraWalls.start()
 local T = ChaseCam.T
 
@@ -69,6 +70,7 @@ local active = false          -- we currently own the camera
 local prevType, prevFov
 local smoothed                -- the eased camera CFrame
 local shakeUntil, shakeAmt = 0, 0
+local lastShake = 0           -- 23 Oct: the shake offset last frame (the ChaseShake attribute)
 local entryUntil = 0
 local hidden = {}             -- ScreenGuis we switched off, to restore exactly
 
@@ -429,11 +431,17 @@ local function release()
 	player:SetAttribute("ChaseCamOwns", nil)
 	camera.CameraType = prevType or Enum.CameraType.Custom
 	if prevFov then
-		TweenService:Create(camera, TweenInfo.new(0.35), { FieldOfView = prevFov }):Play()
+		-- 23 Oct: Reduce Motion: the lens snaps back instead of zooming
+		if MotionSpec.camera(UIKit.reducedMotion()).zoom then
+			TweenService:Create(camera, TweenInfo.new(0.35), { FieldOfView = prevFov }):Play()   -- motion: camera
+		else
+			camera.FieldOfView = prevFov
+		end
 	end
 	letterbox(false, 0.35)
 	hush(false)
-	shakeUntil = 0
+	shakeUntil, lastShake = 0, 0
+	player:SetAttribute("ChaseShake", nil)
 	if mouseLocked then
 		UIS.MouseBehavior = Enum.MouseBehavior.Default
 		UIS.MouseIconEnabled = true
@@ -613,9 +621,17 @@ RunService.RenderStepped:Connect(function(dt)
 	-- after the springs, on the frame only: pulling `smoothed` itself would
 	-- feed the wall back into the follower as lag
 	local cf = unblock(smoothed, hrp, dt)
-	if t < shakeUntil then
-		local a = shakeAmt * ((shakeUntil - t) / 0.25)
-		cf = cf * CFrame.new((math.random() - 0.5) * a, (math.random() - 0.5) * a, 0)
+	-- 23 Oct: Reduce Motion: no shake (read every frame, so turning it on mid-chase lands at once)
+	local shakeScale = MotionSpec.camera(UIKit.reducedMotion()).shake
+	local a = 0
+	if t < shakeUntil and shakeScale > 0 then
+		a = shakeAmt * shakeScale * ((shakeUntil - t) / 0.25)
+		cf = cf * CFrame.new((math.random() - 0.5) * a, (math.random() - 0.5) * a, 0)   -- motion: camera
+	end
+	-- the doctor's motion step reads the shake it cannot see: set only when it changes
+	if a ~= lastShake then
+		lastShake = a
+		player:SetAttribute("ChaseShake", a > 0 and a or nil)
 	end
 	camera.CFrame = cf
 end)

@@ -83,4 +83,55 @@ test("overlap: a new tween replaces an old one only when they share a property",
 	assert(MS.overlaps({}, { Size = 1 }) == false, "empty")
 end)
 
+-- 23 Oct: phase 2, the camera (docs/superpowers/plans/2026-10-23-motion-phase-2-camera.md)
+test("the camera with Reduce Motion OFF is exactly what it was: shake, punches, zooms, spline flights", function()
+	local c = MS.camera(false)
+	assert(c.shake == 1 and c.punch == true and c.zoom == true and c.speedFov == 1, "effects on")
+	assert(c.flight == "spline" and c.turn == true and c.pinPop == 1.5, "flight, turn, pin pop")
+end)
+
+test("the camera with Reduce Motion ON: no shake, no punch, no zoom, cuts not flights, no turn", function()
+	local c = MS.camera(true)
+	assert(c.shake == 0, "no shake")
+	assert(c.punch == false, "no FOV punch")
+	assert(c.zoom == false, "a lens going back snaps")
+	assert(c.speedFov == 0, "no speed zoom")
+	assert(c.flight == "cut", "a cutscene cuts between its shots")
+	assert(c.turn == false, "tap-to-look does not turn the camera")
+end)
+
+test("under Reduce Motion the goal pin still pops, small enough that the layer keeps playing it", function()
+	-- found 23 Oct: the pin popped from 1.5, a 0.5 change, which UIKit.tween SNAPS under Reduce
+	-- Motion, so "the pin still pops" showed nothing at all
+	local from = MS.camera(true).pinPop
+	assert(from > 1, "it still pops")
+	local f32 = 1.0599999427795410   -- 1.06 as Roblox stores it in a UIScale
+	assert(math.abs(from - 1.06) < 1e-9, "1 + SMALL_SCALE")
+	local p = MS.plan({ Scale = 1 }, { Scale = f32 }, true)
+	assert(keys(p.tween) == "Scale", "the pop plays: " .. keys(p.tween))
+end)
+
+test("a cut holds each shot; the cut lands half way along each leg", function()
+	-- the 'welcome back' shot list: shot 2 is 2.8 s after shot 1
+	local times = { 0, 2.8 }
+	assert(MS.cutShot(times, 0) == 1, "starts on shot 1")
+	assert(MS.cutShot(times, 1.39) == 1, "shot 1 until half way")
+	assert(MS.cutShot(times, 1.41) == 2, "then shot 2")
+	assert(MS.cutShot(times, 2.8) == 2, "ends on the last shot")
+	assert(MS.cutShot(times, 9) == 2, "past the end holds the last shot")
+	local three = { 0, 2, 6 }
+	assert(MS.cutShot(three, 0.9) == 1 and MS.cutShot(three, 1.1) == 2, "leg 1 cuts at 1")
+	assert(MS.cutShot(three, 3.9) == 2 and MS.cutShot(three, 4.1) == 3, "leg 2 cuts at 4")
+end)
+
+test("a cut survives a zero-length leg and a one-shot list", function()
+	local times = { 0, 2, 2, 5 }
+	for i = 0, 60 do
+		local s = MS.cutShot(times, i / 10)
+		assert(type(s) == "number" and s >= 1 and s <= 4 and s % 1 == 0, ("t=%.1f -> %s"):format(i / 10, tostring(s)))
+	end
+	assert(MS.cutShot(times, 5) == 4, "ends on the last shot")
+	assert(MS.cutShot({ 0 }, 0) == 1, "one shot")
+end)
+
 return T

@@ -30,6 +30,7 @@ local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 local UIKit = require(RS:WaitForChild("UIKit"))
+local MotionSpec = require(RS:WaitForChild("MotionSpec"))   -- 23 Oct: the camera under Reduce Motion
 local HudSlots = require(RS:WaitForChild("HudSlots"))   -- 20 Oct: LAUNCH! sits above this panel by these numbers
 local Notify = require(RS:WaitForChild("Notify"))
 local remotes = RS:WaitForChild("SVRemotes")
@@ -159,7 +160,12 @@ local function stopDrive()
 	if driving then
 		for _, j in ipairs(driving.axles) do j.Transform = CFrame.new() end
 		for _, x in ipairs(driving.fx or {}) do if x.Parent then x:Destroy() end end
-		TweenService:Create(camera, TweenInfo.new(0.5), { FieldOfView = 70 }):Play()
+		-- 23 Oct: Reduce Motion: the lens snaps back to 70 instead of zooming
+		if MotionSpec.camera(UIKit.reducedMotion()).zoom then
+			TweenService:Create(camera, TweenInfo.new(0.5), { FieldOfView = 70 }):Play()   -- motion: camera
+		else
+			camera.FieldOfView = 70
+		end
 	end
 	driving = nil
 end

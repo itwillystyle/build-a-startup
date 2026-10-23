@@ -31,6 +31,7 @@ local RS = game:GetService("ReplicatedStorage")
 local Cine = {}
 local player = Players.LocalPlayer
 local UIKit = require(RS:WaitForChild("UIKit"))
+local MotionSpec = require(RS:WaitForChild("MotionSpec"))   -- 23 Oct: flights become cuts under Reduce Motion
 local isTouch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
 local gui, topBar, bottomBar, fade, card, titleL, subL, skipBtn
@@ -198,18 +199,29 @@ function Cine.play(shots, opts)
 	while true do
 		if skipped and opts.skippable ~= false then break end
 		local raw = math.clamp((os.clock() - t0) / total, 0, 1)
-		-- ease the whole flight in and out (the middle keeps its pace)
-		local e = raw < 0.5 and (4 * raw ^ 3) * 0.5 + raw * 0.5 or (1 - ((-2 * raw + 2) ^ 3) / 2) * 0.5 + raw * 0.5
-		local tt = e * total
-		local seg = 1
-		while seg < #shots - 1 and tt > times[seg + 1] do seg += 1 end
-		local span = times[seg + 1] - times[seg]
-		local u = span > 0 and math.clamp((tt - times[seg]) / span, 0, 1) or 1
-		local pos = cr(at(P, seg - 1), at(P, seg), at(P, seg + 1), at(P, seg + 2), u)
-		local look = cr(at(L, seg - 1), at(L, seg), at(L, seg + 1), at(L, seg + 2), u)
-		cam.CFrame = CFrame.lookAt(pos, look)
-		-- captions: a shot's title shows from the moment the camera heads for it
-		local idx = math.min(#shots, seg + (u > 0.15 and 1 or 0))
+		local pos, look, idx
+		--[[ 23 Oct: Reduce Motion: no flight. The camera CUTS between the shots and holds each one
+			(MotionSpec.cutShot: the cut lands half way along each leg, same total length, so the
+			captions and anything waiting on the end keep their timing). Read every frame, so the
+			setting turned on mid-cutscene cuts from the next frame. ]]
+		local cut = MotionSpec.camera(UIKit.reducedMotion()).flight == "cut"
+		if cut then
+			idx = MotionSpec.cutShot(times, raw * total)
+			pos, look = P[idx], L[idx]
+		else
+			-- ease the whole flight in and out (the middle keeps its pace)
+			local e = raw < 0.5 and (4 * raw ^ 3) * 0.5 + raw * 0.5 or (1 - ((-2 * raw + 2) ^ 3) / 2) * 0.5 + raw * 0.5
+			local tt = e * total
+			local seg = 1
+			while seg < #shots - 1 and tt > times[seg + 1] do seg += 1 end
+			local span = times[seg + 1] - times[seg]
+			local u = span > 0 and math.clamp((tt - times[seg]) / span, 0, 1) or 1
+			pos = cr(at(P, seg - 1), at(P, seg), at(P, seg + 1), at(P, seg + 2), u)
+			look = cr(at(L, seg - 1), at(L, seg), at(L, seg + 1), at(L, seg + 2), u)
+			-- captions: a shot's title shows from the moment the camera heads for it
+			idx = math.min(#shots, seg + (u > 0.15 and 1 or 0))
+		end
+		cam.CFrame = CFrame.lookAt(pos, look)   -- motion: camera
 		if idx ~= lastTitleIdx then
 			lastTitleIdx = idx
 			local s = shots[idx]
