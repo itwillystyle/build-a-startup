@@ -564,6 +564,8 @@ RunService.RenderStepped:Connect(function(dt)
 	end
 
 	local target, fov
+	-- 23 Oct: Reduce Motion: the lens does not zoom with speed or the wind-up (read every frame)
+	local still = MotionSpec.camera(UIKit.reducedMotion()).speedFov == 0
 	if locked then
 		target, fov = ChaseCam.solveLocked({
 			shot = shot,
@@ -576,6 +578,7 @@ RunService.RenderStepped:Connect(function(dt)
 			speed = speed,
 			carrySpeed = player:GetAttribute("CarrySpeed") or 16,
 			aspect = camera.ViewportSize.X / math.max(camera.ViewportSize.Y, 1),
+			still = still,
 		})
 	else
 		target, fov = ChaseCam.solve({
@@ -589,6 +592,7 @@ RunService.RenderStepped:Connect(function(dt)
 			carrySpeed = player:GetAttribute("CarrySpeed") or 16,
 			mode = mode,
 			windup = wind,
+			still = still,
 		})
 	end
 

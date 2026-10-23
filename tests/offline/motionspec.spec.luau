@@ -134,4 +134,25 @@ test("a cut survives a zero-length leg and a one-shot list", function()
 	assert(MS.cutShot({ 0 }, 0) == 1, "one shot")
 end)
 
+-- 23 Oct: the chase lens widens with speed and on the crouch tell; under Reduce Motion (s.still) it does not
+local C = require("../../src/ReplicatedStorage/ChaseCam")
+test("the chase lens: speed and the wind-up widen it, unless the camera is still (Reduce Motion)", function()
+	local function lens(fn, extra)
+		local s = { shot = "chase", pos = Vector3.new(0, 3, 0), travel = Vector3.new(0, 0, -1), heading = Vector3.new(0, 0, -1),
+			side = 1, carrySpeed = 16, mode = "B" }
+		for k, v in pairs(extra) do s[k] = v end
+		local _, fov = fn(s)
+		return fov
+	end
+	for _, fn in { C.solve, C.solveLocked } do
+		local rest, fast = lens(fn, { speed = 0 }), lens(fn, { speed = 16 })
+		assert(fast > rest + 1, ("speed widens the lens today: %.2f -> %.2f"):format(rest, fast))
+		assert(math.abs(lens(fn, { speed = 16, still = true }) - lens(fn, { speed = 0, still = true })) < 1e-9, "still: speed adds nothing")
+		assert(math.abs(lens(fn, { speed = 0, still = true }) - rest) < 1e-9, "still: the shot's own lens is kept")
+	end
+	local wound = lens(C.solve, { speed = 0, windup = true })
+	assert(wound > lens(C.solve, { speed = 0 }) + 1, "the crouch tell widens it today")
+	assert(math.abs(lens(C.solve, { speed = 0, windup = true, still = true }) - lens(C.solve, { speed = 0 })) < 1e-9, "still: no wind-up zoom")
+end)
+
 return T

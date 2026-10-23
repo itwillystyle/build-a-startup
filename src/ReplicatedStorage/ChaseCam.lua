@@ -301,6 +301,7 @@ end
 	  carrySpeed number   the speed they can do
 	  mode       string   "A" framing only, "B" framing plus beats
 	  windup     boolean  the hunter is crouching to lunge
+	  still      boolean? Reduce Motion: the lens does not zoom with speed or the wind-up (23 Oct)
 	}
 	returns cf, fov, fear
 ]]
@@ -399,8 +400,10 @@ function ChaseCam.solve(s)
 		end
 	end
 
-	local fov = T.FOV_BASE + T.FOV_SPEED * math.clamp((s.speed or 0) / math.max(s.carrySpeed or 16, 1), 0, 1)
-	if s.mode == "B" and s.windup then fov += T.FOV_WINDUP end
+	-- 23 Oct: s.still (Reduce Motion): no speed zoom and no wind-up zoom; the shot's own lens stays
+	local zoom = s.still and 0 or 1
+	local fov = T.FOV_BASE + zoom * T.FOV_SPEED * math.clamp((s.speed or 0) / math.max(s.carrySpeed or 16, 1), 0, 1)
+	if s.mode == "B" and s.windup and not s.still then fov += T.FOV_WINDUP end
 	fov = math.clamp(fov + (shot.fov or 0), 55, 100)
 
 	return CFrame.lookAt(at, look), fov, fear
@@ -529,6 +532,7 @@ end
 	  dist       number?   studs to the hunter
 	  speed, carrySpeed
 	  aspect     number?   the screen's width / height
+	  still      boolean?  Reduce Motion: no speed zoom (23 Oct)
 	}
 	returns cf, fov ]]
 function ChaseCam.solveLocked(s)
@@ -542,7 +546,9 @@ function ChaseCam.solveLocked(s)
 	local up = Vector3.new(0, 1, 0)
 
 	-- the lens first: the clearance below is a function of it
-	local fov = T.FOV_BASE + L.FOV_SPEED * math.clamp((s.speed or 0) / math.max(s.carrySpeed or 16, 1), 0, 1)
+	-- 23 Oct: s.still (Reduce Motion): no speed zoom. The lens still gives way below for framing
+	local zoom = s.still and 0 or 1
+	local fov = T.FOV_BASE + zoom * L.FOV_SPEED * math.clamp((s.speed or 0) / math.max(s.carrySpeed or 16, 1), 0, 1)
 	fov = math.clamp(fov + (shot.fov or 0) * L.SHOT_FOV, 55, 90)
 	local tanV = math.tan(math.rad(fov) / 2)
 

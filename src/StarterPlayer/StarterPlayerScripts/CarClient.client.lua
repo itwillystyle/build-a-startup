@@ -320,8 +320,9 @@ RunService.Heartbeat:Connect(function(dt)
 		local steerA = j:GetAttribute("Front") and (-d.steer * 0.45) or 0
 		j.Transform = CFrame.Angles(0, steerA, 0) * CFrame.Angles(-d.spin, 0, 0)
 	end
-	-- a touch more field of view with speed
-	camera.FieldOfView = camera.FieldOfView + ((70 + 10 * math.clamp(math.abs(d.v) / 120, 0, 1) + (boosting and 8 or 0)) - camera.FieldOfView) * math.clamp(dt * 3, 0, 1)
+	-- a touch more field of view with speed. 23 Oct: none under Reduce Motion (read every frame)
+	local widen = MotionSpec.camera(UIKit.reducedMotion()).speedFov
+	camera.FieldOfView = camera.FieldOfView + ((70 + widen * 10 * math.clamp(math.abs(d.v) / 120, 0, 1) + (boosting and 8 * widen or 0)) - camera.FieldOfView) * math.clamp(dt * 3, 0, 1)
 end)
 
 -- ============ THE HUD ============
