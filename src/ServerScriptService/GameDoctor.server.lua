@@ -631,6 +631,18 @@ local function run()
 		end
 	end)
 
+	-- 23 Oct: the motion layer, Reduce Motion forced on for the probe (DoctorProbes.motion)
+	step("motion", function()
+		local res = probe(player, "motion", {}, 20)
+		if not res or res.error then
+			check("motion probe answered", false, "BUG", res and res.error or "no answer", "answer")
+			return
+		end
+		for _, c in ipairs(res.checks or {}) do
+			check(c.name, c.ok, "BUG", c.measured, c.expected)
+		end
+	end)
+
 	step("errors", function()
 		task.wait(1)
 		local seen, uniq = {}, {}

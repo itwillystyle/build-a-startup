@@ -393,4 +393,103 @@ function Probes.lookcam(args)
 	return { ok = true, cam = name }
 end
 
+--[[ 23 Oct: the motion layer under Reduce Motion, measured on the client (the consensus plan's
+	reduced-motion check, FINAL.md point 9: the server cannot hold a button, so the layer itself is
+	driven here). Forces ForceReducedMotion for the run and puts it back. Every number is read
+	from the real instances UIKit.tween moved. ]]
+function Probes.motion()
+	local Players = game:GetService("Players")
+	local RunService = game:GetService("RunService")
+	local UIKit = require(script.Parent:WaitForChild("UIKit"))
+	local player = Players.LocalPlayer
+	local before = player:GetAttribute("ForceReducedMotion")
+	player:SetAttribute("ForceReducedMotion", true)
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "DoctorMotionProbe"
+	gui.Enabled = false   -- nothing on screen
+	gui.Parent = player:WaitForChild("PlayerGui")
+	local checks = {}
+	local function add(name, ok, measured, expected)
+		table.insert(checks, { name = name, ok = ok == true, measured = measured, expected = expected })
+	end
+	local function frame()
+		local f = Instance.new("Frame")
+		f.Size = UDim2.new(0, 0, 0, 10)
+		f.Position = UDim2.new(0, 0, 0, 0)
+		f.Parent = gui
+		return f
+	end
+	local function completes(tw, within)
+		if tw.PlaybackState == Enum.PlaybackState.Completed then return true end
+		local done = false
+		local c = tw.Completed:Connect(function() done = true end)
+		local t0 = os.clock()
+		while not done and os.clock() - t0 < within do RunService.Heartbeat:Wait() end
+		c:Disconnect()
+		return done
+	end
+	local ok, err = pcall(function()
+		add("Reduce Motion is on for the probe", UIKit.reducedMotion() == true, UIKit.reducedMotion(), true)
+		-- a fill that measures time keeps its time (the spin-off hold, the coding bar)
+		local a = frame()
+		local ta = UIKit.tween(a, 1, { Size = UDim2.new(0, 100, 0, 10) }, Enum.EasingStyle.Linear, nil, { kind = "progress" })
+		task.wait(0.5)
+		local half = a.Size.X.Offset
+		add("a progress fill still takes its time", half >= 30 and half <= 70, half, "about 50 of 100 at 0.5 s")
+		add("the progress tween completes", completes(ta, 1.5), ta.PlaybackState.Name, "Completed")
+		-- movement lands on the same frame
+		local b = frame()
+		local tb = UIKit.tween(b, 1, { Position = UDim2.new(0, 77, 0, 0) })
+		add("movement lands at once", b.Position.X.Offset == 77, b.Position.X.Offset, 77)
+		add("an instant tween still completes", completes(tb, 0.6), tb.PlaybackState.Name, "Completed")
+		-- a fade still plays
+		local c = frame()
+		c.BackgroundTransparency = 0
+		UIKit.tween(c, 0.4, { BackgroundTransparency = 0.8 })
+		task.wait(0.2)
+		local mid = c.BackgroundTransparency
+		add("a fade still plays", mid > 0.05 and mid < 0.75, math.floor(mid * 100) / 100, "between 0 and 0.8 at 0.2 s")
+		-- an exit fades in place: its drift is dropped
+		local d = frame()
+		local te = UIKit.tween(d, 0.3, { Position = UDim2.new(0, 0, 0, -40), BackgroundTransparency = 1 })
+		task.wait(0.05)
+		add("an exit stays put", d.Position.Y.Offset == 0, d.Position.Y.Offset, 0)
+		add("the exit's fade completes", completes(te, 0.8), te.PlaybackState.Name, "Completed")
+		-- small scale feedback keeps playing; a big pop lands at once
+		local sc = Instance.new("UIScale")
+		sc.Scale = 0.94
+		sc.Parent = frame()
+		UIKit.tween(sc, 0.4, { Scale = 1 })
+		task.wait(0.05)
+		add("a small press/pop still plays", sc.Scale > 0.94 and sc.Scale < 1, math.floor(sc.Scale * 1000) / 1000, "between 0.94 and 1")
+		local big = Instance.new("UIScale")
+		big.Scale = 0.4
+		big.Parent = frame()
+		UIKit.tween(big, 0.4, { Scale = 1 })
+		add("a big pop lands at once", big.Scale == 1, big.Scale, 1)
+	end)
+	-- motion back on: UIKit.set beats a running tween, and a replaced tween finishes instead of freezing
+	player:SetAttribute("ForceReducedMotion", false)
+	local ok2, err2 = pcall(function()
+		local e = frame()
+		UIKit.tween(e, 1, { Size = UDim2.new(0, 1000, 0, 10) }, Enum.EasingStyle.Linear)
+		task.wait(0.2)
+		UIKit.set(e, { Size = UDim2.new(0, 5, 0, 10) })
+		task.wait(0.3)
+		add("UIKit.set holds against a running tween", e.Size.X.Offset == 5, e.Size.X.Offset, 5)
+		local f = frame()
+		f.BackgroundTransparency = 0
+		UIKit.tween(f, 1, { Size = UDim2.new(0, 300, 0, 10), BackgroundTransparency = 0.6 }, Enum.EasingStyle.Linear)
+		task.wait(0.2)
+		UIKit.tween(f, 0.2, { Size = UDim2.new(0, 10, 0, 10) })
+		add("a replaced tween finishes its other goals (no half fade)", math.abs(f.BackgroundTransparency - 0.6) < 0.01,
+			math.floor(f.BackgroundTransparency * 100) / 100, 0.6)
+	end)
+	player:SetAttribute("ForceReducedMotion", before)
+	gui:Destroy()
+	if not ok then add("the reduced-motion half ran", false, tostring(err), "no error") end
+	if not ok2 then add("the motion-on half ran", false, tostring(err2), "no error") end
+	return { checks = checks }
+end
+
 return Probes
