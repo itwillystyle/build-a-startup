@@ -18,6 +18,99 @@
 
 local UIKit = {}
 local MenuFit = require(script.Parent:WaitForChild("MenuFit"))   -- v8 (14 Oct): fitMenu's pure half
+local MotionSpec = require(script.Parent:WaitForChild("MotionSpec"))   -- 23 Oct: the motion layer's rules
+
+-- ============ MOTION: one layer every UI tween goes through (23 Oct 2026) ============
+--[[ The consensus plan (silicon-startup/ui/animation-review/judge/FINAL.md). MotionSpec (pure,
+	tested) decides; this applies it. Measured in Studio before it was built (M1-M8 there):
+	  * a property set directly while a tween runs on it is overwritten by that tween next frame,
+	    so instant props Cancel() the tween UIKit tracks on that object first, then set directly
+	    (same frame), then play a 0 s tween to the same values, which also cancels any tween UIKit
+	    does not know about and gives callers a real Tween whose Completed fires (~3 frames later)
+	  * a cancelled tween's other goals are SET, not left half way (finish, never freeze)
+	UIKit.tween always returns one real Tween. UIKit.set is the direct write for a property UIKit
+	may be tweening. UIKit.reducedMotion() is Roblox's Reduce Motion setting, or the player
+	attribute ForceReducedMotion (so the doctor and Luke can test it); loops call it each frame. ]]
+local TweenService = game:GetService("TweenService")
+UIKit.T = MotionSpec.T
+local reducedSetting = false
+pcall(function()
+	local GuiService = game:GetService("GuiService")
+	reducedSetting = GuiService.ReducedMotionEnabled == true
+	GuiService:GetPropertyChangedSignal("ReducedMotionEnabled"):Connect(function()
+		reducedSetting = GuiService.ReducedMotionEnabled == true
+	end)
+end)
+function UIKit.reducedMotion()
+	local p = game:GetService("Players").LocalPlayer
+	if p and p:GetAttribute("ForceReducedMotion") == true then return true end
+	return reducedSetting
+end
+
+local running = setmetatable({}, { __mode = "k" })   -- object -> { { tween, goal } }
+local function live(tw)
+	local s = tw.PlaybackState
+	return s == Enum.PlaybackState.Playing or s == Enum.PlaybackState.Begin or s == Enum.PlaybackState.Delayed
+end
+-- cancel the tracked tweens on `obj` that share a property with `props`, landing their other goals
+local function finishOverlapping(obj, props)
+	local list = running[obj]
+	if not list then return end
+	local keep = {}
+	for _, e in ipairs(list) do
+		if live(e.tween) and MotionSpec.overlaps(e.goal, props) then
+			e.tween:Cancel()
+			for k, v in pairs(e.goal) do
+				if props[k] == nil then pcall(function() obj[k] = v end) end
+			end
+		elseif live(e.tween) then
+			table.insert(keep, e)
+		end
+	end
+	running[obj] = keep
+end
+local function track(obj, tw, goal)
+	local list = running[obj] or {}
+	table.insert(list, { tween = tw, goal = goal })
+	running[obj] = list
+end
+
+function UIKit.set(obj, props)
+	finishOverlapping(obj, props)
+	for k, v in pairs(props) do obj[k] = v end
+	-- review of the layer: a tween UIKit is not tracking (or lost track of) would still overwrite the
+	-- direct write next frame (M2); a 0 s tween to the same values cancels it and holds (M3, M8)
+	local hold = TweenService:Create(obj, TweenInfo.new(0), props)
+	hold:Play()
+	track(obj, hold, props)
+end
+
+-- opts: { kind = "progress" } for a fill that measures time (never changed by Reduce Motion)
+function UIKit.tween(obj, seconds, props, style, dir, opts)
+	local current = {}
+	if props.Scale ~= nil then pcall(function() current.Scale = obj.Scale end) end
+	local plan = MotionSpec.plan(props, current, UIKit.reducedMotion(), opts)
+	finishOverlapping(obj, props)
+	local instant
+	if next(plan.instant) then
+		for k, v in pairs(plan.instant) do obj[k] = v end
+		instant = TweenService:Create(obj, TweenInfo.new(0), plan.instant)
+		instant:Play()
+		track(obj, instant, plan.instant)
+	end
+	if next(plan.tween) then
+		local tw = TweenService:Create(obj, TweenInfo.new(seconds, style or Enum.EasingStyle.Quint,
+			dir or Enum.EasingDirection.Out), plan.tween)
+		tw:Play()
+		track(obj, tw, plan.tween)
+		return tw
+	end
+	if instant then return instant end
+	-- everything was an exit's dropped drift: still hand back a real tween that completes
+	local none = TweenService:Create(obj, TweenInfo.new(0), {})
+	none:Play()
+	return none
+end
 
 -- ============ COLOUR: roles, not decoration (DESIGN.md section 2) ============
 local rgb = Color3.fromRGB

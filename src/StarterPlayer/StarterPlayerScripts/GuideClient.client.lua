@@ -42,10 +42,9 @@ local Cine = ReplicatedStorage:FindFirstChild("Cine") and require(ReplicatedStor
 
 local GOLD, INK = UIKit.GOLD, UIKit.INK
 
-local function tween(o, t, props, style)
-	local tw = TweenService:Create(o, TweenInfo.new(t, style or Enum.EasingStyle.Quint, Enum.EasingDirection.Out), props)
-	tw:Play()
-	return tw
+-- 23 Oct: through the motion layer (UIKit.tween: Reduce Motion, finish-not-freeze)
+local function tween(o, t, props, style, dir)
+	return UIKit.tween(o, t, props, style, dir)
 end
 
 -- which rendered icon a goal wears (the card and the pin show the same one)
@@ -542,6 +541,7 @@ end
 
 -- a finished goal: confetti bursts out of the tile and falls away
 local function confetti()
+	if UIKit.reducedMotion() then return end   -- 23 Oct: Reduce Motion skips particles; the stamp still lands
 	local colours = { UIKit.GREEN, GOLD, UIKit.BLUE, UIKit.ORANGE, UIKit.PINK }
 	for i = 1, 16 do
 		local f = Instance.new("Frame")
