@@ -610,7 +610,8 @@ RunService.RenderStepped:Connect(function(dt)
 		if mode == "B" and t < entryUntil then k = 1 - math.exp(-dt / 0.06) end
 		smoothed = smoothed and smoothed:Lerp(target, k) or target
 	end
-	camera.FieldOfView = ChaseCam.lerp(camera.FieldOfView, fov, 1 - math.exp(-dt / 0.18))
+	-- 23 Oct: Reduce Motion: a lens change (only the locked framing guard is left) lands at once, never a zoom
+	camera.FieldOfView = still and fov or ChaseCam.lerp(camera.FieldOfView, fov, 1 - math.exp(-dt / 0.18))
 	if locked then
 		-- the spring lags; the hunter's size in the lens must not (ChaseCam.clearLens)
 		smoothed = ChaseCam.clearLens(smoothed, camera.FieldOfView, {

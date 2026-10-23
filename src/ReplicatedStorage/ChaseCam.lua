@@ -404,7 +404,8 @@ function ChaseCam.solve(s)
 	local zoom = s.still and 0 or 1
 	local fov = T.FOV_BASE + zoom * T.FOV_SPEED * math.clamp((s.speed or 0) / math.max(s.carrySpeed or 16, 1), 0, 1)
 	if s.mode == "B" and s.windup and not s.still then fov += T.FOV_WINDUP end
-	fov = math.clamp(fov + (shot.fov or 0), 55, 100)
+	-- 23 Oct: still (Reduce Motion): one lens for every shot, so a cut never zooms
+	fov = math.clamp(fov + (s.still and 0 or (shot.fov or 0)), 55, 100)
 
 	return CFrame.lookAt(at, look), fov, fear
 end
@@ -549,7 +550,7 @@ function ChaseCam.solveLocked(s)
 	-- 23 Oct: s.still (Reduce Motion): no speed zoom. The lens still gives way below for framing
 	local zoom = s.still and 0 or 1
 	local fov = T.FOV_BASE + zoom * L.FOV_SPEED * math.clamp((s.speed or 0) / math.max(s.carrySpeed or 16, 1), 0, 1)
-	fov = math.clamp(fov + (shot.fov or 0) * L.SHOT_FOV, 55, 90)
+	fov = math.clamp(fov + (s.still and 0 or (shot.fov or 0) * L.SHOT_FOV), 55, 90)   -- still: one lens for every shot
 	local tanV = math.tan(math.rad(fov) / 2)
 
 	local dist = L.DIST + (shot.dist or 0)

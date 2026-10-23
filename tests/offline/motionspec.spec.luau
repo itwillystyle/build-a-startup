@@ -155,4 +155,22 @@ test("the chase lens: speed and the wind-up widen it, unless the camera is still
 	assert(math.abs(lens(C.solve, { speed = 0, windup = true, still = true }) - lens(C.solve, { speed = 0 })) < 1e-9, "still: no wind-up zoom")
 end)
 
+-- 23 Oct, live (mode B chase, ForceReducedMotion): the lens still went 62 -> 74.7 over 0.4 s at a
+-- cut, because each shot has its own lens (establish -8, closing +6 ...). Under Reduce Motion every
+-- shot keeps one lens, so a cut changes the angle and never zooms
+test("under Reduce Motion every chase shot has the same lens (a cut never zooms)", function()
+	local function lens(fn, shot, still)
+		local _, fov = fn({ shot = shot, pos = Vector3.new(0, 3, 0), travel = Vector3.new(0, 0, -1),
+			heading = Vector3.new(0, 0, -1), side = 1, carrySpeed = 16, mode = "B", speed = 0, still = still })
+		return fov
+	end
+	for _, fn in { C.solve, C.solveLocked } do
+		assert(math.abs(lens(fn, "establish", false) - lens(fn, "closing", false)) > 1, "today the shots differ")
+		local base = lens(fn, "chase", true)
+		for _, shot in { "carry", "establish", "closing", "gaining", "threat", "hero", "homerun" } do
+			assert(math.abs(lens(fn, shot, true) - base) < 1e-9, ("still: %s has its own lens %.2f vs %.2f"):format(shot, lens(fn, shot, true), base))
+		end
+	end
+end)
+
 return T
