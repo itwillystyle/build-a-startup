@@ -469,6 +469,22 @@ function Probes.motion()
 		big.Parent = frame()
 		UIKit.tween(big, 0.4, { Scale = 1 })
 		add("a big pop lands at once", big.Scale == 1, big.Scale, 1)
+		-- the HUD's coin stream under Reduce Motion (23 Oct review of the layer, items 1-2): every coin
+		-- is reported (the first-ship count is driven by these calls) and the moment keeps its length
+		local stream = rawget(_G, "SVCoinStream")
+		if type(stream) == "function" then
+			local calls, doneAt = 0, nil
+			local t0 = os.clock()
+			stream(Vector2.new(200, 200), 12, function() doneAt = os.clock() - t0 end, 0, {
+				onCoin = function() calls += 1 end,
+			})
+			local w = os.clock()
+			while not doneAt and os.clock() - w < 3 do task.wait() end
+			add("a reduced coin stream reports every coin", calls == 12, calls, 12)
+			add("a reduced coin stream keeps its length", doneAt ~= nil and doneAt >= 0.8, doneAt and math.floor(doneAt * 100) / 100 or "never", ">= 0.8 s")
+		else
+			add("the HUD coin stream exists", false, "missing", "_G.SVCoinStream")
+		end
 	end)
 	-- motion back on: UIKit.set beats a running tween, and a replaced tween finishes instead of freezing
 	player:SetAttribute("ForceReducedMotion", false)

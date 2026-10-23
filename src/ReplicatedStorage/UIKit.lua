@@ -78,6 +78,11 @@ end
 function UIKit.set(obj, props)
 	finishOverlapping(obj, props)
 	for k, v in pairs(props) do obj[k] = v end
+	-- review of the layer: a tween UIKit is not tracking (or lost track of) would still overwrite the
+	-- direct write next frame (M2); a 0 s tween to the same values cancels it and holds (M3, M8)
+	local hold = TweenService:Create(obj, TweenInfo.new(0), props)
+	hold:Play()
+	track(obj, hold, props)
 end
 
 -- opts: { kind = "progress" } for a fill that measures time (never changed by Reduce Motion)

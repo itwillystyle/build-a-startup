@@ -21,6 +21,17 @@ local function test(name, fn) table.insert(T, { name = name, fn = fn }) end
 local ROOTS = { "src/StarterPlayer/StarterPlayerScripts", "src/ReplicatedStorage" }
 local EXEMPT = { UIKit = true, MotionSpec = true }
 
+-- a line's tag: "progress" | "camera" | "reward", or nil. Only these three words count: any other
+-- word after "-- motion:" is not a reason and the line is counted (23 Oct review, item 6a)
+local TAGS = { progress = true, camera = true, reward = true }
+local function tagOf(line)
+	local word = line:match("%-%- motion: (%a+)")
+	return (word and TAGS[word]) and word or nil
+end
+local function isTween(line)
+	return line:find("TweenInfo.new", 1, true) ~= nil or line:find("TweenService:Create(", 1, true) ~= nil
+end
+
 local BASELINE = {
 	BuildClient = 2, BuildModeClient = 3, CarClient = 1, ChaseCamClient = 6, ChaseFxClient = 7, CoachClient = 1,
 	DailyClient = 1, GarageMoodClient = 2, GuideClient = 2, HudClient = 1, IndexClient = 1, IntroClient = 1,
@@ -38,14 +49,14 @@ local function scan()
 				local name = f:gsub("%.client%.lua$", ""):gsub("%.lua$", "")
 				if not EXEMPT[name] then
 					local src = fs.readFile(root .. "/" .. f)
-					local n = 0
+					local n, moves = 0, false
 					for line in src:gmatch("[^\n]+") do
-						local tweenLine = line:find("TweenInfo.new", 1, true) or line:find("TweenService:Create(", 1, true)
-						if tweenLine and not line:find("-- motion:", 1, true) then n += 1 end
+						local tag = tagOf(line)
+						if isTween(line) and not tag then n += 1 end
+						if tag == "camera" or tag == "reward" then moves = true end
 					end
 					table.insert(out, {
-						name = name, n = n,
-						camera = src:find("-- motion: camera", 1, true) ~= nil,
+						name = name, n = n, moves = moves,
 						reads = src:find("UIKit.reducedMotion(", 1, true) ~= nil,
 					})
 				end
@@ -77,14 +88,24 @@ test("the baseline only goes down: a file that migrated must lower its number", 
 	assert(#loose == 0, table.concat(loose, "\n"))
 end)
 
-test("a file that moves the camera reads Reduce Motion", function()
+test("a file with a camera or reward tag reads Reduce Motion (a tagged tween skips UIKit.tween's rules)", function()
 	local bad = {}
 	for _, f in scan() do
-		if f.camera and not f.reads then
-			table.insert(bad, f.name .. " has a '-- motion: camera' line but never calls UIKit.reducedMotion(")
+		if f.moves and not f.reads then
+			table.insert(bad, f.name .. " has a '-- motion: camera|reward' line but never calls UIKit.reducedMotion(")
 		end
 	end
 	assert(#bad == 0, table.concat(bad, "\n"))
+end)
+
+test("only three words are a reason to build a tween by hand (23 Oct review, item 6a)", function()
+	assert(tagOf("x = TweenInfo.new(1)   -- motion: progress") == "progress", "progress")
+	assert(tagOf("TweenService:Create(cam, i, g)   -- motion: camera") == "camera", "camera")
+	assert(tagOf("-- motion: reward") == "reward", "reward")
+	assert(tagOf("TweenInfo.new(1)   -- motion: whatever") == nil, "any other word is not a tag")
+	assert(tagOf("TweenInfo.new(1)   -- motion:") == nil, "an empty tag is not a tag")
+	assert(isTween("local i = TweenInfo.new(0.2)") and isTween("TweenService:Create(a, b, c)"), "tween lines")
+	assert(not isTween("UIKit.tween(a, 0.2, {})"), "the layer itself is not a hand-built tween")
 end)
 
 return T
