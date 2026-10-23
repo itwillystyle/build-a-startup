@@ -75,14 +75,24 @@ local function track(obj, tw, goal)
 	running[obj] = list
 end
 
+local TWEENABLE = { number = true, UDim2 = true, UDim = true, Color3 = true, Vector2 = true, Vector3 = true, CFrame = true }
 function UIKit.set(obj, props)
 	finishOverlapping(obj, props)
 	for k, v in pairs(props) do obj[k] = v end
 	-- review of the layer: a tween UIKit is not tracking (or lost track of) would still overwrite the
-	-- direct write next frame (M2); a 0 s tween to the same values cancels it and holds (M3, M8)
-	local hold = TweenService:Create(obj, TweenInfo.new(0), props)
-	hold:Play()
-	track(obj, hold, props)
+	-- direct write next frame (M2); a 0 s tween to the same values cancels it and holds (M3, M8).
+	-- Only values TweenService can tween go in it (Text or Visible would make Create throw)
+	local tweenable = {}
+	for k, v in pairs(props) do
+		if TWEENABLE[typeof(v)] then tweenable[k] = v end
+	end
+	if next(tweenable) then
+		local ok, hold = pcall(TweenService.Create, TweenService, obj, TweenInfo.new(0), tweenable)
+		if ok then
+			hold:Play()
+			track(obj, hold, tweenable)
+		end
+	end
 end
 
 -- opts: { kind = "progress" } for a fill that measures time (never changed by Reduce Motion)

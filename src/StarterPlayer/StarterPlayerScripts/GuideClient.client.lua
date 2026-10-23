@@ -435,7 +435,8 @@ local function setSize(size, shapeChanged)
 	if shapeChanged and card.Visible then
 		tween(card, 0.22, { Size = size }, Enum.EasingStyle.Quad)
 	else
-		card.Size = size
+		-- 23 Oct (FINAL.md W5, measured M2): a direct set lost to a shape tween still running
+		UIKit.set(card, { Size = size })
 	end
 end
 
@@ -452,7 +453,7 @@ local function layout()
 	if pill then
 		-- the pill: icon and title on one line, as wide as the title needs
 		chip.Visible, meter.Visible, footer.Visible = false, false, false
-		local w = math.min(W, PILL_X + textWidth(title) + 14)
+		local w = math.min(W, PILL_X + textWidth(title) + 20)   -- 23 Oct (W7): +14 left the last letter on the edge
 		title.Position = UDim2.new(0, PILL_X, 0, 0)
 		title.Size = UDim2.new(1, -(PILL_X + 10), 1, 0)
 		setSize(UDim2.new(0, w, 0, PILL_H), changed)

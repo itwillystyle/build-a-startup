@@ -434,7 +434,11 @@ local function setCoding()
 	if p < charge.Size.X.Scale then
 		charge.Size = UDim2.new(p, 0, 1, -5) -- a reset (the app is finished) snaps; it never drains backwards
 	else
-		chargeTween = tween(charge, CODE_TICK, { Size = UDim2.new(p, 0, 1, -5) }, Enum.EasingStyle.Linear, nil, { kind = "progress" })
+		-- 23 Oct (FINAL.md W6, measured: the fill stalled to 0.010/s when an update came late): run a
+		-- quarter past the update so a late one never stops the bar; the last step is quicker so the
+		-- bar is SEEN full before the reset snaps it
+		local span = p >= 1 and CODE_TICK * 0.6 or CODE_TICK * 1.25
+		chargeTween = tween(charge, span, { Size = UDim2.new(p, 0, 1, -5) }, Enum.EasingStyle.Linear, nil, { kind = "progress" })
 	end
 	syncCode()
 end
