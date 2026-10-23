@@ -52,6 +52,17 @@ test("the stars card rises from where the app lands to above the client's speech
 	assert(C.h == 46 and C.w == 132, "the card is 132 x 46 px, offset-sized (does not scale with distance)")
 end)
 
+test("the card's height is the bubble's MEASURED height, so the pixel lift alone clears it at any distance", function()
+	-- measured live 23 Oct on four waiting clients: the bubble sits 6.00 studs over the model pivot
+	-- (head 2.40 + StudsOffset 3.6), 190 x 74 px. The first guess (5.1) left the card's bottom 21 px
+	-- inside the bubble with the camera close. With the card's point AT the bubble's centre, the card's
+	-- bottom (lift x board height - half the board) must clear half the bubble (37 px)
+	local C = PB.CARD
+	assert(C.atY == 6.0, "atY " .. tostring(C.atY))
+	local board = C.h + C.rise
+	assert(C.lift * board - board / 2 >= 74 / 2, ("card bottom %.0f px above the bubble centre, need 37"):format(C.lift * board - board / 2))
+end)
+
 test("a coder's delivery flies no coins (23 Oct, FINAL.md W2: 3 coins every few seconds meant 3 ticks and a ching)", function()
 	-- coinStream always plays a tick per coin and a ching on the last (HudClient), and asking it for
 	-- 0 coins still flies 1 (math.max(1, n)); so the coder path skips it and flies none
