@@ -11,6 +11,14 @@ local C = {}
 
 C.OFFER_GRACE = 120   -- a term sheet stays on the table this long past the reply deadline
 
+--[[ is this seat in the player's own car (Cars names it "Car_<userId>")? Found live 22 Oct:
+	Phone's old check climbed to the outermost Model above the seat, and Workspace IS a Model,
+	so it always ended on "Workspace" and nobody was ever driving: the clock above never stood
+	still. It now looks for the car by name among the seat's ancestors. ]]
+function C.inOwnCar(seat, userId)
+	return seat ~= nil and seat:FindFirstAncestor("Car_" .. tostring(userId)) ~= nil
+end
+
 -- ctx: { driving = bool, carrying = bool }
 function C.busy(ctx)
 	return (ctx and (ctx.driving or ctx.carrying)) and true or false
