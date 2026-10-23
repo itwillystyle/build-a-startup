@@ -41,4 +41,10 @@ test("a coder's pop is quieter than your own payout", function()
 	assert(PB.coderDuration() < PB.duration(), "shorter")
 end)
 
+test("a coder's delivery flies no coins (23 Oct, FINAL.md W2: 3 coins every few seconds meant 3 ticks and a ching)", function()
+	-- coinStream always plays a tick per coin and a ching on the last (HudClient), and asking it for
+	-- 0 coins still flies 1 (math.max(1, n)); so the coder path skips it and flies none
+	assert(PB.CODER.coins == 0, "coder coins: " .. tostring(PB.CODER.coins))
+end)
+
 return T

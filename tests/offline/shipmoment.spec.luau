@@ -49,6 +49,21 @@ test("coins that land out of order still count up and end exact (live, 22 Oct: i
 	assert(after == 300, "a stray extra landing stays at the total")
 end)
 
+test("the number never says +$0 (23 Oct, the visual judge: it read +$0 for ~0.7 s)", function()
+	-- the label now appears on the first coin; and a small total over 12 coins must not round
+	-- that first coin down to 0
+	local land = SM.lander(5, 12)
+	local first = land()
+	assert(first >= 1, "first landing of $5 over 12 coins shows " .. first)
+	local prev = first
+	for _ = 2, 12 do
+		local v = land()
+		assert(v >= prev, "never down")
+		prev = v
+	end
+	assert(prev == 5, "still ends exact")
+end)
+
 test("an amount smaller than the coin count never counts down and still ends exact", function()
 	local prev = 0
 	for k = 1, 12 do

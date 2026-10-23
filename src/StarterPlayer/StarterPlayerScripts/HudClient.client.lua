@@ -759,6 +759,11 @@ _G.SVCashHold = function(amount)
 	held += math.max(0, tonumber(amount) or 0)
 	quietUntil = os.clock() + 3
 end
+-- 23 Oct: quiet the big-jump pop without holding money back (a coder's delivery: it is not your
+-- moment and it has no coins, FINAL.md W2)
+_G.SVCashQuiet = function(seconds)
+	quietUntil = math.max(quietUntil, os.clock() + (tonumber(seconds) or 1))
+end
 
 -- ============ CELEBRATIONS ============
 

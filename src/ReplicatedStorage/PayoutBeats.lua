@@ -20,8 +20,10 @@ PayoutBeats.STAR = { first = 0.06, gap = 0.04, from = 0.9, enter = 0.12 }
 PayoutBeats.MONEY = { at = 0.40, from = 0.94, enter = 0.15, hold = 0.6, leave = 0.2, rise = 8, tipGap = 30 }
 PayoutBeats.COINS = 6
 -- 23 Oct: a hired coder's delivery fires every few seconds late game, so it is a whisper next to
--- your own hand-over: a small "+$X" that fades in while rising 6 px (no scale), 3 coins, no sound
-PayoutBeats.CODER = { enter = 0.12, rise = 6, hold = 0.3, leave = 0.15, coins = 3 }
+-- your own hand-over: a small "+$X" that fades in while rising 6 px (no scale) and no coins. The
+-- first version flew 3 coins and called itself silent, but every coin ticks and the last one chings
+-- (HudClient coinStream): the visual judge's finding W2 (ui/animation-review/judge/FINAL.md)
+PayoutBeats.CODER = { enter = 0.12, rise = 6, hold = 0.3, leave = 0.15, coins = 0 }
 
 -- the money label is the last thing on screen
 function PayoutBeats.duration()

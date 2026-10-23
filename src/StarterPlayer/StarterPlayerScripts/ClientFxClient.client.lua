@@ -274,34 +274,47 @@ local function wow(d)
 
 	-- 0.6 s: their coins fly to your cash; the number beside them counts in step
 	task.delay(B.coins, function()
-		local num = board(anchor, UDim2.new(0, 220, 0, 50), Vector3.new(3.4, 2.4, 0))
-		table.insert(alive, num)
-		local label = UIKit.outlined(num, "+" .. UIKit.money(held and 0 or total), UIKit.TYPE.headline, UIKit.MONEY, {
-			Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Left,
-		})
-		local sc = Instance.new("UIScale")
-		sc.Parent = label
-		Moment.enter(sc, 0.4, 0.26)
+		--[[ 23 Oct (the visual judge, FINAL.md W1): the number used to appear here reading "+$0" and
+			sat at 0 for ~0.7 s until the first coin landed, next to a cheering client. It now
+			appears WITH the first coin, showing that coin's share (ShipMoment.lander never says $0). ]]
+		local label
+		local function show(amount)
+			if label then
+				if label.Parent then label.Text = "+" .. UIKit.money(amount) end
+				return
+			end
+			local num = board(anchor, UDim2.new(0, 220, 0, 50), Vector3.new(3.4, 2.4, 0))
+			table.insert(alive, num)
+			label = UIKit.outlined(num, "+" .. UIKit.money(amount), UIKit.TYPE.headline, UIKit.MONEY, {
+				Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Left,
+			})
+			local sc = Instance.new("UIScale")
+			sc.Parent = label
+			Moment.enter(sc, 0.4, 0.26)
+		end
+		local left = false
 		local function leave()
-			if label.Parent then
+			if left then return end
+			left = true
+			if label and label.Parent then
 				ease(label, ShipMoment.FADE, { TextTransparency = 1, Position = UDim2.new(0, 0, 0, -14) })
 				local ls = label:FindFirstChildOfClass("UIStroke")
 				if ls then ease(ls, ShipMoment.FADE, { Transparency = 1 }) end
 			end
 			task.delay(ShipMoment.FADE, finish)
 		end
+		-- if no coin ever lands (no HUD to fly them to), the moment still ends
+		task.delay(2.5, function() if not label then show(total) end leave() end)
 		local hands2 = screenAt(where + Vector3.new(0, 2.5, 0))
 		if held then
 			-- count LANDINGS, not which coin it was: they land out of order (ShipMoment.lander)
 			local land = ShipMoment.lander(total, ShipMoment.COINS)
 			stream(hands2, ShipMoment.COINS, leave, total, {
 				prepaid = true,
-				onCoin = function()
-					local shown = land()
-					if label.Parent then label.Text = "+" .. UIKit.money(shown) end
-				end,
+				onCoin = function() show((land())) end,
 			})
 		else
+			show(total)
 			Moment.landMoney(hands2, ShipMoment.COINS)
 			task.delay(1.2, leave)
 		end
@@ -375,14 +388,10 @@ end
 
 -- 23 Oct (animation review): a hired coder's delivery fires every few seconds late game and is not
 -- your reward, so it is a whisper: a small "+$X" that fades in rising 6 px (no scale, no
--- overshoot), holds 0.3 s and fades out; 3 coins that carry the amount so the counter counts
--- with them; no sound (PayoutBeats.CODER)
+-- overshoot), holds 0.3 s and fades out. No coins and no sound (FINAL.md W2): the counter just
+-- eases up, as it did before the payout pass. The caller has already quieted the HUD's big-jump pop.
 local function coderPop(d, at)
 	local C = PayoutBeats.CODER
-	local hold = rawget(_G, "SVCashHold")
-	local stream = rawget(_G, "SVCoinStream")
-	local held = type(hold) == "function" and type(stream) == "function"
-	if held then hold(d.pay) end
 	local l = UIKit.outlined(gui, "+" .. UIKit.money(d.pay), UIKit.TYPE.label, UIKit.MONEY, {
 		AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0, 200, 0, UIKit.TYPE.label + 10),
 		Position = UDim2.new(0, at.X, 0, at.Y + C.rise), TextXAlignment = Enum.TextXAlignment.Center,
@@ -398,11 +407,6 @@ local function coderPop(d, at)
 		if st then ease(st, C.leave, { Transparency = 1 }) end
 	end)
 	task.delay(C.enter + C.hold + C.leave + 0.02, function() l:Destroy() end)
-	if held then
-		stream(at, C.coins, nil, d.pay, { prepaid = true })
-	else
-		Moment.landMoney(at, C.coins)
-	end
 end
 
 -- your own hand-over's payout
@@ -436,6 +440,10 @@ clientPaid.OnClientEvent:Connect(function(d)
 		chase got "+$X" and coins at screen centre. A coder's pay shows only on a client you
 		can see, within 60 studs; the cash counter still counts it. ]]
 	if d.who == "coder" then
+		-- FIRST, before the on-screen check below returns: coder pay lands in the counter on its own,
+		-- and a big one must not set off the HUD's "+$X" jump pop (FINAL.md W2, round 3), on screen or off
+		local quiet = rawget(_G, "SVCashQuiet")
+		if type(quiet) == "function" then quiet(1) end
 		local cam = workspace.CurrentCamera
 		local v, onScreen = cam:WorldToViewportPoint(where + Vector3.new(0, 4, 0))
 		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
