@@ -415,9 +415,12 @@ end
 -- overshoot), holds 0.3 s and fades out. No coins and no sound (FINAL.md W2): the counter just
 -- eases up, as it did before the payout pass. The caller has already quieted the HUD's big-jump pop.
 local function coderPop(d, at)
+	-- 24 Oct (doctor: ClientFx.TextLabel under Daily.Panel, 4,141 px²): a whisper is not your reward,
+	-- so it is skipped while a menu is open (the counter has already eased up); and it is named
+	if UIKit.menuOpen() then return end
 	local C = PayoutBeats.CODER
 	local l = UIKit.outlined(gui, "+" .. UIKit.money(d.pay), UIKit.TYPE.label, UIKit.MONEY, {
-		AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0, 200, 0, UIKit.TYPE.label + 10),
+		Name = "CoderPop", AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0, 200, 0, UIKit.TYPE.label + 10),
 		Position = UDim2.new(0, at.X, 0, at.Y + C.rise), TextXAlignment = Enum.TextXAlignment.Center,
 	})
 	local st = l:FindFirstChildOfClass("UIStroke")
