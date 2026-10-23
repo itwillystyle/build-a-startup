@@ -35,6 +35,7 @@ pcall(function() player:WaitForChild("PlayerGui").ScreenOrientation = Enum.Scree
 local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
 local Notify = require(ReplicatedStorage:WaitForChild("Notify"))
 local Moment = require(ReplicatedStorage:WaitForChild("Moment"))
+local PopStack = require(ReplicatedStorage:WaitForChild("PopStack"))   -- 23 Oct: the pops over the cash stack (finding 6)
 local HudSlots = require(ReplicatedStorage:WaitForChild("HudSlots"))   -- 20 Oct: the bottom centre's numbers, shared with CarClient
 local remotes = ReplicatedStorage:WaitForChild("SVRemotes")
 
@@ -71,10 +72,10 @@ fx.IgnoreGuiInset = true
 UIKit.safe(fx)
 fx.Parent = player.PlayerGui
 
-local function tween(o, t, props, style, dir)
-	local tw = TweenService:Create(o, TweenInfo.new(t, style or Enum.EasingStyle.Quint, dir or Enum.EasingDirection.Out), props)
-	tw:Play()
-	return tw
+-- 23 Oct: through the motion layer (UIKit.tween: Reduce Motion, finish-not-freeze); opts.kind = "progress"
+-- for a fill that measures time
+local function tween(o, t, props, style, dir, opts)
+	return UIKit.tween(o, t, props, style, dir, opts)
 end
 -- fading outlined text: the UIStroke has its own Transparency and must fade too,
 -- or a black ghost of the words stays on screen
@@ -435,7 +436,11 @@ local function setCoding()
 	if p < charge.Size.X.Scale then
 		charge.Size = UDim2.new(p, 0, 1, -5) -- a reset (the app is finished) snaps; it never drains backwards
 	else
-		chargeTween = tween(charge, CODE_TICK, { Size = UDim2.new(p, 0, 1, -5) }, Enum.EasingStyle.Linear)
+		-- 23 Oct (FINAL.md W6, measured: the fill stalled to 0.010/s when an update came late): run a
+		-- quarter past the update so a late one never stops the bar; the last step is quicker so the
+		-- bar is SEEN full before the reset snaps it
+		local span = p >= 1 and CODE_TICK * 0.6 or CODE_TICK * 1.25
+		chargeTween = tween(charge, span, { Size = UDim2.new(p, 0, 1, -5) }, Enum.EasingStyle.Linear, nil, { kind = "progress" })
 	end
 	syncCode()
 end
@@ -554,9 +559,11 @@ syncPulse()
 player:GetAttributeChangedSignal("Objective"):Connect(syncPulse)
 RunService.RenderStepped:Connect(function()
 	local t = os.clock()
+	-- 23 Oct: Reduce Motion (read every frame, it can change mid-session): the pulses hold still
+	local still = UIKit.reducedMotion()
 	if launchState then
 		codeWrap.Scale = 1
-		launchWrap.Scale = 1 + 0.07 * (0.5 + 0.5 * math.sin(t * 5.5))
+		launchWrap.Scale = still and 1 or (1 + 0.07 * (0.5 + 0.5 * math.sin(t * 5.5)))
 		local at = launchState.autoAt
 		if at then
 			local left = math.max(0, at - workspace:GetServerTimeNow())
@@ -570,7 +577,7 @@ RunService.RenderStepped:Connect(function()
 		-- a coach tip on screen has the stage: the pulse waits
 		local coach = player.PlayerGui:FindFirstChild("Coach")
 		local tip = coach and coach:FindFirstChild("CoachCard")
-		codeWrap.Scale = (pulsing and not (tip and tip.Visible) and player:GetAttribute("Celebrating") ~= true) and (1 + 0.06 * (0.5 + 0.5 * math.sin(t * 5))) or 1
+		codeWrap.Scale = (not still and pulsing and not (tip and tip.Visible) and player:GetAttribute("Celebrating") ~= true) and (1 + 0.06 * (0.5 + 0.5 * math.sin(t * 5))) or 1
 	end
 end)
 
@@ -656,7 +663,14 @@ local function stepAside()
 	local p, sz = rateText.AbsolutePosition, rateText.AbsoluteSize
 	if rateText.Visible or not rateRect then rateRect = { p.X, p.Y, sz.X, sz.Y } else rateRect[1], rateRect[2] = p.X, p.Y end
 	rateText.Visible = not HudSlots.underMenu(rateRect, panels, vpX)
-	for l, r in pairs(cashPops) do l.Visible = not HudSlots.underMenu(r, panels, vpX) end
+	-- 23 Oct: a pop moves (PopStack pushes it up a line), so a shown one is re-measured each check
+	for l, r in pairs(cashPops) do
+		if l.Visible then
+			local lp, ls = l.AbsolutePosition, l.AbsoluteSize
+			r[1], r[2], r[3], r[4] = lp.X, lp.Y, ls.X, ls.Y
+		end
+		l.Visible = not HudSlots.underMenu(r, panels, vpX)
+	end
 end
 task.spawn(function()
 	while gui.Parent do
@@ -669,32 +683,73 @@ end)
 -- v8 (11 Oct, step 5): right above the money block. It still popped at the top
 -- centre, where the cash was before v7 moved it to the bottom-left corner, so a
 -- payday landed on the quest card or the level-up banner (found at phone size).
--- 23 Oct: named, and its box hugs its text (a fixed 320 px box was the rect that ran under
--- DAILY; "+$X while you were away" spilled past it), so stepAside judges what is drawn
+--[[ 23 Oct (the animation audit, finding 6; mockup ui/animation-review/mp4/4-money-pop.mp4, panel B):
+	each pop grew from 40% size over 0.35 s at the SAME spot, so on an auto-launch "+$X" and, 0.4 s
+	later, "Auto-launched: half pay" landed on each other. Now a pop fades in from 92% (T.fast), the
+	newest takes the bottom line and pushes older ones up one line (Quint Out, T.ui), at most two
+	lines (PopStack, tested), and each leaves with a fade in place (T.ui). ]]
+local POP_LINE = 44   -- px between stacked pops: TYPE.display (36) + 8
 local POP_H = 40
+local pops = PopStack.new(2)
+local popLabels = {}
+local popSerial = 0
+local function popY(line) return UDim2.new(0, MONEY_X, 1, -(moneyTop + 4) - line * POP_LINE) end
+local function placePops()
+	for id, l in pairs(popLabels) do
+		local line = PopStack.line(pops, id)
+		-- ease OUT, not in-out: measured 23 Oct, an in-out push barely moves in its first ~50 ms, so the
+		-- old pop still sat on the line while the new one faded in over it (16 double-exposed frames).
+		-- Making room is a response: it must start moving at once
+		if line and l.Parent then tween(l, UIKit.T.ui, { Position = popY(line) }, Enum.EasingStyle.Quint, Enum.EasingDirection.Out) end
+	end
+end
+local function dropPop(id, t)
+	local l = popLabels[id]
+	local line = PopStack.line(pops, id) or 0
+	popLabels[id] = nil
+	PopStack.remove(pops, id)
+	if l and l.Parent then
+		-- a UIStroke does not fade with TextTransparency (fadeText fades both). The judge's review: it
+		-- faded where it stood while a neighbour slid onto its line (two texts in one spot for ~0.2 s),
+		-- so a leaving pop rises one line as it fades (Reduce Motion drops the rise: an exit fades in place)
+		fadeText(l, t, { Position = popY(line + 1) })
+		task.delay(t + 0.05, function() l:Destroy() end)
+	end
+end
 local function popUnderCash(text, color, hold)
+	popSerial += 1
+	local id = popSerial
+	-- 23 Oct: named, and its box hugs its text (a fixed 320 px box was the rect that ran under
+	-- DAILY; "+$X while you were away" spilled past it), so stepAside judges what is drawn
 	local w = 320
 	local okW, size = pcall(function()
 		return TextService:GetTextSize(text, UIKit.TYPE.display, UIKit.HEAD, Vector2.new(4000, POP_H))
 	end)
 	if okW and size then w = math.ceil(size.X) + 8 end   -- + the outline both sides
 	local l = UIKit.outlined(gui, text, UIKit.TYPE.display, color or UIKit.GOLD, {
-		Name = "CashPop", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, MONEY_X, 1, -(moneyTop + 4)),
-		Size = UDim2.new(0, w, 0, POP_H), TextXAlignment = Enum.TextXAlignment.Left,
+		Name = "CashPop", AnchorPoint = Vector2.new(0, 1), Position = popY(0), Size = UDim2.new(0, w, 0, POP_H),
+		TextXAlignment = Enum.TextXAlignment.Left,
 	})
+	popLabels[id] = l
 	local o, h = gui.AbsolutePosition, gui.AbsoluteSize.Y
 	cashPops[l] = { o.X + MONEY_X, o.Y + h - (moneyTop + 4) - POP_H, w, POP_H }
 	l.Destroying:Connect(function() cashPops[l] = nil end)
+	for _, old in ipairs(PopStack.push(pops, id)) do dropPop(old, UIKit.T.fast) end
+	placePops()
 	stepAside()
 	local sc = Instance.new("UIScale", l)
-	sc.Scale = 0.4
-	tween(sc, 0.35, { Scale = 1 }, Enum.EasingStyle.Quint)
+	sc.Scale = 0.92
+	l.TextTransparency = 1
+	local st = l:FindFirstChildOfClass("UIStroke")
+	if st then st.Transparency = 1 end
+	tween(sc, UIKit.T.fast, { Scale = 1 })
+	tween(l, UIKit.T.fast, { TextTransparency = 0 })
+	if st then tween(st, UIKit.T.fast, { Transparency = 0 }) end
 	task.delay(hold or 1.2, function()
-		-- fade in place: rising put it over the income line, and a UIStroke
-		-- does not fade with TextTransparency (it left a black ghost of the number)
-		fadeText(l, 0.4)
-		tween(sc, 0.4, { Scale = 0.85 })
-		task.delay(0.45, function() l:Destroy() end)
+		if popLabels[id] then
+			dropPop(id, UIKit.T.ui)
+			placePops()
+		end
 	end)
 end
 
@@ -734,10 +789,31 @@ end)
 	held back (SVCashHold) when the moment began, so the counter never ran ahead of the
 	coins; opts.onCoin(k, n) runs as each coin lands, so a number by the coins can count
 	in step with the cash. ]]
+-- the stream's beats (ShipMoment.COIN mirrors them); the Reduce Motion path keeps the same length
+local STREAM_BURST, STREAM_HOLD, STREAM_STAGGER = 0.24, 0.08, 0.045
+local STREAM_FLY_MIN, STREAM_FLY_SPREAD = 0.42, 0.08
+local STREAM_FLY = STREAM_FLY_MIN + STREAM_FLY_SPREAD / 2   -- the average flight
 local function coinStream(fromAbs, n, done, amount, opts)
 	n = math.max(1, n or 12)
 	amount = tonumber(amount) or 0
 	opts = opts or {}
+	-- 23 Oct: Reduce Motion: no coins fly; money held back for them is released at once, the
+	-- counter bumps once and the ching still plays (feedback, not movement). Review of the layer:
+	-- every coin is still REPORTED (the first-ship count is driven by onCoin calls; one call left it
+	-- at 1/12 of the pay) and `done` keeps the stream's normal length (deferring it faded the
+	-- first-ship number the frame it appeared). Quiet, so the big-jump pop does not add a second
+	-- "+$X" for money that landed in one go. Measured by DoctorProbes.motion.
+	if UIKit.reducedMotion() then
+		if opts.prepaid then held = math.max(0, held - amount) end
+		quietUntil = math.max(quietUntil, os.clock() + 1)
+		bumpCash(1.06)
+		UIKit.sfx("ding", 1.65, 0.5)
+		if opts.onCoin then
+			for k = 1, n do task.spawn(opts.onCoin, k, n) end
+		end
+		if done then task.delay(STREAM_BURST + STREAM_HOLD + (n - 1) * STREAM_STAGGER + STREAM_FLY, done) end
+		return
+	end
 	if not opts.prepaid then held += amount end
 	local per, given = amount / n, 0
 	-- 22 Oct: coins land in LANDING order, not launch order (each flight is 0.42-0.50 s), so the
@@ -752,11 +828,11 @@ local function coinStream(fromAbs, n, done, amount, opts)
 		local ang = math.random() * math.pi * 2
 		local r = 46 + math.random() * 50
 		local out = UDim2.new(0, from.X + math.cos(ang) * r, 0, from.Y + math.sin(ang) * r * 0.7 - 28)
-		tween(c, 0.24, { Position = out, Size = UDim2.new(0, 34, 0, 34) })
-		local leave = 0.24 + 0.08 + (k - 1) * 0.045
+		tween(c, STREAM_BURST, { Position = out, Size = UDim2.new(0, 34, 0, 34) })
+		local leave = STREAM_BURST + STREAM_HOLD + (k - 1) * STREAM_STAGGER
 		task.delay(leave, function()
 			if not c.Parent then return end
-			local t = 0.42 + math.random() * 0.08
+			local t = STREAM_FLY_MIN + math.random() * STREAM_FLY_SPREAD
 			tween(c, t, { Position = UDim2.new(0, to.X, 0, to.Y), Size = UDim2.new(0, 22, 0, 22), Rotation = 0 },
 				Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 			task.delay(t, function()
@@ -784,6 +860,11 @@ _G.SVCoinStream = coinStream   -- DailyClient reuses it
 _G.SVCashHold = function(amount)
 	held += math.max(0, tonumber(amount) or 0)
 	quietUntil = os.clock() + 3
+end
+-- 23 Oct: quiet the big-jump pop without holding money back (a coder's delivery: it is not your
+-- moment and it has no coins, FINAL.md W2)
+_G.SVCashQuiet = function(seconds)
+	quietUntil = math.max(quietUntil, os.clock() + (tonumber(seconds) or 1))
 end
 
 -- ============ CELEBRATIONS ============
@@ -893,7 +974,8 @@ local function hqBanner(e, done)
 	local function leave()
 		if gone then return end
 		gone = true
-		tween(card, 0.35, { Position = UDim2.new(0, x, 0, -180) }, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
+		-- 23 Oct (finding 7): it left with ease-IN over 0.35 s, so a tap to dismiss started slow; out, 0.2 s
+		tween(card, UIKit.T.ui, { Position = UDim2.new(0, x, 0, -180) }, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 		task.delay(0.4, function()
 			card:Destroy()
 			player:SetAttribute("Celebrating", nil)
@@ -1039,7 +1121,7 @@ local function spinAsk(e, done)
 		local mine = {}
 		holding = mine
 		UIKit.sfx("tap")
-		local tw = TweenService:Create(fill, TweenInfo.new(1, Enum.EasingStyle.Linear), { Size = UDim2.new(1, 0, 1, -5) })
+		local tw = TweenService:Create(fill, TweenInfo.new(1, Enum.EasingStyle.Linear), { Size = UDim2.new(1, 0, 1, -5) })   -- motion: progress
 		tw.Completed:Connect(function(state)
 			if holding ~= mine or state ~= Enum.PlaybackState.Completed then return end
 			holding = nil

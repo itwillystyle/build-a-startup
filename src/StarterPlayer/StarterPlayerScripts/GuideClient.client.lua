@@ -42,10 +42,9 @@ local Cine = ReplicatedStorage:FindFirstChild("Cine") and require(ReplicatedStor
 
 local GOLD, INK = UIKit.GOLD, UIKit.INK
 
-local function tween(o, t, props, style)
-	local tw = TweenService:Create(o, TweenInfo.new(t, style or Enum.EasingStyle.Quint, Enum.EasingDirection.Out), props)
-	tw:Play()
-	return tw
+-- 23 Oct: through the motion layer (UIKit.tween: Reduce Motion, finish-not-freeze)
+local function tween(o, t, props, style, dir)
+	return UIKit.tween(o, t, props, style, dir)
 end
 
 -- which rendered icon a goal wears (the card and the pin show the same one)
@@ -436,13 +435,16 @@ local function setSize(size, shapeChanged)
 	if shapeChanged and card.Visible then
 		tween(card, 0.22, { Size = size }, Enum.EasingStyle.Quad)
 	else
-		card.Size = size
+		-- 23 Oct (FINAL.md W5, measured M2): a direct set lost to a shape tween still running
+		UIKit.set(card, { Size = size })
 	end
 end
 
 local function layout()
 	local W = holder.Size.X.Offset   -- design width; the holder's UIScale fits it to the screen
-	local pill = not GoalCard.full(gc, os.clock())
+	-- 23 Oct (Luke picked A, FINAL.md L1): always the pill. The full card was a 430 x 76 box holding
+	-- one line for 4 s over the view (studio-goalcard-full.jpg); a new goal glows instead (cue below)
+	local pill = true
 	local changed = pill ~= isPill
 	isPill = pill
 	tileScale.Scale = pill and PILL_TILE / TILE or 1
@@ -453,7 +455,7 @@ local function layout()
 	if pill then
 		-- the pill: icon and title on one line, as wide as the title needs
 		chip.Visible, meter.Visible, footer.Visible = false, false, false
-		local w = math.min(W, PILL_X + textWidth(title) + 14)
+		local w = math.min(W, PILL_X + textWidth(title) + 20)   -- 23 Oct (W7): +14 left the last letter on the edge
 		title.Position = UDim2.new(0, PILL_X, 0, 0)
 		title.Size = UDim2.new(1, -(PILL_X + 10), 1, 0)
 		setSize(UDim2.new(0, w, 0, PILL_H), changed)
@@ -488,18 +490,14 @@ local function layout()
 	setSize(UDim2.new(0, W, 0, bottom + PAD + 4), changed)
 end
 
--- the full card shrinks back to the pill when its seconds run out
-local function openNow()
-	layout()
-	task.delay(gc.fullUntil - os.clock() + 0.05, function()
-		if not GoalCard.full(gc, os.clock()) then layout() end
-	end)
-end
--- the card just showed: a goal owed its full look gets it now
+--[[ 23 Oct (option A): a NEW goal's one cue. Its outline glows gold and fades back to the card's
+	line over CUE seconds (Quint Out). Colour only, no motion: goals change every few seconds early
+	on, and frequent UI should barely move (AUDIT section 1; mockup 5-goal-card-a.mp4, panel A1).
+	Drawn in the per-frame block below, which owns the stroke (it resets it every frame). ]]
+local CUE = 0.6
+local cueAt = -math.huge
 local function markShown()
-	local before = gc.fullUntil
-	GoalCard.shown(gc, os.clock())
-	if gc.fullUntil ~= before then openNow() end
+	if GoalCard.cue(gc, os.clock()) then cueAt = os.clock() end
 end
 holder:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
 	-- the screen changed size (the holder's UIScale refit): re-measure. Not the card's own
@@ -542,6 +540,7 @@ end
 
 -- a finished goal: confetti bursts out of the tile and falls away
 local function confetti()
+	if UIKit.reducedMotion() then return end   -- 23 Oct: Reduce Motion skips particles; the stamp still lands
 	local colours = { UIKit.GREEN, GOLD, UIKit.BLUE, UIKit.ORANGE, UIKit.PINK }
 	for i = 1, 16 do
 		local f = Instance.new("Frame")
@@ -686,30 +685,59 @@ local function popPin()
 	pinScale.Scale = 1.5
 	tween(pinScale, 0.4, { Scale = 1 }, Enum.EasingStyle.Quint)
 end
+--[[ 23 Oct (the animation audit, finding 9; FINAL.md): the turn was Quint Out 0.45 s (full speed the
+	instant you tapped) followed by a fixed 0.35 s hold with the camera locked, about 0.8 s of the
+	camera not being yours. Now: Cubic InOut 0.35 s (MotionSpec.CURVE.CAMERA, the gentler peak speed),
+	no hold, and any camera input of your own hands it back on the same frame. Reduce Motion: the
+	camera does not turn at all; the pin still pops to show where the goal is. ]]
+local CAMERA_TURN = 0.35
 local function lookAtGoal()
 	if looking then return end
 	cardScale.Scale = 0.96
 	tween(cardScale, 0.2, { Scale = 1 })
 	if not target then return end
 	popPin()
+	if UIKit.reducedMotion() then return end
 	if camera.CameraType ~= Enum.CameraType.Custom or (Cine and Cine.busy and Cine.busy()) or inCar() then return end
 	looking = true
 	local from = camera.CFrame
 	local goal = CFrame.lookAt(from.Position, target + Vector3.new(0, 3, 0))
 	camera.CameraType = Enum.CameraType.Scriptable
-	local tw = tween(camera, 0.45, { CFrame = goal })
+	local tw = tween(camera, CAMERA_TURN, { CFrame = goal }, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut)
+	local conns = {}
+	local function giveBack()
+		if not looking then return end
+		looking = false
+		for _, c in ipairs(conns) do c:Disconnect() end
+		tw:Cancel()
+		if camera.CameraType == Enum.CameraType.Scriptable then camera.CameraType = Enum.CameraType.Custom end
+	end
+	-- the player's own camera input (right-drag, wheel, a touch, the right stick) takes it back at once
+	-- the judge's review: a player walking with the left thumb (the touch thumbstick) would have
+	-- cancelled the turn on its first InputChanged. Input the game already handled (the thumbstick,
+	-- a button) never counts; a touch counts only when it STARTS during the turn; the right stick
+	-- only past a 0.2 dead zone
+	local function took(input, processed)
+		if processed then return false end
+		local t = input.UserInputType
+		if t == Enum.UserInputType.MouseButton2 or t == Enum.UserInputType.MouseWheel then return true end
+		if t == Enum.UserInputType.Touch then return input.UserInputState == Enum.UserInputState.Begin end
+		if input.KeyCode == Enum.KeyCode.Thumbstick2 then return input.Position.Magnitude > 0.2 end
+		return false
+	end
+	local function take(input, processed)
+		if took(input, processed) then giveBack() end
+	end
+	table.insert(conns, UserInputService.InputBegan:Connect(take))
+	table.insert(conns, UserInputService.InputChanged:Connect(take))
 	tw.Completed:Wait()
-	task.wait(0.35)
-	if camera.CameraType == Enum.CameraType.Scriptable then camera.CameraType = Enum.CameraType.Custom end
-	looking = false
+	giveBack()
 end
 -- Activated, not MouseButton1Click: it covers touch and gamepad as well as the
 -- mouse, and this game is meant to be played on a phone
 hit.Activated:Connect(function()
 	UIKit.sfx("tap")
-	-- 22 Oct: a tap opens the pill for 4 s as well as turning the camera
-	GoalCard.tap(gc, os.clock())
-	openNow()
+	-- 23 Oct (option A): the card has one shape now; a tap turns the camera to the goal
 	task.spawn(lookAtGoal)
 end)
 
@@ -811,8 +839,12 @@ RunService.RenderStepped:Connect(function()
 			end
 		end
 	elseif cardStroke and not stamping then
-		cardStroke.Color = UIKit.CARD_LINE
-		cardStroke.Thickness = 2
+		-- the new-goal glow (option A): gold fading back to the card's line
+		local since = now - cueAt
+		-- 1 - QuintOut(x) = (1 - x)^5: bright at once, settled by CUE
+		local g = since < CUE and (1 - math.clamp(since / CUE, 0, 1)) ^ 5 or 0
+		cardStroke.Color = g > 0 and UIKit.CARD_LINE:Lerp(UIKit.GOLD_DEEP, g) or UIKit.CARD_LINE
+		cardStroke.Thickness = 2 + 1.5 * g
 	end
 
 	if not target then edge.Visible = false return end

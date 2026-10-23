@@ -133,8 +133,14 @@ end
 -- -> how far it rests above the solid thing under it, and what that is
 local function settleAt(char, cf)
 	char:PivotTo(cf)
-	task.wait(1.2)
 	local root = char:FindFirstChild("HumanoidRootPart")
+	-- 23 Oct: wait until it has landed (WH.settled), up to 5 s; a fixed 1.2 s read the drop
+	-- height itself when the client had not simulated the fall yet (rest exactly 4.00)
+	local dropY, ys, t0 = root.Position.Y, {}, os.clock()
+	repeat
+		task.wait(0.1)
+		table.insert(ys, root.Position.Y)
+	until WH.settled(ys, dropY) or os.clock() - t0 > 5
 	local hit = groundUnder(char, root.Position)
 	return hit and (root.Position.Y - hit.Position.Y) or nil, hit and hit.Instance.Name or "nothing", root.Position.Y
 end
@@ -628,6 +634,18 @@ local function run()
 					r.clear and ("%.2f studs"):format(r.clear) or "no roof found", ">= 0.10",
 					("seated %s, head top %.2f, roof %.2f above the ground"):format(tostring(r.seated), r.headTop or 0, r.roof or 0))
 			end
+		end
+	end)
+
+	-- 23 Oct: the motion layer, Reduce Motion forced on for the probe (DoctorProbes.motion)
+	step("motion", function()
+		local res = probe(player, "motion", {}, 20)
+		if not res or res.error then
+			check("motion probe answered", false, "BUG", res and res.error or "no answer", "answer")
+			return
+		end
+		for _, c in ipairs(res.checks or {}) do
+			check(c.name, c.ok, "BUG", c.measured, c.expected)
 		end
 	end)
 

@@ -448,4 +448,24 @@ test("hold: a second press inside 0.1 s is ignored (a toggle spammer gains nothi
 	assert(hold == true, "a press after 0.1 s is taken")
 end)
 
+-- 23 Oct, the doctor's run on goal-card-pill: "ClientsServer:129: attempt to index nil with 'x'".
+-- A long tick (the server stalls while a big HQ builds) let a coder finish a client in the tick it
+-- arrived, so it was already out of the line; its spot came back 0, the lobby has no spot 0, and
+-- the error ended that player's client loop (no more clients that session).
+test("a long tick can serve a client in the tick it arrives", function()
+	local Q = C.new({ first = false, seed = 7 })
+	local ev = C.tick(Q, 3, ctx({ coders = { C.coderSpeed(4, "engineer") } }))
+	assert(count(ev, "arrive") == 1 and count(ev, "served") == 1, "arrive and served in one 3 s tick")
+	assert(#Q.line == 0, "the line is empty again")
+end)
+
+test("a client's spot is never 0, even once it has left the line", function()
+	local Q = C.new({ first = false, seed = 7 })
+	local ev = C.tick(Q, 3, ctx({ coders = { C.coderSpeed(4, "engineer") } }))
+	assert(C.spotOf(Q, ev[1].client) == 1, "gone from an empty line: spot 1, not 0")
+	run(Q, TUNE.SPAWN_GARAGE + 0.1, ctx())
+	assert(#Q.line == 1, "the next client has arrived")
+	assert(C.spotOf(Q, Q.line[1]) == 1, "the front of the line is spot 1")
+end)
+
 return T

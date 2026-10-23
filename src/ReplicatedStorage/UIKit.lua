@@ -18,6 +18,109 @@
 
 local UIKit = {}
 local MenuFit = require(script.Parent:WaitForChild("MenuFit"))   -- v8 (14 Oct): fitMenu's pure half
+local MotionSpec = require(script.Parent:WaitForChild("MotionSpec"))   -- 23 Oct: the motion layer's rules
+
+-- ============ MOTION: one layer every UI tween goes through (23 Oct 2026) ============
+--[[ The consensus plan (silicon-startup/ui/animation-review/judge/FINAL.md). MotionSpec (pure,
+	tested) decides; this applies it. Measured in Studio before it was built (M1-M8 there):
+	  * a property set directly while a tween runs on it is overwritten by that tween next frame,
+	    so instant props Cancel() the tween UIKit tracks on that object first, then set directly
+	    (same frame), then play a 0 s tween to the same values, which also cancels any tween UIKit
+	    does not know about and gives callers a real Tween whose Completed fires (~3 frames later)
+	  * a cancelled tween's other goals are SET, not left half way (finish, never freeze)
+	UIKit.tween always returns one real Tween. UIKit.set is the direct write for a property UIKit
+	may be tweening. UIKit.reducedMotion() is Roblox's Reduce Motion setting, or the player
+	attribute ForceReducedMotion (so the doctor and Luke can test it); loops call it each frame. ]]
+local TweenService = game:GetService("TweenService")
+UIKit.T = MotionSpec.T
+local reducedSetting = false
+pcall(function()
+	local GuiService = game:GetService("GuiService")
+	reducedSetting = GuiService.ReducedMotionEnabled == true
+	GuiService:GetPropertyChangedSignal("ReducedMotionEnabled"):Connect(function()
+		reducedSetting = GuiService.ReducedMotionEnabled == true
+	end)
+end)
+function UIKit.reducedMotion()
+	local p = game:GetService("Players").LocalPlayer
+	if p and p:GetAttribute("ForceReducedMotion") == true then return true end
+	return reducedSetting
+end
+
+local running = setmetatable({}, { __mode = "k" })   -- object -> { { tween, goal } }
+local function live(tw)
+	local s = tw.PlaybackState
+	return s == Enum.PlaybackState.Playing or s == Enum.PlaybackState.Begin or s == Enum.PlaybackState.Delayed
+end
+-- cancel the tracked tweens on `obj` that share a property with `props`, landing their other goals
+local function finishOverlapping(obj, props)
+	local list = running[obj]
+	if not list then return end
+	local keep = {}
+	for _, e in ipairs(list) do
+		if live(e.tween) and MotionSpec.overlaps(e.goal, props) then
+			e.tween:Cancel()
+			for k, v in pairs(e.goal) do
+				if props[k] == nil then pcall(function() obj[k] = v end) end
+			end
+		elseif live(e.tween) then
+			table.insert(keep, e)
+		end
+	end
+	running[obj] = keep
+end
+local function track(obj, tw, goal)
+	local list = running[obj] or {}
+	table.insert(list, { tween = tw, goal = goal })
+	running[obj] = list
+end
+
+local TWEENABLE = { number = true, UDim2 = true, UDim = true, Color3 = true, Vector2 = true, Vector3 = true, CFrame = true }
+function UIKit.set(obj, props)
+	finishOverlapping(obj, props)
+	for k, v in pairs(props) do obj[k] = v end
+	-- review of the layer: a tween UIKit is not tracking (or lost track of) would still overwrite the
+	-- direct write next frame (M2); a 0 s tween to the same values cancels it and holds (M3, M8).
+	-- Only values TweenService can tween go in it (Text or Visible would make Create throw)
+	local tweenable = {}
+	for k, v in pairs(props) do
+		if TWEENABLE[typeof(v)] then tweenable[k] = v end
+	end
+	if next(tweenable) then
+		local ok, hold = pcall(TweenService.Create, TweenService, obj, TweenInfo.new(0), tweenable)
+		if ok then
+			hold:Play()
+			track(obj, hold, tweenable)
+		end
+	end
+end
+
+-- opts: { kind = "progress" } for a fill that measures time (never changed by Reduce Motion)
+function UIKit.tween(obj, seconds, props, style, dir, opts)
+	local current = {}
+	if props.Scale ~= nil then pcall(function() current.Scale = obj.Scale end) end
+	local plan = MotionSpec.plan(props, current, UIKit.reducedMotion(), opts)
+	finishOverlapping(obj, props)
+	local instant
+	if next(plan.instant) then
+		for k, v in pairs(plan.instant) do obj[k] = v end
+		instant = TweenService:Create(obj, TweenInfo.new(0), plan.instant)
+		instant:Play()
+		track(obj, instant, plan.instant)
+	end
+	if next(plan.tween) then
+		local tw = TweenService:Create(obj, TweenInfo.new(seconds, style or Enum.EasingStyle.Quint,
+			dir or Enum.EasingDirection.Out), plan.tween)
+		tw:Play()
+		track(obj, tw, plan.tween)
+		return tw
+	end
+	if instant then return instant end
+	-- everything was an exit's dropped drift: still hand back a real tween that completes
+	local none = TweenService:Create(obj, TweenInfo.new(0), {})
+	none:Play()
+	return none
+end
 
 -- ============ COLOUR: roles, not decoration (DESIGN.md section 2) ============
 local rgb = Color3.fromRGB
@@ -1153,55 +1256,6 @@ arbitrate = function()
 		local mode = (lift and not tray.Visible) and ((best == lift) and "full" or "dot") or nil
 		paintBadge(moreBadge, moreBadgeText, mode, lift and lift.label)
 	end
-end
-
--- a reward that pops out of a HUD element and floats away (paydays, sales)
-function UIKit.popReward(parent, text, at, color)
-	local TweenService = game:GetService("TweenService")
-	local l = Instance.new("TextLabel")
-	l.BackgroundTransparency = 1
-	l.AnchorPoint = Vector2.new(0.5, 0.5)
-	l.Position = at
-	l.Size = UDim2.new(0, 240, 0, 40)
-	l.Font = UIKit.HEAD
-	l.TextSize = UIKit.TYPE.headline
-	l.Text = text
-	l.TextColor3 = color or UIKit.GOLD
-	l.TextStrokeColor3 = UIKit.INK
-	l.TextStrokeTransparency = 0.2
-	l.ZIndex = 20
-	l.Parent = parent
-	local sc = Instance.new("UIScale")
-	sc.Scale = 0.3
-	sc.Parent = l
-	TweenService:Create(sc, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Scale = 1 }):Play()
-	-- coins burst out of the same point
-	for k = 1, 8 do
-		local c = Instance.new("Frame")
-		c.AnchorPoint = Vector2.new(0.5, 0.5)
-		c.Position = at
-		c.Size = UDim2.new(0, 12, 0, 12)
-		c.BackgroundColor3 = UIKit.GOLD
-		c.BorderSizePixel = 0
-		c.ZIndex = 19
-		c.Parent = parent
-		Instance.new("UICorner", c).CornerRadius = UDim.new(1, 0)
-		local st = Instance.new("UIStroke", c)
-		st.Color = darker(UIKit.GOLD, 0.55)
-		st.Thickness = 1.5
-		local a = (k / 8) * math.pi * 2 + math.random() * 0.4
-		local r = 70 + math.random() * 40
-		local goal = at + UDim2.new(0, math.cos(a) * r, 0, math.sin(a) * r * 0.6)
-		TweenService:Create(c, TweenInfo.new(0.55, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-			{ Position = goal, BackgroundTransparency = 1 }):Play()
-		TweenService:Create(st, TweenInfo.new(0.55), { Transparency = 1 }):Play()
-		task.delay(0.6, function() c:Destroy() end)
-	end
-	task.delay(0.55, function()
-		TweenService:Create(l, TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
-			{ Position = at - UDim2.new(0, 0, 0, 46), TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
-	end)
-	task.delay(1.5, function() l:Destroy() end)
 end
 
 -- money formatting, one place

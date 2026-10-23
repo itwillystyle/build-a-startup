@@ -131,7 +131,7 @@ local function show(prompt, inputType)
 	table.insert(conns, prompt.PromptButtonHoldBegan:Connect(function()
 		if not bar then return end
 		bar.Size = UDim2.new(0, 0, 0, 5)
-		holdTween = TweenService:Create(bar, TweenInfo.new(prompt.HoldDuration, Enum.EasingStyle.Linear), { Size = UDim2.new(1, -12, 0, 5) })
+		holdTween = TweenService:Create(bar, TweenInfo.new(prompt.HoldDuration, Enum.EasingStyle.Linear), { Size = UDim2.new(1, -12, 0, 5) })   -- motion: progress
 		holdTween:Play()
 	end))
 	table.insert(conns, prompt.PromptButtonHoldEnded:Connect(function()

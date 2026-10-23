@@ -28,4 +28,20 @@ test("the tower lobby's entrance canopy is a roof, and only it is exempt (not ev
 	assert(W.ALLOW.Canopy == nil, "a bare 'Canopy' exempts every canopy in the world")
 end)
 
+-- 23 Oct: "stand on every storey" read a rest of exactly 4.00 (the drop height) on random floors,
+-- twice in two runs: the client had not simulated the fall yet when a fixed 1.2 s wait read it.
+-- W.settled(ys, dropY): the root's heights, oldest first, have left the drop point and held still.
+test("a character that has not moved off the drop point has not settled", function()
+	assert(not W.settled({ 104, 104, 104, 104 }, 104), "still at the drop height: the client has not run yet")
+end)
+
+test("a character still falling has not settled", function()
+	assert(not W.settled({ 104, 103.6, 102.8, 101.5 }, 104), "falling")
+end)
+
+test("a character that fell and held still for 3 samples has settled", function()
+	assert(W.settled({ 104, 102, 100.43, 100.42, 100.42 }, 104), "landed")
+	assert(not W.settled({ 104, 100.42, 100.42 }, 104), "two still samples is not enough")
+end)
+
 return T
