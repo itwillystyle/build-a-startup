@@ -180,4 +180,23 @@ test("held phone banners: the newest one per thread, at most PHONE_HELD in all, 
 	assert(held[1].key == "call" and held[2].text == "Your VIP left", "a newer one moves to the back")
 end)
 
+-- 24 Oct (F-6, doctor FEEL "cards over cards" at HQ 18/43/100): coachOk let a tip show while the goal
+-- spoke, so two instructions were on screen and the tip's card landed on the goal pill. A tip is an
+-- instruction: while it shows it is the voice ("tip", under a button, the job and LAUNCH!, over the
+-- goal) and the goal folds to its 44 px icon, as it does under a button or LAUNCH!
+test("a coach tip on screen is the voice: the goal folds to its icon until GOT IT", function()
+	local p = V.pick({ tip = true, goal = true })
+	assert(p.voice == "tip", "the tip speaks over the goal")
+	assert(p.goal == "icon" and p.marker == false, "the goal folds to its icon, no marker")
+	assert(V.folds("tip"), "GuideClient folds the card under a tip")
+	assert(V.count(p, 0) == 1, "one instruction: the tip (the goal's words are folded)")
+	assert(V.pick({ verb = "code", tip = true, goal = true }).voice == "verb", "a button still beats a tip")
+	assert(V.pick({ carrying = true, tip = true, goal = true }).voice == "job", "the job in hand still beats a tip")
+	assert(V.pick({ launch = true, tip = true, goal = true }).voice == "launch", "LAUNCH! (with its own tip) stays the voice")
+	assert(V.coachOk("tip", "Rail.Column.BagButton"), "the tip does not hide itself for being the voice")
+	assert(not V.milestoneOk("tip"), "GO PUBLIC waits for GOT IT")
+	assert(V.phoneOk("tip"), "a phone banner may come (the tip steps aside for any banner: Notify.busy)")
+	assert(V.prompt(p, "ask", true) == "off" and V.prompt(p, "world", false) == "draw", "no ask beside a tip; the way stays")
+end)
+
 return T

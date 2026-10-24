@@ -9,7 +9,8 @@
 	  1. "verb"   the button you can press here (HOLD TO CODE at the laptop, GIVE by your client)
 	  2. "job"    the job in your hands (an app you carry, a job you started coding, a recruit)
 	  3. "launch" LAUNCH! (an app is ready and your hands are free)
-	  4. "goal"   the goal card
+	  4. "tip"    a coach tip on screen (24 Oct, F-6: a tip is an instruction, so the goal gives way)
+	  5. "goal"   the goal card
 	What folds: under a verb or LAUNCH! the goal card is its 44 px icon (no words, still a tap
 	to look) and its world marker hides; under the job the card names the job (the server's
 	goal is give / finish mid-job, Clients.goal) and LAUNCH! waits as a small chip whose
@@ -31,8 +32,9 @@ function OneVoice.verbOf(a)
 end
 
 -- does this voice fold the goal card to its icon (and hide its marker)? GuideClient reads the voice
+-- 24 Oct (F-6): and under a coach tip, until GOT IT (the tip's card had landed on the goal pill)
 function OneVoice.folds(voice)
-	return voice == "verb" or voice == "launch"
+	return voice == "verb" or voice == "launch" or voice == "tip"
 end
 
 -- 24 Oct (live): may a milestone button (GO PUBLIC!) show? Only on a calm screen or while the goal
@@ -44,8 +46,9 @@ end
 -- 24 Oct (live): may a phone banner (an investor's text, a term sheet, a desk notice) slide in? Not
 -- under a button or the job in hand: at the laptop an investor's opener sat ~7 s beside HOLD TO CODE.
 -- It waits (PhoneClient holds it) and shows the moment the voice drops; the badge counts it at once
+-- 24 Oct (F-6): beside a tip too: a banner is a Notify, and the tip steps aside for it (Notify.busy)
 function OneVoice.phoneOk(voice)
-	return voice == nil or voice == "goal" or voice == "launch"
+	return voice == nil or voice == "goal" or voice == "launch" or voice == "tip"
 end
 
 -- the banners a waiting phone keeps: the newest one per thread (key), at most PHONE_HELD in all,
@@ -61,13 +64,15 @@ function OneVoice.holdBanner(held, key, item)
 	return held
 end
 
--- st = { verb, carrying, midJob, recruit, launch, goal } (launch: an app waits; goal: the card has a goal)
+-- st = { verb, carrying, midJob, recruit, launch, tip, goal } (launch: an app waits; tip: a coach tip is on
+-- screen, CoachClient's CoachShowing; goal: the card has a goal)
 -- -> { voice, verb, goal = "words"|"icon"|"hidden", launch = "button"|"chip"|nil, marker }
 function OneVoice.pick(st)
 	local voice
 	if st.verb then voice = "verb"
 	elseif st.carrying or st.midJob or st.recruit then voice = "job"
 	elseif st.launch then voice = "launch"
+	elseif st.tip then voice = "tip"
 	elseif st.goal then voice = "goal" end
 	local folded = OneVoice.folds(voice)
 	local launch
@@ -105,18 +110,20 @@ function OneVoice.prompt(pick, role, nearGoal)
 	return pick.voice == "verb" and "off" or "draw"
 end
 
--- may a coach tip show? Only on a calm screen, or the LAUNCH tip beside LAUNCH! itself
+-- may a coach tip show? Only on a calm screen, or the LAUNCH tip beside LAUNCH! itself.
+-- 24 Oct (F-6): once it shows it is the voice ("tip"), and that does not hide it
 function OneVoice.coachOk(voice, tipTarget)
-	if voice == nil or voice == "goal" then return true end
+	if voice == nil or voice == "goal" or voice == "tip" then return true end
 	return voice == "launch" and tipTarget == "Hud.Launch"
 end
 
--- instructions on screen: the card's words, the button, LAUNCH! as a button, drawn prompts
+-- instructions on screen: the card's words, the button, LAUNCH! as a button, a coach tip, drawn prompts
 function OneVoice.count(pick, promptsDrawn)
 	local n = promptsDrawn or 0
 	if pick.goal == "words" then n += 1 end
 	if pick.voice == "verb" then n += 1 end
 	if pick.launch == "button" then n += 1 end
+	if pick.voice == "tip" then n += 1 end
 	return n
 end
 
