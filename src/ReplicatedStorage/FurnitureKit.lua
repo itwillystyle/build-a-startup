@@ -621,6 +621,21 @@ end
 	turned. A row of identically square workstations reads as a spreadsheet --
 	the chair angle is what makes it read as a room people actually use.
 ]]
+--[[ 24 Oct (art pass 4): the monitors on a desk top, one per slot ({ x across the desk, yaw in degrees,
+	scale }); no slots = today's one monitor in the middle. Named Monitor, MonitorB, ... Each keeps its
+	Glow screen in the accent colour. Returns the monitors put (a missing kit piece is skipped). ]]
+function FurnitureKit.monitors(deskTop, parent, slots, accent)
+	local out = {}
+	for i, sl in ipairs(slots or { { x = 0, yaw = 0, scale = 1 } }) do
+		local m = FurnitureKit.put("computerScreen", deskTop * CFrame.new(sl.x, 0, -0.55), parent, {
+			name = (i == 1) and "Monitor" or ("Monitor" .. string.char(64 + i)),
+			glow = accent, yaw = sl.yaw ~= 0 and sl.yaw or nil, scale = sl.scale ~= 1 and sl.scale or nil,
+		})
+		if m then table.insert(out, m) end
+	end
+	return out
+end
+
 function FurnitureKit.workstation(baseCF, x, z, floorY, parent, opts)
 	opts = opts or {}
 	local yaw = opts.yaw or 0
@@ -632,8 +647,10 @@ function FurnitureKit.workstation(baseCF, x, z, floorY, parent, opts)
 	local deskTop = baseCF * CFrame.new(x, floorY + SIZE.desk.Y, z)
 		* CFrame.Angles(0, math.rad(yaw), 0)
 
-	made.screen = FurnitureKit.put("computerScreen", deskTop * CFrame.new(0, 0, -0.55),
-		parent, { name = "Monitor", glow = opts.accent })
+	-- 24 Oct (art pass 4): opts.slots puts one or two monitors on the desk (OfficeLayout.monitorSlots)
+	made.deskTop = deskTop
+	made.screens = FurnitureKit.monitors(deskTop, parent, opts.slots, opts.accent)
+	made.screen = made.screens[1]
 	made.glow = made.screen and made.screen:FindFirstChild("Glow")
 	made.keyboard = FurnitureKit.put("computerKeyboard", deskTop * CFrame.new(0, 0, 0.45),
 		parent, { name = "Keyboard" })

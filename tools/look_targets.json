@@ -5,5 +5,6 @@
   "mean_max": 0.68,
   "spread_min": 0.50,
   "sat_min": 0.32,
-  "lowq": { "spread_min": 0.40 }
+  "lowq": { "spread_min": 0.40 },
+  "night": { "dark_max": 0.40, "_why": "art pass 4 (24 Oct): plan 1 accepted 40% near-black at night (ledger Task 6)" }
 }

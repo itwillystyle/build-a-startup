@@ -376,13 +376,61 @@ Probes.LOOK_CAMS = {
 	C1 = { eye = Vector3.new(-5.5, 7.5, -13.5), at = Vector3.new(9, 3.5, 5) },
 	C2 = { eye = Vector3.new(0, 9, 52), at = Vector3.new(0, 5, 10) },
 }
+--[[ 24 Oct (art pass 4, Task 1): C3, the tower office. The doctor's own department mix has no desk
+	room at level 13 or above (WaferPlan.recommend), so the scenario office:<dept> builds the room it
+	needs: it pins that department at L, then rebuilds to hq. Each L except the lobby is a seg 3 room,
+	so the floor station is in the view. ]]
+Probes.REVIEW_ROOM = {
+	eng = { L = 13, hq = 18 }, studio = { L = 13, hq = 18 }, cafe = { L = 13, hq = 18 },
+	servers = { L = 13, hq = 18 }, labs = { L = 22, hq = 26 }, board = { L = 72, hq = 72 },
+	lobby = { L = 2, hq = 18 },
+}
+-- the C3 pose in a room's own frame (origin at the room centre on the floor, +Z out to the facade):
+-- the front-left corner, head high, looking across the room and a little back, so the glass is on the
+-- right and the feature wall ahead, as in the mock (ui/art-pass/tower-office.png)
+function Probes.roomCam(r)
+	return Vector3.new(-r.w / 2 + 3.5, 6.5, r.d / 2 - 7), Vector3.new(r.w / 2 - 4, 3, -r.d / 6)
+end
+
+-- C3: the plot's L<level> room, from its Storey/Seg attributes and the plot folder's Pivot
+local function roomFrame(plot, level)
+	local wf = plot:FindFirstChild("Wafers")
+	local pv = plot:GetAttribute("Pivot")
+	if not (wf and typeof(pv) == "CFrame") then return nil, "no tower on this plot" end
+	local prefix = ("L%03d_segment"):format(level)
+	for _, m in ipairs(wf:GetChildren()) do
+		if m.Name:sub(1, #prefix) == prefix then
+			local storey, seg = m:GetAttribute("Storey"), m:GetAttribute("Seg")
+			if not (storey and seg) then return nil, m.Name .. " has no Storey/Seg" end
+			local T = require(script.Parent:WaitForChild("TowerPlan"))
+			local f = T.frame({ kind = "segment", storey = storey, seg = seg })
+			local anchor = pv * CFrame.new(f.x, T.floorY(storey), f.z) * CFrame.Angles(0, f.yaw, 0)   -- as Wafers.anchor
+			return anchor, T.room(storey, seg)
+		end
+	end
+	return nil, ("no room at L%d (run office:<dept> first)"):format(level)
+end
+
 function Probes.lookcam(args)
-	local name = args and args.cam or "C1"
-	local spot = Probes.LOOK_CAMS[name]
-	if not spot then return { ok = false, why = "no camera " .. tostring(name) .. " yet (plans 3 and 4)" } end
+	args = args or {}
+	local name = args.cam or "C1"
 	local player = game:GetService("Players").LocalPlayer
 	local plotNo = player:GetAttribute("Plot")
 	local plot = plotNo and workspace:FindFirstChild("SiliconValley") and workspace.SiliconValley.Plots:FindFirstChild("Plot" .. plotNo)
+	if name == "C3" then
+		if not plot then return { ok = false, why = "no plot" } end
+		local level = tonumber(args.level) or Probes.REVIEW_ROOM.eng.L
+		local anchor, r = roomFrame(plot, level)
+		if not anchor then return { ok = false, why = r } end
+		local eye, at = Probes.roomCam(r)
+		local cam = workspace.CurrentCamera
+		cam.CameraType = Enum.CameraType.Scriptable
+		cam.CFrame = CFrame.lookAt(anchor:PointToWorldSpace(eye), anchor:PointToWorldSpace(at))
+		task.delay(tonumber(args.hold) or 6, function() cam.CameraType = Enum.CameraType.Custom end)
+		return { ok = true, cam = name, level = level }
+	end
+	local spot = Probes.LOOK_CAMS[name]
+	if not spot then return { ok = false, why = "no camera " .. tostring(name) .. " yet (plan 3)" } end
 	local floor = plot and plot:FindFirstChild("GarageFloor", true)
 	if not floor then return { ok = false, why = "no garage (the review cameras are for the garage levels)" } end
 	local g = floor.CFrame * CFrame.new(0, 2, 0)
