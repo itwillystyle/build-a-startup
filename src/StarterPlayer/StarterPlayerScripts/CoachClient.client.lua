@@ -17,6 +17,7 @@ local TweenService = game:GetService("TweenService")
 local player = Players.LocalPlayer
 local UIKit = require(RS:WaitForChild("UIKit"))
 local Notify = require(RS:WaitForChild("Notify"))
+local OneVoice = require(RS:WaitForChild("OneVoice"))   -- 24 Oct: one instruction at a time (rule A)
 local seenRemote = RS:WaitForChild("SVRemotes"):WaitForChild("CoachSeen")
 
 local gui = Instance.new("ScreenGui")
@@ -226,7 +227,10 @@ task.spawn(function()
 		local id = player:GetAttribute("CoachTip")
 		if current and current.id ~= id then finish(false) end
 		-- v5: also any menu or decision card (a BAG tip opened on top of the spin-off confirm)
+		-- 24 Oct (one voice): and never beside a live button or the job in your hands (the LAUNCH
+		-- tip may sit beside LAUNCH! itself: they say the same thing)
 		local busy = Notify.busy() or goalBusy() or UIKit.menuOpen()
+			or not OneVoice.coachOk(player:GetAttribute("OneVoice"), player:GetAttribute("CoachTarget"))
 		if busy then calmSince = nil elseif not calmSince then calmSince = os.clock() end
 		if current then
 			setShown(current, not busy)

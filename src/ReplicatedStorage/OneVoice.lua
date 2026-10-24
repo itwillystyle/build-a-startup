@@ -28,6 +28,11 @@ function OneVoice.verbOf(a)
 	return nil
 end
 
+-- does this voice fold the goal card to its icon (and hide its marker)? GuideClient reads the voice
+function OneVoice.folds(voice)
+	return voice == "verb" or voice == "launch"
+end
+
 -- st = { verb, carrying, midJob, recruit, launch, goal } (launch: an app waits; goal: the card has a goal)
 -- -> { voice, verb, goal = "words"|"icon"|"hidden", launch = "button"|"chip"|nil, marker }
 function OneVoice.pick(st)
@@ -36,7 +41,7 @@ function OneVoice.pick(st)
 	elseif st.carrying or st.midJob or st.recruit then voice = "job"
 	elseif st.launch then voice = "launch"
 	elseif st.goal then voice = "goal" end
-	local folded = voice == "verb" or voice == "launch"
+	local folded = OneVoice.folds(voice)
 	local launch
 	if st.launch then launch = voice == "launch" and "button" or "chip" end
 	return {

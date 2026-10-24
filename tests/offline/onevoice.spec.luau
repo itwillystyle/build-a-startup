@@ -37,6 +37,15 @@ test("the ladder: a button beats the job, the job beats LAUNCH!, LAUNCH! beats t
 	assert(p.voice == nil and p.goal == "hidden", "nothing at all")
 end)
 
+test("the goal card reads the voice: it folds to its icon under a button or LAUNCH!, never under the job", function()
+	assert(V.folds("verb") and V.folds("launch"), "a button or LAUNCH! folds the card")
+	assert(not V.folds("job") and not V.folds("goal") and not V.folds(nil), "the job and the goal speak through the card")
+	for _, st in ipairs({ { verb = "code", goal = true }, { carrying = true, goal = true }, { launch = true, goal = true }, { goal = true } }) do
+		local p = V.pick(st)
+		assert(V.folds(p.voice) == (p.goal == "icon"), "folds() and pick() disagree for " .. tostring(p.voice))
+	end
+end)
+
 test("a started job or a recruit you carry is a job in your hands too", function()
 	assert(V.pick({ midJob = true, launch = true, goal = true }).voice == "job", "a started job is in your hands")
 	assert(V.pick({ recruit = true, launch = true, goal = true }).voice == "job", "a recruit you walk home is in your hands")

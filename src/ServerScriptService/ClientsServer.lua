@@ -659,6 +659,9 @@ return function(core)
 				player:SetAttribute("AtLaptop", atLaptop)
 				player:SetAttribute("ClientsWaiting", #P.Q.line)
 				player:SetAttribute("JobWaiting", front ~= nil)
+				-- 24 Oct (one instruction, rule A): a job you started coding is a job in your hands;
+				-- HudClient folds LAUNCH! to its chip for it, as the server pauses its clock (OneVoice)
+				player:SetAttribute("MidJob", Clients.started(P.Q) ~= nil)
 				local target = carried and P.rigs[carried.id] or (P.Q.line[1] and P.rigs[P.Q.line[1].id])
 				P.frontPos = target and target.Parent and target:GetPivot().Position or nil
 			end
@@ -734,6 +737,7 @@ return function(core)
 		player:SetAttribute("CarryingApp", false)
 		player:SetAttribute("CanGive", false)
 		player:SetAttribute("CodeProgress", 0)
+		player:SetAttribute("MidJob", false)   -- 24 Oct: the line is gone, so is the job you started
 		if P or first then
 			task.spawn(function()
 				if first then
