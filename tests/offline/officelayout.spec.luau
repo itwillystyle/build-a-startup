@@ -148,6 +148,15 @@ test("surfaces: the lobby only gets the floor, servers a navy wall with no base,
 		local s = OL.surfaces(d)
 		assert(s.floor == C.floor and s.back == C.oak and s.base == C.navy, d .. ": oak over navy")
 	end
+	-- 24 Oct (Task 6, round 1): the mock's ceiling is dark navy over the room; the white one filled half
+	-- of the C3 frame (spread 0.45, sat 0.30 vs the targets 0.50 / 0.32). The lobby keeps its own
+	assert(OL.COLORS.ceiling ~= nil, "a ceiling colour")
+	assert(lobby.ceiling == nil, "the lobby keeps its ceiling (ruling 4)")
+	for _, d in ipairs({ "eng", "labs", "studio", "cafe", "board", "servers" }) do
+		assert(OL.surfaces(d).ceiling == C.ceiling, d .. ": the navy ceiling")
+	end
+	local f = C.floor
+	assert((0.2126 * f[1] + 0.7152 * f[2] + 0.0722 * f[3]) / 255 <= 0.66, "round 1: the floor a step darker (was 0.74)")
 end)
 
 -- ---------------------------------------------------------------- Task 4: the dressing

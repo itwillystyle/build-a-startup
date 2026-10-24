@@ -32,7 +32,8 @@ function OfficeLayout.with(T, SR)
 		slate, so these are ValleyBlue at a lower value. Oak is the anchor itself: the feature wall is
 		architecture, so it is oak-COLOURED SmoothPlastic (ART.md bans Wood on buildings; ruling 2). ]]
 	OL.COLORS = {
-		floor = { 196, 188, 174 },     -- matte warm grey (luminance 0.74: not the blown near-white)
+		floor = { 168, 160, 148 },     -- matte warm grey (24 Oct Task 6 round 1: 0.74 -> 0.63, the C3 frame read flat)
+		ceiling = { 38, 66, 108 },     -- 24 Oct Task 6 round 1: the mock's dark navy ceiling (ValleyBlue family)
 		oak = { 192, 138, 85 },        -- Palette Oak
 		navy = { 38, 66, 108 },        -- ValleyBlue family
 		navyDeep = { 26, 48, 80 },     -- ValleyBlue family, darker: the server room's wall
@@ -46,8 +47,8 @@ function OfficeLayout.with(T, SR)
 	function OL.surfaces(dept)
 		local C = OL.COLORS
 		if dept == "lobby" then return { floor = C.floor } end
-		if dept == "servers" then return { floor = C.floor, back = C.navyDeep } end
-		return { floor = C.floor, back = C.oak, base = C.navy }
+		if dept == "servers" then return { floor = C.floor, back = C.navyDeep, ceiling = C.ceiling } end
+		return { floor = C.floor, back = C.oak, base = C.navy, ceiling = C.ceiling }
 	end
 
 	-- the room's furniture as it stood before art pass 4 (Wafers.furnish, 23 Oct), one piece per thing:

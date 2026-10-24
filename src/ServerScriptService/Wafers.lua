@@ -581,7 +581,7 @@ local function buildSegment(plot, L, dept, model, company)
 		table.insert(parts, slabBox(model, plot, "Floor", r.x0, r.x1, r.z0, r.z1, y - SLAB, y, { Color = rgb(surf.floor), Material = Enum.Material.SmoothPlastic }))
 	end
 	table.insert(parts, slabBox(model, plot, "Ceiling", r.x0, r.x1, r.z0, r.z1, y + h - 0.4, y + h,
-		{ Color = Color3.fromRGB(250, 248, 242), Material = Enum.Material.SmoothPlastic, CanCollide = false, CastShadow = false }))
+		{ Color = surf.ceiling and rgb(surf.ceiling) or Color3.fromRGB(250, 248, 242), Material = Enum.Material.SmoothPlastic, CanCollide = false, CastShadow = false }))   -- 24 Oct: navy in offices (OfficeLayout)
 	local lobby = (pc.storey == 0 and pc.seg == 1)
 	for _, side in ipairs({ "px", "nx", "pz", "nz" }) do
 		local kind = r.sides[side]
