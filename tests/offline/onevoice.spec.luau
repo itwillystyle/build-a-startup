@@ -199,4 +199,46 @@ test("a coach tip on screen is the voice: the goal folds to its icon until GOT I
 	assert(V.prompt(p, "ask", true) == "off" and V.prompt(p, "world", false) == "draw", "no ask beside a tip; the way stays")
 end)
 
+-- 24 Oct (doctor FEEL "cards over cards" at hq:5, 1074 x 376): Quest.Holder.Quest under PhoneNotify.Banner,
+-- 1,936 px2. phoneOk lets a banner in beside the goal (and LAUNCH!), and both use the top row: two
+-- things talking at once. A banner on screen is the voice "phone" (where a tip sits: under a button,
+-- the job and LAUNCH!, over the tip and the goal); the goal folds to its icon until it leaves
+test("a phone banner on screen is the voice: the goal folds to its icon until it leaves", function()
+	local p = V.pick({ phone = true, goal = true })
+	assert(p.voice == "phone", "the banner speaks over the goal")
+	assert(p.goal == "icon" and p.marker == false, "the goal folds to its icon, no marker")
+	assert(V.folds("phone"), "GuideClient folds the card under a banner")
+	assert(V.count(p, 0) == 1, "one voice: the banner (the goal's words are folded)")
+	assert(V.pick({ phone = true, tip = true, goal = true }).voice == "phone", "a tip steps aside for a banner (Notify.busy)")
+	assert(V.pick({ verb = "code", phone = true, goal = true }).voice == "verb", "a button still beats a banner")
+	assert(V.pick({ carrying = true, phone = true, goal = true }).voice == "job", "the job in hand still beats a banner")
+	assert(V.pick({ launch = true, phone = true, goal = true }).voice == "launch", "LAUNCH! stays the voice beside a banner")
+	assert(V.phoneOk("phone"), "the banner does not hide itself for being the voice (it would flicker out and back)")
+	assert(not V.coachOk("phone", "Rail.Column.BagButton") and not V.milestoneOk("phone"), "a tip and GO PUBLIC wait for it")
+	assert(V.prompt(p, "ask", true) == "off" and V.prompt(p, "world", false) == "draw", "no ask beside a banner; the way stays")
+end)
+
+-- the same finding, measured from the code: the pill's holder is fitted below the money line (UIKit.fitMenu
+-- puts its top at y 106 on a 376 px screen), the banner slides to y 96 and is 78 tall, centred (380 wide).
+-- The folded icon sat wholly under it: 44 x 44 = 1,936 px2, the doctor's number. So folding alone is not
+-- enough; the banner drops below the goal card when its usual row would cover it
+local function overlaps(a, b)   -- the doctor's rule (DoctorProbes.ui): > 6 px both ways
+	local ox = math.min(a.x + a.w, b.x + b.w) - math.max(a.x, b.x)
+	local oy = math.min(a.y + a.h, b.y + b.h) - math.max(a.y, b.y)
+	return ox > 6 and oy > 6
+end
+test("a phone banner keeps off the goal card's icon (the doctor's > 6 px rule)", function()
+	local banner = { x = 347, y = 96, w = 380, h = 78 }
+	local icon = { x = 515, y = 106, w = 44, h = 44 }
+	assert(overlaps(banner, icon), "the hq:5 finding: on its usual row the banner covers the icon")
+	local y = V.bannerY(banner, icon)
+	assert(not overlaps({ x = banner.x, y = y, w = banner.w, h = banner.h }, icon), "moved, it does not")
+	assert(y == 106 + 44 + V.BANNER_GAP, "just below the icon, not further down the screen")
+	assert(y + banner.h <= 376 - 118, "still above the bottom action slot (LAUNCH! / HOLD TO CODE)")
+	local pill = { x = 387, y = 64, w = 300, h = 44 }
+	assert(not overlaps({ x = banner.x, y = V.bannerY(banner, pill), w = banner.w, h = banner.h }, pill), "the open pill too")
+	assert(V.bannerY(banner, nil) == 96, "no goal card on screen: the usual row")
+	assert(V.bannerY(banner, { x = 20, y = 106, w = 44, h = 44 }) == 96, "a goal card off to the side: the usual row")
+end)
+
 return T

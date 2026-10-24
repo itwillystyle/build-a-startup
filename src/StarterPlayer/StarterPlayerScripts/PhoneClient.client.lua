@@ -921,6 +921,26 @@ local bnText = UIKit.label(banner, "", UIKit.TYPE.caption, UIKit.CARD_MUTED, { P
 	TextTruncate = Enum.TextTruncate.AtEnd, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top }, BODY)
 local bannerSerial, bannerThread, bannerDone = 0, nil, nil
 local bannerShown          -- 24 Oct: { th, text, priority } of the banner on screen (so it can step out and wait)
+--[[ 24 Oct (doctor FEEL "cards over cards" at hq:5): a banner on screen is the voice "phone" (HudClient
+	reads PhoneBannerShowing into OneVoice.pick), so the goal card folds to its icon until it leaves.
+	Read from Visible, so every way out (7 s, a tap, stepping out under a button) unfolds the card. ]]
+banner:GetPropertyChangedSignal("Visible"):Connect(function()
+	if player:GetAttribute("PhoneBannerShowing") ~= banner.Visible then player:SetAttribute("PhoneBannerShowing", banner.Visible) end
+end)
+-- 24 Oct: and its row keeps off the goal card (OneVoice.bannerY): on a 376 px screen the folded icon
+-- sat wholly under the banner's usual row (y 96), 1,936 px2
+local function goalRect()
+	local q = player.PlayerGui:FindFirstChild("Quest")
+	local card = q and q.Enabled and q:FindFirstChild("Holder") and q.Holder:FindFirstChild("Quest")
+	if not (card and card.Visible) then return nil end
+	local p = card.AbsolutePosition - notify.AbsolutePosition
+	return { x = p.X, y = p.Y, w = card.AbsoluteSize.X, h = card.AbsoluteSize.Y }
+end
+local function bannerRow()
+	local cx = banner.Position.X.Offset   -- centreOn: the centre x in notify's space (AnchorPoint 0.5)
+	local w, h = banner.Size.X.Offset, banner.Size.Y.Offset
+	return OneVoice.bannerY({ x = cx - w / 2, y = 96, w = w, h = h }, goalRect())
+end
 local function showBannerNow(th, text, done)
 	bannerSerial += 1
 	local mine = bannerSerial
@@ -939,7 +959,7 @@ local function showBannerNow(th, text, done)
 	bnText.Text = text or ""
 	centreOn(banner, 380, 280, 78, -90)
 	banner.Visible = true
-	TweenService:Create(banner, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Position = atY(banner, 96) }):Play()
+	TweenService:Create(banner, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Position = atY(banner, bannerRow()) }):Play()
 	UIKit.sfx("ding", 1.45, 0.45)
 	task.delay(0.16, function() UIKit.sfx("ding", 1.7, 0.4) end)
 	task.delay(7, function()

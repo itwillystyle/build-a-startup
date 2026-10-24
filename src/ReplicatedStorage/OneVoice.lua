@@ -9,8 +9,9 @@
 	  1. "verb"   the button you can press here (HOLD TO CODE at the laptop, GIVE by your client)
 	  2. "job"    the job in your hands (an app you carry, a job you started coding, a recruit)
 	  3. "launch" LAUNCH! (an app is ready and your hands are free)
-	  4. "tip"    a coach tip on screen (24 Oct, F-6: a tip is an instruction, so the goal gives way)
-	  5. "goal"   the goal card
+	  4. "phone"  a phone banner on screen (24 Oct: the doctor's hq:5 "cards over cards"; a tip steps aside for it)
+	  5. "tip"    a coach tip on screen (24 Oct, F-6: a tip is an instruction, so the goal gives way)
+	  6. "goal"   the goal card
 	What folds: under a verb or LAUNCH! the goal card is its 44 px icon (no words, still a tap
 	to look) and its world marker hides; under the job the card names the job (the server's
 	goal is give / finish mid-job, Clients.goal) and LAUNCH! waits as a small chip whose
@@ -33,8 +34,9 @@ end
 
 -- does this voice fold the goal card to its icon (and hide its marker)? GuideClient reads the voice
 -- 24 Oct (F-6): and under a coach tip, until GOT IT (the tip's card had landed on the goal pill)
+-- 24 Oct: and under a phone banner, until it leaves (the banner sat on the goal pill at hq:5)
 function OneVoice.folds(voice)
-	return voice == "verb" or voice == "launch" or voice == "tip"
+	return voice == "verb" or voice == "launch" or voice == "tip" or voice == "phone"
 end
 
 -- 24 Oct (live): may a milestone button (GO PUBLIC!) show? Only on a calm screen or while the goal
@@ -47,8 +49,23 @@ end
 -- under a button or the job in hand: at the laptop an investor's opener sat ~7 s beside HOLD TO CODE.
 -- It waits (PhoneClient holds it) and shows the moment the voice drops; the badge counts it at once
 -- 24 Oct (F-6): beside a tip too: a banner is a Notify, and the tip steps aside for it (Notify.busy)
+-- 24 Oct: and while a banner is the voice ("phone"): being the voice must not send it back to wait
 function OneVoice.phoneOk(voice)
-	return voice == nil or voice == "goal" or voice == "launch" or voice == "tip"
+	return voice == nil or voice == "goal" or voice == "launch" or voice == "tip" or voice == "phone"
+end
+
+--[[ 24 Oct (doctor FEEL "cards over cards" at hq:5, 1074 x 376): the banner slides to its usual row
+	(y 96), but on a short screen the goal card's holder is fitted below the money line (top y 106), so
+	even the folded 44 px icon sat wholly under the banner (1,936 px2). banner = its rect on the usual
+	row, goal = the goal card's rect or nil, both in one gui's space. Returns the banner's y: the usual
+	row, or just below the goal card when that row would cover it (the doctor's rule, > 6 px both ways) ]]
+OneVoice.BANNER_GAP = 8
+function OneVoice.bannerY(banner, goal)
+	if not goal then return banner.y end
+	local ox = math.min(banner.x + banner.w, goal.x + goal.w) - math.max(banner.x, goal.x)
+	local oy = math.min(banner.y + banner.h, goal.y + goal.h) - math.max(banner.y, goal.y)
+	if ox > 6 and oy > 6 then return goal.y + goal.h + OneVoice.BANNER_GAP end
+	return banner.y
 end
 
 -- the banners a waiting phone keeps: the newest one per thread (key), at most PHONE_HELD in all,
@@ -64,14 +81,16 @@ function OneVoice.holdBanner(held, key, item)
 	return held
 end
 
--- st = { verb, carrying, midJob, recruit, launch, tip, goal } (launch: an app waits; tip: a coach tip is on
--- screen, CoachClient's CoachShowing; goal: the card has a goal)
+-- st = { verb, carrying, midJob, recruit, launch, phone, tip, goal } (launch: an app waits; phone: a phone
+-- banner is on screen, PhoneClient's PhoneBannerShowing; tip: a coach tip is on screen, CoachClient's
+-- CoachShowing; goal: the card has a goal)
 -- -> { voice, verb, goal = "words"|"icon"|"hidden", launch = "button"|"chip"|nil, marker }
 function OneVoice.pick(st)
 	local voice
 	if st.verb then voice = "verb"
 	elseif st.carrying or st.midJob or st.recruit then voice = "job"
 	elseif st.launch then voice = "launch"
+	elseif st.phone then voice = "phone"   -- 24 Oct: a banner talks; the goal folds until it leaves
 	elseif st.tip then voice = "tip"
 	elseif st.goal then voice = "goal" end
 	local folded = OneVoice.folds(voice)
@@ -117,13 +136,14 @@ function OneVoice.coachOk(voice, tipTarget)
 	return voice == "launch" and tipTarget == "Hud.Launch"
 end
 
--- instructions on screen: the card's words, the button, LAUNCH! as a button, a coach tip, drawn prompts
+-- instructions on screen: the card's words, the button, LAUNCH! as a button, a coach tip, a phone banner
+-- as the voice (24 Oct), drawn prompts
 function OneVoice.count(pick, promptsDrawn)
 	local n = promptsDrawn or 0
 	if pick.goal == "words" then n += 1 end
 	if pick.voice == "verb" then n += 1 end
 	if pick.launch == "button" then n += 1 end
-	if pick.voice == "tip" then n += 1 end
+	if pick.voice == "tip" or pick.voice == "phone" then n += 1 end
 	return n
 end
 
