@@ -280,6 +280,24 @@ function Clients.started(Q)
 	return nil
 end
 
+--[[ 24 Oct (F-5, live on PR #80): the front job that waits for YOU, or nil. With 10-14 staff at
+	the laptop the HUD flipped HOLD TO CODE <-> LAUNCH! every 2-4 s: a client walked up, a free
+	coder took the job at once (tick: front first, one each, never BIG, never the tutorial's) and
+	served it ~2-3 s later. A job a coder takes does not need you, so only these wait for you: a
+	job you started (yours to finish), a BIG or tutorial job (coders never take them), or a small
+	job past the coders' count. `coders` = how many seated coders. ClientsServer's JobWaiting is
+	this, the one place: HOLD TO CODE and the paused LAUNCH! clock (OneVoice.launchHeld) both read it. ]]
+function Clients.waitingForYou(Q, coders)
+	local free = coders or 0
+	for _, c in ipairs(Q.line) do
+		if c ~= Q.carrying and c.done < c.need then
+			if c.yours or c.kind ~= "normal" then return c end
+			if free > 0 then free -= 1 else return c end
+		end
+	end
+	return nil
+end
+
 -- when neither the client loop nor Journey has a goal: serve whoever is waiting
 function Clients.fallback(st)
 	if (st.waiting or 0) > 0 then return { key = "serve", title = "Serve your clients", target = "client" } end

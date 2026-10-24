@@ -658,7 +658,10 @@ return function(core)
 				player:SetAttribute("CodeProgress", mine and (front.done / front.need) or (front and front.done > 0 and front.by == "you" and front.done / front.need) or 0)
 				player:SetAttribute("AtLaptop", atLaptop)
 				player:SetAttribute("ClientsWaiting", #P.Q.line)
-				player:SetAttribute("JobWaiting", front ~= nil)
+				-- 24 Oct (F-5): only a job no coder can take waits for you (Clients.waitingForYou); a
+				-- coder's job flipped HOLD TO CODE <-> LAUNCH! every 2-4 s with a big team. The HUD's
+				-- button and the paused LAUNCH! clock (OneVoice.launchHeld) both read this one flag
+				player:SetAttribute("JobWaiting", Clients.waitingForYou(P.Q, #codersOf(s)) ~= nil)
 				-- 24 Oct (one instruction, rule A): a job you started coding is a job in your hands;
 				-- HudClient folds LAUNCH! to its chip for it, as the server pauses its clock (OneVoice)
 				player:SetAttribute("MidJob", Clients.started(P.Q) ~= nil)

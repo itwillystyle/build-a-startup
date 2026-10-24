@@ -22,6 +22,8 @@ local OneVoice = {}
 
 -- the button you can press right now (HudClient's rule since 18 Oct, option A)
 -- a = { carrying, canGive, jobWaiting, atLaptop }
+-- 24 Oct (F-5): jobWaiting = a job no coder can take waits for you (Clients.waitingForYou, the
+-- server's JobWaiting), so launchHeld below pauses the LAUNCH! clock by the same flag
 function OneVoice.verbOf(a)
 	if a.carrying then return a.canGive and "give" or nil end
 	if a.jobWaiting and a.atLaptop then return "code" end
