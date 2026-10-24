@@ -19,6 +19,7 @@
 local UIKit = {}
 local MenuFit = require(script.Parent:WaitForChild("MenuFit"))   -- v8 (14 Oct): fitMenu's pure half
 local MotionSpec = require(script.Parent:WaitForChild("MotionSpec"))   -- 23 Oct: the motion layer's rules
+local TransparencySpec = require(script.Parent:WaitForChild("TransparencySpec"))   -- 24 Oct: Background Transparency rules
 
 -- ============ MOTION: one layer every UI tween goes through (23 Oct 2026) ============
 --[[ The consensus plan (silicon-startup/ui/animation-review/judge/FINAL.md). MotionSpec (pure,
@@ -120,6 +121,59 @@ function UIKit.tween(obj, seconds, props, style, dir, opts)
 	local none = TweenService:Create(obj, TweenInfo.new(0), {})
 	none:Play()
 	return none
+end
+
+-- ============ BACKGROUND TRANSPARENCY: Roblox's accessibility setting (24 Oct 2026) ============
+--[[ Board item P-4. GuiService.PreferredTransparency: 1 = backgrounds as designed, 0 = fully solid.
+	TransparencySpec (pure, tested) holds the rule (designed * preferred); this applies it.
+	UIKit.preferredTransparency() is the setting, or the player attribute ForcePreferredTransparency
+	(a number, so the doctor and Luke can test it). UIKit.translucent(frame, designed) draws a
+	see-through surface at designed * preferred and keeps it following the setting: ONE shared
+	watch (the setting's change signal + the attribute) moves every registered frame that is at
+	rest on its value, and leaves one that something is fading. UIKit.panel / card / pill register
+	themselves when given a see-through BackgroundTransparency. World (3D) transparency, text,
+	images, and effects (washes, glows, dims) are not backgrounds and do not follow it. ]]
+local preferredSetting = nil
+pcall(function()
+	preferredSetting = game:GetService("GuiService").PreferredTransparency
+end)
+function UIKit.preferredTransparency()
+	local p = game:GetService("Players").LocalPlayer
+	local forced = p and p:GetAttribute("ForcePreferredTransparency")
+	return TransparencySpec.resolve(preferredSetting, forced)
+end
+local translucents = setmetatable({}, { __mode = "k" })   -- frame -> its designed BackgroundTransparency
+local drawnWith = UIKit.preferredTransparency()          -- the value the registered frames show now
+local function followTransparency()
+	local now = UIKit.preferredTransparency()
+	local was = drawnWith
+	drawnWith = now
+	if was == now then return end
+	for obj, designed in pairs(translucents) do
+		local v = TransparencySpec.reapply(obj.BackgroundTransparency, designed, was, now)
+		if v then UIKit.set(obj, { BackgroundTransparency = v }) end
+	end
+end
+pcall(function()
+	local GuiService = game:GetService("GuiService")
+	GuiService:GetPropertyChangedSignal("PreferredTransparency"):Connect(function()
+		preferredSetting = GuiService.PreferredTransparency
+		followTransparency()
+	end)
+end)
+do
+	local p = game:GetService("Players").LocalPlayer
+	if p then p:GetAttributeChangedSignal("ForcePreferredTransparency"):Connect(followTransparency) end
+end
+-- what a see-through surface designed at `designed` should show right now (for a caller fading one in)
+function UIKit.bg(designed)
+	return TransparencySpec.bg(designed, drawnWith)
+end
+function UIKit.translucent(obj, designed)
+	if not TransparencySpec.follows(designed) then return obj end
+	translucents[obj] = designed
+	obj.BackgroundTransparency = TransparencySpec.bg(designed, drawnWith)
+	return obj
 end
 
 -- ============ COLOUR: roles, not decoration (DESIGN.md section 2) ============
@@ -226,6 +280,8 @@ function UIKit.panel(parent, props, opts)
 	f.BackgroundColor3 = opts.color or UIKit.PANEL
 	f.BorderSizePixel = 0
 	apply(f, props)
+	-- 24 Oct: a see-through panel (and so a card or pill) follows Background Transparency
+	if props then UIKit.translucent(f, props.BackgroundTransparency) end
 	f.Parent = parent
 	Instance.new("UICorner", f).CornerRadius = UDim.new(0, opts.radius or 14)
 	local st = Instance.new("UIStroke", f)
