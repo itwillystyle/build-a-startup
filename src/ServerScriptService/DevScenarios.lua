@@ -38,7 +38,7 @@ local snapped = {} -- userId -> true once a snapshot was taken in THIS server
 
 Scen.LIST = {
 	"snapshot", "rich", "ready", "chase:skilled", "chase:star", "chase:genius",
-	"vip-chase", "hq:<n>", "home:<0-3>", "spinoff", "tp:hq", "tp:apt", "tp:car",
+	"vip-chase", "hq:<n>", "office:<dept>", "finish:<W_|T_|D_>", "home:<0-3>", "spinoff", "tp:hq", "tp:apt", "tp:car",
 	"tp:candidate:<tier>", "tp:vip", "tp:door", "geo", "restock", "health", "fresh", "list",
 }
 
@@ -259,9 +259,37 @@ function Scen.run(ctx, player, name)
 	elseif kind == "hq" then
 		local n = tonumber(rest)
 		if not n then return done(false, "usage: hq:<wafer level>") end
+		local t0 = os.clock()
 		step("wlevel", n .. "!")
+		local secs = os.clock() - t0   -- 24 Oct (art pass 4): the rebuild time, for the +20% budget
 		local plot = ctx.plotOf(player)
-		return done(true, nil, { level = plot and plot.wafer and plot.wafer.level })
+		return done(true, nil, { level = plot and plot.wafer and plot.wafer.level, secs = math.floor(secs * 1000) / 1000 })
+	elseif kind == "office" then
+		-- 24 Oct (art pass 4, Task 1): build the C3 review room to order (DoctorProbes.REVIEW_ROOM), from the
+		-- garage up, so its look is the one a fresh build makes. Run finish:<key> first for another finish.
+		local Probes = require(game:GetService("ReplicatedStorage"):WaitForChild("DoctorProbes"))
+		local dept = rest ~= "" and rest or "eng"
+		local rr = Probes.REVIEW_ROOM[dept]
+		if not rr then return done(false, "no review room for '" .. dept .. "'") end
+		if dept ~= "lobby" then
+			local r = step("wdept", rr.L .. "=" .. dept)
+			if type(r) ~= "string" or not r:find("pinned", 1, true) then return done(false, "pin failed: " .. tostring(r)) end
+		end
+		step("wlevel", "1!")
+		local t0 = os.clock()
+		step("wlevel", rr.hq .. "!")
+		local secs = os.clock() - t0
+		step("wdept", "clear")
+		local plot = ctx.plotOf(player)
+		local piece = plot and plot.wafer and plot.wafer.pieces[rr.L]
+		local got = piece and piece.dept
+		return done(got == dept, got ~= dept and ("L%d built as %s"):format(rr.L, tostring(got)) or nil,
+			{ level = rr.L, hq = rr.hq, dept = got, secs = math.floor(secs * 1000) / 1000 })
+	elseif kind == "finish" then
+		-- 24 Oct (art pass 4): the tower's finish for the next build (W_ Glass, T_ Timber, D_ Neon)
+		local key = rest
+		local r = step("wpath", key)
+		return done(type(r) == "string" and r:find("^finish") ~= nil, nil, { finish = key })
 	elseif kind == "fresh" then
 		-- 16 Oct: the garage and the first client, as a brand-new save meets them
 		-- (session only; the save is not touched)

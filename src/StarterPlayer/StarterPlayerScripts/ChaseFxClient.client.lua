@@ -29,6 +29,7 @@ local SoundService = game:GetService("SoundService")
 
 local player = Players.LocalPlayer
 local UIKit = require(RS:WaitForChild("UIKit"))
+local MotionSpec = require(RS:WaitForChild("MotionSpec"))   -- 23 Oct: the camera under Reduce Motion
 local remotes = RS:WaitForChild("SVRemotes")
 local boostRemote = remotes:WaitForChild("CarryBoost", 30)
 local chaseFx = remotes:WaitForChild("ChaseFx", 30)
@@ -146,6 +147,16 @@ cdFill.Parent = btn
 Instance.new("UICorner", cdFill).CornerRadius = UDim.new(0, UIKit.RADIUS.md)
 local btnScale = Instance.new("UIScale", btn)
 
+--[[ 23 Oct: a punched lens going back to 70. Reduce Motion read at the moment it goes back, so
+	turning it on mid-punch snaps the lens home instead of leaving it at 84 or 62. ]]
+local function lensBack(cam, seconds)
+	if MotionSpec.camera(UIKit.reducedMotion()).zoom then
+		TweenService:Create(cam, TweenInfo.new(seconds), { FieldOfView = 70 }):Play()   -- motion: camera
+	else
+		cam.FieldOfView = 70
+	end
+end
+
 local lastBoostSent = -math.huge
 local function boost()
 	if not player:GetAttribute("Carrying") then return end
@@ -154,8 +165,11 @@ local function boost()
 	if boostRemote then boostRemote:FireServer() end
 	play(BOOST_SND, 0.5, 1.1)
 	local cam = workspace.CurrentCamera
-	TweenService:Create(cam, TweenInfo.new(0.15, Enum.EasingStyle.Quad), { FieldOfView = 84 }):Play()
-	task.delay(0.9, function() TweenService:Create(cam, TweenInfo.new(0.4), { FieldOfView = 70 }):Play() end)
+	-- 23 Oct: Reduce Motion: no FOV punch on a boost (the sound and the speed still say it)
+	if MotionSpec.camera(UIKit.reducedMotion()).punch then
+		TweenService:Create(cam, TweenInfo.new(0.15, Enum.EasingStyle.Quad), { FieldOfView = 84 }):Play()   -- motion: camera
+		task.delay(0.9, function() lensBack(cam, 0.4) end)
+	end
 end
 btn.Activated:Connect(boost)
 UserInputService.InputBegan:Connect(function(input, processed)
@@ -344,10 +358,11 @@ RunService.RenderStepped:Connect(function(dt)
 							sets its own FOV every frame from speed and the shot;
 							tweening against that fights it every frame and reads
 							as the picture flickering. ]]
-						if not player:GetAttribute("ChaseCamOwns") then
+						-- 23 Oct: and never under Reduce Motion (the lane and the outline still warn)
+						if not player:GetAttribute("ChaseCamOwns") and MotionSpec.camera(UIKit.reducedMotion()).punch then
 							local cam = workspace.CurrentCamera
-							TweenService:Create(cam, TweenInfo.new(0.08), { FieldOfView = 62 }):Play()
-							task.delay(0.12, function() TweenService:Create(cam, TweenInfo.new(0.35), { FieldOfView = 70 }):Play() end)
+							TweenService:Create(cam, TweenInfo.new(0.08), { FieldOfView = 62 }):Play()   -- motion: camera
+							task.delay(0.12, function() lensBack(cam, 0.35) end)
 						end
 					end
 				else

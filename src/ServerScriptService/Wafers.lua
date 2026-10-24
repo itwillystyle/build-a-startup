@@ -27,6 +27,9 @@ local T = require(RS:WaitForChild("TowerPlan"))   -- v9 (14 Oct): the tower's ge
 local TF = require(RS:WaitForChild("TowerFinish"))       -- 1d: the three finishes
 local TowerArt = require(SSS:WaitForChild("TowerArt"))   -- 1d: the art, from parts
 local LiftPlan = require(RS:WaitForChild("LiftPlan")).with(T)   -- v9.3 (15 Oct, 1b): the lift's rules
+-- 24 Oct (art pass 4): the offices as data (OfficeLayout) and their dressing's builder (OfficeDress)
+local OfficeLayout = require(RS:WaitForChild("OfficeLayout")).with(T, require(RS:WaitForChild("ServerRack")))
+local OfficeDress = require(SSS:WaitForChild("OfficeDress"))
 local SLAB = T.SLAB
 
 local Wafers = {}
@@ -152,6 +155,8 @@ end
 	a lobby-storey floor, clear of the landing, the garage spots and the doorways), then nothing the
 	tower itself built may be in the way: furniture, racks, the station, the shaft, the lift button. ]]
 local CLEAR_OF = { Floor = true, Ceiling = true, Deck = true, RoofBand = true, DeptBand = true, LobbyCanopy = true, RoomTone = true }
+-- 24 Oct (art pass 4): the office rug, its border, the wall base and the art lie flat or hang on a wall
+for name in pairs(OfficeLayout.FLAT_NAMES) do CLEAR_OF[name] = true end
 function Wafers.decorOk(plot, b)
 	local st = plot.wafer
 	if not st or st.level < 2 then return nil end
@@ -425,49 +430,71 @@ local function station(model, anchor, dept, r, plot, L)
 	end)
 end
 
--- the room's furniture in its own frame: origin at the room centre on the floor, +Z out to the facade
-local function furnish(model, anchor, dept, r)
+--[[ the room's furniture in its own frame: origin at the room centre on the floor, +Z out to the facade.
+	24 Oct (art pass 4, Task 2): what stands where is OfficeLayout's data now (tested offline); this
+	only builds it, exactly as before. The racks and the fans keep their own builders here. ]]
+Wafers.OfficeLayout = OfficeLayout
+--[[ 24 Oct (ruling 8): far offices hide their furniture on each client (OfficeCullClient), so every part
+	of a kit piece built here is tagged; the racks, the fans, the station and the signs are not. ]]
+local ROOM_KIT = "SVRoomKit"
+local function furnish(model, anchor, dept, r, company)
 	local FK = api.FK
-	local seats = {}
-	local zOut = r.d / 2 - 4            -- the desk row near the window
-	local function seatAt(x, z, faceOut)
-		local pos = (anchor * CFrame.new(x, 2.4, z)).Position
-		local look = (anchor * CFrame.new(x, 2.4, z + (faceOut and 5 or -5))).Position
-		table.insert(seats, CFrame.lookAt(pos, look))
+	local seats, desks = {}, {}
+	if not FK then return seats, desks end   -- as before: no kit, no furniture and no seats
+	for _, s in ipairs(OfficeLayout.seats(dept, r)) do
+		table.insert(seats, CFrame.lookAt((anchor * CFrame.new(s.x, 2.4, s.z)).Position, (anchor * CFrame.new(s.lookX, 2.4, s.lookZ)).Position))
 	end
-	if not FK then return seats end
-	if dept == "eng" or dept == "labs" or dept == "lobby" then
-		local xs = (dept == "lobby") and { -r.w / 4, r.w / 4 } or { -5.5, 5.5 }
-		for _, x in ipairs(xs) do
-			pcall(FK.workstation, anchor, x, zOut, 0, model, { yaw = 180, accent = Wafers.TINT[dept] })
-			seatAt(x - 0.3, zOut - 2.6, true)
+	for _, pc in ipairs(OfficeLayout.furniture(dept, r, company)) do
+		if pc.kind == "workstation" then
+			local ok, made = pcall(FK.workstation, anchor, pc.x, pc.z, 0, model,
+				{ yaw = pc.yaw, accent = Wafers.TINT[dept], slots = OfficeLayout.monitorSlots(pc.monitors) })
+			if ok and made then
+				for _, k in ipairs({ "desk", "keyboard", "chair" }) do
+					if made[k] then OfficeDress.tagAll(made[k], ROOM_KIT) end
+				end
+				for _, m in ipairs(made.screens or {}) do OfficeDress.tagAll(m, ROOM_KIT) end
+				table.insert(desks, { deskTop = made.deskTop, screens = made.screens or {} })
+			end
+		elseif pc.kind == "kit" then
+			if not (pc.key == "loungeSofa" and not (FK.has and FK.has("loungeSofa"))) then
+				local ok, m = pcall(FK.onFloor, pc.key, anchor, pc.x, pc.z, 0, model, { yaw = pc.yaw, canCollide = pc.canCollide })
+				if ok and m then OfficeDress.tagAll(m, ROOM_KIT) end
+			end
+		elseif pc.kind == "racks" then
+			serverRacks(model, anchor, pc.rm, pc.doorway)
+		elseif pc.kind == "fan" then
+			serverFan(model, anchor * CFrame.new(pc.x, pc.y, pc.z), pc.size, pc.rpm)
 		end
-		if dept == "lobby" and FK.has and FK.has("loungeSofa") then
-			pcall(FK.onFloor, "loungeSofa", anchor, T.LOBBY_SOFA.x, -r.d / 2 + T.LOBBY_SOFA.zFromBack, 0, model, { yaw = 0 })
-		end
-	elseif dept == "studio" then
-		pcall(FK.onFloor, "tableCross", anchor, 0, 0, 0, model)
-		pcall(FK.onFloor, "chairModernCushion", anchor, -3.7, 0.4, 0, model, { yaw = 90 })
-		pcall(FK.onFloor, "chairModernCushion", anchor, 3.7, 0.4, 0, model, { yaw = -90 })
-		for _, x in ipairs({ -3.7, 3.7 }) do
-			table.insert(seats, CFrame.lookAt((anchor * CFrame.new(x, 2.4, 0.4)).Position, (anchor * CFrame.new(0, 2.4, 0.4)).Position))
-		end
-	elseif dept == "cafe" then
-		pcall(FK.onFloor, "tableRound", anchor, 0, 0, 0, model, { canCollide = true })
-		for _, o in ipairs({ { 0, 2.6, 180 }, { 0, -2.6, 0 }, { 2.4, 0, -90 }, { -2.4, 0, 90 } }) do
-			pcall(FK.onFloor, "chairModernCushion", anchor, o[1], o[2], 0, model, { yaw = o[3] })
-			table.insert(seats, CFrame.lookAt((anchor * CFrame.new(o[1], 2.4, o[2])).Position, (anchor * CFrame.new(0, 2.4, 0)).Position))
-		end
-	elseif dept == "servers" then
-		-- the racks' backs on the glass band, the fans just inside the glass (final review I1: the backs
-		-- stood 0.6 outside the facade, rm had been reused as an offset from it)
-		serverRacks(model, anchor, ServerRack.midlineFor(T.inner(r).z), r.terraceDoor ~= nil)
-		for _, x in ipairs({ -9, 9 }) do serverFan(model, anchor * CFrame.new(x, 6.2, T.fanZ(r)), 3.0, 170) end
-	elseif dept == "board" then
-		pcall(FK.onFloor, "tableCross", anchor, -2.2, 0, 0, model)
-		pcall(FK.onFloor, "tableCross", anchor, 2.2, 0, 0, model)
 	end
-	return seats
+	return seats, desks
+end
+
+-- the dressing builder's inputs (OfficeDress.build)
+local function dressDeps(dept)
+	return { OL = OfficeLayout, FK = api.FK, part = api.part, tint = Wafers.TINT[dept], wallT = T.WALL_T }
+end
+
+--[[ 24 Oct (ruling 1): the company reached level 13, so a room built before it gets the company's look
+	now: its monitors re-made from the new slots and its dressing re-built (the third plant). Only the
+	monitors and the Dressing model change; the desks, chairs and seats never move. ]]
+local function redress(piece, company)
+	local o = piece.office
+	local FK = api.FK
+	if not (o and FK and piece.model and piece.model.Parent) then return end
+	if o.dress and o.dress.Parent then o.dress:Destroy() end
+	local slots = OfficeLayout.monitorSlots(OfficeLayout.monitorsAt(company))
+	for _, d in ipairs(o.desks) do
+		for _, m in ipairs(d.screens) do
+			if m.Parent then m:Destroy() end
+		end
+		local ok, made = pcall(FK.monitors, d.deskTop, piece.model, slots, Wafers.TINT[o.dept])
+		d.screens = ok and made or {}
+		for _, m in ipairs(d.screens) do OfficeDress.tagAll(m, ROOM_KIT) end
+	end
+	o.dress = OfficeDress.build(piece.model, o.anchor, o.r, o.dept, company, o.storey, o.seg, dressDeps(o.dept))
+	-- the whole room, as buildPiece does: enforce skips the root it is given, and a vertex monitor IS a root
+	if api.Palette then api.Palette.enforce(piece.model) end
+	o.big = OfficeLayout.monitorsAt(company) >= 2
 end
 
 -- the department's name sign, inside, over the door to the centre hall (or the corner's first door)
@@ -534,7 +561,7 @@ local function lobbyArt(model, plot, r, y)
 	GarageDress.tv(model, plot.pivot * CFrame.new(tv.x, y, wallZ), tv.w, tv.y0, tv.y1)
 end
 
-local function buildSegment(plot, L, dept, model)
+local function buildSegment(plot, L, dept, model, company)
 	local pc = P.PIECES[L]
 	local r = T.room(pc.storey, pc.seg)
 	local y = T.floorY(pc.storey)
@@ -543,18 +570,24 @@ local function buildSegment(plot, L, dept, model)
 	local glassProps = { Color = TF.color(fin.glass), Material = Enum.Material.Glass, Transparency = fin.glassT, CastShadow = false }
 	local cuts = T.cuts(pc.storey, pc.seg)
 	local partProps = { Color = PAPER, Material = Enum.Material.SmoothPlastic }
+	-- 24 Oct (art pass 4, Task 3): a matte grey floor, and the back wall (the feature wall) in oak, or
+	-- dark navy in a server room; the lobby keeps its walls (OfficeLayout.surfaces). SmoothPlastic, no grain
+	local surf = OfficeLayout.surfaces(dept)
+	local function rgb(c) return Color3.fromRGB(c[1], c[2], c[3]) end
+	local backSide = T.backSide(r)
+	local backProps = surf.back and { Color = rgb(surf.back), Material = Enum.Material.SmoothPlastic } or partProps
 	local parts = {}
 	if not T.DECKS[pc.storey - 1] then   -- above a garden the deck is the floor (two slabs in one place would flicker)
-		table.insert(parts, slabBox(model, plot, "Floor", r.x0, r.x1, r.z0, r.z1, y - SLAB, y, { Color = PAPER, Material = Enum.Material.SmoothPlastic }))
+		table.insert(parts, slabBox(model, plot, "Floor", r.x0, r.x1, r.z0, r.z1, y - SLAB, y, { Color = rgb(surf.floor), Material = Enum.Material.SmoothPlastic }))
 	end
 	table.insert(parts, slabBox(model, plot, "Ceiling", r.x0, r.x1, r.z0, r.z1, y + h - 0.4, y + h,
-		{ Color = Color3.fromRGB(250, 248, 242), Material = Enum.Material.SmoothPlastic, CanCollide = false, CastShadow = false }))
+		{ Color = surf.ceiling and rgb(surf.ceiling) or Color3.fromRGB(250, 248, 242), Material = Enum.Material.SmoothPlastic, CanCollide = false, CastShadow = false }))   -- 24 Oct: navy in offices (OfficeLayout)
 	local lobby = (pc.storey == 0 and pc.seg == 1)
 	for _, side in ipairs({ "px", "nx", "pz", "nz" }) do
 		local kind = r.sides[side]
 		if r.entrance and r.entrance.side == side then kind = r.entrance.width end   -- the lobby's entrance
 		if r.terraceDoor == side then kind = "glassdoor" end                       -- the door onto the terrace
-		wallSide(model, plot, r, side, kind, y, h, glassProps, partProps, cuts[side])
+		wallSide(model, plot, r, side, kind, y, h, glassProps, (side == backSide) and backProps or partProps, cuts[side])
 	end
 	TowerArt.facade(model, plot, pc.storey, pc.seg, y, h, fin, glassProps)   -- 1d: fins, band, line, corners
 	TowerArt.ceilingStrip(model, plot, r, y, h, T.darkRoom(L))                 -- 1d: the night's room light
@@ -585,10 +618,15 @@ local function buildSegment(plot, L, dept, model)
 	end
 	if pc.storey == 0 then TowerArt.podium(model, plot, r, y, h, fin) end   -- 1d: planters on the podium roof
 	local anchor = Wafers.anchor(plot, L)
-	local seats = furnish(model, anchor, dept, r)
+	local seats, desks = furnish(model, anchor, dept, r, company)
 	if pc.seg == 3 then station(model, anchor, dept, r, plot, L) end
 	local label = (dept ~= "lobby") and sign(model, plot, r, pc.storey, dept) or nil
-	return parts, {}, seats, label
+	-- 24 Oct (art pass 4): the dressing, and where the room is for OfficeCullClient (its centre, mid-height)
+	model:SetAttribute("RoomCentre", (anchor * CFrame.new(0, h / 2, 0)).Position)
+	local office = { anchor = anchor, r = r, dept = dept, storey = pc.storey, seg = pc.seg, desks = desks,
+		big = OfficeLayout.monitorsAt(company) >= 2 }
+	if api.FK then office.dress = OfficeDress.build(model, anchor, r, dept, company, pc.storey, pc.seg, dressDeps(dept)) end
+	return parts, office, seats, label
 end
 
 -- ---------------------------------------------------------------- gardens, roof, pavilions, crown
@@ -876,7 +914,7 @@ function Wafers.garage(plot, show)
 end
 
 -- ---------------------------------------------------------------- the piece
-local function buildPiece(plot, L, dept, animate)
+local function buildPiece(plot, L, dept, animate, company)
 	local st = stateOf(plot)
 	local pc = P.PIECES[L]
 	local model = Instance.new("Model")
@@ -886,10 +924,10 @@ local function buildPiece(plot, L, dept, animate)
 	model:SetAttribute("Storey", pc.storey)        -- SVCheck's glass pass reads these on the client
 	if pc.kind == "segment" then model:SetAttribute("Seg", pc.seg) end
 	model.Parent = st.folder
-	local seats, label = {}, nil
+	local seats, label, office = {}, nil, nil
 	if pc.kind == "segment" then
-		local _, _
-		_, _, seats, label = buildSegment(plot, L, dept or "eng", model)
+		local _
+		_, office, seats, label = buildSegment(plot, L, dept or "eng", model, company or L)
 	elseif pc.kind == "deck" or pc.kind == "roof" then
 		buildGarden(plot, L, model)
 	elseif pc.kind == "pavilion" then
@@ -916,7 +954,7 @@ local function buildPiece(plot, L, dept, animate)
 		end
 	end
 	CollectionService:AddTag(model, "WaferPiece")
-	st.pieces[L] = { model = model, seats = seats, label = label, dept = dept }
+	st.pieces[L] = { model = model, seats = seats, label = label, dept = dept, office = office }
 	if animate and api.rise then
 		local list = {}
 		for _, d in ipairs(model:GetDescendants()) do
@@ -963,12 +1001,18 @@ end
 -- build pieces from the current level up to `to` (a rebuilt storey is several at once)
 function Wafers.buildUpTo(plot, to, deptOf, animate)
 	local st = stateOf(plot)
+	local company = math.max(st.level, math.min(to, P.MAX))   -- 24 Oct (ruling 1): the level this build reaches
 	for L = st.level + 1, math.min(to, P.MAX) do
 		local pc = P.PIECES[L]
 		local dept = pc.kind == "segment" and deptOf(L) or nil
 		st.depts[L] = dept
-		buildPiece(plot, L, dept, animate)
+		buildPiece(plot, L, dept, animate, company)
 		st.level = L
+	end
+	-- rooms built before the company reached 13 get their second monitors and third plant now
+	local big = OfficeLayout.monitorsAt(st.level) >= 2
+	for _, piece in pairs(st.pieces) do
+		if piece.office and piece.office.big ~= big then redress(piece, st.level) end
 	end
 	buildCore(plot)
 	Wafers.garage(plot, st.level < 2)

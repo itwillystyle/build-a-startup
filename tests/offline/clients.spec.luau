@@ -468,4 +468,87 @@ test("a client's spot is never 0, even once it has left the line", function()
 	assert(C.spotOf(Q, Q.line[1]) == 1, "the front of the line is spot 1")
 end)
 
+-- 24 Oct (F-5, live on PR #80): HQ 5 with 10-14 staff, standing at the laptop with an app ready, the
+-- voice flipped HOLD TO CODE <-> LAUNCH! every 2-4 s: a client walked up (JobWaiting), a free coder took
+-- the job at once and served it ~2-3 s later, the next one walked up. A job a coder takes is not yours to
+-- code, so it does not wait for you: only a job no coder can take does (BIG, the tutorial's, one you
+-- started, or one past the coders' count). JobWaiting is this, so HOLD TO CODE and the paused LAUNCH!
+-- clock (OneVoice.launchHeld reads JobWaiting) agree.
+local function lineOf(kinds)
+	local Q = C.new({ first = false, seed = 3 })
+	for _, k in ipairs(kinds) do table.insert(Q.line, C.make(Q, k, k == "normal" and "regular" or nil)) end
+	return Q
+end
+
+test("waitingForYou: only a job no coder can take waits for you", function()
+	assert(C.waitingForYou(lineOf({ "normal" }), 0) ~= nil, "no coders: the front job is yours")
+	assert(C.waitingForYou(lineOf({ "normal" }), 1) == nil, "a free coder takes it: nothing waits for you")
+	local Q = lineOf({ "normal", "normal" })
+	assert(C.waitingForYou(Q, 1) == Q.line[2], "one coder, two jobs: the second waits for you")
+	Q = lineOf({ "normal", "big" })
+	assert(C.waitingForYou(Q, 14) == Q.line[2], "coders never take BIG: it waits for you")
+	Q = C.new({ first = true, seed = 1 })
+	assert(C.waitingForYou(Q, 5) == Q.line[1], "coders never take the tutorial's job")
+	Q = lineOf({ "normal", "normal" })
+	Q.line[2].yours, Q.line[2].done = true, 0.5
+	assert(C.waitingForYou(Q, 5) == Q.line[2], "a job you started is yours to finish")
+	Q = lineOf({ "normal" })
+	Q.carrying = Q.line[1]
+	Q.line[1].done = Q.line[1].need
+	assert(C.waitingForYou(Q, 0) == nil, "the app you carry is not a job waiting")
+end)
+
+test("waitingForYou matches tick: no coder ever works the job that waits for you", function()
+	local coders = {}
+	for i = 1, 3 do coders[i] = C.coderSpeed(1, "engineer") end
+	local Q = C.new({ first = false, seed = 11 })
+	for _ = 1, 600 do
+		local w = C.waitingForYou(Q, #coders)
+		local before = w and w.done
+		C.tick(Q, 0.1, ctx({ level = 2, stage = 1, atLaptop = false, coders = coders }))
+		if w and table.find(Q.line, w) then
+			assert(w.done == before, "a coder worked the job that waited for you")
+		end
+	end
+end)
+
+test("F-5: at the laptop with 14 coders the job-waiting flag no longer flickers", function()
+	-- tier-3 engineers serve a job in ~2.9 s (live: "~2-3 s"); a client walks up every 4 s
+	local coders = {}
+	for i = 1, 14 do coders[i] = C.coderSpeed(3, "engineer") end
+	local function flips(rule)
+		local Q = C.new({ first = false, seed = 20 })   -- no BIG walks up in these 30 s (a BIG holds both flags on)
+		local was, n = nil, 0
+		for _ = 1, 300 do   -- 30 s, standing at the laptop, not holding
+			C.tick(Q, 0.1, ctx({ level = 2, stage = 1, atLaptop = true, coders = coders }))
+			local now = rule(Q)
+			if was ~= nil and now ~= was then n += 1 end
+			was = now
+		end
+		return n
+	end
+	local old = flips(function(Q)   -- the old flag: any open job
+		for _, c in ipairs(Q.line) do if c ~= Q.carrying and c.done < c.need then return true end end
+		return false
+	end)
+	local new = flips(function(Q) return C.waitingForYou(Q, #coders) ~= nil end)
+	assert(old >= 10, "the old flag flipped " .. old .. "x in 30 s (the live flicker: ~every 2-4 s)")
+	assert(new == 0, "the job-waiting flag flipped " .. new .. "x in 30 s, want 0 (every job is a coder's)")
+end)
+
+-- 24 Oct (client timer): the badge counts down on the client between server draws, but only
+-- while patience really drains, or it would tick through a job you are coding
+test("draining: a waiting client drains, the job you hold and the app you carry do not", function()
+	local Q = oneNormal()
+	local c = Q.line[1]
+	run(Q, 0.5, ctx())
+	assert(c.draining == true, "waiting: drains")
+	run(Q, 0.3, ctx({ holding = true }))
+	assert(c.draining == false, "you are coding it: paused")
+	run(Q, TUNE.NEED / TUNE.PLAYER_SPEED + 0.05, ctx({ holding = true }))
+	assert(Q.carrying == c, "shipped")
+	run(Q, 0.3, ctx())
+	assert(c.draining == false, "you carry it: paused")
+end)
+
 return T

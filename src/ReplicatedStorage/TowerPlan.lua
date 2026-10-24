@@ -129,6 +129,19 @@ end
 
 function T.centre(s) return cell(T.section(s), 2, 2) end
 
+--[[ 24 Oct (art pass 4): which plot side of room r a direction of the ROOM's frame points at. The room
+	frame turns by r.yaw (CFrame.Angles(0, yaw, 0)): room +X is (cos, -sin) in plot x/z, room +Z is
+	(sin, cos). dir is "+x", "-x", "+z" or "-z"; the answer is "px", "nx", "pz" or "nz". ]]
+function T.sideAt(r, dir)
+	local c, s = math.cos(r.yaw), math.sin(r.yaw)
+	local v = ({ ["+x"] = { c, -s }, ["-x"] = { -c, s }, ["+z"] = { s, c }, ["-z"] = { -s, -c } })[dir]
+	if math.abs(v[1]) > math.abs(v[2]) then return v[1] > 0 and "px" or "nx" end
+	return v[2] > 0 and "pz" or "nz"
+end
+
+-- the room's back (room -Z): the partition with the door, where the feature wall goes (OfficeLayout)
+function T.backSide(r) return T.sideAt(r, "-z") end
+
 -- a garden storey's deck, or the roof (14): the top of the storey below
 function T.deck(s)
 	local r = T.rect(math.min(s, 14) - 1)

@@ -21,4 +21,24 @@ function H.launchBottom(inCar, codeShown)
 	return H.CODE.bottom
 end
 
+--[[ 23 Oct (doctor, every HQ step at 1074 x 376): the money texts in the bottom-left corner
+	ran under an open menu: the income line with its momentum suffix (231 px) under DAILY, the
+	"+$X" pop under DAILY and TEAM. The HUD draws below every menu (DisplayOrder 4 vs 12-14), so
+	the player saw text cut off at a panel's edge. A money text steps aside while a menu PANEL
+	covers it, the rule the goal card already keeps (UIKit.column's covers): a panel is at least
+	240 x 120 and narrower than 90% of the screen (a full-screen layer or a chip is not one).
+	rect and panels are { x, y, w, h } in screen px; touching edges is not under. ]]
+H.PANEL_MIN = { w = 240, h = 120 }
+function H.underMenu(rect, panels, vpX)
+	if not rect or rect[3] <= 0 or rect[4] <= 0 then return false end
+	for _, p in ipairs(panels) do
+		if p[3] >= H.PANEL_MIN.w and p[4] >= H.PANEL_MIN.h and p[3] < vpX * 0.9 then
+			local ox = math.min(rect[1] + rect[3], p[1] + p[3]) - math.max(rect[1], p[1])
+			local oy = math.min(rect[2] + rect[4], p[2] + p[4]) - math.max(rect[2], p[2])
+			if ox > 0 and oy > 0 then return true end
+		end
+	end
+	return false
+end
+
 return H

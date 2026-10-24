@@ -3546,15 +3546,60 @@ local function offerProduct(player, plot)
 		s.pendingProduct = picks
 		s.pendingMods = { 1 }
 		local payday = Prog.capWindfall("launch", math.floor((s.rate or 0) * Econ.LAUNCH_PAY * (1 + 0.1 * (s.compute or 0))), nextGoalOf(s, plot))
-		-- v3.1: `autoAt` lets the button count down to the half-pay auto-launch
+		--[[ 24 Oct (one instruction, rule A; ui/animation-review/judge/ONE-INSTRUCTION-OPTIONS.md):
+			the half-pay auto-launch is a clock that PAUSES while LAUNCH! is folded to its chip by the
+			job in your hands or the button you can press (OneVoice.launchHeld), at most 60 s in all
+			(LaunchClock: 60 s, fires by 120 s however busy you stay). It was a fixed task.delay(60).
+			Server-authoritative: `held` reads only server state (the client queue, the recruit carry,
+			and the attributes ClientsServer sets here); no remote carries a pause, and the client only
+			draws LaunchAutoAt / LaunchLeft. Required here: this chunk is near its 200-local limit.
+			v4.3 still holds: never auto-launch until the player has launched once (his run: five
+			half-pay auto-launches in 19 min, the verb was never learned). ]]
+		local clk, autoAt
+		if s.jr and s.jr.launched then
+			local LaunchClock = require(ServerScriptService:WaitForChild("LaunchClock"))
+			local OneVoice = require(ReplicatedStorage:WaitForChild("OneVoice"))
+			local function held()
+				local cs = Econ.Clients and Econ.Clients.goalState(player)
+				return OneVoice.launchHeld({
+					carrying = cs ~= nil and cs.carrying == true, midJob = cs ~= nil and cs.midJob == true,
+					recruit = Econ.Drop ~= nil and Econ.Drop.carrying(player) ~= nil,
+					canGive = player:GetAttribute("CanGive") == true, jobWaiting = player:GetAttribute("JobWaiting") == true,
+					atLaptop = player:GetAttribute("AtLaptop") == true,
+				})
+			end
+			local now = workspace:GetServerTimeNow()
+			clk = LaunchClock.new(now)
+			LaunchClock.update(clk, now, held())
+			s.launchClock = clk
+			local function publish(t)
+				player:SetAttribute("LaunchAutoAt", LaunchClock.autoAt(clk, t))
+				player:SetAttribute("LaunchLeft", LaunchClock.paused(clk) and LaunchClock.left(clk, t) or nil)
+			end
+			publish(now)
+			autoAt = now + LaunchClock.left(clk, now)
+			task.spawn(function()
+				while true do
+					task.wait(0.25)
+					local s2 = sessions[player.UserId]
+					if not (player.Parent and s2 and s2.pendingProduct == picks) then break end
+					local t = workspace:GetServerTimeNow()
+					if LaunchClock.update(clk, t, held()) then publish(t) end
+					if LaunchClock.due(clk, t) then launchProduct(player, plot, m, 1, true) break end
+				end
+				-- a newer app's clock owns the attributes once it exists
+				local s3 = sessions[player.UserId]
+				if s3 and s3.launchClock == clk then s3.launchClock = nil end
+				if player.Parent and not (s3 and s3.launchClock) then
+					player:SetAttribute("LaunchAutoAt", nil)
+					player:SetAttribute("LaunchLeft", nil)
+				end
+			end)
+		end
+		-- v3.1: `autoAt` lets the button count down to the half-pay auto-launch (24 Oct: the
+		-- LaunchAutoAt / LaunchLeft attributes win once HudClient sees them; they follow the pause)
 		productReady:FireClient(player, { { name = "LAUNCH!", blurb = m.name .. " app", launch = true, payday = payday, spike = 1,
-			autoAt = (s.jr and s.jr.launched) and workspace:GetServerTimeNow() + 60 or nil } })
-		-- v4.3: never auto-launch until the player has launched once (his run: five half-pay
-		-- auto-launches in 19 min, the verb was never learned)
-		task.delay(60, function()
-			local s2 = sessions[player.UserId]
-			if s2 and s2.pendingProduct == picks and s2.jr and s2.jr.launched then launchProduct(player, plot, m, 1, true) end
-		end)
+			autoAt = autoAt } })
 		return
 	end
 	-- three distinct markets, shuffled

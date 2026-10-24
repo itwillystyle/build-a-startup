@@ -19,6 +19,7 @@ local TextService = game:GetService("TextService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
+local OneVoice = require(ReplicatedStorage:WaitForChild("OneVoice"))   -- 24 Oct: one instruction at a time (rule A)
 local player = Players.LocalPlayer
 
 local HEIGHT = 58
@@ -176,8 +177,67 @@ local function show(prompt, inputType)
 	TweenService:Create(card, TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Position = UDim2.new(0, 0, 0, 0) }):Play()
 end
 
+--[[ 24 Oct (one instruction, rule A; ui/animation-review/judge/ONE-INSTRUCTION-OPTIONS.md): a prompt
+	is drawn only when it is not a second voice (OneVoice.prompt). The playtest's 7:44: a floating
+	UPGRADE by the laptop while the HUD said HOLD TO CODE and the card said Drive.
+	  quiet: HOLD TO CODE / GIVE, the HUD button is their look; E still works (nothing drawn)
+	  off:   an UPGRADE / BUILD that is not the goal's own pad, or anything else while a button is
+	         up. Its reach goes to 0 on THIS client only, so the camera cannot hand E to an ask
+	         nobody can see; the server never rewrites a prompt's reach after making it, so the
+	         saved reach comes back intact. Every ask keeps its click on the part (alsoClickable).
+	  draw:  as before ]]
+local live = setmetatable({}, { __mode = "k" })  -- prompt -> inputType, while the engine shows it
+local reach = setmetatable({}, { __mode = "k" }) -- prompt -> its own reach, while we hold it at 0
+local GOAL_NEAR = 10                             -- studs: a prompt this close to the goal is its target
+
+local function posOf(inst)
+	local par = inst.Parent
+	if not par then return nil end
+	if par:IsA("BasePart") then return par.Position end
+	if par:IsA("Attachment") then return par.WorldPosition end
+	if par:IsA("Model") then return par:GetPivot().Position end
+	return nil
+end
+local function decide(prompt)
+	local voice = player:GetAttribute("OneVoice")
+	local pick = { voice = voice }
+	local goal = player:GetAttribute("ObjectivePos")
+	local at = posOf(prompt)
+	local near = typeof(goal) == "Vector3" and at ~= nil
+		and Vector3.new(at.X - goal.X, 0, at.Z - goal.Z).Magnitude <= GOAL_NEAR
+	return OneVoice.prompt(pick, OneVoice.promptRole(prompt.ActionText), near)
+end
+local function setOff(prompt, off)
+	if off and reach[prompt] == nil then
+		reach[prompt] = prompt.MaxActivationDistance
+		prompt.MaxActivationDistance = 0
+	elseif not off and reach[prompt] ~= nil then
+		prompt.MaxActivationDistance = reach[prompt]
+		reach[prompt] = nil
+	end
+end
+local function apply(prompt)
+	local d = decide(prompt)
+	setOff(prompt, d == "off")
+	if d == "draw" and live[prompt] ~= nil then
+		if not shown[prompt] then show(prompt, live[prompt]) end
+	else
+		hide(prompt)
+	end
+end
+local function reapply()
+	for prompt in pairs(reach) do if prompt.Parent then apply(prompt) end end
+	for prompt in pairs(live) do if prompt.Parent then apply(prompt) end end
+end
+player:GetAttributeChangedSignal("OneVoice"):Connect(reapply)
+player:GetAttributeChangedSignal("ObjectivePos"):Connect(reapply)
+
 ProximityPromptService.PromptShown:Connect(function(prompt, inputType)
 	if prompt.Style ~= Enum.ProximityPromptStyle.Custom then return end
-	show(prompt, inputType)
+	live[prompt] = inputType
+	apply(prompt)
 end)
-ProximityPromptService.PromptHidden:Connect(hide)
+ProximityPromptService.PromptHidden:Connect(function(prompt)
+	live[prompt] = nil
+	hide(prompt)
+end)

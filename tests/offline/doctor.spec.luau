@@ -64,4 +64,42 @@ test("a camera cut and a hunter hitch, frame by frame", function()
 	assert(not P.isStutter(0.3, 0.4), "steady running is not a hitch")
 end)
 
+-- 24 Oct (art pass 4, Task 1): the C3 review room is built to order, so every entry must be a room
+-- that department may really have at that level, and the camera must stand inside every room
+local TP = require("../../src/ReplicatedStorage/TowerPlan")
+local WP = require("../../src/ServerScriptService/WaferPlan")
+
+test("C3: every review room is a real segment its department may have, built by its hq level", function()
+	assert(type(P.REVIEW_ROOM) == "table", "Probes.REVIEW_ROOM is missing")
+	local n = 0
+	for dept, rr in pairs(P.REVIEW_ROOM) do
+		n += 1
+		local pc = WP.PIECES[rr.L]
+		assert(pc and pc.kind == "segment", dept .. ": L" .. tostring(rr.L) .. " is not a segment")
+		local ok = false
+		for _, d in ipairs(WP.allowed(rr.L)) do if d == dept then ok = true end end
+		assert(ok, ("%s is not allowed at L%d"):format(dept, rr.L))
+		assert(rr.L <= rr.hq, dept .. ": the room is above the level the scenario builds")
+		if dept ~= "lobby" then assert(pc.seg == 3, dept .. ": not a seg 3 room (the station must be in view)") end
+	end
+	assert(n == 7, "one review room per department (7), got " .. n)
+end)
+
+test("C3: the camera stands inside every office room, head high, and looks across toward +X", function()
+	assert(type(P.roomCam) == "function", "Probes.roomCam is missing")
+	for s = 0, 13 do
+		if not TP.DECKS[s] then
+			for seg = 1, 8 do
+				local r = TP.room(s, seg)
+				local inn = TP.inner(r)
+				local eye, at = P.roomCam(r)
+				assert(math.abs(eye.X) <= inn.x and math.abs(eye.Z) <= inn.z, ("storey %d seg %d: the eye is outside the room"):format(s, seg))
+				assert(eye.Y >= 5 and eye.Y <= 8, ("storey %d seg %d: the eye is %.1f high"):format(s, seg, eye.Y))
+				assert(math.abs(at.X) <= r.w / 2 and math.abs(at.Z) <= r.d / 2 and at.Y > 0, ("storey %d seg %d: looks out of the room"):format(s, seg))
+				assert(at.X - eye.X > 0, ("storey %d seg %d: does not look toward +X (the glass on the right)"):format(s, seg))
+			end
+		end
+	end
+end)
+
 return T
