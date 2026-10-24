@@ -1,6 +1,10 @@
 -- officelayout.spec.luau: the tower offices as data (24 Oct 2026, art pass 4). Plan:
 -- silicon-startup/docs/superpowers/plans/2026-10-23-art-pass-4-tower-interiors.md
 local fs = require("@lune/fs")
+-- Palette reads CollectionService at load; Lune has no `game`, so a stand-in answers HasTag (palette.spec)
+-- selene: allow(incorrect_standard_library_use)
+game = game or { GetService = function() return { HasTag = function() return false end } end }
+local Palette = require("../../src/ReplicatedStorage/Palette")
 local T = require("../../src/ReplicatedStorage/TowerPlan")
 local SR = require("../../src/ReplicatedStorage/ServerRack")
 local OL = require("../../src/ReplicatedStorage/OfficeLayout").with(T, SR)
@@ -110,6 +114,39 @@ test("the footprint sizes OfficeLayout checks with are FurnitureKit's own", func
 		local x, y, z = src:match("\n%s*" .. key .. "%s*=%s*Vector3%.new%(([%d%.]+),%s*([%d%.]+),%s*([%d%.]+)%)")
 		assert(x, key .. " is not in FurnitureKit's SIZE")
 		assert(near(tonumber(x), sz[1]) and near(tonumber(y), sz[2]) and near(tonumber(z), sz[3]), key .. " differs from FurnitureKit")
+	end
+end)
+
+-- ---------------------------------------------------------------- Task 3: the surfaces
+local function c3(rgb) return Color3.fromRGB(rgb[1], rgb[2], rgb[3]) end
+local function rgbOf(c) return { math.round(c.R * 255), math.round(c.G * 255), math.round(c.B * 255) } end
+
+test("every office colour is on the palette and maps onto itself (no new anchors)", function()
+	assert(type(OL.COLORS) == "table", "OfficeLayout.COLORS is missing")
+	for name, rgb in pairs(OL.COLORS) do
+		local got = rgbOf(Palette.map(c3(rgb)))
+		assert(got[1] == rgb[1] and got[2] == rgb[2] and got[3] == rgb[3],
+			("%s %d,%d,%d maps to %d,%d,%d"):format(name, rgb[1], rgb[2], rgb[3], got[1], got[2], got[3]))
+	end
+	for _, name in ipairs({ "navy", "navyDeep" }) do
+		local ok, anchor = Palette.compliant(c3(OL.COLORS[name]))
+		assert(ok and anchor == "ValleyBlue", name .. " must sit in the ValleyBlue family, not turn slate (the mock's own navies do)")
+	end
+	local f = OL.COLORS.floor
+	local lum = (0.2126 * f[1] + 0.7152 * f[2] + 0.0722 * f[3]) / 255
+	assert(lum <= 0.80, ("the floor's luminance is %.2f: a near-white floor is what blew the old shots out"):format(lum))
+	assert(OL.COLORS.coral[1] == 236 and OL.COLORS.coral[2] == 104 and OL.COLORS.coral[3] == 84, "Coral is the accent anchor exactly")
+end)
+
+test("surfaces: the lobby only gets the floor, servers a navy wall with no base, the rest oak over a navy base", function()
+	local C = OL.COLORS
+	local lobby = OL.surfaces("lobby")
+	assert(lobby.floor == C.floor and lobby.back == nil and lobby.base == nil, "the lobby keeps its walls (ruling 4)")
+	local sv = OL.surfaces("servers")
+	assert(sv.floor == C.floor and sv.back == C.navyDeep and sv.base == nil, "servers: a dark navy wall, nothing else")
+	for _, d in ipairs({ "eng", "labs", "studio", "cafe", "board" }) do
+		local s = OL.surfaces(d)
+		assert(s.floor == C.floor and s.back == C.oak and s.base == C.navy, d .. ": oak over navy")
 	end
 end)
 

@@ -27,6 +27,29 @@ function OfficeLayout.with(T, SR)
 		pottedPlant = { 1.25, 3.85, 1.42 },
 	}
 
+	--[[ 24 Oct (Task 3): the picked mock's surfaces, every one on a palette anchor (officelayout.spec:
+		Palette.map(c) == c, no new anchors). The mock's own navies (49,80,131) and (12,35,79) map to
+		slate, so these are ValleyBlue at a lower value. Oak is the anchor itself: the feature wall is
+		architecture, so it is oak-COLOURED SmoothPlastic (ART.md bans Wood on buildings; ruling 2). ]]
+	OL.COLORS = {
+		floor = { 196, 188, 174 },     -- matte warm grey (luminance 0.74: not the blown near-white)
+		oak = { 192, 138, 85 },        -- Palette Oak
+		navy = { 38, 66, 108 },        -- ValleyBlue family
+		navyDeep = { 26, 48, 80 },     -- ValleyBlue family, darker: the server room's wall
+		coral = { 236, 104, 84 },      -- Palette Coral (an accent anchor keeps only itself)
+		ink = { 30, 37, 48 },          -- Palette Ink: the art's frame
+		paper = { 243, 239, 230 },     -- Palette PaperWhite: the art's mat
+	}
+
+	-- what a room's surfaces are painted: the floor everywhere; the back wall and its base by department.
+	-- The lobby keeps its walls (ruling 4); servers is a machine room (ruling 7): a dark wall, no base
+	function OL.surfaces(dept)
+		local C = OL.COLORS
+		if dept == "lobby" then return { floor = C.floor } end
+		if dept == "servers" then return { floor = C.floor, back = C.navyDeep } end
+		return { floor = C.floor, back = C.oak, base = C.navy }
+	end
+
 	-- the room's furniture as it stood before art pass 4 (Wafers.furnish, 23 Oct), one piece per thing:
 	--   workstation  FurnitureKit.workstation (desk, monitors, keyboard, chair) at x, z, yaw (degrees)
 	--   kit          FurnitureKit.onFloor(key) at x, z, yaw

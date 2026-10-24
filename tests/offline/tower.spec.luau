@@ -506,4 +506,22 @@ test("final review I1: no fin stands in a terrace door (6 wide), for every finis
 	assert(#T.fins(5, 1, "pz", 5, 0.5) >= 4, "a plain glass side still has its fins")
 end)
 
+-- 24 Oct (art pass 4, Task 3): the feature wall is the room's back (room -Z); it must be a partition with
+-- a door on every office room (8 to the centre hall on an edge room)
+test("art pass 4: every room's back side (room -Z) is a partition with a door, 8 wide on an edge room", function()
+	assert(type(T.backSide) == "function", "T.backSide is missing")
+	for s = 0, 13 do
+		if not T.DECKS[s] then
+			for seg = 1, 8 do
+				local r = T.room(s, seg)
+				local side = T.backSide(r)
+				assert(type(r.sides[side]) == "number", ("storey %d seg %d: the back (%s) is %s"):format(s, seg, side, tostring(r.sides[side])))
+				if seg % 2 == 1 then assert(r.sides[side] == 8, ("storey %d seg %d: an edge room's back door is %s"):format(s, seg, tostring(r.sides[side]))) end
+			end
+		end
+	end
+	assert(T.sideAt(T.room(1, 1), "+z") == "pz" and T.sideAt(T.room(1, 3), "+z") == "px", "room +Z is the facade")
+	assert(T.sideAt(T.room(1, 5), "+x") == "nx" and T.sideAt(T.room(1, 7), "+x") == "pz", "room +X turns with the yaw")
+end)
+
 return TT

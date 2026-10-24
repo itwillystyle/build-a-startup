@@ -526,9 +526,15 @@ local function buildSegment(plot, L, dept, model)
 	local glassProps = { Color = TF.color(fin.glass), Material = Enum.Material.Glass, Transparency = fin.glassT, CastShadow = false }
 	local cuts = T.cuts(pc.storey, pc.seg)
 	local partProps = { Color = PAPER, Material = Enum.Material.SmoothPlastic }
+	-- 24 Oct (art pass 4, Task 3): a matte grey floor, and the back wall (the feature wall) in oak, or
+	-- dark navy in a server room; the lobby keeps its walls (OfficeLayout.surfaces). SmoothPlastic, no grain
+	local surf = OfficeLayout.surfaces(dept)
+	local function rgb(c) return Color3.fromRGB(c[1], c[2], c[3]) end
+	local backSide = T.backSide(r)
+	local backProps = surf.back and { Color = rgb(surf.back), Material = Enum.Material.SmoothPlastic } or partProps
 	local parts = {}
 	if not T.DECKS[pc.storey - 1] then   -- above a garden the deck is the floor (two slabs in one place would flicker)
-		table.insert(parts, slabBox(model, plot, "Floor", r.x0, r.x1, r.z0, r.z1, y - SLAB, y, { Color = PAPER, Material = Enum.Material.SmoothPlastic }))
+		table.insert(parts, slabBox(model, plot, "Floor", r.x0, r.x1, r.z0, r.z1, y - SLAB, y, { Color = rgb(surf.floor), Material = Enum.Material.SmoothPlastic }))
 	end
 	table.insert(parts, slabBox(model, plot, "Ceiling", r.x0, r.x1, r.z0, r.z1, y + h - 0.4, y + h,
 		{ Color = Color3.fromRGB(250, 248, 242), Material = Enum.Material.SmoothPlastic, CanCollide = false, CastShadow = false }))
@@ -537,7 +543,7 @@ local function buildSegment(plot, L, dept, model)
 		local kind = r.sides[side]
 		if r.entrance and r.entrance.side == side then kind = r.entrance.width end   -- the lobby's entrance
 		if r.terraceDoor == side then kind = "glassdoor" end                       -- the door onto the terrace
-		wallSide(model, plot, r, side, kind, y, h, glassProps, partProps, cuts[side])
+		wallSide(model, plot, r, side, kind, y, h, glassProps, (side == backSide) and backProps or partProps, cuts[side])
 	end
 	TowerArt.facade(model, plot, pc.storey, pc.seg, y, h, fin, glassProps)   -- 1d: fins, band, line, corners
 	TowerArt.ceilingStrip(model, plot, r, y, h, T.darkRoom(L))                 -- 1d: the night's room light
