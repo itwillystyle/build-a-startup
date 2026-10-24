@@ -425,47 +425,30 @@ local function station(model, anchor, dept, r, plot, L)
 	end)
 end
 
--- the room's furniture in its own frame: origin at the room centre on the floor, +Z out to the facade
-local function furnish(model, anchor, dept, r)
+--[[ the room's furniture in its own frame: origin at the room centre on the floor, +Z out to the facade.
+	24 Oct (art pass 4, Task 2): what stands where is OfficeLayout's data now (tested offline); this
+	only builds it, exactly as before. The racks and the fans keep their own builders here. ]]
+local OfficeLayout = require(RS:WaitForChild("OfficeLayout")).with(T, ServerRack)
+Wafers.OfficeLayout = OfficeLayout
+local function furnish(model, anchor, dept, r, company)
 	local FK = api.FK
 	local seats = {}
-	local zOut = r.d / 2 - 4            -- the desk row near the window
-	local function seatAt(x, z, faceOut)
-		local pos = (anchor * CFrame.new(x, 2.4, z)).Position
-		local look = (anchor * CFrame.new(x, 2.4, z + (faceOut and 5 or -5))).Position
-		table.insert(seats, CFrame.lookAt(pos, look))
+	if not FK then return seats end   -- as before: no kit, no furniture and no seats
+	for _, s in ipairs(OfficeLayout.seats(dept, r)) do
+		table.insert(seats, CFrame.lookAt((anchor * CFrame.new(s.x, 2.4, s.z)).Position, (anchor * CFrame.new(s.lookX, 2.4, s.lookZ)).Position))
 	end
-	if not FK then return seats end
-	if dept == "eng" or dept == "labs" or dept == "lobby" then
-		local xs = (dept == "lobby") and { -r.w / 4, r.w / 4 } or { -5.5, 5.5 }
-		for _, x in ipairs(xs) do
-			pcall(FK.workstation, anchor, x, zOut, 0, model, { yaw = 180, accent = Wafers.TINT[dept] })
-			seatAt(x - 0.3, zOut - 2.6, true)
+	for _, pc in ipairs(OfficeLayout.furniture(dept, r, company)) do
+		if pc.kind == "workstation" then
+			pcall(FK.workstation, anchor, pc.x, pc.z, 0, model, { yaw = pc.yaw, accent = Wafers.TINT[dept], monitors = pc.monitors })
+		elseif pc.kind == "kit" then
+			if not (pc.key == "loungeSofa" and not (FK.has and FK.has("loungeSofa"))) then
+				pcall(FK.onFloor, pc.key, anchor, pc.x, pc.z, 0, model, { yaw = pc.yaw, canCollide = pc.canCollide })
+			end
+		elseif pc.kind == "racks" then
+			serverRacks(model, anchor, pc.rm, pc.doorway)
+		elseif pc.kind == "fan" then
+			serverFan(model, anchor * CFrame.new(pc.x, pc.y, pc.z), pc.size, pc.rpm)
 		end
-		if dept == "lobby" and FK.has and FK.has("loungeSofa") then
-			pcall(FK.onFloor, "loungeSofa", anchor, T.LOBBY_SOFA.x, -r.d / 2 + T.LOBBY_SOFA.zFromBack, 0, model, { yaw = 0 })
-		end
-	elseif dept == "studio" then
-		pcall(FK.onFloor, "tableCross", anchor, 0, 0, 0, model)
-		pcall(FK.onFloor, "chairModernCushion", anchor, -3.7, 0.4, 0, model, { yaw = 90 })
-		pcall(FK.onFloor, "chairModernCushion", anchor, 3.7, 0.4, 0, model, { yaw = -90 })
-		for _, x in ipairs({ -3.7, 3.7 }) do
-			table.insert(seats, CFrame.lookAt((anchor * CFrame.new(x, 2.4, 0.4)).Position, (anchor * CFrame.new(0, 2.4, 0.4)).Position))
-		end
-	elseif dept == "cafe" then
-		pcall(FK.onFloor, "tableRound", anchor, 0, 0, 0, model, { canCollide = true })
-		for _, o in ipairs({ { 0, 2.6, 180 }, { 0, -2.6, 0 }, { 2.4, 0, -90 }, { -2.4, 0, 90 } }) do
-			pcall(FK.onFloor, "chairModernCushion", anchor, o[1], o[2], 0, model, { yaw = o[3] })
-			table.insert(seats, CFrame.lookAt((anchor * CFrame.new(o[1], 2.4, o[2])).Position, (anchor * CFrame.new(0, 2.4, 0)).Position))
-		end
-	elseif dept == "servers" then
-		-- the racks' backs on the glass band, the fans just inside the glass (final review I1: the backs
-		-- stood 0.6 outside the facade, rm had been reused as an offset from it)
-		serverRacks(model, anchor, ServerRack.midlineFor(T.inner(r).z), r.terraceDoor ~= nil)
-		for _, x in ipairs({ -9, 9 }) do serverFan(model, anchor * CFrame.new(x, 6.2, T.fanZ(r)), 3.0, 170) end
-	elseif dept == "board" then
-		pcall(FK.onFloor, "tableCross", anchor, -2.2, 0, 0, model)
-		pcall(FK.onFloor, "tableCross", anchor, 2.2, 0, 0, model)
 	end
 	return seats
 end
