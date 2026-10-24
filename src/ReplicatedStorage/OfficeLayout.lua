@@ -144,7 +144,9 @@ function OfficeLayout.with(T, SR)
 	local RUGS = {
 		-- eng/labs: under the desks and chairs. The plan's z (r.d/2 - 5.2) put the border 0.45 into the glass
 		-- band; 5.7 keeps it inside T.inner (ledgered)
-		eng = function(r) return 0, r.d / 2 - 5.7, math.min(r.w - 8, 20), 7.5 end,
+		-- 24 Oct (Task 6, round 3): 15 deep and up to 24 wide, the window edge where it was (r.d/2 - 1.95):
+		-- the mock's rug covers most of the desk floor, and the grey floor held T_ at sat 0.28
+		eng = function(r) return 0, r.d / 2 - 9.45, math.min(r.w - 6, 24), 15 end,
 		studio = function() return 0, 0.2, 10, 6 end,
 		cafe = function() return 0, 0, 8, 8 end,
 		board = function() return 0, 0, 12, 5.5 end,

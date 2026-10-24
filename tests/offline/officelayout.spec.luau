@@ -319,4 +319,19 @@ test("cullNext: hides past far, shows inside near, and holds its state in the ba
 	assert(OL.cullNext(true, (C.near + C.far) / 2) == true and OL.cullNext(false, (C.near + C.far) / 2) == false, "the band holds")
 end)
 
+-- 24 Oct (Task 6, round 3): after the navy ceiling (round 1) and a warmer floor (round 2) the T_ finish
+-- still read sat 0.28 (target 0.32): the floor is the biggest thing in the C3 frame and it is grey.
+-- The mock's navy rug covers most of the desk floor; ours was a 7.5-stud strip by the window
+test("the eng/labs rug covers the desk floor like the mock (at least a third of the room)", function()
+	local worst = math.huge
+	eachRoom(function(s, seg, r, dept)
+		if dept ~= "eng" or s == 0 then return end
+		for _, p in ipairs(OL.dressing("eng", r, 13, s, seg)) do
+			if p.id == "OfficeRug" then worst = math.min(worst, p.w * p.d / (r.w * r.d)) end
+		end
+	end)
+	assert(worst ~= math.huge, "no eng rug")
+	assert(worst >= 1 / 3, ("the smallest eng rug covers %.0f%% of its room"):format(worst * 100))
+end)
+
 return TT
