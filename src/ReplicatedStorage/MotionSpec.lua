@@ -82,6 +82,37 @@ function MotionSpec.plan(props, current, reduced, opts)
 	return out
 end
 
+--[[ 23 Oct: THE CAMERA (phase 2; FINAL.md item 6; docs/superpowers/plans/2026-10-23-motion-phase-2-camera.md).
+	Roblox's own guidance stops at UI tweens, but the camera is the strongest motion there is: Xbox
+	Accessibility Guideline 117 names camera shake and automatic camera movement as the things to
+	drop or make optional. Each camera owner asks this at the moment it acts (per frame, for the
+	per-frame owners), so turning Reduce Motion on mid-session lands on the next frame.
+	  shake     a multiplier on any camera shake (the chase lunge, the rocket launch)
+	  punch     may an event kick the FOV (boost 84, lunge 62)
+	  zoom      may the lens ANIMATE back to rest; false = it snaps
+	  speedFov  a multiplier on the FOV that widens with speed (the car, the chase)
+	  flight    "spline" (Cine flies through its shots) | "cut" (it holds each shot)
+	  turn      may tap-to-look turn the camera
+	  pinPop    the scale the goal pin pops from (1 + SMALL_SCALE is a pop UIKit.tween still plays) ]]
+local CAMERA = {
+	[false] = { shake = 1, punch = true, zoom = true, speedFov = 1, flight = "spline", turn = true, pinPop = 1.5 },
+	[true] = { shake = 0, punch = false, zoom = false, speedFov = 0, flight = "cut", turn = false, pinPop = 1 + MotionSpec.SMALL_SCALE },
+}
+function MotionSpec.camera(reduced)
+	return table.clone(CAMERA[reduced == true])
+end
+
+-- times: cumulative shot times (times[1] = 0), t: seconds into the flight -> the shot a cut holds.
+-- The cut lands half way along each leg, so the first and last shots get half a leg each and the
+-- whole thing keeps the flight's length (captions and anything timed to the end still line up)
+function MotionSpec.cutShot(times, t)
+	local n = #times
+	if n <= 1 or t >= times[n] then return math.max(n, 1) end
+	local seg = 1
+	while seg < n - 1 and t > times[seg + 1] do seg += 1 end
+	return t < (times[seg] + times[seg + 1]) / 2 and seg or seg + 1
+end
+
 -- does a tween with goal `a` share a property with new props `b`? (TweenService cancels the
 -- older of two tweens that share a property)
 function MotionSpec.overlaps(a, b)

@@ -26,6 +26,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local StarterGui = game:GetService("StarterGui")
 local TweenService = game:GetService("TweenService")
+local TextService = game:GetService("TextService")
 
 local player = Players.LocalPlayer
 -- v3.2.1: a phone held upright squeezed the whole HUD under Roblox's chat and
@@ -685,6 +686,49 @@ local function bumpCash(k)
 	tween(pillScale, 0.3, { Scale = 1 }, Enum.EasingStyle.Quint)
 end
 
+--[[ 23 Oct (doctor, every HQ step at 1074 x 376): the money texts step aside for an open
+	menu. The income line with its momentum suffix (231 px) ran under DAILY and the "+$X" pop
+	under DAILY and TEAM; the HUD draws below every menu, so it was text cut off at a panel's
+	edge. HudSlots.underMenu is the rule (hudslots.spec); the cash itself stays. ]]
+local cashPops = {}   -- live "+$X" pops -> their rect
+local rateRect        -- the income line's rect the last time it was on screen
+local function menuPanels()
+	local list, pg = {}, player.PlayerGui
+	for _, n in ipairs(UIKit.MENUS) do
+		local g = pg:FindFirstChild(n)
+		if g and g:IsA("ScreenGui") and g.Enabled then
+			for _, c in ipairs(g:GetChildren()) do
+				if c:IsA("GuiObject") and c.Visible then
+					table.insert(list, { c.AbsolutePosition.X, c.AbsolutePosition.Y, c.AbsoluteSize.X, c.AbsoluteSize.Y })
+				end
+			end
+		end
+	end
+	return list
+end
+local function stepAside()
+	local panels = menuPanels()
+	local vpX = workspace.CurrentCamera.ViewportSize.X
+	-- hidden, a label may not re-measure: judge it by where it last drew (placeMoney moves it)
+	local p, sz = rateText.AbsolutePosition, rateText.AbsoluteSize
+	if rateText.Visible or not rateRect then rateRect = { p.X, p.Y, sz.X, sz.Y } else rateRect[1], rateRect[2] = p.X, p.Y end
+	rateText.Visible = not HudSlots.underMenu(rateRect, panels, vpX)
+	-- 23 Oct: a pop moves (PopStack pushes it up a line), so a shown one is re-measured each check
+	for l, r in pairs(cashPops) do
+		if l.Visible then
+			local lp, ls = l.AbsolutePosition, l.AbsoluteSize
+			r[1], r[2], r[3], r[4] = lp.X, lp.Y, ls.X, ls.Y
+		end
+		l.Visible = not HudSlots.underMenu(r, panels, vpX)
+	end
+end
+task.spawn(function()
+	while gui.Parent do
+		stepAside()
+		task.wait(0.15)
+	end
+end)
+
 -- a gold "+$X" under the cash
 -- v8 (11 Oct, step 5): right above the money block. It still popped at the top
 -- centre, where the cash was before v7 moved it to the bottom-left corner, so a
@@ -695,6 +739,7 @@ end
 	newest takes the bottom line and pushes older ones up one line (Quint Out, T.ui), at most two
 	lines (PopStack, tested), and each leaves with a fade in place (T.ui). ]]
 local POP_LINE = 44   -- px between stacked pops: TYPE.display (36) + 8
+local POP_H = 40
 local pops = PopStack.new(2)
 local popLabels = {}
 local popSerial = 0
@@ -724,13 +769,24 @@ end
 local function popUnderCash(text, color, hold)
 	popSerial += 1
 	local id = popSerial
+	-- 23 Oct: named, and its box hugs its text (a fixed 320 px box was the rect that ran under
+	-- DAILY; "+$X while you were away" spilled past it), so stepAside judges what is drawn
+	local w = 320
+	local okW, size = pcall(function()
+		return TextService:GetTextSize(text, UIKit.TYPE.display, UIKit.HEAD, Vector2.new(4000, POP_H))
+	end)
+	if okW and size then w = math.ceil(size.X) + 8 end   -- + the outline both sides
 	local l = UIKit.outlined(gui, text, UIKit.TYPE.display, color or UIKit.GOLD, {
-		AnchorPoint = Vector2.new(0, 1), Position = popY(0), Size = UDim2.new(0, 320, 0, 40),
+		Name = "CashPop", AnchorPoint = Vector2.new(0, 1), Position = popY(0), Size = UDim2.new(0, w, 0, POP_H),
 		TextXAlignment = Enum.TextXAlignment.Left,
 	})
 	popLabels[id] = l
+	local o, h = gui.AbsolutePosition, gui.AbsoluteSize.Y
+	cashPops[l] = { o.X + MONEY_X, o.Y + h - (moneyTop + 4) - POP_H, w, POP_H }
+	l.Destroying:Connect(function() cashPops[l] = nil end)
 	for _, old in ipairs(PopStack.push(pops, id)) do dropPop(old, UIKit.T.fast) end
 	placePops()
+	stepAside()
 	local sc = Instance.new("UIScale", l)
 	sc.Scale = 0.92
 	l.TextTransparency = 1

@@ -28,6 +28,15 @@
 local CollectionService = game:GetService("CollectionService")
 local RunService = game:GetService("RunService")
 local HunterRun = require(game:GetService("ReplicatedStorage"):WaitForChild("HunterRun"))
+local LabelLook = require(game:GetService("ReplicatedStorage"):WaitForChild("LabelLook"))   -- 24 Oct: label rules (L3)
+-- 24 Oct: a client who ran out of patience (Mood "sad", ClientsServer) walks off slumped
+local ClientMood = require(game:GetService("ReplicatedStorage"):WaitForChild("ClientMood"))
+local UIKit = require(game:GetService("ReplicatedStorage"):WaitForChild("UIKit"))
+--[[ The slump (references: a sad walk has a forward lean, drooping arms with no swing, the head
+	down; CLIENT-TIMER-OPTIONS.md ref 6). Radians, on the sign convention below (+X swings a limb
+	forward, so -X on the neck and waist bends them forward and down). Blended in by
+	ClientMood.slump over 0.4 s; under Reduce Motion it is a held pose from the first frame. ]]
+local SLUMP = { neck = -0.38, tilt = 0.16, waist = -0.2, armOut = 0.03, arm = -0.06 }
 
 local TAG = "SVStaff"
 local RANGE = 170
@@ -162,6 +171,7 @@ local function add(model)
 			lE = motor(model:FindFirstChild("LeftUpperArm"), "LeftElbow"),
 			rE = motor(model:FindFirstChild("RightUpperArm"), "RightElbow"),
 			lH = motor(lower, "LeftHip"), rH = motor(lower, "RightHip"),
+			waist = motor(lower, "Waist") or motor(torso, "Waist"),   -- 24 Oct: the slump's lean
 			lK = motor(model:FindFirstChild("LeftUpperLeg"), "LeftKnee"),
 			rK = motor(model:FindFirstChild("RightUpperLeg"), "RightKnee"),
 			seed = math.random() * 100,
@@ -317,19 +327,22 @@ local function declutter(camPos)
 				end
 			end
 		end
-	end
-	table.sort(list, function(a, b) return a.pri > b.pri end)
-	local placed = {}
-	for _, e in ipairs(list) do
-		local clash = false
-		for _, q in ipairs(placed) do
-			if math.abs(e.x - q.x) < (e.w + q.w) / 2 and math.abs(e.y - q.y) < (e.h + q.h) / 2 - 6 then
-				clash = true
-				break
+		-- 24 Oct (look pass L3): the client's bubble, as a solid rectangle the card's own width
+		local bubble = head and head:FindFirstChild("ClientBubble")
+		local card = bubble and bubble.Enabled and bubble:FindFirstChild("Card")
+		if card and bubble.AbsoluteSize.Y > 0 then
+			local df = (head.Position - camera.Focus.Position).Magnitude
+			local p, onScreen = camera:WorldToViewportPoint(head.Position + bubble.StudsOffset)
+			if onScreen and df <= bubble.MaxDistance then
+				table.insert(list, { x = p.X, y = p.Y, w = math.max(card.AbsoluteSize.X, 120), h = bubble.AbsoluteSize.Y, solid = true })
 			end
 		end
-		fadeTag(e.tag, clash)
-		if not clash then table.insert(placed, e) end
+	end
+	-- 24 Oct (look pass L3): a client's bubble claims its space first and a tag touching it fades
+	-- (after-C1.jpg: the "A to-do app!" card sat against "Noor · STAR"); tags still fade for each other
+	local fade = LabelLook.claim(list)
+	for _, e in ipairs(list) do
+		if e.tag then fadeTag(e.tag, fade[e] == true) end
 	end
 	for tag in pairs(faded) do if not tag.Parent then faded[tag] = nil end end
 end
@@ -412,8 +425,16 @@ RunService.PreSimulation:Connect(function()
 			end
 			-- v4.4 while the keyframed cheer plays, it owns the arms, elbows and neck
 			local keyed = st.cheerTrack and st.cheerTrack.IsPlaying and st.cheerTrack.Length > 0
-			local armL = CFrame.Angles(sh[1], 0, 0.12)
-			local armR = CFrame.Angles(sh[2], 0, -0.12)
+			-- 24 Oct: a lost client's slump, 0 (upright) .. 1 (held)
+			local sad = 0
+			if model:GetAttribute("Mood") == "sad" then
+				sad = ClientMood.slump(serverNow - (model:GetAttribute("SadAt") or serverNow), UIKit.reducedMotion())
+				sh = { sh[1] + (SLUMP.arm - sh[1]) * sad, sh[2] + (SLUMP.arm - sh[2]) * sad }
+				el = { el[1] * (1 - sad), el[2] * (1 - sad) }
+			end
+			local out = 0.12 + (SLUMP.armOut - 0.12) * sad
+			local armL = CFrame.Angles(sh[1], 0, out)
+			local armR = CFrame.Angles(sh[2], 0, -out)
 			if st.lE and not keyed then st.lE.Transform = CFrame.Angles(el[1], 0, 0) end
 			if st.rE and not keyed then st.rE.Transform = CFrame.Angles(el[2], 0, 0) end
 			if not seated then
@@ -425,7 +446,13 @@ RunService.PreSimulation:Connect(function()
 			if not keyed then
 				st.lS.Transform = armL
 				st.rS.Transform = armR
-				st.neck.Transform = CFrame.Angles(math.sin(t * 0.41) * 0.10, math.sin(t * 0.27) * 0.30, 0)
+				local nx, ny = math.sin(t * 0.41) * 0.10, math.sin(t * 0.27) * 0.30
+				-- 24 Oct: sad = head down and tipped to one side, no glancing round
+				st.neck.Transform = CFrame.Angles(nx + (SLUMP.neck - nx) * sad, ny * (1 - sad), SLUMP.tilt * sad)
+			end
+			if st.waist and (sad > 0 or st.slumped) then
+				st.slumped = sad > 0
+				st.waist.Transform = CFrame.Angles(SLUMP.waist * sad, 0, 0)
 			end
 			if st.root then
 				st.root.Transform = CFrame.new(0, hop, 0) * wander(model, st, now)

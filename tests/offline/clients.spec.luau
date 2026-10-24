@@ -536,4 +536,19 @@ test("F-5: at the laptop with 14 coders the job-waiting flag no longer flickers"
 	assert(new == 0, "the job-waiting flag flipped " .. new .. "x in 30 s, want 0 (every job is a coder's)")
 end)
 
+-- 24 Oct (client timer): the badge counts down on the client between server draws, but only
+-- while patience really drains, or it would tick through a job you are coding
+test("draining: a waiting client drains, the job you hold and the app you carry do not", function()
+	local Q = oneNormal()
+	local c = Q.line[1]
+	run(Q, 0.5, ctx())
+	assert(c.draining == true, "waiting: drains")
+	run(Q, 0.3, ctx({ holding = true }))
+	assert(c.draining == false, "you are coding it: paused")
+	run(Q, TUNE.NEED / TUNE.PLAYER_SPEED + 0.05, ctx({ holding = true }))
+	assert(Q.carrying == c, "shipped")
+	run(Q, 0.3, ctx())
+	assert(c.draining == false, "you carry it: paused")
+end)
+
 return T
