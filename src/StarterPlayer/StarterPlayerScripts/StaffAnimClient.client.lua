@@ -28,6 +28,7 @@
 local CollectionService = game:GetService("CollectionService")
 local RunService = game:GetService("RunService")
 local HunterRun = require(game:GetService("ReplicatedStorage"):WaitForChild("HunterRun"))
+local LabelLook = require(game:GetService("ReplicatedStorage"):WaitForChild("LabelLook"))   -- 24 Oct: label rules (L3)
 -- 24 Oct: a client who ran out of patience (Mood "sad", ClientsServer) walks off slumped
 local ClientMood = require(game:GetService("ReplicatedStorage"):WaitForChild("ClientMood"))
 local UIKit = require(game:GetService("ReplicatedStorage"):WaitForChild("UIKit"))
@@ -326,19 +327,22 @@ local function declutter(camPos)
 				end
 			end
 		end
-	end
-	table.sort(list, function(a, b) return a.pri > b.pri end)
-	local placed = {}
-	for _, e in ipairs(list) do
-		local clash = false
-		for _, q in ipairs(placed) do
-			if math.abs(e.x - q.x) < (e.w + q.w) / 2 and math.abs(e.y - q.y) < (e.h + q.h) / 2 - 6 then
-				clash = true
-				break
+		-- 24 Oct (look pass L3): the client's bubble, as a solid rectangle the card's own width
+		local bubble = head and head:FindFirstChild("ClientBubble")
+		local card = bubble and bubble.Enabled and bubble:FindFirstChild("Card")
+		if card and bubble.AbsoluteSize.Y > 0 then
+			local df = (head.Position - camera.Focus.Position).Magnitude
+			local p, onScreen = camera:WorldToViewportPoint(head.Position + bubble.StudsOffset)
+			if onScreen and df <= bubble.MaxDistance then
+				table.insert(list, { x = p.X, y = p.Y, w = math.max(card.AbsoluteSize.X, 120), h = bubble.AbsoluteSize.Y, solid = true })
 			end
 		end
-		fadeTag(e.tag, clash)
-		if not clash then table.insert(placed, e) end
+	end
+	-- 24 Oct (look pass L3): a client's bubble claims its space first and a tag touching it fades
+	-- (after-C1.jpg: the "A to-do app!" card sat against "Noor · STAR"); tags still fade for each other
+	local fade = LabelLook.claim(list)
+	for _, e in ipairs(list) do
+		if e.tag then fadeTag(e.tag, fade[e] == true) end
 	end
 	for tag in pairs(faded) do if not tag.Parent then faded[tag] = nil end end
 end

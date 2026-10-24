@@ -25,6 +25,7 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UIKit = require(game:GetService("ReplicatedStorage"):WaitForChild("UIKit"))
+local LabelLook = require(game:GetService("ReplicatedStorage"):WaitForChild("LabelLook"))   -- 24 Oct: label rules (L3)
 
 local player = Players.LocalPlayer
 
@@ -143,6 +144,25 @@ local function makeBoard(folder)
 	return { part = part, gui = gui, card = card, rank = rank, name = name, sub = sub }
 end
 
+--[[ 24 Oct (look pass L3): where the board stands. Over a tower: 58 x 19 studs, 14 over the top.
+	Over the garage it was the same board at 1.2x the door's width (final-C2-day.jpg) where
+	Luke's mock has a sign 0.68x it; now LabelLook.garageBoard: that width, the board's own
+	shape, just over the roof at the front. ]]
+local function place(folder, b)
+	local pivot = folder:GetAttribute("Pivot")
+	if not pivot then return end
+	if LabelLook.isGarage(folder:GetAttribute("Level")) then
+		local gb = LabelLook.garageBoard()
+		b.part.CFrame = CFrame.new((pivot * CFrame.new(0, 0, gb.z)).Position)
+		b.gui.Size = UDim2.fromScale(gb.w, gb.h)
+		b.gui.StudsOffsetWorldSpace = Vector3.new(0, gb.y, 0)
+	else
+		b.part.CFrame = CFrame.new(pivot.Position.X, towerTop(folder), pivot.Position.Z)
+		b.gui.Size = UDim2.fromScale(58, 19)
+		b.gui.StudsOffsetWorldSpace = Vector3.new(0, 14, 0)
+	end
+end
+
 local function redraw(folder)
 	local owner = folder:GetAttribute("OwnerId")
 	local b = boards[folder]
@@ -154,10 +174,7 @@ local function redraw(folder)
 		b = makeBoard(folder)
 		boards[folder] = b
 	end
-	local pivot = folder:GetAttribute("Pivot")
-	if pivot then
-		b.part.CFrame = CFrame.new(pivot.Position.X, towerTop(folder), pivot.Position.Z)
-	end
+	place(folder, b)
 	local company = folder:GetAttribute("Company")
 	if not company or company == "" then company = "A NEW STARTUP" end
 	local mine = owner == player.UserId
@@ -243,10 +260,7 @@ task.spawn(function()
 		if acc < 2 then return end
 		acc = 0
 		for folder, b in pairs(boards) do
-			local pivot = folder:GetAttribute("Pivot")
-			if pivot and b.part.Parent then
-				b.part.CFrame = CFrame.new(pivot.Position.X, towerTop(folder), pivot.Position.Z)
-			end
+			if b.part.Parent then place(folder, b) end
 		end
 		if crown then crown.CFrame = crown.CFrame * CFrame.Angles(0, math.rad(12), 0) end
 	end)

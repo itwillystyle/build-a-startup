@@ -39,6 +39,7 @@ local Notify = require(game:GetService("ReplicatedStorage"):WaitForChild("Notify
 local GoalDone = require(ReplicatedStorage:WaitForChild("GoalDone"))
 local GoalCard = require(ReplicatedStorage:WaitForChild("GoalCard"))
 local Cine = ReplicatedStorage:FindFirstChild("Cine") and require(ReplicatedStorage.Cine)
+local MotionSpec = require(ReplicatedStorage:WaitForChild("MotionSpec"))   -- 23 Oct: the camera under Reduce Motion
 
 local GOLD, INK = UIKit.GOLD, UIKit.INK
 
@@ -681,8 +682,11 @@ local function inCar()
 	local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
 	return hum and hum.SeatPart ~= nil
 end
+--[[ 23 Oct (phase 2): under Reduce Motion the pop started at 1.5 too, and a 0.5 scale change is one
+	UIKit.tween SNAPS, so "the pin still pops" showed nothing. It now pops from 1 + SMALL_SCALE there,
+	which the layer keeps as feedback (MotionSpec.camera().pinPop). ]]
 local function popPin()
-	pinScale.Scale = 1.5
+	pinScale.Scale = MotionSpec.camera(UIKit.reducedMotion()).pinPop
 	tween(pinScale, 0.4, { Scale = 1 }, Enum.EasingStyle.Quint)
 end
 --[[ 23 Oct (the animation audit, finding 9; FINAL.md): the turn was Quint Out 0.45 s (full speed the
@@ -697,7 +701,7 @@ local function lookAtGoal()
 	tween(cardScale, 0.2, { Scale = 1 })
 	if not target then return end
 	popPin()
-	if UIKit.reducedMotion() then return end
+	if not MotionSpec.camera(UIKit.reducedMotion()).turn then return end
 	if camera.CameraType ~= Enum.CameraType.Custom or (Cine and Cine.busy and Cine.busy()) or inCar() then return end
 	looking = true
 	local from = camera.CFrame
