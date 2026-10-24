@@ -504,9 +504,35 @@ function Probes.motion()
 			math.floor(f.BackgroundTransparency * 100) / 100, 0.6)
 	end)
 	player:SetAttribute("ForceReducedMotion", before)
+	-- 24 Oct: Roblox's Background Transparency setting, forced through ForcePreferredTransparency.
+	-- A card drawn see-through (0.3) goes solid at 0, follows a live change, and comes back at 1.
+	local ptBefore = player:GetAttribute("ForcePreferredTransparency")
+	local function settle() for _ = 1, 3 do RunService.Heartbeat:Wait() end end
+	local function r2(x) return math.floor(x * 100 + 0.5) / 100 end
+	local ok3, err3 = pcall(function()
+		player:SetAttribute("ForcePreferredTransparency", 0)
+		settle()
+		add("Background Transparency is forced to 0", UIKit.preferredTransparency() == 0, UIKit.preferredTransparency(), 0)
+		local card = UIKit.card(gui, { Size = UDim2.new(0, 100, 0, 40), BackgroundTransparency = 0.3 })
+		add("a see-through card is solid at 0", card.BackgroundTransparency == 0, r2(card.BackgroundTransparency), 0)
+		player:SetAttribute("ForcePreferredTransparency", 0.5)
+		settle()
+		add("the card follows a live change", math.abs(card.BackgroundTransparency - 0.15) < 0.01, r2(card.BackgroundTransparency), 0.15)
+		player:SetAttribute("ForcePreferredTransparency", 1)
+		settle()
+		add("the card is back to its design at 1", math.abs(card.BackgroundTransparency - 0.3) < 0.01, r2(card.BackgroundTransparency), 0.3)
+		local plain = UIKit.card(gui, { Size = UDim2.new(0, 100, 0, 40) })
+		player:SetAttribute("ForcePreferredTransparency", 0)
+		settle()
+		add("a solid card stays solid", plain.BackgroundTransparency == 0, r2(plain.BackgroundTransparency), 0)
+		local box = UIKit.label(gui, "", UIKit.TYPE.body, UIKit.INK, {})
+		add("a label gets no background", box.BackgroundTransparency == 1, r2(box.BackgroundTransparency), 1)
+	end)
+	player:SetAttribute("ForcePreferredTransparency", ptBefore)
 	gui:Destroy()
 	if not ok then add("the reduced-motion half ran", false, tostring(err), "no error") end
 	if not ok2 then add("the motion-on half ran", false, tostring(err2), "no error") end
+	if not ok3 then add("the background-transparency part ran", false, tostring(err3), "no error") end
 	return { checks = checks }
 end
 
