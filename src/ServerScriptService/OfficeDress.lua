@@ -15,9 +15,10 @@ OfficeDress.TAG = "SVDressing"
 
 local function rgb(c) return Color3.fromRGB(c[1], c[2], c[3]) end
 
+-- the part itself and every part under it (a vertex-kit monitor is a MeshPart with its Glow inside)
 local function tagAll(inst, tag)
-	local list = inst:IsA("BasePart") and { inst } or inst:GetDescendants()
-	for _, d in ipairs(list) do
+	if inst:IsA("BasePart") then CollectionService:AddTag(inst, tag) end
+	for _, d in ipairs(inst:GetDescendants()) do
 		if d:IsA("BasePart") then CollectionService:AddTag(d, tag) end
 	end
 end

@@ -282,4 +282,32 @@ test("Wafers keeps saved decor clear of the flat pieces only, and its station is
 	assert(near(OL.STATION.x(r), -r.w / 2 + 3) and near(OL.STATION.z(r), -r.d / 2 + 3) and OL.STATION.w == 3.2 and OL.STATION.d == 1.8, "STATION")
 end)
 
+-- ---------------------------------------------------------------- Task 5: far rooms cost nothing
+test("the cull: a band so it never flickers, near enough that your own room never hides, far enough to pay", function()
+	local C = OL.CULL
+	assert(type(C) == "table" and C.near < C.far, "CULL.near must be below CULL.far")
+	local diag = 0
+	for s = 0, 13 do
+		if not T.DECKS[s] then
+			for seg = 1, 8 do
+				local r = T.room(s, seg)
+				diag = math.max(diag, math.sqrt(r.w ^ 2 + r.d ^ 2))
+			end
+		end
+	end
+	-- 60 = how far the camera may stand from its player (an assumption: the zoom limit is not measured)
+	assert(C.near >= diag + 60, ("near %d is under the biggest room's diagonal %.1f + 60"):format(C.near, diag))
+	-- the 1d plaza camera (eye at plot -60, 18, 230) to the podium's front: every room is farther than this
+	local plaza = 230 - T.rect(0).zf
+	assert(C.far < plaza, ("far %d must be under the plaza camera's %.0f, or the plaza view pays for every room"):format(C.far, plaza))
+	assert(table.find(C.tags, "SVDressing") and table.find(C.tags, "SVRoomKit"), "the dressing and today's furniture (ruling 8)")
+end)
+
+test("cullNext: hides past far, shows inside near, and holds its state in the band", function()
+	local C = OL.CULL
+	assert(OL.cullNext(false, C.far + 1) == true, "past far: hide")
+	assert(OL.cullNext(true, C.near - 1) == false, "inside near: show")
+	assert(OL.cullNext(true, (C.near + C.far) / 2) == true and OL.cullNext(false, (C.near + C.far) / 2) == false, "the band holds")
+end)
+
 return TT

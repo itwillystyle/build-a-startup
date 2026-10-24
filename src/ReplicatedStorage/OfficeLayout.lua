@@ -222,6 +222,19 @@ function OfficeLayout.with(T, SR)
 		return OL.parts(all)
 	end
 
+	--[[ ------------------------------------------------------------ Task 5 (24 Oct): far rooms cost nothing
+		The tower was already 537-550k triangles from the plaza at hq:100 against the 500k rule (1d).
+		Each client hides the dressing and the kit furniture (ruling 8) of every room whose centre is
+		farther than `far` from its camera, and shows it again inside `near` (the band stops flicker),
+		the way TreeCullClient does for trees. officelayout.spec pins the numbers: near clears the
+		biggest room's diagonal plus a camera's reach, far is under the 1d plaza camera's distance. ]]
+	OL.CULL = { far = 160, near = 140, every = 0.5, tags = { "SVDressing", "SVRoomKit" } }
+	function OL.cullNext(hidden, dist)
+		if not hidden and dist > OL.CULL.far then return true end
+		if hidden and dist < OL.CULL.near then return false end
+		return hidden
+	end
+
 	-- ------------------------------------------------------------ the checks
 	-- an axis box from a centre, a local box and a yaw in degrees (CFrame.Angles(0, yaw, 0))
 	local function turned(cx, cz, lx0, lx1, lz0, lz1, yaw)
