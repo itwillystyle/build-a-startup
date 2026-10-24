@@ -7,6 +7,7 @@ Turns a screenshot into the four numbers the art-pass spec targets
     spread  contrast: luminance p90 - p10
     sat     colour strength: mean HSV saturation
     blown   share of near-white pixels (luminance > 0.92)
+    dark    share of near-black pixels (luminance < 0.08); 24 Oct, art pass 4: the night ruler
 
 Measured on 22 Oct: Luke's live shots were 46-79% near white against 1-4% in the
 picked mocks. That number is what "too blocky and dull" was.
@@ -15,7 +16,8 @@ The top and bottom 12% are cut (the HUD rows: goal card, money, the bottom
 button), so the numbers are about the world, not the UI.
 
 Usage:
-    python -I tools/look_stats.py shot1.png [shot2.png ...] [--targets tools/look_targets.json] [--lowq]
+    python -I tools/look_stats.py shot1.png [shot2.png ...] [--targets tools/look_targets.json] [--lowq] [--night]
+--night judges only `dark` (<= night.dark_max): a night shot is meant to be dark, not to hit the day targets.
     python -I tools/look_stats.py --selftest
 Exit 1 if any image misses a target.
 """
@@ -28,6 +30,7 @@ from PIL import Image
 CROP = 0.12
 WIDTH = 320
 BLOWN = 0.92
+DARK = 0.08
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_TARGETS = os.path.join(HERE, "look_targets.json")
 MOCK = os.path.join(HERE, "..", "..", "ui", "art-pass", "garage-outside.png")
@@ -39,7 +42,7 @@ def stats(im):
     im = im.crop((0, int(h * CROP), w, int(h * (1 - CROP))))
     w, h = im.size
     im = im.resize((WIDTH, max(1, round(WIDTH * h / w))))
-    lum, sat, blown = [], 0.0, 0
+    lum, sat, blown, dark = [], 0.0, 0, 0
     for r, g, b in im.getdata():
         l = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
         lum.append(l)
@@ -47,6 +50,8 @@ def stats(im):
         sat += (mx - mn) / mx if mx else 0.0
         if l > BLOWN:
             blown += 1
+        if l < DARK:
+            dark += 1
     n = len(lum)
     lum.sort()
     p = lambda q: lum[int(q * (n - 1))]
@@ -55,10 +60,13 @@ def stats(im):
         "spread": round(p(0.9) - p(0.1), 3),
         "sat": round(sat / n, 3),
         "blown": round(blown / n, 3),
+        "dark": round(dark / n, 3),
     }
 
 
-def judge(s, t, lowq=False):
+def judge(s, t, lowq=False, night=False):
+    if night:
+        return {"dark": s["dark"] <= t["night"]["dark_max"]}
     spread_min = t.get("lowq", {}).get("spread_min", t["spread_min"]) if lowq else t["spread_min"]
     return {
         "blown": s["blown"] <= t["blown_max"],
@@ -82,10 +90,13 @@ def selftest():
         ("all white", white, {"blown": False}),
         ("black/white checker", checker, {"sat": False}),
         ("the picked mock", Image.open(MOCK), {"blown": True, "mean": True, "spread": True, "sat": True}),
+        # 24 Oct (art pass 4): the night ruler. All black is 100% dark and fails it; the mock passes it
+        ("all black at night", Image.new("RGB", (64, 64), (0, 0, 0)), {"dark": False}, True),
+        ("the picked mock at night", Image.open(MOCK), {"dark": True}, True),
     ]
     good = 0
-    for name, im, want in cases:
-        got = judge(stats(im), t)
+    for name, im, want, *night in cases:
+        got = judge(stats(im), t, night=bool(night))
         ok = all(got[k] == v for k, v in want.items())
         good += ok
         print(("ok  " if ok else "BAD ") + name, stats(im), got)
@@ -100,6 +111,7 @@ def main(argv):
     if "--targets" in argv:
         tpath = argv[argv.index("--targets") + 1]
     lowq = "--lowq" in argv
+    night = "--night" in argv
     files = [a for i, a in enumerate(argv) if not a.startswith("--") and (i == 0 or argv[i - 1] != "--targets")]
     if not files:
         print(__doc__)
@@ -108,10 +120,10 @@ def main(argv):
     bad = 0
     for f in files:
         s = stats(Image.open(f))
-        got = judge(s, t, lowq)
+        got = judge(s, t, lowq, night)
         verdict = "PASS" if all(got.values()) else "FAIL " + ",".join(k for k, v in got.items() if not v)
         bad += not all(got.values())
-        print(f"{os.path.basename(f)}  mean {s['mean']}  spread {s['spread']}  sat {s['sat']}  blown {s['blown']}  {verdict}")
+        print(f"{os.path.basename(f)}  mean {s['mean']}  spread {s['spread']}  sat {s['sat']}  blown {s['blown']}  dark {s['dark']}  {verdict}")
     return 1 if bad else 0
 
 

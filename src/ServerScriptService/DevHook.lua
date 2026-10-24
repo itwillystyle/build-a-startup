@@ -75,7 +75,8 @@ return function(core)
 			if exact and n < plot.wafer.level then E.Wafers.clear(plot) end
 			s.blueprint = s.blueprint or {}
 			E.Wafers.buildUpTo(plot, n, function(x)
-				local d = E.Wafers.Plan.recommend(x, E.Wafers.counts(plot), 3)
+				-- 24 Oct (art pass 4): a level pinned by wdept builds that department (the C3 review room)
+				local d = (s.deptPin and s.deptPin[x]) or E.Wafers.Plan.recommend(x, E.Wafers.counts(plot), 3)
 				s.blueprint[x] = d
 				return d
 			end, false)
@@ -85,6 +86,30 @@ return function(core)
 			core.recompute(player)
 			if core.refreshHqPad then core.refreshHqPad(plot) end
 			return ("level %d, stage %d, capacity %d"):format(plot.wafer.level, plot.hq.level, core.capacityOf(player))
+		elseif action == "wdept" then
+			-- 24 Oct (art pass 4): "L=dept" pins level L to a department for the next wlevel build
+			-- (the doctor's mix has no desk room at 13+); "clear" drops every pin. Session only.
+			local E = core.Econ
+			if not (E and E.Wafers) then return "no wafers" end
+			local raw = tostring(arg or "")
+			if raw == "clear" then s.deptPin = nil return "pins cleared" end
+			local L, dept = raw:match("^(%d+)=(%a+)$")
+			L = tonumber(L)
+			if not L then return "usage: wdept L=dept | clear" end
+			local ok = false
+			for _, d in ipairs(E.Wafers.Plan.allowed(L)) do if d == dept then ok = true end end
+			if not ok then return ("%s is not allowed at L%d"):format(tostring(dept), L) end
+			s.deptPin = s.deptPin or {}
+			s.deptPin[L] = dept
+			return ("L%d pinned to %s"):format(L, dept)
+		elseif action == "wpath" then
+			-- 24 Oct (art pass 4): the tower's finish (W_, T_, D_) for the next build. s and plot together:
+			-- recompute copies s.hqPath into plot.hqPath, so setting only the plot would not stick
+			local E = core.Econ
+			if not (plot and E and E.Wafers and E.Wafers.PATHS[tostring(arg)]) then return "usage: wpath W_|T_|D_" end
+			s.hqPath, plot.hqPath = arg, arg
+			core.recompute(player)
+			return "finish " .. E.Wafers.pathName(arg) .. " (rebuild to see it)"
 		elseif action == "spinoff" then
 			if not plot then return "no plot" end
 			plot.spinArmed = os.clock() - 1        -- skip the confirm tap
