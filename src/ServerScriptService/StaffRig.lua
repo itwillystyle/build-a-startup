@@ -24,6 +24,7 @@ local StaffRig = {}
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local CollectionService = game:GetService("CollectionService")
+local LabelLook = require(game:GetService("ReplicatedStorage"):WaitForChild("LabelLook"))   -- 24 Oct: label rules (L3)
 
 --[[
 	v2.8.1 MOTION LIVES ON THE CLIENT. Measured on a full server (6 plots x 30
@@ -126,6 +127,8 @@ local function nameTag(adornee, text, sub, color)
 	-- (six floating name+title stacks through the office glass read as clutter)
 	-- v3.0.3: 14 -- at 24 a full cafe showed six overlapping name + title stacks
 	bb.MaxDistance = 14
+	-- 24 Oct (look pass L3): unlit, like every other world label (the night grade still applies)
+	bb.LightInfluence = 0
 	bb.Name = "Tag"
 	bb.Adornee = adornee
 	bb.Parent = adornee
@@ -135,8 +138,10 @@ local function nameTag(adornee, text, sub, color)
 	n.BackgroundTransparency = 1
 	n.Text = text
 	n.TextColor3 = Color3.new(1, 1, 1)
-	n.TextStrokeTransparency = 0.25
-	n.TextSize = 16
+	-- 24 Oct (look pass L3): an opaque outline, the HUD's sticker (LabelLook.reads; 0.25 let the street through)
+	n.TextStrokeColor3 = LabelLook.PLATE.stroke
+	n.TextStrokeTransparency = LabelLook.PLATE.strokeT
+	n.TextSize = LabelLook.PLATE.nameSize
 	n.Font = Enum.Font.FredokaOne
 	n.Parent = bb
 
@@ -146,9 +151,13 @@ local function nameTag(adornee, text, sub, color)
 	r.Size = UDim2.new(1, 0, 0.45, 0)
 	r.BackgroundTransparency = 1
 	r.Text = sub
-	r.TextColor3 = color
-	r.TextStrokeTransparency = 0.4
-	r.TextSize = 12
+	-- 24 Oct (look pass L3): final-C1-night.jpg lost "Lead Researcher" on the dark street: a mid
+	-- role colour in a 0.4 outline at 12 px. Now the role's hue lifted to OKLab L 0.88
+	-- (LabelLook.plateText), an opaque outline and the 14 px floor; labellook.spec measures it
+	r.TextColor3 = LabelLook.plateText(color)
+	r.TextStrokeColor3 = LabelLook.PLATE.stroke
+	r.TextStrokeTransparency = LabelLook.PLATE.strokeT
+	r.TextSize = LabelLook.PLATE.subSize
 	r.Font = Enum.Font.GothamMedium
 	r.Parent = bb
 	return bb
@@ -515,6 +524,17 @@ function StaffRig.build(roleKey, index)
 	return buildBlock(roleKey, index)
 end
 
+-- 24 Oct (client timer, Plan 2: "client looks never match the player's avatar"): the look
+-- StaffRig.build(_, index) gives an avatar rig, without building it (the same two draws as
+-- build and buildAvatar), so ClientsServer can skip a client who would look like you.
+StaffRig.SKIN = SKIN
+function StaffRig.lookOf(index)
+	local rng = Random.new(index * 7919)
+	local skin = rng:NextInteger(1, #SKIN)
+	local hair = rng:NextInteger(1, #AVATAR_HAIR)
+	return { skin = skin, hair = AVATAR_HAIR[hair] }
+end
+
 -- the outfit colours: shirt and trousers on an avatar, the torso parts on a block rig
 function StaffRig.setOutfit(model, shirtColor, pantsColor)
 	local shirt, pants = model:FindFirstChildOfClass("Shirt"), model:FindFirstChildOfClass("Pants")
@@ -579,7 +599,7 @@ function StaffRig.setTalent(model, talent, color, label)
 		tag.MaxDistance = 70
 		for _, l in ipairs(tag:GetChildren()) do
 			if l:IsA("TextLabel") and l.Name ~= "Sub" then
-				l.TextColor3 = color
+				l.TextColor3 = LabelLook.plateText(color)   -- 24 Oct (L3): the talent colour, lifted to read at night
 				if label and not string.find(l.Text, "·", 1, true) then l.Text = l.Text .. "  ·  " .. string.upper(label) end
 			end
 		end

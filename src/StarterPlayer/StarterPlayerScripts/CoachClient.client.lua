@@ -17,6 +17,8 @@ local TweenService = game:GetService("TweenService")
 local player = Players.LocalPlayer
 local UIKit = require(RS:WaitForChild("UIKit"))
 local Notify = require(RS:WaitForChild("Notify"))
+local OneVoice = require(RS:WaitForChild("OneVoice"))   -- 24 Oct: one instruction at a time (rule A)
+local CoachPlace = require(RS:WaitForChild("CoachPlace"))   -- 24 Oct (F-6): where the card goes, pure
 local seenRemote = RS:WaitForChild("SVRemotes"):WaitForChild("CoachSeen")
 
 local gui = Instance.new("ScreenGui")
@@ -51,50 +53,19 @@ end
 
 local current   -- { id, frame, ring, conns, done }
 
--- v5: where the card goes. Beside the target when there is room, else above or
--- below it; always fully on screen, under Roblox's top bar (58 px), clear of the
--- rail, and on a touch screen off the thumbstick and the jump button. Found on a
--- phone: the LAUNCH tip went left of the centred button, ran off the screen
--- ("UNCH your app!") and sat on the thumbstick.
+-- v5: where the card goes (beside the target, on screen, off the rail and the thumbs).
+-- 24 Oct (F-6): the rule moved to CoachPlace (pure, tests/offline/coachplace.spec.luau) and keeps
+-- the card off the goal card (the doctor's "cards over cards" at HQ 18/43/100 on a short screen)
 local isTouch = game:GetService("UserInputService").TouchEnabled
+local function goalRect()
+	local q = player.PlayerGui:FindFirstChild("Quest")
+	local card = q and q.Enabled and q:FindFirstChild("Holder") and q.Holder:FindFirstChild("Quest")
+	if not (card and card.Visible) then return nil end
+	local p = card.AbsolutePosition - gui.AbsolutePosition
+	return { x = p.X, y = p.Y, w = card.AbsoluteSize.X, h = card.AbsoluteSize.Y }
+end
 local function place(tp, ts, vp, W, H)
-	local centre = tp + ts / 2
-	local function blocked(x, y)
-		if x < 8 or y < 64 or x + W > vp.X - 8 or y + H > vp.Y - 8 then return true end
-		if isTouch then
-			if x < 170 and y + H > vp.Y - 170 then return true end              -- the thumbstick
-			if x + W > vp.X - 180 and y + H > vp.Y - 160 then return true end   -- the jump button
-		end
-		return false
-	end
-	local rr = UIKit.railRight()
-	local midY = math.clamp(centre.Y - H / 2, 64, math.max(64, vp.Y - H - 8))
-	-- beside a target, the card also stays above the bottom action slot (WRITE CODE /
-	-- LAUNCH and its caption own the bottom ~118 px of the screen)
-	local sideY = math.min(midY, math.max(64, vp.Y - 118 - H))
-	local midX = math.clamp(centre.X - W / 2, 8, math.max(8, vp.X - W - 8))
-	local at = {
-		right = function() return math.max(tp.X + ts.X + 40, tp.X < rr and rr + 30 or 0), sideY end,
-		left = function() return tp.X - W - 40, sideY end,
-		above = function() return midX, tp.Y - H - 40 end,
-		below = function() return midX, tp.Y + ts.Y + 40 end,
-	}
-	local order
-	if centre.Y > vp.Y * 0.6 then
-		order = { "above", centre.X < vp.X / 2 and "right" or "left", "below" }
-	elseif centre.X < vp.X * 0.4 then
-		order = { "right", "below", "above", "left" }
-	elseif centre.X > vp.X * 0.6 then
-		order = { "left", "below", "above", "right" }
-	else
-		order = { "below", "above", "right", "left" }
-	end
-	for _, side in ipairs(order) do
-		local x, y = at[side]()
-		if not blocked(x, y) then return side, x, y end
-	end
-	local x, y = at[order[1]]()
-	return order[1], math.clamp(x, 8, math.max(8, vp.X - W - 8)), math.clamp(y, 64, math.max(64, vp.Y - H - 8))
+	return CoachPlace.place(tp, ts, vp, W, H, { railRight = UIKit.railRight(), touch = isTouch, avoid = { goalRect() } })
 end
 -- the bouncing arrow sits between the card and the target, pointing at the target
 local ARROW = {
@@ -109,6 +80,7 @@ local function finish(report)
 	local c = current
 	if not c then return end
 	current = nil
+	player:SetAttribute("CoachShowing", false)   -- 24 Oct (F-6): the goal opens back out
 	for _, k in ipairs(c.conns) do k:Disconnect() end
 	if c.frame then c.frame:Destroy() end
 	if c.ring then c.ring:Destroy() end
@@ -161,6 +133,9 @@ local function build(id, target, done)
 				w.BorderSizePixel = 0
 				w.Size = UDim2.new(1, 0, 1, 0)
 				w.ZIndex = 50
+				-- 24 Oct (F-6): the tip's own dim, drawn under its arrow on purpose (the doctor's
+				-- "cards over cards" counted CoachArrow over CoachWash): an overlay, not a card
+				w:SetAttribute("Overlay", true)
 				w.Parent = tile
 				Instance.new("UICorner", w).CornerRadius = UDim.new(0, UIKit.RADIUS.md)
 				table.insert(washes, w)
@@ -169,6 +144,9 @@ local function build(id, target, done)
 	end
 	local c = { id = id, frame = card, ring = ring, arrow = arrow, washes = washes, conns = {}, done = done }
 	current = c
+	--[[ 24 Oct (F-6, rule A): a tip on screen is an instruction, so it is the voice while it shows
+		(HudClient reads CoachShowing into OneVoice.pick) and the goal folds to its icon until GOT IT ]]
+	player:SetAttribute("CoachShowing", true)
 	table.insert(c.conns, ok.Activated:Connect(function() finish(true) end))
 	if target:IsA("GuiButton") then
 		table.insert(c.conns, target.Activated:Connect(function() finish(true) end))
@@ -215,6 +193,7 @@ local function goalBusy()
 end
 local calmSince
 local function setShown(c, on)
+	if player:GetAttribute("CoachShowing") ~= on then player:SetAttribute("CoachShowing", on) end   -- 24 Oct (F-6)
 	if c.frame then c.frame.Visible = on end
 	if c.ring then c.ring.Visible = on end
 	if c.arrow then c.arrow.Visible = on end
@@ -226,7 +205,10 @@ task.spawn(function()
 		local id = player:GetAttribute("CoachTip")
 		if current and current.id ~= id then finish(false) end
 		-- v5: also any menu or decision card (a BAG tip opened on top of the spin-off confirm)
+		-- 24 Oct (one voice): and never beside a live button or the job in your hands (the LAUNCH
+		-- tip may sit beside LAUNCH! itself: they say the same thing)
 		local busy = Notify.busy() or goalBusy() or UIKit.menuOpen()
+			or not OneVoice.coachOk(player:GetAttribute("OneVoice"), player:GetAttribute("CoachTarget"))
 		if busy then calmSince = nil elseif not calmSince then calmSince = os.clock() end
 		if current then
 			setShown(current, not busy)

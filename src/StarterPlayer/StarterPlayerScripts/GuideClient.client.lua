@@ -38,7 +38,9 @@ local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
 local Notify = require(game:GetService("ReplicatedStorage"):WaitForChild("Notify"))
 local GoalDone = require(ReplicatedStorage:WaitForChild("GoalDone"))
 local GoalCard = require(ReplicatedStorage:WaitForChild("GoalCard"))
+local OneVoice = require(ReplicatedStorage:WaitForChild("OneVoice"))   -- 24 Oct: one instruction at a time (rule A)
 local Cine = ReplicatedStorage:FindFirstChild("Cine") and require(ReplicatedStorage.Cine)
+local MotionSpec = require(ReplicatedStorage:WaitForChild("MotionSpec"))   -- 23 Oct: the camera under Reduce Motion
 
 local GOLD, INK = UIKit.GOLD, UIKit.INK
 
@@ -268,6 +270,12 @@ local gc = GoalCard.new()
 local PILL_H, PILL_TILE = 44, 32   -- 44: DESIGN.md, no tap under 44
 local PILL_X = 6 + PILL_TILE + 10
 local isPill = nil   -- the shape last drawn
+--[[ 24 Oct (one instruction, rule A; ui/animation-review/judge/ONE-INSTRUCTION-OPTIONS.md): while the
+	button you can press or LAUNCH! speaks (HudClient's client-local OneVoice attribute), the pill
+	folds to its 44 px icon: no words, no world marker, still a tap to look at the goal. It opens
+	back out with its words when your hands are free. ]]
+local folded = OneVoice.folds(player:GetAttribute("OneVoice"))
+local wasFolded = nil   -- the fold last drawn
 
 -- a reward reads as a green chip ("x1.5 money, forever", "Unlocks STAR hires"); it
 -- wraps to a second line instead of shrinking (v4.4 shrank it to 10 pt)
@@ -445,8 +453,10 @@ local function layout()
 	-- 23 Oct (Luke picked A, FINAL.md L1): always the pill. The full card was a 430 x 76 box holding
 	-- one line for 4 s over the view (studio-goalcard-full.jpg); a new goal glows instead (cue below)
 	local pill = true
-	local changed = pill ~= isPill
+	local changed = pill ~= isPill or folded ~= wasFolded
+	local foldChanged = wasFolded ~= nil and folded ~= wasFolded
 	isPill = pill
+	wasFolded = folded
 	tileScale.Scale = pill and PILL_TILE / TILE or 1
 	tile.Position = pill and UDim2.new(0, 6, 0, 6) or UDim2.new(0, PAD, 0, PAD)
 	title.TextWrapped = not pill
@@ -458,7 +468,14 @@ local function layout()
 		local w = math.min(W, PILL_X + textWidth(title) + 20)   -- 23 Oct (W7): +14 left the last letter on the edge
 		title.Position = UDim2.new(0, PILL_X, 0, 0)
 		title.Size = UDim2.new(1, -(PILL_X + 10), 1, 0)
-		setSize(UDim2.new(0, w, 0, PILL_H), changed)
+		-- 24 Oct (one voice): folded, the pill is its icon tile alone (a 44 x 44 square); the words fade
+		-- out as it narrows and back in as it widens (MotionSpec ui 0.2, the mock's panel A)
+		if foldChanged and card.Visible then
+			tween(title, 0.2, { TextTransparency = folded and 1 or 0 })
+		else
+			UIKit.set(title, { TextTransparency = folded and 1 or 0 })
+		end
+		setSize(UDim2.new(0, folded and PILL_H or w, 0, PILL_H), changed)
 		return
 	end
 	local textW = W - TEXT_X - PAD
@@ -622,7 +639,7 @@ local function readObjective()
 				if cardStroke then cardStroke.Color = UIKit.CARD_LINE end
 				showGoal(player:GetAttribute("Objective"), player:GetAttribute("ObjectiveText"))
 				applySub()
-				if card.Visible then markShown() end
+				if card.Visible and not folded then markShown() end
 				cardScale.Scale = 0.94
 				tween(cardScale, 0.25, { Scale = 1 })
 			end)
@@ -654,8 +671,9 @@ local function readObjective()
 		and player:GetAttribute("RailTrayOpen") ~= true      -- the MORE tray is open over it
 	gui.Enabled = show and player:GetAttribute("NamingOpen") ~= true and not menu
 	-- the DONE! stamp keeps the shape it has; the next goal opens when the stamp ends
-	if card.Visible and not stamping then markShown() end
-	local showMarker = show and target ~= nil
+	-- 24 Oct: a goal that arrives folded gets its glow when its words show
+	if card.Visible and not stamping and not folded then markShown() end
+	local showMarker = show and target ~= nil and not folded   -- 24 Oct: the marker is the goal's voice too
 	pin.Enabled = showMarker
 	pinPart.Parent = showMarker and workspace or nil
 	ring.Parent = showMarker and workspace or nil
@@ -667,6 +685,13 @@ for _, name in ipairs({ "Objective", "ObjectiveText", "ObjectivePos", "Objective
 	player:GetAttributeChangedSignal(name):Connect(readObjective)
 end
 player:GetAttributeChangedSignal("NamingOpen"):Connect(readObjective)
+player:GetAttributeChangedSignal("OneVoice"):Connect(function()
+	local f = OneVoice.folds(player:GetAttribute("OneVoice"))
+	if f == folded then return end
+	folded = f
+	layout()
+	readObjective()
+end)
 readObjective()
 readBig()
 
@@ -681,8 +706,11 @@ local function inCar()
 	local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
 	return hum and hum.SeatPart ~= nil
 end
+--[[ 23 Oct (phase 2): under Reduce Motion the pop started at 1.5 too, and a 0.5 scale change is one
+	UIKit.tween SNAPS, so "the pin still pops" showed nothing. It now pops from 1 + SMALL_SCALE there,
+	which the layer keeps as feedback (MotionSpec.camera().pinPop). ]]
 local function popPin()
-	pinScale.Scale = 1.5
+	pinScale.Scale = MotionSpec.camera(UIKit.reducedMotion()).pinPop
 	tween(pinScale, 0.4, { Scale = 1 }, Enum.EasingStyle.Quint)
 end
 --[[ 23 Oct (the animation audit, finding 9; FINAL.md): the turn was Quint Out 0.45 s (full speed the
@@ -697,7 +725,7 @@ local function lookAtGoal()
 	tween(cardScale, 0.2, { Scale = 1 })
 	if not target then return end
 	popPin()
-	if UIKit.reducedMotion() then return end
+	if not MotionSpec.camera(UIKit.reducedMotion()).turn then return end
 	if camera.CameraType ~= Enum.CameraType.Custom or (Cine and Cine.busy and Cine.busy()) or inCar() then return end
 	looking = true
 	local from = camera.CFrame
@@ -847,7 +875,7 @@ RunService.RenderStepped:Connect(function()
 		cardStroke.Thickness = 2 + 1.5 * g
 	end
 
-	if not target then edge.Visible = false return end
+	if not target or folded then edge.Visible = false return end   -- 24 Oct: folded, no edge arrow either
 	local char = player.Character
 	local root = char and char:FindFirstChild("HumanoidRootPart")
 	local dist = root and (root.Position - target).Magnitude or 0

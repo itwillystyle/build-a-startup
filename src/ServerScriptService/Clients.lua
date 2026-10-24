@@ -199,9 +199,12 @@ function Clients.tick(Q, dt, ctx)
 	end
 
 	-- patience: everyone waiting, except the job in your hands this tick, the app you carry and who just arrived
+	-- 24 Oct: `draining` says whether it went down this tick (the client's badge only counts
+	-- down between server draws while it does)
 	for i = #Q.line, 1, -1 do
 		local c = Q.line[i]
-		if c.left and c ~= mine and c ~= Q.carrying and c ~= newcomer then
+		c.draining = c.left ~= nil and c ~= mine and c ~= Q.carrying and c ~= newcomer
+		if c.draining then
 			c.left -= dt
 			if c.left <= 0 then
 				table.remove(Q.line, i)
@@ -276,6 +279,24 @@ end
 function Clients.started(Q)
 	for _, c in ipairs(Q.line) do
 		if c ~= Q.carrying and c.yours and c.done > 0 and c.done < c.need then return c end
+	end
+	return nil
+end
+
+--[[ 24 Oct (F-5, live on PR #80): the front job that waits for YOU, or nil. With 10-14 staff at
+	the laptop the HUD flipped HOLD TO CODE <-> LAUNCH! every 2-4 s: a client walked up, a free
+	coder took the job at once (tick: front first, one each, never BIG, never the tutorial's) and
+	served it ~2-3 s later. A job a coder takes does not need you, so only these wait for you: a
+	job you started (yours to finish), a BIG or tutorial job (coders never take them), or a small
+	job past the coders' count. `coders` = how many seated coders. ClientsServer's JobWaiting is
+	this, the one place: HOLD TO CODE and the paused LAUNCH! clock (OneVoice.launchHeld) both read it. ]]
+function Clients.waitingForYou(Q, coders)
+	local free = coders or 0
+	for _, c in ipairs(Q.line) do
+		if c ~= Q.carrying and c.done < c.need then
+			if c.yours or c.kind ~= "normal" then return c end
+			if free > 0 then free -= 1 else return c end
+		end
 	end
 	return nil
 end

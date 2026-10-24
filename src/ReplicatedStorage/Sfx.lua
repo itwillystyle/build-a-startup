@@ -41,6 +41,12 @@ Sfx.ID = {
 	-- objects
 	keyboard = 9113874782,      -- Computer Keyboard 1, 0.25s
 	keyTap = 9113145647,        -- Apple Keyboard 72, 0.40s
+
+	-- clients
+	-- 24 Oct: the client timer's tick in the last 8 s (ClientTimerClient). No tick recording was
+	-- uploaded (no asset uploads on this pass), so it REUSES keyTap's id, the closest soft short
+	-- click in the library; the last three ticks play it higher. Swap the id here for a real tick.
+	clientTick = 9113145647,    -- = keyTap (Apple Keyboard 72, 0.40s)
 }
 
 function Sfx.url(key)

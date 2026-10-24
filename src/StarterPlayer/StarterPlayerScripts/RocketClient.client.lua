@@ -25,6 +25,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Debris = game:GetService("Debris")
 local TweenService = game:GetService("TweenService")
+local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
+local MotionSpec = require(ReplicatedStorage:WaitForChild("MotionSpec"))   -- 23 Oct: the camera under Reduce Motion
 
 local player = Players.LocalPlayer
 local remotes = ReplicatedStorage:WaitForChild("SVRemotes")
@@ -231,9 +233,11 @@ local function launch(data)
 		end
 		rocket:PivotTo(base * CFrame.new(math.random() * shake - shake / 2, y, math.random() * shake - shake / 2)
 			* CFrame.Angles(0, e * 0.6, 0))
-		-- the owner's camera feels it
-		if mine and e < 1.4 and (cam.CFrame.Position - data.pos).Magnitude < 160 then
-			cam.CFrame = cam.CFrame * CFrame.new((math.random() - 0.5) * 0.12, (math.random() - 0.5) * 0.12, 0)
+		-- the owner's camera feels it. 23 Oct: not under Reduce Motion (the rocket itself still
+		-- shakes: that is an object in the world, not the player's view)
+		if mine and e < 1.4 and (cam.CFrame.Position - data.pos).Magnitude < 160
+			and MotionSpec.camera(UIKit.reducedMotion()).shake > 0 then
+			cam.CFrame = cam.CFrame * CFrame.new((math.random() - 0.5) * 0.12, (math.random() - 0.5) * 0.12, 0)   -- motion: camera
 		end
 		if e > 4.6 then
 			conn:Disconnect()

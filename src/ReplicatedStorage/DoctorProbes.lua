@@ -476,8 +476,55 @@ function Probes.motion()
 		c:Disconnect()
 		return done
 	end
+	--[[ 23 Oct (phase 2, the camera): a 1.2 s three-shot cutscene where the camera already is, sampled
+		every frame -> how many frames sat on one of the shots, how many were between them (a flight) ]]
+	local MotionSpec = require(script.Parent:WaitForChild("MotionSpec"))
+	local function flight()
+		local Cine = require(script.Parent:WaitForChild("Cine"))
+		local cam = workspace.CurrentCamera
+		if cam.CameraType ~= Enum.CameraType.Custom or Cine.busy() then return nil end
+		local p0 = cam.CFrame.Position
+		local fwd = cam.CFrame.LookVector
+		local shots = {
+			{ pos = p0, look = p0 + fwd * 60, t = 0 },
+			{ pos = p0 + Vector3.new(0, 12, 0), look = p0 + fwd * 60, t = 0.6 },
+			{ pos = p0 + Vector3.new(0, 24, 0), look = p0 + fwd * 60, t = 0.6 },
+		}
+		local on, between, done = 0, 0, false
+		local conn = RunService.RenderStepped:Connect(function()
+			if not Cine.busy() then return end
+			local at = cam.CFrame.Position
+			local near = false
+			for _, sh in ipairs(shots) do
+				if (at - sh.pos).Magnitude < 0.05 then near = true end
+			end
+			if near then on += 1 else between += 1 end
+		end)
+		task.spawn(function()
+			Cine.play(shots, { letterbox = false, skippable = false })
+			done = true
+		end)
+		local t0 = os.clock()
+		while not done and os.clock() - t0 < 4 do task.wait() end
+		conn:Disconnect()
+		return { on = on, between = between, done = done, back = cam.CameraType == Enum.CameraType.Custom }
+	end
 	local ok, err = pcall(function()
 		add("Reduce Motion is on for the probe", UIKit.reducedMotion() == true, UIKit.reducedMotion(), true)
+		-- 23 Oct (phase 2): the camera policy is the reduced one
+		local lens = MotionSpec.camera(UIKit.reducedMotion())
+		add("the camera policy is still: no shake, no punch, no speed zoom, cuts",
+			lens.shake == 0 and not lens.punch and not lens.zoom and lens.speedFov == 0 and lens.flight == "cut" and not lens.turn,
+			("shake %s punch %s zoom %s speedFov %s flight %s turn %s"):format(tostring(lens.shake), tostring(lens.punch),
+				tostring(lens.zoom), tostring(lens.speedFov), lens.flight, tostring(lens.turn)), "0 false false 0 cut false")
+		local fl = flight()
+		if fl then
+			add("a cutscene under Reduce Motion cuts (every frame sits on a shot)", fl.done and fl.on > 0 and fl.between == 0,
+				("%d on a shot, %d between"):format(fl.on, fl.between), "0 frames between shots")
+			add("the cut cutscene hands the camera back", fl.back, fl.back and "Custom" or "not Custom", "Custom")
+		else
+			add("a cutscene could run (camera Custom, no cutscene playing)", false, tostring(workspace.CurrentCamera.CameraType), "Enum.CameraType.Custom")
+		end
 		-- a fill that measures time keeps its time (the spin-off hold, the coding bar)
 		local a = frame()
 		local ta = UIKit.tween(a, 1, { Size = UDim2.new(0, 100, 0, 10) }, Enum.EasingStyle.Linear, nil, { kind = "progress" })
@@ -537,6 +584,12 @@ function Probes.motion()
 	-- motion back on: UIKit.set beats a running tween, and a replaced tween finishes instead of freezing
 	player:SetAttribute("ForceReducedMotion", false)
 	local ok2, err2 = pcall(function()
+		-- 23 Oct (phase 2): the same session, the setting turned off: the same cutscene flies again
+		local fl = flight()
+		if fl then
+			add("with motion on the cutscene flies (frames between the shots)", fl.done and fl.between > 0,
+				("%d on a shot, %d between"):format(fl.on, fl.between), "> 0 frames between shots")
+		end
 		local e = frame()
 		UIKit.tween(e, 1, { Size = UDim2.new(0, 1000, 0, 10) }, Enum.EasingStyle.Linear)
 		task.wait(0.2)
