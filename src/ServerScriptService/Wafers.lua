@@ -489,13 +489,11 @@ local function redress(piece, company)
 		end
 		local ok, made = pcall(FK.monitors, d.deskTop, piece.model, slots, Wafers.TINT[o.dept])
 		d.screens = ok and made or {}
-		for _, m in ipairs(d.screens) do
-			OfficeDress.tagAll(m, ROOM_KIT)
-			if api.Palette then api.Palette.enforce(m) end
-		end
+		for _, m in ipairs(d.screens) do OfficeDress.tagAll(m, ROOM_KIT) end
 	end
 	o.dress = OfficeDress.build(piece.model, o.anchor, o.r, o.dept, company, o.storey, o.seg, dressDeps(o.dept))
-	if api.Palette then api.Palette.enforce(o.dress) end
+	-- the whole room, as buildPiece does: enforce skips the root it is given, and a vertex monitor IS a root
+	if api.Palette then api.Palette.enforce(piece.model) end
 	o.big = OfficeLayout.monitorsAt(company) >= 2
 end
 
