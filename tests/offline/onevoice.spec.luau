@@ -159,4 +159,25 @@ test("GO PUBLIC (a milestone ask) shows only when the goal speaks or nothing doe
 	assert(not V.milestoneOk("verb") and not V.milestoneOk("job") and not V.milestoneOk("launch"), "a button, the job in hand or LAUNCH!: it waits")
 end)
 
+-- 24 Oct, live (at the laptop with a job waiting): HOLD TO CODE was the one voice, but an investor's
+-- phone banner ("Hana · Paper Plane / Hey, it's Hana at Paper Plane...") slid in beside it for ~7 s,
+-- a second voice. A banner waits under a button or the job in hand; it shows when the voice drops
+test("a phone banner waits under a button or the job in hand, and shows beside the goal or LAUNCH!", function()
+	assert(V.phoneOk(nil) and V.phoneOk("goal") and V.phoneOk("launch"), "a calm screen, the goal or LAUNCH!: it shows")
+	assert(not V.phoneOk("verb") and not V.phoneOk("job"), "HOLD TO CODE / GIVE up, or the job in hand: it waits")
+end)
+
+test("held phone banners: the newest one per thread, at most PHONE_HELD in all, no burst", function()
+	local held = {}
+	V.holdBanner(held, 5, { text = "Hey, it's Hana at Paper Plane." })
+	V.holdBanner(held, 5, { text = "Sent you a term sheet: $900" })
+	assert(#held == 1 and held[1].text == "Sent you a term sheet: $900", "one per thread: the term sheet replaces the opener")
+	V.holdBanner(held, "desk", { text = "Your VIP is here" })
+	V.holdBanner(held, "call", { text = "Call ended" })
+	assert(#held == V.PHONE_HELD and V.PHONE_HELD == 2, "at most " .. tostring(V.PHONE_HELD) .. " held")
+	assert(held[1].key == "desk" and held[2].key == "call", "the oldest goes first (the badge still counts it)")
+	V.holdBanner(held, "desk", { text = "Your VIP left" })
+	assert(held[1].key == "call" and held[2].text == "Your VIP left", "a newer one moves to the back")
+end)
+
 return T

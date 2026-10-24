@@ -32,6 +32,7 @@ local VoiceChatService = game:GetService("VoiceChatService")
 local player = Players.LocalPlayer
 local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
 local Notify = require(ReplicatedStorage:WaitForChild("Notify"))
+local OneVoice = require(ReplicatedStorage:WaitForChild("OneVoice"))   -- 24 Oct: one voice (rule A): a banner waits under a button or the job
 local Items = require(ReplicatedStorage:WaitForChild("Items"))
 local remotes = ReplicatedStorage:WaitForChild("SVRemotes")
 local ev = remotes:WaitForChild("PhoneEvent", 60)
@@ -596,6 +597,7 @@ local function openThread(th)
 	rp.PaddingLeft, rp.PaddingRight, rp.PaddingTop, rp.PaddingBottom = UDim.new(0, 10), UDim.new(0, 10), UDim.new(0, 10), UDim.new(0, 10)
 	drawReplies(th)
 	send({ a = "read" })
+	th.seen = os.clock()   -- 24 Oct: a banner held for this thread is not replayed once you have read it
 end
 
 local function threadList()
@@ -918,6 +920,7 @@ local bnTitle = UIKit.label(banner, "", UIKit.TYPE.body, UIKit.INK, { Position =
 local bnText = UIKit.label(banner, "", UIKit.TYPE.caption, UIKit.CARD_MUTED, { Position = UDim2.new(0, 62, 0, 32), Size = UDim2.new(1, -74, 0, 36),
 	TextTruncate = Enum.TextTruncate.AtEnd, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top }, BODY)
 local bannerSerial, bannerThread, bannerDone = 0, nil, nil
+local bannerShown          -- 24 Oct: { th, text, priority } of the banner on screen (so it can step out and wait)
 local function showBannerNow(th, text, done)
 	bannerSerial += 1
 	local mine = bannerSerial
@@ -941,6 +944,7 @@ local function showBannerNow(th, text, done)
 	task.delay(0.16, function() UIKit.sfx("ding", 1.7, 0.4) end)
 	task.delay(7, function()
 		if bannerSerial ~= mine then return end
+		bannerShown = nil   -- read in full: leaving now, it does not come back
 		local tw = TweenService:Create(banner, TweenInfo.new(0.25), { Position = atY(banner, -90) })
 		tw:Play()
 		tw.Completed:Wait()
@@ -951,12 +955,51 @@ end
 -- v4.2: every banner asks the director; only a thread's FIRST text and a term
 -- sheet raise one (a reply used to raise two banners two seconds apart). The
 -- rest are counted by the server on the PHONE button (PhoneUnread).
-local function showBanner(th, text, priority)
-	Notify.show({ lane = "top", priority = priority or 3, key = "phone",
-		close = function() bannerSerial += 1; banner.Visible = false end,
-		open = function(done) showBannerNow(th, text, done) end })
+--[[ 24 Oct (live, one voice): at the laptop with a job waiting, Hana's opener ("Hey, it's Hana at
+	Paper Plane...") slid in and sat ~7 s beside HOLD TO CODE, a second voice. A banner now shows only
+	when OneVoice.phoneOk (a calm screen, the goal or LAUNCH!); under a button or the job in hand it
+	waits here, the newest one per thread and at most OneVoice.PHONE_HELD in all, and goes to the
+	director the moment the voice drops. The server's PhoneUnread badge counts it at once, and the
+	reply clock is the server's (Phone.lua, 180 s + 120 s for a term sheet): holding the banner never
+	touches it. A held banner whose thread closed, or that you already read, is not replayed. ]]
+local heldBanners = {}
+local function voiceOk() return OneVoice.phoneOk(player:GetAttribute("OneVoice")) end
+local function holdBanner(th, text, priority)
+	local key = (th and th.call and "call") or (th and th.id) or "texts"
+	OneVoice.holdBanner(heldBanners, key, { th = th, text = text, priority = priority, at = os.clock() })
 end
+local function showBanner(th, text, priority)
+	if not voiceOk() then holdBanner(th, text, priority) return end
+	Notify.show({ lane = "top", priority = priority or 3, key = "phone",
+		close = function() bannerShown = nil; bannerSerial += 1; banner.Visible = false end,
+		open = function(done)
+			-- queued in the director on a calm screen, its turn came under a button: wait again
+			if not voiceOk() then holdBanner(th, text, priority); done() return end
+			bannerShown = { th = th, text = text, priority = priority }
+			showBannerNow(th, text, done)
+		end })
+end
+player:GetAttributeChangedSignal("OneVoice"):Connect(function()
+	if voiceOk() then
+		local list = heldBanners
+		heldBanners = {}
+		for _, b in ipairs(list) do
+			local th = b.th
+			local stale = th and (th.status == "closed" or (th.seen and th.seen >= b.at))
+			if not stale then showBanner(th, b.text, b.priority) end
+		end
+	elseif bannerShown and banner.Visible then
+		-- you walked up to the laptop under a banner: it steps out and waits with the rest
+		local b = bannerShown
+		bannerShown = nil
+		bannerSerial += 1
+		banner.Visible = false
+		if bannerDone then local f = bannerDone; bannerDone = nil; f() end
+		holdBanner(b.th, b.text, b.priority)
+	end
+end)
 banner.MouseButton1Click:Connect(function()
+	bannerShown = nil
 	banner.Visible = false
 	if bannerDone then local f = bannerDone; bannerDone = nil; f() end
 	view.app = "messages"

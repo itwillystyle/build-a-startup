@@ -39,6 +39,26 @@ function OneVoice.milestoneOk(voice)
 	return voice == nil or voice == "goal"
 end
 
+-- 24 Oct (live): may a phone banner (an investor's text, a term sheet, a desk notice) slide in? Not
+-- under a button or the job in hand: at the laptop an investor's opener sat ~7 s beside HOLD TO CODE.
+-- It waits (PhoneClient holds it) and shows the moment the voice drops; the badge counts it at once
+function OneVoice.phoneOk(voice)
+	return voice == nil or voice == "goal" or voice == "launch"
+end
+
+-- the banners a waiting phone keeps: the newest one per thread (key), at most PHONE_HELD in all,
+-- oldest out, so walking away replays one or two, never a burst. Item tables gain .key
+OneVoice.PHONE_HELD = 2
+function OneVoice.holdBanner(held, key, item)
+	for i = #held, 1, -1 do
+		if held[i].key == key then table.remove(held, i) end
+	end
+	item.key = key
+	table.insert(held, item)
+	while #held > OneVoice.PHONE_HELD do table.remove(held, 1) end
+	return held
+end
+
 -- st = { verb, carrying, midJob, recruit, launch, goal } (launch: an app waits; goal: the card has a goal)
 -- -> { voice, verb, goal = "words"|"icon"|"hidden", launch = "button"|"chip"|nil, marker }
 function OneVoice.pick(st)
