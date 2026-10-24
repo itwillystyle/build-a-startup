@@ -305,6 +305,11 @@ return function(core)
 	local function bubble(model, client)
 		local head = model:FindFirstChild("Head") or model.PrimaryPart
 		if not head then return end
+		-- 24 Oct (look pass L3): the rig comes from StaffRig, so it wore a staff name tag ("Noor /
+		-- DESIGNER") 0.7 studs under this bubble; pixel-sized, the two overlap from 6 to 14 studs
+		-- away (LabelLook.stackClear). A client is a stranger: the bubble is their only label.
+		local ownTag = head:FindFirstChild("Tag")
+		if ownTag then ownTag:Destroy() end
 		local look = TIER_LOOK[client.kind == "big" and "big" or client.tier or "regular"] or TIER_LOOK.regular
 		local bb = Instance.new("BillboardGui")
 		bb.Name = "ClientBubble"
