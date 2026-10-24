@@ -141,6 +141,10 @@ return function(core)
 			local C = core.clients
 			if not C then return { ok = false, err = "no client loop" } end
 			if arg == "fresh" then C.reset(player, true) return { ok = true } end
+			-- 24 Oct: "hurry" or "hurry:12" = the front waiting client has 9 (or 12) s left
+			-- (the client timer's live check: red at 8.0 s, 8 ticks, the sad walk-off)
+			local hurry = type(arg) == "string" and arg:match("^hurry:?(%d*%.?%d*)$")
+			if hurry then return C.devHurry(player, tonumber(hurry) or 9) end
 			if arg == "serve" then
 				local t0 = os.clock()
 				while not C.state(player).front and os.clock() - t0 < 10 do task.wait(0.2) end

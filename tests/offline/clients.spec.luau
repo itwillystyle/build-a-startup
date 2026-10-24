@@ -468,4 +468,19 @@ test("a client's spot is never 0, even once it has left the line", function()
 	assert(C.spotOf(Q, Q.line[1]) == 1, "the front of the line is spot 1")
 end)
 
+-- 24 Oct (client timer): the badge counts down on the client between server draws, but only
+-- while patience really drains, or it would tick through a job you are coding
+test("draining: a waiting client drains, the job you hold and the app you carry do not", function()
+	local Q = oneNormal()
+	local c = Q.line[1]
+	run(Q, 0.5, ctx())
+	assert(c.draining == true, "waiting: drains")
+	run(Q, 0.3, ctx({ holding = true }))
+	assert(c.draining == false, "you are coding it: paused")
+	run(Q, TUNE.NEED / TUNE.PLAYER_SPEED + 0.05, ctx({ holding = true }))
+	assert(Q.carrying == c, "shipped")
+	run(Q, 0.3, ctx())
+	assert(c.draining == false, "you carry it: paused")
+end)
+
 return T

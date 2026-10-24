@@ -199,9 +199,12 @@ function Clients.tick(Q, dt, ctx)
 	end
 
 	-- patience: everyone waiting, except the job in your hands this tick, the app you carry and who just arrived
+	-- 24 Oct: `draining` says whether it went down this tick (the client's badge only counts
+	-- down between server draws while it does)
 	for i = #Q.line, 1, -1 do
 		local c = Q.line[i]
-		if c.left and c ~= mine and c ~= Q.carrying and c ~= newcomer then
+		c.draining = c.left ~= nil and c ~= mine and c ~= Q.carrying and c ~= newcomer
+		if c.draining then
 			c.left -= dt
 			if c.left <= 0 then
 				table.remove(Q.line, i)

@@ -499,3 +499,79 @@ clientPaid.OnClientEvent:Connect(function(d)
 		task.delay(PayoutBeats.MONEY.at - PayoutBeats.FLY.seconds, function() cash(d, where) end)
 	end)
 end)
+
+--[[ 24 Oct (the client timer, option C: ui/animation-review/judge/CLIENT-TIMER-OPTIONS.md): a client
+	ran out of patience. The pay you lost rises off their bubble as a dark chip: a grey coin and the
+	amount struck through. Your cash does not move. ImageColor3 can only multiply, so the game's gold
+	coin art cannot be turned grey: the coin is drawn as a grey disc in its place, as in the mock.
+	Beats in ClientMood.LOST (fade in over T.ui, hold, rise and fade). Under Reduce Motion the exit
+	drops its rise and fades in place (UIKit.tween: an exit drops its drift); the chip and the
+	bubble's "Too slow..." still read in a still frame. The server sends ClientLost { at, pay }. ]]
+local ClientMood = require(ReplicatedStorage:WaitForChild("ClientMood"))
+local LOST_Y = PayoutBeats.CARD.atY   -- the bubble's height over the client (measured 23 Oct)
+local function lostPay(d)
+	local L = ClientMood.LOST
+	local anchor = anchorAt(d.at)
+	anchor.Name = "LostPayAnchor"
+	local bb = board(anchor, UDim2.new(0, 200, 0, 44), Vector3.new(0, LOST_Y, 0))
+	bb.Name = "LostPay"
+	bb.AlwaysOnTop = false             -- it belongs to the client, like their bubble
+	bb.SizeOffset = Vector2.new(0, 1)  -- one chip height above the bubble's top, at any distance
+	local chip = Instance.new("Frame")
+	chip.Name = "Chip"
+	chip.AnchorPoint = Vector2.new(0.5, 0.5)
+	chip.Position = UDim2.new(0.5, 0, 0.5, 0)
+	chip.Size = UDim2.new(0, 0, 0, 34)
+	chip.AutomaticSize = Enum.AutomaticSize.X
+	chip.BackgroundColor3 = UIKit.INK_SOFT
+	chip.BackgroundTransparency = 1
+	chip.Parent = bb
+	Instance.new("UICorner", chip).CornerRadius = UDim.new(1, 0)
+	local pad = Instance.new("UIPadding")
+	pad.PaddingLeft, pad.PaddingRight = UDim.new(0, 8), UDim.new(0, 12)
+	pad.Parent = chip
+	local row = Instance.new("UIListLayout")
+	row.FillDirection = Enum.FillDirection.Horizontal
+	row.VerticalAlignment = Enum.VerticalAlignment.Center
+	row.SortOrder = Enum.SortOrder.LayoutOrder
+	row.Padding = UDim.new(0, 6)
+	row.Parent = chip
+	local coin = Instance.new("Frame")
+	coin.Name = "GreyCoin"
+	coin.LayoutOrder = 1
+	coin.Size = UDim2.new(0, 20, 0, 20)
+	coin.BackgroundColor3 = UIKit.LINE_LIGHT
+	coin.BackgroundTransparency = 1
+	coin.Parent = chip
+	Instance.new("UICorner", coin).CornerRadius = UDim.new(1, 0)
+	local rim = Instance.new("UIStroke")
+	rim.Thickness, rim.Color, rim.Transparency = 2, UIKit.SILVER, 1
+	rim.Parent = coin
+	local amount = UIKit.label(chip, "<s>" .. UIKit.money(math.max(0, math.floor(d.pay or 0))) .. "</s>",
+		UIKit.TYPE.label, UIKit.LINE_LIGHT, {
+			LayoutOrder = 2, RichText = true, AutomaticSize = Enum.AutomaticSize.X,
+			Size = UDim2.new(0, 0, 0, UIKit.TYPE.label + 6), TextTransparency = 1,
+		}, UIKit.HEAD)
+	-- in
+	UIKit.tween(chip, L.enter, { BackgroundTransparency = 0.1 })
+	UIKit.tween(coin, L.enter, { BackgroundTransparency = 0 })
+	UIKit.tween(rim, L.enter, { Transparency = 0 })
+	UIKit.tween(amount, L.enter, { TextTransparency = 0 })
+	-- hold, then rise and fade (the rise is dropped under Reduce Motion)
+	task.delay(L.enter + L.hold, function()
+		if not chip.Parent then return end
+		UIKit.tween(chip, L.leave, { Position = chip.Position - UDim2.new(0, 0, 0, L.rise), BackgroundTransparency = 1 })
+		UIKit.tween(coin, L.leave, { BackgroundTransparency = 1 })
+		UIKit.tween(rim, L.leave, { Transparency = 1 })
+		UIKit.tween(amount, L.leave, { TextTransparency = 1 })
+	end)
+	task.delay(L.enter + L.hold + L.leave + 0.05, function() anchor:Destroy() end)
+end
+
+local clientLost = remotes:WaitForChild("ClientLost", 30)
+if clientLost then
+	clientLost.OnClientEvent:Connect(function(d)
+		if type(d) ~= "table" or typeof(d.at) ~= "Vector3" or type(d.pay) ~= "number" then return end
+		lostPay(d)
+	end)
+end
