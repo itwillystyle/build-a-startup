@@ -112,7 +112,9 @@ RunService.RenderStepped:Connect(function()
 		-- patience never comes back, so red stays red (a guess corrected up cannot flip it)
 		if not st.red and ClientMood.stage(left) ~= "calm" then turnRed(st) end
 		if st.red then
-			local n = ClientMood.count(left)
+			-- 24 Oct (live): never counts back up when a guess is corrected (ClientMood.shownCount)
+			st.shown = ClientMood.shownCount(st.shown, ClientMood.count(left))
+			local n = st.shown
 			if n and st.count and st.count.Text ~= tostring(n) then st.count.Text = tostring(n) end
 		else
 			drawCalm(st, left, secs)

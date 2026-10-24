@@ -136,4 +136,17 @@ test("the beats follow MotionSpec: tick pop, colour, lost chip (UI moves <= 0.3 
 	assert(M.LOST.hold >= 1, "the lost pay stays long enough to read")
 end)
 
+-- 24 Oct, live (hurry to 9 s): the badge read 8, 7, 8, 7, 6 ... The client's guess between the
+-- server's 4 Hz updates ran ahead and a correction put it back up a second. The shown number
+-- never goes back up (patience never comes back)
+test("the badge's number never counts back up when a guess is corrected", function()
+	local shown = nil
+	for _, left in ipairs({ 8.0, 7.3, 6.95, 7.05, 6.2 }) do shown = M.shownCount(shown, M.count(left)) end
+	assert(shown == 7, "8, 8, 7, then 7.05 (corrected up, would read 8) stays 7, 6.2 is 7; got " .. tostring(shown))
+	assert(M.shownCount(7, 8) == 7, "a corrected-up guess does not bring 8 back")
+	assert(M.shownCount(7, 6) == 6, "it still counts down")
+	assert(M.shownCount(nil, 8) == 8, "the first number shows")
+	assert(M.shownCount(3, nil) == 3, "no number (a read past 0 or before red) keeps what is shown")
+end)
+
 return T

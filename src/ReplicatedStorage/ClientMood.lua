@@ -48,6 +48,14 @@ function ClientMood.count(left)
 	return math.clamp(math.ceil(left - 1e-9), 1, ClientMood.WARN)
 end
 
+-- 24 Oct (live): what the badge shows, given what it showed: never back up. The client's guess runs
+-- ahead between the server's 4 Hz updates and a correction can put it back a second (8, 7, 8, 7 ...)
+function ClientMood.shownCount(shown, n)
+	if n == nil then return shown end
+	if shown == nil then return n end
+	return math.min(shown, n)
+end
+
 -- the whole seconds n (8 .. 1) the clock reached between two reads: prev > n >= now.
 -- Time going back (a guess corrected up) crosses nothing.
 function ClientMood.ticks(prev, now)
