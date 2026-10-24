@@ -32,7 +32,7 @@ function OfficeLayout.with(T, SR)
 		slate, so these are ValleyBlue at a lower value. Oak is the anchor itself: the feature wall is
 		architecture, so it is oak-COLOURED SmoothPlastic (ART.md bans Wood on buildings; ruling 2). ]]
 	OL.COLORS = {
-		floor = { 168, 160, 148 },     -- matte warm grey (24 Oct Task 6 round 1: 0.74 -> 0.63, the C3 frame read flat)
+		floor = { 170, 156, 136 },     -- matte warm grey (24 Oct Task 6: 0.74 -> 0.63 luminance, warmer: T_ and D_ read sat 0.29 / 0.32)
 		ceiling = { 38, 66, 108 },     -- 24 Oct Task 6 round 1: the mock's dark navy ceiling (ValleyBlue family)
 		oak = { 192, 138, 85 },        -- Palette Oak
 		navy = { 38, 66, 108 },        -- ValleyBlue family
