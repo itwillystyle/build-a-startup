@@ -414,6 +414,7 @@ local function syncCode()
 		launch = launchState ~= nil, goal = goalShown(),
 		tip = player:GetAttribute("CoachShowing") == true,   -- 24 Oct (F-6): a coach tip folds the goal
 		phone = player:GetAttribute("PhoneBannerShowing") == true,   -- 24 Oct: so does a phone banner
+		ring = player:GetAttribute("PhoneRingShowing") == true,   -- 24 Oct: and an incoming call
 	})
 	if player:GetAttribute("OneVoice") ~= pick.voice then player:SetAttribute("OneVoice", pick.voice) end
 	local wasMode = launchMode
@@ -458,7 +459,7 @@ player:GetAttributeChangedSignal("BuildModeOpen"):Connect(syncCode)
 player:GetAttributeChangedSignal("NamingOpen"):Connect(syncCode)
 for _, a in ipairs({ "CarryingApp", "CanGive", "JobWaiting", "AtLaptop" }) do player:GetAttributeChangedSignal(a):Connect(syncCode) end
 -- 24 Oct (one voice): a started job, a recruit in your arms and the goal's words change the pick too
-for _, a in ipairs({ "MidJob", "Carrying", "ObjectiveText", "CoachShowing", "PhoneBannerShowing" }) do player:GetAttributeChangedSignal(a):Connect(syncCode) end
+for _, a in ipairs({ "MidJob", "Carrying", "ObjectiveText", "CoachShowing", "PhoneBannerShowing", "PhoneRingShowing" }) do player:GetAttributeChangedSignal(a):Connect(syncCode) end
 UIKit.onMenuChange(function() syncCode() end)   -- menus are other scripts' guis: one shared watch
 -- v4.2: in a car the speedometer owns the bottom centre (it sat on top of WRITE CODE)
 local function watchSeat(char)

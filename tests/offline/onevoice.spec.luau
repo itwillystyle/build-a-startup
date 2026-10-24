@@ -241,4 +241,25 @@ test("a phone banner keeps off the goal card's icon (the doctor's > 6 px rule)",
 	assert(V.bannerY(banner, { x = 20, y = 106, w = 44, h = 44 }) == 96, "a goal card off to the side: the usual row")
 end)
 
+-- 24 Oct: the incoming-call card (PhoneNotify.Incoming) rests on the banner's row (y 96) and lands on the
+-- goal card the same way. While it rings it is the voice "phone" too (the goal folds), and its row keeps
+-- clear by the same rule (bannerY). It still shows under a button or the job in hand: a call times out in
+-- 25 s, so holding it would turn it into a missed call. The button stays the voice there (the order holds)
+test("an incoming call on screen is the voice: the goal folds and its card keeps off the goal", function()
+	local p = V.pick({ ring = true, goal = true })
+	assert(p.voice == "phone", "the ringing card speaks over the goal")
+	assert(p.goal == "icon" and p.marker == false, "the goal folds to its icon, no marker")
+	assert(V.count(p, 0) == 1, "one voice: the call (the goal's words are folded)")
+	assert(V.pick({ ring = true, tip = true, goal = true }).voice == "phone", "a tip steps aside for a call")
+	assert(V.pick({ verb = "code", ring = true, goal = true }).voice == "verb", "a button still beats a call (the order holds)")
+	assert(V.pick({ midJob = true, ring = true, goal = true }).voice == "job", "the job in hand still beats a call")
+	local card = { x = 347, y = 96, w = 380, h = 80 }   -- centreOn(ringCard, 380, 320, 80, 96)
+	local icon = { x = 515, y = 106, w = 44, h = 44 }
+	assert(overlaps(card, icon), "on its usual row the call covers the folded icon")
+	local y = V.bannerY(card, icon)
+	assert(not overlaps({ x = card.x, y = y, w = card.w, h = card.h }, icon), "moved, it does not")
+	assert(y + card.h <= 376 - 118, "still above the bottom action slot")
+	assert(V.bannerY(card, nil) == 96, "no goal card on screen: the usual row")
+end)
+
 return T

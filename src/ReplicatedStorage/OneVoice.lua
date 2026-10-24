@@ -9,7 +9,8 @@
 	  1. "verb"   the button you can press here (HOLD TO CODE at the laptop, GIVE by your client)
 	  2. "job"    the job in your hands (an app you carry, a job you started coding, a recruit)
 	  3. "launch" LAUNCH! (an app is ready and your hands are free)
-	  4. "phone"  a phone banner on screen (24 Oct: the doctor's hq:5 "cards over cards"; a tip steps aside for it)
+	  4. "phone"  a phone banner on screen (24 Oct: the doctor's hq:5 "cards over cards"; a tip steps aside for it),
+	              or an incoming call (24 Oct: the call card sits on the same row)
 	  5. "tip"    a coach tip on screen (24 Oct, F-6: a tip is an instruction, so the goal gives way)
 	  6. "goal"   the goal card
 	What folds: under a verb or LAUNCH! the goal card is its 44 px icon (no words, still a tap
@@ -58,7 +59,8 @@ end
 	(y 96), but on a short screen the goal card's holder is fitted below the money line (top y 106), so
 	even the folded 44 px icon sat wholly under the banner (1,936 px2). banner = its rect on the usual
 	row, goal = the goal card's rect or nil, both in one gui's space. Returns the banner's y: the usual
-	row, or just below the goal card when that row would cover it (the doctor's rule, > 6 px both ways) ]]
+	row, or just below the goal card when that row would cover it (the doctor's rule, > 6 px both ways)
+	24 Oct: the incoming-call card uses it too (same row, same rule); any top-row card's rect works ]]
 OneVoice.BANNER_GAP = 8
 function OneVoice.bannerY(banner, goal)
 	if not goal then return banner.y end
@@ -81,16 +83,16 @@ function OneVoice.holdBanner(held, key, item)
 	return held
 end
 
--- st = { verb, carrying, midJob, recruit, launch, phone, tip, goal } (launch: an app waits; phone: a phone
--- banner is on screen, PhoneClient's PhoneBannerShowing; tip: a coach tip is on screen, CoachClient's
--- CoachShowing; goal: the card has a goal)
+-- st = { verb, carrying, midJob, recruit, launch, phone, ring, tip, goal } (launch: an app waits; phone: a phone
+-- banner is on screen, PhoneClient's PhoneBannerShowing; ring: an incoming call is on screen, PhoneClient's
+-- PhoneRingShowing (24 Oct); tip: a coach tip is on screen, CoachClient's CoachShowing; goal: the card has a goal)
 -- -> { voice, verb, goal = "words"|"icon"|"hidden", launch = "button"|"chip"|nil, marker }
 function OneVoice.pick(st)
 	local voice
 	if st.verb then voice = "verb"
 	elseif st.carrying or st.midJob or st.recruit then voice = "job"
 	elseif st.launch then voice = "launch"
-	elseif st.phone then voice = "phone"   -- 24 Oct: a banner talks; the goal folds until it leaves
+	elseif st.phone or st.ring then voice = "phone"   -- 24 Oct: a banner or a call talks; the goal folds until it leaves
 	elseif st.tip then voice = "tip"
 	elseif st.goal then voice = "goal" end
 	local folded = OneVoice.folds(voice)

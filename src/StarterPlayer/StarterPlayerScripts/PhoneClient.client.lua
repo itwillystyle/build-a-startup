@@ -936,9 +936,10 @@ local function goalRect()
 	local p = card.AbsolutePosition - notify.AbsolutePosition
 	return { x = p.X, y = p.Y, w = card.AbsoluteSize.X, h = card.AbsoluteSize.Y }
 end
-local function bannerRow()
-	local cx = banner.Position.X.Offset   -- centreOn: the centre x in notify's space (AnchorPoint 0.5)
-	local w, h = banner.Size.X.Offset, banner.Size.Y.Offset
+-- 24 Oct: any top-row card (the banner, the incoming call): its y on the usual row, or below the goal card
+local function topRow(frame)
+	local cx = frame.Position.X.Offset   -- centreOn: the centre x in notify's space (AnchorPoint 0.5)
+	local w, h = frame.Size.X.Offset, frame.Size.Y.Offset
 	return OneVoice.bannerY({ x = cx - w / 2, y = 96, w = w, h = h }, goalRect())
 end
 local function showBannerNow(th, text, done)
@@ -959,7 +960,7 @@ local function showBannerNow(th, text, done)
 	bnText.Text = text or ""
 	centreOn(banner, 380, 280, 78, -90)
 	banner.Visible = true
-	TweenService:Create(banner, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Position = atY(banner, bannerRow()) }):Play()
+	TweenService:Create(banner, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Position = atY(banner, topRow(banner)) }):Play()
 	UIKit.sfx("ding", 1.45, 0.45)
 	task.delay(0.16, function() UIKit.sfx("ding", 1.7, 0.4) end)
 	task.delay(7, function()
@@ -1057,6 +1058,14 @@ ringBlock.TextColor3 = UIKit.darker(UIKit.RED, 0.8)
 ringBlock.Text = "Block caller"
 ringBlock.Parent = ringCard
 ringBlock.MouseButton1Click:Connect(function() send({ a = "answer", accept = false, block = true }) end)
+--[[ 24 Oct: the call card rests on the banner's row (y 96) and landed on the goal card the same way. While it
+	is on screen it is the voice "phone" too (HudClient reads PhoneRingShowing into OneVoice.pick), so the goal
+	folds; read from Visible, so answering, declining, the 25 s timeout and a hang-up all unfold it.
+	It still shows under a button or the job in hand (not held like a banner): a call times out in 25 s, so
+	holding it would turn it into a missed call. The button stays the voice there; only the goal folds. ]]
+ringCard:GetPropertyChangedSignal("Visible"):Connect(function()
+	if player:GetAttribute("PhoneRingShowing") ~= ringCard.Visible then player:SetAttribute("PhoneRingShowing", ringCard.Visible) end
+end)
 
 local pill = UIKit.card(notify, { Name = "CallPill", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 96),
 	Size = UDim2.new(0, 250, 0, 50), Visible = false }, { radius = UIKit.RADIUS.pill, strokeWidth = 2, stroke = UIKit.GREEN })
@@ -1229,6 +1238,7 @@ local function showRing(e)
 			ringText.Text = e.name or "Someone"
 			centreOn(ringCard, 380, 320, 80, 96)
 			ringCard.Visible = true
+			ringCard.Position = atY(ringCard, topRow(ringCard))   -- 24 Oct: below the goal card when they would overlap
 		end })
 end
 local function ringOver()
