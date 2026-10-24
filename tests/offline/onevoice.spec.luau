@@ -151,4 +151,12 @@ test("the clock in the mock pauses from ready to the GIVE: full time left when t
 	assert(math.abs(LC.left(c, 7.9) - (60 - 1.3)) < 0.01, "left at 7.9 s: " .. LC.left(c, 7.9))
 end)
 
+-- 24 Oct, live (HQ 5 save at the laptop, app ready): HOLD TO CODE and the folded LAUNCH chip were the
+-- one voice, but IpoClient's GO PUBLIC! card ("Ring the bell on the Valley Exchange") stayed up beside
+-- them, a second instruction. A milestone button is a goal-level ask: it shows only on a calm screen
+test("GO PUBLIC (a milestone ask) shows only when the goal speaks or nothing does", function()
+	assert(V.milestoneOk("goal") and V.milestoneOk(nil), "a calm screen, or the goal speaking: it shows")
+	assert(not V.milestoneOk("verb") and not V.milestoneOk("job") and not V.milestoneOk("launch"), "a button, the job in hand or LAUNCH!: it waits")
+end)
+
 return T

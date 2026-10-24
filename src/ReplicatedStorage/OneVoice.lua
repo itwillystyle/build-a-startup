@@ -33,6 +33,12 @@ function OneVoice.folds(voice)
 	return voice == "verb" or voice == "launch"
 end
 
+-- 24 Oct (live): may a milestone button (GO PUBLIC!) show? Only on a calm screen or while the goal
+-- speaks; under a button, the job in hand or LAUNCH! it waits (it was a second instruction beside them)
+function OneVoice.milestoneOk(voice)
+	return voice == nil or voice == "goal"
+end
+
 -- st = { verb, carrying, midJob, recruit, launch, goal } (launch: an app waits; goal: the card has a goal)
 -- -> { voice, verb, goal = "words"|"icon"|"hidden", launch = "button"|"chip"|nil, marker }
 function OneVoice.pick(st)
