@@ -14,6 +14,7 @@ local player = Players.LocalPlayer
 local UIKit = require(RS:WaitForChild("UIKit"))
 local Notify = require(RS:WaitForChild("Notify"))
 local Moment = require(RS:WaitForChild("Moment"))
+local OneVoice = require(RS:WaitForChild("OneVoice"))   -- 24 Oct: one voice (rule A)
 local remotes = RS:WaitForChild("SVRemotes")
 local goRemote = remotes:WaitForChild("GoPublic")
 local celebrate = remotes:WaitForChild("Celebrate", 30)
@@ -40,10 +41,13 @@ btn.Activated:Connect(function()
 	goRemote:FireServer()
 	task.delay(2, function() busy = false end)
 end)
+-- 24 Oct (one voice, rule A): GO PUBLIC! waits while a button, the job in hand or LAUNCH! speaks
+-- (HudClient publishes the voice as the client-local attribute OneVoice)
 local function refresh()
-	btn.Visible = player:GetAttribute("CanGoPublic") == true
+	btn.Visible = player:GetAttribute("CanGoPublic") == true and OneVoice.milestoneOk(player:GetAttribute("OneVoice"))
 end
 player:GetAttributeChangedSignal("CanGoPublic"):Connect(refresh)
+player:GetAttributeChangedSignal("OneVoice"):Connect(refresh)
 refresh()
 task.spawn(function()
 	while true do

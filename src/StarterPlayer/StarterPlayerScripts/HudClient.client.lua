@@ -37,6 +37,7 @@ local Notify = require(ReplicatedStorage:WaitForChild("Notify"))
 local Moment = require(ReplicatedStorage:WaitForChild("Moment"))
 local PopStack = require(ReplicatedStorage:WaitForChild("PopStack"))   -- 23 Oct: the pops over the cash stack (finding 6)
 local HudSlots = require(ReplicatedStorage:WaitForChild("HudSlots"))   -- 20 Oct: the bottom centre's numbers, shared with CarClient
+local OneVoice = require(ReplicatedStorage:WaitForChild("OneVoice"))   -- 24 Oct: one instruction at a time (rule A)
 local remotes = ReplicatedStorage:WaitForChild("SVRemotes")
 
 -- hide the default leaderboard (retry: CoreGui can refuse for the first frames)
@@ -346,7 +347,26 @@ payLabel.Size = UDim2.new(1, -16, 0, 20)
 timeBar.Parent = launchBtn
 timeBadge.Parent = launchBtn
 
+--[[ 24 Oct (one instruction, rule A; ui/animation-review/judge/ONE-INSTRUCTION-OPTIONS.md): while
+	the button you can press or the job in your hands speaks, LAUNCH! waits as this small chip in
+	its slot, "APP READY" and its time ("II" while the server has the clock paused). Paper, not
+	gold: it is a status, not a second ask. A tap still launches (44 px tall), and so do L / Y. ]]
+local launchChip, chipLabel = UIKit.button(gui, "APP READY", UIKit.PAPER, {
+	Name = "LaunchChip", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -HudSlots.CODE.bottom),
+	Size = UDim2.new(0, 196, 0, 44), Visible = false,   -- "APP READY  II 0:42" at 16 px fits 184 px of label
+}, { textSize = UIKit.TYPE.body, dark = true, silent = true, stroke = UIKit.GOLD_DEEP })
+
 local launchState     -- { payday, autoAt } while an app waits to launch
+--[[ 24 Oct: seconds to the half-pay auto-launch, and whether the clock is paused. The server's
+	LaunchAutoAt (running) / LaunchLeft (paused, LaunchClock) win; the payload's autoAt is the
+	fallback for the moment before they arrive. nil: no auto-launch (before your first launch). ]]
+local function launchLeft()
+	local held = tonumber(player:GetAttribute("LaunchLeft"))
+	if held then return math.max(0, held), true end
+	local at = tonumber(player:GetAttribute("LaunchAutoAt")) or (launchState and launchState.autoAt)
+	if at then return math.max(0, at - workspace:GetServerTimeNow()), false end
+	return nil, false
+end
 local pulsing = false
 
 local function seated()
@@ -367,6 +387,11 @@ local function menuOpen() return UIKit.menuOpen() end
 	dressed as buttons (playtest 22-54-32, 0:12 and 4:04), and the way is the goal card, the
 	marker and the ground line's job. It pops in quietly so the thumb notices it. ]]
 local shownVerb   -- "code" | "give" | nil (hidden): the verb on screen at the last sync
+local launchMode  -- 24 Oct: "button" | "chip" | nil, how a waiting app showed at the last sync
+local function goalShown()   -- the goal card has words to show (the server's "wait" sends "")
+	local t = player:GetAttribute("ObjectiveText")
+	return type(t) == "string" and t ~= ""
+end
 local launchY     -- LAUNCH's slot offset last set (so a 4 Hz sync does not restart its slide)
 local function syncCode()
 	local inCar = seated()
@@ -375,12 +400,30 @@ local function syncCode()
 	-- the box, two loud things at once, and its caption ran under the box's edge)
 	local free = player:GetAttribute("BuildModeOpen") ~= true and player:GetAttribute("NamingOpen") ~= true and not menuOpen()
 	local carrying = player:GetAttribute("CarryingApp") == true
-	local give = carrying and player:GetAttribute("CanGive") == true
-	local code = not carrying and player:GetAttribute("JobWaiting") == true and player:GetAttribute("AtLaptop") == true
-	local verb = give and "give" or code and "code" or nil
+	-- 24 Oct: the same rule the server pauses LAUNCH!'s clock by (OneVoice)
+	local verb = OneVoice.verbOf({ carrying = carrying, canGive = player:GetAttribute("CanGive") == true,
+		jobWaiting = player:GetAttribute("JobWaiting") == true, atLaptop = player:GetAttribute("AtLaptop") == true })
+	local give = verb == "give"
 	codeBtn.Visible = free and not inCar and verb ~= nil
 	codeBtn:SetAttribute("SlotHeld", free and not inCar)   -- placeMoney keeps the slot's space
-	launchBtn.Visible = free and launchState ~= nil
+	--[[ 24 Oct (one instruction, rule A): one voice. The button you can press, else the job in your
+		hands, else LAUNCH!, else the goal. The pick goes out as the client-local attribute OneVoice:
+		GuideClient folds the goal card to its icon, PromptClient hides prompts, CoachClient waits. ]]
+	local pick = OneVoice.pick({
+		verb = codeBtn.Visible and verb or nil, carrying = carrying,
+		midJob = player:GetAttribute("MidJob") == true, recruit = player:GetAttribute("Carrying") ~= nil,
+		launch = launchState ~= nil, goal = goalShown(),
+		tip = player:GetAttribute("CoachShowing") == true,   -- 24 Oct (F-6): a coach tip folds the goal
+		phone = player:GetAttribute("PhoneBannerShowing") == true,   -- 24 Oct: so does a phone banner
+		ring = player:GetAttribute("PhoneRingShowing") == true,   -- 24 Oct: and an incoming call
+	})
+	if player:GetAttribute("OneVoice") ~= pick.voice then player:SetAttribute("OneVoice", pick.voice) end
+	local wasMode = launchMode
+	launchMode = free and pick.launch or nil
+	launchBtn.Visible = launchMode == "button"
+	launchChip.Visible = launchMode == "chip"
+	-- a calm pop when LAUNCH! folds to the chip or opens back out (its first arrival has its own ding)
+	if launchMode and wasMode and launchMode ~= wasMode then UIKit.popIn(launchMode == "chip" and launchChip or launchBtn, 0.85) end
 	-- 17 Oct: above WRITE CODE (beside it, the CAR button covered it: Luke's recording 3:46)
 	-- 18 Oct (option A): with the button hidden, LAUNCH sits in the bottom slot itself; it
 	-- slides up when HOLD TO CODE or GIVE pops in under it
@@ -390,7 +433,9 @@ local function syncCode()
 	if y ~= launchY then
 		launchY = y
 		local at = UDim2.new(0.5, 0, 1, y)
-		if launchBtn.Visible then tween(launchBtn, 0.2, { Position = at }) else launchBtn.Position = at end
+		if launchBtn.Visible then tween(launchBtn, 0.2, { Position = at }) else UIKit.set(launchBtn, { Position = at }) end
+		-- 24 Oct: the chip lives in LAUNCH!'s slot
+		if launchChip.Visible then tween(launchChip, 0.2, { Position = at }) else UIKit.set(launchChip, { Position = at }) end
 	end
 	local prog = tonumber(player:GetAttribute("CodeProgress")) or 0
 	-- 16 Oct, mock 2C: the button says what holding it does right now
@@ -414,6 +459,8 @@ player:GetAttributeChangedSignal("Shipped"):Connect(syncCode)
 player:GetAttributeChangedSignal("BuildModeOpen"):Connect(syncCode)
 player:GetAttributeChangedSignal("NamingOpen"):Connect(syncCode)
 for _, a in ipairs({ "CarryingApp", "CanGive", "JobWaiting", "AtLaptop" }) do player:GetAttributeChangedSignal(a):Connect(syncCode) end
+-- 24 Oct (one voice): a started job, a recruit in your arms and the goal's words change the pick too
+for _, a in ipairs({ "MidJob", "Carrying", "ObjectiveText", "CoachShowing", "PhoneBannerShowing", "PhoneRingShowing" }) do player:GetAttributeChangedSignal(a):Connect(syncCode) end
 UIKit.onMenuChange(function() syncCode() end)   -- menus are other scripts' guis: one shared watch
 -- v4.2: in a car the speedometer owns the bottom centre (it sat on top of WRITE CODE)
 local function watchSeat(char)
@@ -466,7 +513,7 @@ end
 local function setLaunch(o)
 	local was = launchState
 	launchState = o
-	timeBar.Visible = o ~= nil and o.autoAt ~= nil
+	timeBar.Visible = o ~= nil and launchLeft() ~= nil
 	timeBadge.Visible = timeBar.Visible
 	payLabel.Text = payText()
 	payLabel.Visible = o ~= nil
@@ -497,6 +544,7 @@ game:GetService("UserInputService").InputBegan:Connect(function(input, processed
 end)
 
 launchBtn.MouseButton1Click:Connect(doLaunch)
+launchChip.MouseButton1Click:Connect(doLaunch)   -- 24 Oct: folded, it is still one tap away
 
 --[[ 16 Oct, the client loop: WRITE CODE is HELD. Press (mouse or finger) = start
 	coding the job at the door, let go = pause; the server counts the time
@@ -564,14 +612,16 @@ RunService.RenderStepped:Connect(function()
 	if launchState then
 		codeWrap.Scale = 1
 		launchWrap.Scale = still and 1 or (1 + 0.07 * (0.5 + 0.5 * math.sin(t * 5.5)))
-		local at = launchState.autoAt
-		if at then
-			local left = math.max(0, at - workspace:GetServerTimeNow())
+		local left, paused = launchLeft()
+		if left then
 			timeBar.Size = UDim2.new(0, math.floor(TIME_W * math.clamp(left / 60, 0, 1)), 0, 6)
 			timeBar.BackgroundColor3 = left <= 15 and UIKit.ORANGE_DEEP or UIKit.GOLD_DEEP
 			timeText.Text = math.ceil(left) .. "s"
 			timeBadge.BackgroundColor3 = left <= 15 and UIKit.ORANGE_DEEP or UIKit.INK
 		end
+		-- 24 Oct: the chip says the same time; "II" while the server holds the clock (mid-job)
+		local chip = left and ((paused and "II " or "") .. ("%d:%02d"):format(math.floor(math.ceil(left) / 60), math.ceil(left) % 60)) or ""
+		chipLabel.Text = chip ~= "" and ("APP READY  " .. chip) or "APP READY"
 	else
 		launchWrap.Scale = 1
 		-- a coach tip on screen has the stage: the pulse waits
