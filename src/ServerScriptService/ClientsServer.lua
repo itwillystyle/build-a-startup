@@ -15,16 +15,18 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
+local CollectionService = game:GetService("CollectionService")
 
 local Clients = require(ServerScriptService:WaitForChild("Clients"))
 local StaffRig = require(ServerScriptService:WaitForChild("StaffRig"))
 local Telemetry = require(ServerScriptService:WaitForChild("Telemetry"))
 local WaferPlan = require(ServerScriptService:WaitForChild("WaferPlan"))
 local TowerPlan = require(ReplicatedStorage:WaitForChild("TowerPlan"))
+local ClientMood = require(ReplicatedStorage:WaitForChild("ClientMood"))
 
 local LAPTOP_RANGE = 12    -- studs: holding counts within this of your laptop
 local HAND_RANGE = 10      -- studs: this close to your client, GIVE (or E) hands the app over
-local WALK_SPEED = 10      -- studs a second, the walk up and away
+local WALK_SPEED = ClientMood.WALK   -- studs a second, the walk up and away (a lost client: ClientMood.SAD_WALK)
 local TICK = 0.1
 local DRAW_EVERY = 0.25    -- bubbles and attributes at 4 Hz, not every frame (phones)
 
@@ -32,11 +34,10 @@ local DRAW_EVERY = 0.25    -- bubbles and attributes at 4 Hz, not every frame (p
 local INK = Color3.fromRGB(20, 22, 30)
 local PAPER = Color3.fromRGB(255, 252, 246)
 local WELL = Color3.fromRGB(236, 230, 218)
-local GO = Color3.fromRGB(60, 203, 108)
+local GO = Color3.fromRGB(60, 203, 108)   -- 24 Oct: no longer the patience bar (ClientMood: one calm colour, red in the last 8 s)
 local GOLD = Color3.fromRGB(255, 200, 61)
 local GOLD_DEEP = Color3.fromRGB(138, 100, 0)
 local GOLD_LIGHT = Color3.fromRGB(255, 241, 196)
-local RED = Color3.fromRGB(240, 78, 78)
 local BLUE = Color3.fromRGB(59, 139, 255)
 local BLUE_DEEP = Color3.fromRGB(27, 92, 196)
 local BLUE_LIGHT = Color3.fromRGB(221, 235, 255)
@@ -68,6 +69,7 @@ return function(core)
 	local codeHold = remote("CodeHold")      -- client -> server: true while the button is held
 	local clientPaid = remote("ClientPaid")  -- server -> client: { pay, tip, wow, at, who, stars, from }
 	local giveApp = remote("GiveApp")        -- client -> server: GIVE pressed (the HUD button)
+	local clientLost = remote("ClientLost")  -- server -> client: { at, pay } a client ran out (24 Oct: the grey coin)
 
 	-- ------------------------------------------------------------- the door line
 	--[[ where the clients queue: straight out of the garage door, away from the
@@ -241,15 +243,23 @@ return function(core)
 	-- 17 Oct review: two walks on one rig fought frame by frame (a client walking in while the
 	-- line moved up) and the older one could finish last, leaving them at the wrong spot. Each
 	-- walk takes a token; a newer walk ends the older one.
-	local function walk(model, to, faceAfter, done)
+	-- 24 Oct: opts = { speed?, after? }: a lost client walks off at ClientMood.SAD_WALK, and a
+	-- client moving up waits `after` seconds for the one leaving their spot (a newer walk still wins)
+	local function walk(model, to, faceAfter, done, opts)
 		local id = (model:GetAttribute("WalkId") or 0) + 1
 		model:SetAttribute("WalkId", id)
+		local speed = (opts and opts.speed) or WALK_SPEED
+		local after = (opts and opts.after) or 0
 		task.spawn(function()
+			if after > 0 then
+				task.wait(after)
+				if not model.Parent or model:GetAttribute("WalkId") ~= id then return end
+			end
 			local start = model:GetPivot().Position
 			local off = model:GetAttribute("FootOff") or footOffsetOf(model)
 			local from = Vector3.new(start.X, start.Y - off, start.Z)
 			local dist = (Vector3.new(to.X, from.Y, to.Z) - from).Magnitude
-			local t, T = 0, math.max(0.2, dist / WALK_SPEED)
+			local t, T = 0, math.max(0.2, dist / speed)
 			while t < T and model.Parent and model:GetAttribute("WalkId") == id do
 				t += task.wait()
 				local a = math.min(1, t / T)
@@ -292,14 +302,89 @@ return function(core)
 		end
 	end
 
-	local function walkPath(model, points, faceAfter, done)
+	local function walkPath(model, points, faceAfter, done, opts)
 		local i = 0
 		local function nextLeg()
 			i += 1
 			if i > #points then if done then done() end return end
-			walk(model, points[i], i == #points and faceAfter or nil, nextLeg)
+			walk(model, points[i], i == #points and faceAfter or nil, nextLeg, opts and { speed = opts.speed } or nil)
 		end
 		nextLeg()
+	end
+
+	--[[ 24 Oct (Luke's 20 Oct ask, option C: ui/animation-review/judge/CLIENT-TIMER-OPTIONS.md):
+		the patience bar under the bubble is gone; a 30 px badge at the end of the card is the timer.
+		It drains as a pie in one calm colour (INK) and, in the last 8 s, turns into a red disc that
+		counts 8 .. 1. Built here once; each player's machine draws it every frame from the rig's
+		PatienceLeft / Draining attributes (ClientTimerClient), so it is smooth and the tick is local.
+		No image upload: a pie is two clipped halves of a circle, each with a hard-edged UIGradient
+		that turns (half R covers 12 to 6 o'clock, half L 6 to 12). ]]
+	local function pieHalf(timer, name, isLeft)
+		local clip = Instance.new("Frame")
+		clip.Name = name
+		clip.BackgroundTransparency = 1
+		clip.ClipsDescendants = true
+		clip.Size = UDim2.fromScale(0.5, 1)
+		clip.Position = UDim2.fromScale(isLeft and 0 or 0.5, 0)
+		clip.ZIndex = 2
+		clip.Parent = timer
+		local sweep = Instance.new("Frame")
+		sweep.Name = "Sweep"
+		sweep.BorderSizePixel = 0
+		sweep.BackgroundColor3 = WELL     -- the time already gone
+		sweep.Size = UDim2.fromScale(2, 1)
+		sweep.Position = UDim2.fromScale(isLeft and 0 or -1, 0)
+		sweep.ZIndex = 2
+		sweep.Parent = clip
+		Instance.new("UICorner", sweep).CornerRadius = UDim.new(1, 0)
+		-- R is opaque on the gradient's first half, L on its second: at rotation 0 each shows nothing
+		local a, b = isLeft and 1 or 0, isLeft and 0 or 1
+		local g = Instance.new("UIGradient")
+		g.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, a), NumberSequenceKeypoint.new(0.5, a),
+			NumberSequenceKeypoint.new(0.501, b), NumberSequenceKeypoint.new(1, b) })
+		g.Parent = sweep
+	end
+
+	local function timerBadge(card)
+		local timer = Instance.new("Frame")
+		timer.Name = "Timer"
+		timer.LayoutOrder = 3
+		timer.BackgroundTransparency = 1
+		timer.Size = UDim2.fromOffset(30, 30)
+		timer.Parent = card
+		Instance.new("UIScale", timer).Name = "Pop"
+		local disc = Instance.new("Frame")
+		disc.Name = "Disc"
+		disc.BorderSizePixel = 0
+		disc.BackgroundColor3 = INK       -- the time left (red in the last 8 s)
+		disc.Size = UDim2.fromScale(1, 1)
+		disc.ZIndex = 1
+		disc.Parent = timer
+		Instance.new("UICorner", disc).CornerRadius = UDim.new(1, 0)
+		pieHalf(timer, "R", false)
+		pieHalf(timer, "L", true)
+		local ring = Instance.new("Frame")
+		ring.Name = "Ring"
+		ring.BackgroundTransparency = 1
+		ring.Size = UDim2.fromScale(1, 1)
+		ring.ZIndex = 3
+		ring.Parent = timer
+		Instance.new("UICorner", ring).CornerRadius = UDim.new(1, 0)
+		local rstroke = Instance.new("UIStroke")
+		rstroke.Thickness = 2
+		rstroke.Color = INK
+		rstroke.Parent = ring
+		local count = Instance.new("TextLabel")
+		count.Name = "Count"
+		count.BackgroundTransparency = 1
+		count.Size = UDim2.fromScale(1, 1)
+		count.Font = Enum.Font.FredokaOne
+		count.TextSize = 18                -- 17 in the mock; 18 is the nearest DESIGN.md size (>= 14 px)
+		count.TextColor3 = PAPER
+		count.Text = ""
+		count.Visible = false
+		count.ZIndex = 4
+		count.Parent = timer
 	end
 
 	local function bubble(model, client)
@@ -308,7 +393,9 @@ return function(core)
 		local look = TIER_LOOK[client.kind == "big" and "big" or client.tier or "regular"] or TIER_LOOK.regular
 		local bb = Instance.new("BillboardGui")
 		bb.Name = "ClientBubble"
-		bb.Size = UDim2.fromOffset(190, client.patience and 74 or 50)
+		-- 24 Oct: 240 wide (the badge adds ~38 px); still 74 tall with a clock, so the card sits
+		-- where the payout card's lift was measured (PayoutBeats.CARD, 23 Oct)
+		bb.Size = UDim2.fromOffset(client.patience and 240 or 190, client.patience and 74 or 50)
 		bb.StudsOffset = Vector3.new(0, 3.6, 0)
 		bb.MaxDistance = 90
 		bb.AlwaysOnTop = false
@@ -333,6 +420,7 @@ return function(core)
 		local row = Instance.new("UIListLayout")
 		row.FillDirection = Enum.FillDirection.Horizontal
 		row.VerticalAlignment = Enum.VerticalAlignment.Center
+		row.SortOrder = Enum.SortOrder.LayoutOrder
 		row.Padding = UDim.new(0, 8)
 		row.Parent = card
 
@@ -340,6 +428,7 @@ return function(core)
 		local icon = Instance.new("Frame")
 		icon.Name = "Icon"
 		icon.Size = UDim2.fromOffset(26, 26)
+		icon.LayoutOrder = 1
 		icon.BackgroundColor3 = look[3]
 		icon.Parent = card
 		Instance.new("UICorner", icon).CornerRadius = UDim.new(0, 7)
@@ -361,53 +450,65 @@ return function(core)
 		text.BackgroundTransparency = 1
 		text.AutomaticSize = Enum.AutomaticSize.X
 		text.Size = UDim2.fromOffset(0, 30)
+		text.LayoutOrder = 2
 		text.Font = Enum.Font.FredokaOne
 		text.TextSize = 18
 		text.TextColor3 = INK
 		text.Text = client.ask
 		text.Parent = card
 
-		if client.patience then
-			local bar = Instance.new("Frame")
-			bar.Name = "Patience"
-			bar.AnchorPoint = Vector2.new(0.5, 0)
-			bar.Position = UDim2.new(0.5, 0, 0, 50)
-			bar.Size = UDim2.fromOffset(120, 14)
-			bar.BackgroundColor3 = WELL
-			bar.Parent = bb
-			Instance.new("UICorner", bar).CornerRadius = UDim.new(1, 0)
-			local bstroke = Instance.new("UIStroke")
-			bstroke.Thickness = 2
-			bstroke.Color = INK
-			bstroke.Parent = bar
-			local fill = Instance.new("Frame")
-			fill.Name = "Fill"
-			fill.BorderSizePixel = 0
-			fill.Size = UDim2.fromScale(1, 1)
-			fill.BackgroundColor3 = GO
-			fill.Parent = bar
-			Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
-		end
+		if client.patience then timerBadge(card) end
 	end
 
 	local function say(model, text)
 		local bb = model:FindFirstChild("ClientBubble", true)
 		local ask = bb and bb:FindFirstChild("Ask", true)
 		if ask then ask.Text = text end
-		local bar = bb and bb:FindFirstChild("Patience")
-		if bar then bar.Visible = false end
+		local timer = bb and bb:FindFirstChild("Timer", true)
+		if timer then timer.Visible = false end
 		local icon = bb and bb:FindFirstChild("Icon", true)
 		if icon then icon.Visible = false end
 	end
 
+	--[[ 24 Oct (Plan 2: "client looks never match the player's avatar"): what the player looks
+		like, as ClientMood.lookOk reads it: the StaffRig skin tone nearest their head, and the
+		hair they wear. Read at most every 10 s (an outfit change is rare). ]]
+	local SKIN_RGB = {}
+	for i, c in ipairs(StaffRig.SKIN) do SKIN_RGB[i] = { c.R * 255, c.G * 255, c.B * 255 } end
+	local function avatarOf(player, P)
+		if P.avatar and os.clock() < (P.avatarAt or 0) then return P.avatar end
+		local out = {}
+		local char = player.Character
+		local head = char and char:FindFirstChild("Head")
+		if head and head:IsA("BasePart") then
+			out.skin = ClientMood.nearest({ head.Color.R * 255, head.Color.G * 255, head.Color.B * 255 }, SKIN_RGB)
+		end
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		local ok, desc = pcall(function() return hum and hum:GetAppliedDescription() end)
+		if ok and desc then
+			out.hair = {}
+			for id in string.gmatch(desc.HairAccessory or "", "%d+") do out.hair[tonumber(id)] = true end
+		end
+		P.avatar, P.avatarAt = out, os.clock() + 10
+		return out
+	end
+
 	local function makeRig(player, P, client)
 		if P.dead then return nil end   -- 17 Oct review: a cleared line never makes a rig
-		local model = StaffRig.build(client.kind == "big" and "sales" or "designer", 900 + client.id * 13 + (player.UserId % 97))
+		local seed = ClientMood.pickIndex(900 + client.id * 13 + (player.UserId % 97), StaffRig.lookOf, avatarOf(player, P))
+		local model = StaffRig.build(client.kind == "big" and "sales" or "designer", seed)
 		model.Name = "Client" .. client.id
 		model:SetAttribute("ClientOf", player.UserId)
 		model:SetAttribute("Ask", client.ask)
 		model:SetAttribute("Tier", client.kind == "big" and "big" or client.tier or "regular")
 		model:SetAttribute("Patience", 1)
+		-- 24 Oct: the badge's clock (ClientTimerClient draws it; the tag is how it finds clients)
+		if client.patience then
+			model:SetAttribute("PatienceSecs", client.patience)
+			model:SetAttribute("PatienceLeft", client.left or client.patience)
+			model:SetAttribute("Draining", false)
+		end
+		CollectionService:AddTag(model, "SVClient")
 		for _, d in ipairs(model:GetDescendants()) do
 			if d:IsA("BasePart") then d.CanCollide = false; d.CanTouch = false; d.CanQuery = false end
 		end
@@ -424,30 +525,45 @@ return function(core)
 	end
 
 	-- the rig walks off and is gone
-	local function leave(P, client, line)
+	-- 24 Oct: `lost` = they ran out of patience: Mood "sad" (StaffAnimClient slumps them; under
+	-- Reduce Motion the slump is a held pose) and they walk off at ClientMood.SAD_WALK, not 10.
+	-- The spot they stood on is held until they have said their line and stepped off it: the next
+	-- client used to walk into spot 1 while the served one still stood there saying "Thanks!".
+	local function leave(P, client, line, lost)
 		local model = P.rigs[client.id]
 		P.rigs[client.id] = nil
 		if not model then return end
 		local gp = model:FindFirstChild("GivePrompt", true)
 		if gp then gp:Destroy() end
 		if line then say(model, line) end
-		task.delay(line and 1.8 or 0, function()
+		local speed = lost and ClientMood.SAD_WALK or WALK_SPEED
+		local sayFor = line and ClientMood.SAY or 0
+		local at = model:GetAttribute("Spot")
+		if at then
+			P.spotHeld[at] = math.max(P.spotHeld[at] or 0, ClientMood.freeAt(os.clock(), sayFor, speed))
+		end
+		if lost then
+			model:SetAttribute("Mood", "sad")
+			model:SetAttribute("SadAt", workspace:GetServerTimeNow())
+		end
+		task.delay(sayFor, function()
 			if not model.Parent then return end
 			local path = entryPath(P.plot)
 			local back = {}
 			for k = #path, 1, -1 do table.insert(back, path[k]) end
-			walkPath(model, back, nil, function() model:Destroy() end)
+			walkPath(model, back, nil, function() model:Destroy() end, { speed = speed })
 		end)
 	end
 
 	-- everyone in line walks to their spot (the line moves up when the front leaves)
 	local function placeLine(P)
+		local now = os.clock()
 		for i, c in ipairs(P.Q.line) do
 			local model = P.rigs[c.id]
 			local want = spot(P.plot, i)
 			if model and model.Parent and model:GetAttribute("Spot") ~= i then
 				model:SetAttribute("Spot", i)
-				walk(model, want, lookAtOf(P.plot))
+				walk(model, want, lookAtOf(P.plot), nil, { after = ClientMood.walkDelay(now, P.spotHeld[i]) })
 			end
 		end
 	end
@@ -519,7 +635,7 @@ return function(core)
 		local s, plot = sessions[uid], plotOf(player)
 		local first = forceFirst == true or (not s.shipped and (s.spinoffs or 0) == 0 and (s.launches or 0) == 0)
 		local P = { Q = Clients.new({ first = first, seed = uid % 100000 + 17 }), plot = plot, rigs = {},
-			hold = false, tapUntil = 0, lastToggle = 0, coded = false }
+			hold = false, tapUntil = 0, lastToggle = 0, coded = false, spotHeld = {} }
 		byUser[uid] = P
 		if first then
 			-- the first client knocks and the door rolls up for them (spec call 9)
@@ -594,7 +710,14 @@ return function(core)
 					end
 				elseif e.kind == "lost" then
 					Telemetry.event(player, "client_lost", 1)
-					leave(P, e.client, "Too slow...")
+					-- 24 Oct: the pay you lost (what a slow hand-over would have paid, no tip) rises
+					-- over them as a grey coin (ClientFxClient)
+					local model = P.rigs[e.client.id]
+					if model then
+						local lostPay = Clients.pay(e.client, s.effective or s.rate or 0, 0)
+						clientLost:FireClient(player, { at = model:GetPivot().Position, pay = lostPay })
+					end
+					leave(P, e.client, "Too slow...", true)
 					placeLine(P)
 				end
 			end
@@ -647,11 +770,9 @@ return function(core)
 					if model and c.patience then
 						local f = math.clamp(c.left / c.patience, 0, 1)
 						model:SetAttribute("Patience", f)
-						local fill = model:FindFirstChild("Fill", true)
-						if fill then
-							fill.Size = UDim2.fromScale(f, 1)
-							fill.BackgroundColor3 = f > 0.5 and GO or f > 0.25 and GOLD or RED
-						end
+						-- 24 Oct: the badge's clock, in seconds; the colour ladder (green, gold, red) is gone
+						model:SetAttribute("PatienceLeft", math.max(0, math.floor(c.left * 100 + 0.5) / 100))
+						model:SetAttribute("Draining", c.draining == true)
 					end
 				end
 				local mine = holding and atLaptop and not P.Q.carrying and front
@@ -758,6 +879,20 @@ return function(core)
 		end
 		local e = handOverNow(player, P)
 		return { ok = e ~= nil, pay = e and e.pay, tip = e and e.tip, kind = e and e.client.kind }
+	end
+
+	-- dev hook (24 Oct, the client timer's live check): the front waiting client has `secs` left,
+	-- so the red badge, the ticks and the sad walk-off can be watched in seconds
+	function api.devHurry(player, secs)
+		local P = byUser[player.UserId]
+		if not P then return { ok = false, err = "no client loop for this player" } end
+		for _, c in ipairs(P.Q.line) do
+			if c.left and c ~= P.Q.carrying then
+				c.left = math.min(c.left, secs)
+				return { ok = true, id = c.id, left = c.left, patience = c.patience }
+			end
+		end
+		return { ok = false, err = "nobody waiting with a clock (the first client has none)" }
 	end
 
 	giveApp.OnServerEvent:Connect(function(player)

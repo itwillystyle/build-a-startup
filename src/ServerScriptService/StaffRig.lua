@@ -515,6 +515,17 @@ function StaffRig.build(roleKey, index)
 	return buildBlock(roleKey, index)
 end
 
+-- 24 Oct (client timer, Plan 2: "client looks never match the player's avatar"): the look
+-- StaffRig.build(_, index) gives an avatar rig, without building it (the same two draws as
+-- build and buildAvatar), so ClientsServer can skip a client who would look like you.
+StaffRig.SKIN = SKIN
+function StaffRig.lookOf(index)
+	local rng = Random.new(index * 7919)
+	local skin = rng:NextInteger(1, #SKIN)
+	local hair = rng:NextInteger(1, #AVATAR_HAIR)
+	return { skin = skin, hair = AVATAR_HAIR[hair] }
+end
+
 -- the outfit colours: shirt and trousers on an avatar, the torso parts on a block rig
 function StaffRig.setOutfit(model, shirtColor, pantsColor)
 	local shirt, pants = model:FindFirstChildOfClass("Shirt"), model:FindFirstChildOfClass("Pants")
