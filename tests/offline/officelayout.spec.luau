@@ -150,4 +150,136 @@ test("surfaces: the lobby only gets the floor, servers a navy wall with no base,
 	end
 end)
 
+-- ---------------------------------------------------------------- Task 4: the dressing
+local DEPTS = { "eng", "studio", "cafe", "servers", "labs", "board" }
+local function eachRoom(fn)
+	for s = 0, 13 do
+		if not T.DECKS[s] then
+			for seg = 1, 8 do
+				local depts = (s == 0 and seg == 1) and { "lobby" } or DEPTS
+				for _, d in ipairs(depts) do fn(s, seg, T.room(s, seg), d) end
+			end
+		end
+	end
+end
+
+test("nothing the dressing adds blocks a door, a seat, the station or the glass, at company 12 and 13", function()
+	assert(type(OL.check) == "function" and type(OL.dressing) == "function", "OfficeLayout.check / dressing are missing")
+	local bad = {}
+	eachRoom(function(s, seg, r, d)
+		for _, company in ipairs({ 12, 13 }) do
+			for _, problem in ipairs(OL.check(d, r, company, s, seg)) do
+				table.insert(bad, ("storey %d seg %d %s @%d: %s"):format(s, seg, d, company, problem))
+			end
+		end
+	end)
+	assert(#bad == 0, #bad .. " problems: " .. table.concat(bad, " | ", 1, math.min(#bad, 12)))
+end)
+
+test("check() is not blind: a plant in the back door, on a seat and behind the station are all caught", function()
+	local r = T.room(1, 3)
+	local seat = OL.seats("eng", r)[1]
+	local function with(extra)
+		local list = OL.dressing("eng", r, 13, 1, 3)
+		table.insert(list, extra)
+		return OL.check("eng", r, 13, 1, 3, list)
+	end
+	local plant = function(x, z) return { id = "PlantX", kind = "plant", key = "pottedPlant", x = x, z = z, yaw = 0, parts = 1 } end
+	assert(#with(plant(0, -r.d / 2 + 1.5)) > 0, "a plant in the back door")
+	assert(#with(plant(seat.x, seat.z)) > 0, "a plant on a seat")
+	assert(#with(plant(OL.STATION.x(r), OL.STATION.z(r) + 1.6)) > 0, "a plant in front of the station")
+	assert(#with(plant(r.w / 2, 0)) > 0, "a plant through the glass band")
+	assert(#with({ id = "WallArt", kind = "art", x = 0, y0 = 5.5, y1 = 8.9, w = 4.5, parts = 1 }) > 0, "art over the door")
+end)
+
+test("the budget: at most 12 new parts a room and 96 a storey; an engineering room at 13 uses exactly 12", function()
+	eachRoom(function(s, seg, r, d)
+		for _, company in ipairs({ 12, 13 }) do
+			local n = OL.newParts(d, r, company, s, seg)
+			assert(n <= OL.BUDGET, ("storey %d seg %d %s @%d: %d new parts"):format(s, seg, d, company, n))
+		end
+	end)
+	for s = 0, 13 do
+		if not T.DECKS[s] then
+			local sum = 0
+			for seg = 1, 8 do sum += OL.newParts((s == 0 and seg == 1) and "lobby" or "eng", T.room(s, seg), 13, s, seg) end
+			assert(sum <= OL.STOREY_BUDGET, ("storey %d: %d new parts if every room were engineering"):format(s, sum))
+		end
+	end
+	assert(OL.newParts("eng", T.room(1, 3), 13, 1, 3) == 12, "eng at company 13: rug 2, base 2, art 1, plants 3, second monitors 4")
+	assert(OL.newParts("eng", T.room(1, 3), 12, 1, 3) == 7, "eng at company 12: no third plant, one monitor")
+end)
+
+test("the lobby gets nothing, servers nothing, storey 0 no plants; every flat or wall piece is FLAT_NAMES", function()
+	assert(#OL.dressing("lobby", T.room(0, 1), 100, 0, 1) == 0, "the lobby keeps its look (ruling 4)")
+	assert(#OL.dressing("servers", T.room(1, 3), 100, 1, 3) == 0, "a server room is a machine room (ruling 7)")
+	eachRoom(function(s, seg, r, d)
+		for _, p in ipairs(OL.dressing(d, r, 13, s, seg)) do
+			if s == 0 then assert(p.kind ~= "plant", ("storey 0 seg %d %s: a plant would refund saved decor (ruling 5)"):format(seg, d)) end
+			if p.kind ~= "plant" then assert(OL.FLAT_NAMES[p.id], p.id .. " is flat or on the wall but not in FLAT_NAMES") end
+		end
+	end)
+end)
+
+test("by company level (ruling 1): 12 is one monitor and two plants; 13 two monitors and a third plant", function()
+	local r = T.room(1, 1)
+	local function plants(company)
+		local n = 0
+		for _, p in ipairs(OL.dressing("eng", r, company, 1, 1)) do if p.kind == "plant" then n += 1 end end
+		return n
+	end
+	assert(plants(12) == 2 and plants(13) == 3 and plants(100) == 3, "the third plant arrives at 13")
+	assert(only(OL.furniture("eng", r, 12), "workstation")[1].monitors == 1, "one monitor at 12")
+	assert(only(OL.furniture("labs", r, 13), "workstation")[1].monitors == 2, "two monitors at 13")
+	assert(OL.monitorsAt(nil) == 1 and OL.monitorsAt(13) == 2, "monitorsAt")
+end)
+
+test("two monitors fit the desk (half width 2.16) side by side, turned in toward the seat", function()
+	local one = OL.monitorSlots(1)
+	assert(#one == 1 and one[1].x == 0 and one[1].yaw == 0 and one[1].scale == 1, "one monitor is today's slot")
+	local two = OL.monitorSlots(2)
+	assert(#two == 2, "two slots")
+	local sz = OL.SIZE.computerScreen
+	local function corners(sl)
+		local w, d = sz[1] * sl.scale / 2, sz[3] * sl.scale / 2
+		local a = math.rad(sl.yaw)
+		local out = {}
+		for _, c in ipairs({ { -w, -d }, { w, -d }, { w, d }, { -w, d } }) do
+			table.insert(out, { sl.x + c[1] * math.cos(a) + c[2] * math.sin(a), -c[1] * math.sin(a) + c[2] * math.cos(a) })
+		end
+		return out
+	end
+	for _, sl in ipairs(two) do
+		for _, c in ipairs(corners(sl)) do assert(math.abs(c[1]) <= 2.16, ("a monitor corner at x %.3f is off the desk"):format(c[1])) end
+	end
+	-- the two do not overlap: separating axis test on their footprints
+	local A, B = corners(two[1]), corners(two[2])
+	local function proj(poly, ax)
+		local lo, hi = math.huge, -math.huge
+		for _, p in ipairs(poly) do local v = p[1] * ax[1] + p[2] * ax[2]; lo, hi = math.min(lo, v), math.max(hi, v) end
+		return lo, hi
+	end
+	local apart = false
+	for _, poly in ipairs({ A, B }) do
+		for k = 1, 4 do
+			local p, q = poly[k], poly[k % 4 + 1]
+			local ax = { q[2] - p[2], p[1] - q[1] }
+			local a0, a1 = proj(A, ax)
+			local b0, b1 = proj(B, ax)
+			if a1 < b0 or b1 < a0 then apart = true end
+		end
+	end
+	assert(apart, "the two monitors overlap")
+	assert(two[1].x < 0 and two[1].yaw > 0 and two[2].x > 0 and two[2].yaw < 0, "each is turned in toward the middle")
+end)
+
+test("Wafers keeps saved decor clear of the flat pieces only, and its station is where check() thinks", function()
+	local src = fs.readFile("src/ServerScriptService/Wafers.lua")
+	assert(src:find("OfficeLayout.FLAT_NAMES", 1, true), "Wafers' CLEAR_OF must take OfficeLayout.FLAT_NAMES")
+	assert(src:find("CFrame.new(-r.w / 2 + 3, SLAB + 2.2, -r.d / 2 + 3)", 1, true), "the station moved: update OfficeLayout.STATION")
+	assert(src:find("Vector3.new(3.2, 4.4, 1.8)", 1, true), "the station's size changed: update OfficeLayout.STATION")
+	local r = T.room(1, 3)
+	assert(near(OL.STATION.x(r), -r.w / 2 + 3) and near(OL.STATION.z(r), -r.d / 2 + 3) and OL.STATION.w == 3.2 and OL.STATION.d == 1.8, "STATION")
+end)
+
 return TT
