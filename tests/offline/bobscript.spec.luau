@@ -129,16 +129,74 @@ test("no bubble runs across a cut", function()
 	end
 end)
 
--- every sound name the scenes use is wired to a real id in Sfx (a missing one is silent, not an error)
-test("every sound has an id", function()
+-- every sound name the scenes use is wired to a real id in Sfx (a missing one is silent, not an error),
+-- and carries what was measured from its file: where its sound starts (most library files open on
+-- dead air: the laugh 0.5 s, the wah-wahs up to 1.2 s) and the trim that brings it to one loudness
+test("every sound has an id, a start and a trim", function()
 	local Sfx = require("../../src/ReplicatedStorage/Sfx")
 	for _, name in ipairs({ "intro", "payoff" }) do
 		local ids = {}
 		for _, c in ipairs(B.cues(name, -1, B.length(name))) do ids[c.id] = true end
 		for _, bed in ipairs(B.beds(name)) do ids[bed[1]] = true end
 		for id in pairs(ids) do
-			local key = B.SOUND[id]
-			assert(key and Sfx.ID[key], ("%s uses %q, which has no Sfx id"):format(name, id))
+			local s = B.SOUND[id]
+			assert(s and Sfx.ID[s[1]], ("%s uses %q, which has no Sfx id"):format(name, id))
+			assert(s.at and s.at >= 0 and s.len and s.len > 0, id .. ": no measured start and length")
+			assert(s.gain and s.gain > 0 and s.gain <= 8, id .. ": no loudness trim")
+		end
+	end
+end)
+
+-- Luke 25 Oct ("sloppy"): in the payoff Bob and the investors laughed on screen from 5.4 to 9.6 s,
+-- but the laugh SOUND ended at 6.8 and 7.8: two seconds of silent laughing, then a record scratch
+-- that stopped nothing. A laugh is heard for as long as one is seen
+local LAUGHS = { laughBig = true, laughBob = true, chuckleDeep = true, invLaughA = true, invLaughB = true, invLaughC = true }
+test("a laugh is heard as long as one is seen", function()
+	for _, span in ipairs({ { "intro", 3.7, 6.15 }, { "payoff", 5.7, 9.55 } }) do
+		local name, t = span[1], span[2]
+		while t <= span[3] do
+			local heard = false
+			for _, s in ipairs(B.sounding(name, t)) do if LAUGHS[s] then heard = true end end
+			assert(heard, ("%s at %.2f s: they laugh on screen and nobody is heard"):format(name, t))
+			t += 0.05
+		end
+	end
+end)
+
+-- the gag: the scratch kills the music and the laughing, the crickets play in silence, then the stab
+test("the record scratch stops everything; the crickets play alone", function()
+	local function has(t, id)
+		for _, s in ipairs(B.sounding("payoff", t)) do if s == id then return true end end
+		return false
+	end
+	assert(has(9.5, "music"), "the music plays up to the scratch")
+	local t = 10.3   -- the scratch itself rings 0.63 s (measured from its file)
+	while t <= 10.95 do
+		for _, s in ipairs(B.sounding("payoff", t)) do
+			assert(s == "crickets", ("%.2f s: %q plays over the crickets"):format(t, s))
+		end
+		assert(has(t, "crickets"), ("%.2f s: no crickets"):format(t))
+		t += 0.05
+	end
+	assert(has(11.1, "shock"), "the stab lands on W-WHAT")
+end)
+
+-- talking pushes the music down (it sat 20 dB over the cartoon sounds, measured 25 Oct)
+test("the music ducks under talking", function()
+	local music
+	for _, b in ipairs(B.beds("payoff")) do if b[1] == "music" then music = b end end
+	local open, under = B.bedLevel("payoff", music, 1.0), B.bedLevel("payoff", music, 4.5)
+	assert(open > 0 and under <= open * 0.6, ("music %.2f, under talk %.2f"):format(open, under))
+end)
+
+-- a voice fades out with its bubble (a hard stop chopped mid-note); only a laugh may run on
+test("no voice outlasts its bubble, and none is chopped", function()
+	for _, name in ipairs({ "intro", "payoff" }) do
+		for _, c in ipairs(B.cues(name, -1, B.length(name))) do
+			if c.bubble and not LAUGHS[c.id] then
+				assert(c.dur and c.dur <= c.bubble + 1e-6, ("%s: %q runs %.2f s past a %.2f s bubble"):format(name, c.id, c.dur or -1, c.bubble))
+			end
+			if c.dur then assert(c.fade and c.fade > 0, ("%s: %q stops dead"):format(name, c.id)) end
 		end
 	end
 end)

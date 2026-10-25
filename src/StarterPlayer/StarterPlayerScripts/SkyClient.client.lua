@@ -485,7 +485,10 @@ RunService.Heartbeat:Connect(function(dt)
 	local isNight = day < 0.35
 	setNight(isNight)
 	setNightSky(day < 0.15)
-	crickets.Volume = 0.25 * (1 - day)
+	-- a Bob cutscene brings its own office, street and crickets: the valley's birds sang in his
+	-- boardroom under them (measured 25 Oct)
+	local scene = game:GetService("Players").LocalPlayer:GetAttribute("BobScenePlaying") == true and 0 or 1
+	crickets.Volume = 0.25 * (1 - day) * scene
 	local birds = SoundService:FindFirstChild("ValleyBirds")
-	if birds then birds.Volume = 0.22 * day end
+	if birds then birds.Volume = 0.22 * day * scene end
 end)

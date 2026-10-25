@@ -48,21 +48,67 @@ BobScript.LINES = {
 }
 local L = BobScript.LINES
 
---[[ SOUND (25 Oct, Luke: "add the sounds"). Every sound the scenes use, by the name the data below
-	uses -> its key in Sfx.ID (where the asset ids live, with what each recording is). Three kinds:
-	  cues    one-shots at a time: { t, name, vol?, dur?, pitch? } (dur: stop it after that long)
-	  beds    loops that fade in and out with their span: { name, t0, t1, vol }
-	  voices  a bubble's sound: every bubble pops in ("pop") and plays its `voice` for as long as it
-	          is up. Nobody speaks real words: cartoon nonsense talk, the rich "ho ho" laugh, a "huh?" ]]
+--[[ SOUND (25 Oct, Luke: "add the sounds"; second pass the same day: "they sound very sloppy and
+	very general"). Every sound the scenes use, by the name the data below uses:
+	  { Sfx.ID key, at = s, len = s, gain = x }
+	at    where the sound starts in its file. Library files open on dead air (the old laugh 0.5 s, the
+	      door slam 0.44 s, the wah-wahs up to 1.2 s): played from 0 every hit landed late
+	len   how long it plays from `at` (to its end, or to the end of the phrase it is cut to)
+	gain  the trim that brings its loud part to -24 dB, so a cue's vol means the same for every
+	      sound (they were 31 dB apart: the music at -12 dB, the door slam at -45). Capped at 8
+	All three MEASURED from the files (Studio's cache, decoded, 25 Oct): segments over -32 dB of the
+	peak, the loudness of the frames over -20 dB. Re-measure if an id changes.
+	Three kinds of sound:
+	  cues    one-shots: { t, name, vol?, dur?, pitch?, fade? } (dur: fade out over `fade` and stop)
+	  beds    loops and the music: { name, t0, t1, vol, fin?, fout?, duck? } (duck: lower under talking)
+	  voices  a bubble's sound: it pops in ("pop", a little higher or lower each time) and plays its
+	          `voice` until it goes (a laugh may run on: `free`). Nobody says real words: everyone talks
+	          in muted-trumpet wah-wah (the Charlie Brown grown-ups), each at their own pitch ]]
 BobScript.SOUND = {
-	music = "bobMusic", victory = "victory",
-	officeAmb = "bobOffice", streetAmb = "bobStreet", rain = "bobRain", dizzy = "bobDizzy",
-	pop = "bobPop", talk = "bobTalk", laughRich = "bobLaugh", laughCrowd = "bobChuckle", huh = "bobHuh", gasp = "bobGasp",
-	whoosh = "bobWhoosh", kick = "bobKick", fly = "bobFly", boing = "bobBoing", thud = "thud",
-	doorSlam = "bobDoorSlam", doorBreak = "bobDoorBreak", sad = "bobSad", tbc = "bobTbc", laptop = "bobLaptop",
-	riser = "bobRiser", ding = "bobDing", scratch = "bobScratch", crickets = "bobCrickets", realize = "bobRealize",
-	money = "money", bills = "bobBills",
+	-- the voices: APM "Trumpet Wah-Wah" (KPM, muted trumpet phrases) and "Trumpet Talk" (MUSIC FOR COMEDY)
+	wahA = { "bobWahA", at = 0.94, len = 0.57, gain = 0.72 },     -- one short "wah"
+	wahN = { "bobWahN", at = 0.90, len = 2.65, gain = 0.77 },     -- a level phrase
+	wahQ = { "bobWahQ", at = 0.64, len = 2.52, gain = 0.9 },      -- a phrase that falls
+	wahS = { "bobWahS", at = 1.94, len = 1.91, gain = 0.81 },     -- its second, level phrase
+	trumpetTalk = { "bobTrumpetTalk", at = 6.18, len = 2.42, gain = 0.25 },   -- the bright middle link
+	-- the laughs: one man each (the old investors' laugh was a reverberant crowd)
+	laughBig = { "bobLaughBig", at = 0.14, len = 1.76, gain = 1.4 },          -- Bob: the deepest, 206 > 122 Hz
+	laughBob = { "bobLaugh", at = 0.31, len = 1.8, gain = 1.82 },             -- Bob, still going
+	chuckleDeep = { "bobChuckleDeep", at = 0.24, len = 2.29, gain = 2.54 },   -- Bob, closed-mouth, at you
+	invLaughA = { "bobInvLaughA", at = 0.24, len = 1.07, gain = 1.32 },
+	invLaughB = { "bobInvLaughB", at = 0.0, len = 1.0, gain = 1.35 },
+	invLaughC = { "bobInvLaughC", at = 2.58, len = 2.11, gain = 2.14 },
+	huh = { "bobHuh", at = 0.01, len = 1.03, gain = 2.69 },        -- a slide whistle going UP: "huh?"
+	-- hits and gags
+	pop = { "bobPop", at = 0, len = 0.32, gain = 3.27 },
+	whoosh = { "bobWhoosh", at = 0, len = 0.27, gain = 5.31 },
+	kick = { "bobKick", at = 0, len = 1.0, gain = 0.68 },
+	fly = { "bobFly", at = 0, len = 1.32, gain = 3.89 },
+	boing = { "bobBoing", at = 0.01, len = 0.7, gain = 1.1 },
+	thud = { "thud", at = 0.10, len = 0.27, gain = 0.69 },
+	doorSlam = { "bobDoorSlam", at = 0.40, len = 0.85, gain = 8 },
+	doorBreak = { "bobDoorBreak", at = 0.28, len = 1.86, gain = 1.06 },
+	laptop = { "bobLaptop", at = 0, len = 0.25, gain = 8 },
+	riser = { "bobRiser", at = 0.02, len = 1.31, gain = 0.95 },
+	ding = { "bobDing", at = 0.10, len = 1.06, gain = 1.97 },
+	scratch = { "bobScratch", at = 0.28, len = 0.65, gain = 0.33 },
+	money = { "money", at = 0.40, len = 0.96, gain = 2.85 },
+	bills = { "bobBills", at = 0, len = 0.7, gain = 0.57 },
+	-- stings
+	sad = { "bobSad", at = 0.43, len = 3.16, gain = 0.51 },        -- the descending sad trombone
+	tbc = { "bobTbc", at = 0.45, len = 1.98, gain = 0.7 },         -- "He will rue the day." DUN DUN DUNNN
+	shock = { "bobShock", at = 0.24, len = 3.89, gain = 0.25 },    -- W-WHAT?!: a melodramatic orchestra stab
+	victory = { "victory", at = 0.10, len = 6.76, gain = 0.33 },
+	-- music and loops
+	music = { "bobMusic", at = 0, len = 16.9, gain = 0.29 },
+	officeAmb = { "bobOffice", at = 0, len = 36.0, gain = 8 },
+	streetAmb = { "bobStreet", at = 0, len = 36.0, gain = 8 },
+	rain = { "bobRain", at = 0, len = 61.6, gain = 6.38 },
+	crickets = { "bobCrickets", at = 0, len = 36.0, gain = 8 },
+	dizzy = { "bobDizzy", at = 0, len = 3.3, gain = 8 },
 }
+local DUCK = 0.45   -- the music under talking
+local POP_PITCH = { 1, 1.08, 0.94, 1.12, 0.97, 1.05 }   -- every bubble's pop a little different
 
 local V = Vector3.new
 
@@ -168,9 +214,9 @@ SCENES.intro = {
 		},
 	},
 	bubbles = {
-		{ "hero", L.offer, 0.5, 3.4, voice = "talk" },
-		{ "bob", L.haOffer, 3.6, 6.2, voice = "laughRich", pitch = 0.85 },   -- deeper: a rich man's laugh   -- (one bubble at a time: the investors laugh without one)
-		{ "hero", L.rue, 13.2, 16.21 },   -- (no voice: the to-be-continued sting says it)
+		{ "hero", L.offer, 0.5, 3.4, voice = "wahN", pitch = 1.1 },   -- you: a little higher than Bob
+		{ "bob", L.haOffer, 3.6, 6.2, voice = "laughBig", pitch = 0.9, vol = 0.65, free = true },   -- one bubble at a time: the investors laugh without one
+		{ "hero", L.rue, 13.2, 16.21 },   -- (no voice: the DUN DUN DUNNN says it)
 	},
 	fx = {
 		{ text = "BOING!", anchor = "door", p = V(10, 6.5, 3), t0 = 7.25, t1 = 8.25 },   -- above the landing, not on it
@@ -185,20 +231,24 @@ SCENES.intro = {
 	},
 	shakes = { { 6.3, 6.8, 0.6 } },
 	beds = {
-		{ "officeAmb", 0, 6.2, 0.22 },     -- an investor's office, not an empty room
-		{ "streetAmb", 6.2, 10.4, 0.2 },
-		{ "rain", 9.0, 11.4, 0.3 },        -- under your cloud
-		{ "dizzy", 7.35, 8.5, 0.3 },       -- seeing stars on the pavement
+		{ "music", 0.05, 13.25, 0.25, fin = 0.02, fout = 0.5, duck = true },   -- out for the vow's sting
+		{ "officeAmb", 0, 6.2, 0.18 },     -- carpet, phones, a printer: an investor's office
+		{ "streetAmb", 6.2, 9.0, 0.15 },
+		{ "rain", 9.0, 11.4, 0.3 },        -- pattering on you, under your cloud
+		{ "dizzy", 7.35, 8.5, 0.4 },       -- seeing stars on the pavement
 	},
 	cues = {
-		{ 0.05, "music", vol = 0.3 },
-		{ 4.2, "laughCrowd", vol = 0.3, dur = 2.0 },  -- the investors join in
-		{ 6.22, "whoosh", vol = 0.45 }, { 6.3, "kick", vol = 0.6 }, { 6.4, "fly", vol = 0.5 },
-		{ 7.25, "boing", vol = 0.6 }, { 7.3, "thud", vol = 0.55 },
-		{ 7.95, "doorSlam", vol = 0.5 },
-		{ 9.05, "sad", vol = 0.45 },
-		{ 12.25, "laptop", vol = 0.5 },
-		{ 13.25, "tbc", vol = 0.55 },      -- "He will rue the day." ... to be continued
+		-- Bob laughs from 3.5 to the kick; his investors join in, one man each, one after the other
+		{ 4.2, "invLaughA", vol = 0.6, pitch = 1.05 },
+		{ 4.9, "invLaughB", vol = 0.55, pitch = 0.95 },
+		{ 5.45, "laughBob", vol = 0.7, pitch = 0.9, dur = 0.75, fade = 0.25 },
+		{ 6.22, "whoosh", vol = 0.5 }, { 6.3, "kick", vol = 0.9 }, { 6.4, "fly", vol = 0.6 },
+		{ 6.8, "chuckleDeep", vol = 0.55, dur = 1.15, fade = 0.3 },   -- still laughing at you from his door
+		{ 7.25, "boing", vol = 0.8 }, { 7.3, "thud", vol = 0.95 },
+		{ 7.95, "doorSlam", vol = 0.8 },
+		{ 9.05, "sad", vol = 0.8 },
+		{ 12.25, "laptop", vol = 0.4 },
+		{ 13.25, "tbc", vol = 0.9 },       -- "He will rue the day." DUN DUN DUNNN
 	},
 }
 
@@ -288,12 +338,12 @@ SCENES.payoff = {
 			{ t = 9.7, pose = "laughdie" }, { t = 10.4, face = "deadpan" }, { t = 11.0, pose = "shock", face = "shock" }, { t = 15.4, vis = false } },
 	},
 	bubbles = {
-		{ "bob", L.youAgain, 2.1, 3.6, voice = "huh", pitch = 1.15 },
-		{ "hero", L.myOffer, 3.75, 5.6, voice = "talk" },
-		{ "bob", L.haha, 5.6, 6.8, voice = "laughRich", pitch = 0.85 },
-		{ "bob", L.what, 11.15, 13.2, voice = "gasp" },
-		{ "bob", L.takeIt, 13.4, 15.3, voice = "talk", pitch = 1.3 },   -- panicked: higher
-		{ "hero", L.laughing, 17.9, 19.7, voice = "talk" },
+		{ "bob", L.youAgain, 2.1, 3.6, voice = "huh" },   -- "huh?" ... then he grumbles (cue 2.95)
+		{ "hero", L.myOffer, 3.75, 5.6, voice = "wahS", pitch = 1.1 },
+		{ "bob", L.haha, 5.6, 6.8, voice = "laughBig", pitch = 0.9, vol = 0.65, free = true },   -- he laughs on until 9.6
+		{ "bob", L.what, 11.15, 13.2, voice = "wahA", pitch = 1.35 },   -- a strangled little "WAH?!"
+		{ "bob", L.takeIt, 13.4, 15.3, voice = "wahQ", pitch = 1.3 },   -- panicked: high and fast
+		{ "hero", L.laughing, 17.9, 19.7, voice = "trumpetTalk", pitch = 1.1 },
 	},
 	fx = {
 		{ kind = "debris", anchor = "door", p = V(0, 0, -0.6), t0 = 1.25, t1 = 2.2 },
@@ -315,25 +365,34 @@ SCENES.payoff = {
 		handoff = { { t = 0, v = 0 }, { t = 19.2, v = 0 }, { t = 19.8, v = 1 } },
 	},
 	shakes = { { 1.25, 1.55, 0.45 }, { 11.0, 11.25, 0.3 }, { 15.4, 15.9, 0.6 } },
+	--[[ The gag's sound (Luke 25 Oct, second pass): the laughing is heard for as long as it is seen
+		(it went silent at 7.8 while they laughed on to 9.6); at 9.62 the record scratch kills the music,
+		the office and every laugh at once; a second of crickets in silence; then the stab on W-WHAT ]]
 	beds = {
-		{ "streetAmb", 0, 1.7, 0.2 },
-		{ "officeAmb", 1.7, 15.4, 0.22 },  -- minding their own business
-		{ "streetAmb", 15.4, 20.0, 0.2 },
-		{ "dizzy", 16.5, 20.0, 0.3 },      -- the stars round Bob's head
+		{ "streetAmb", 0, 1.7, 0.15 },
+		{ "music", 0.05, 9.62, 0.25, fin = 0.02, fout = 0.04, duck = true },
+		{ "officeAmb", 1.7, 9.62, 0.18, fout = 0.04 },   -- minding their own business
+		{ "crickets", 10.25, 11.0, 0.55, fin = 0.15, fout = 0.1 },
+		{ "officeAmb", 11.0, 15.4, 0.18 },
+		{ "streetAmb", 15.4, 20.0, 0.15 },
+		{ "dizzy", 16.5, 20.0, 0.4 },      -- the stars round Bob's head
 	},
 	cues = {
-		{ 0.05, "music", vol = 0.3 },
-		{ 0.9, "whoosh", vol = 0.45 }, { 1.1, "kick", vol = 0.6 }, { 1.2, "doorBreak", vol = 0.6 }, { 1.26, "thud", vol = 0.5 },
-		{ 5.8, "laughCrowd", vol = 0.3, dur = 2.0 },
-		{ 6.95, "whoosh", vol = 0.35 },    -- the iPad comes out
-		{ 8.5, "riser", vol = 0.5, dur = 0.95 }, { 9.4, "ding", vol = 0.55 },   -- the line shoots up: +312%
-		{ 9.62, "scratch", vol = 0.55 },   -- the laugh stops dead
-		{ 10.2, "crickets", vol = 0.4, dur = 0.8 },
-		{ 11.0, "realize", vol = 0.6 },    -- it lands
-		{ 13.4, "money", vol = 0.55 }, { 13.45, "ding", vol = 0.35 }, { 13.5, "bills", vol = 0.5 },   -- ka-ching
-		{ 15.35, "whoosh", vol = 0.45 }, { 15.45, "kick", vol = 0.6 }, { 15.5, "fly", vol = 0.5 },
-		{ 16.35, "boing", vol = 0.6 }, { 16.4, "thud", vol = 0.55 },
-		{ 17.65, "victory", vol = 0.55 },
+		{ 0.9, "whoosh", vol = 0.5 }, { 1.1, "kick", vol = 0.9 }, { 1.18, "doorBreak", vol = 0.9 }, { 1.28, "thud", vol = 0.85 },
+		{ 2.95, "wahA", vol = 0.8, pitch = 0.8, dur = 0.62, fade = 0.12 },   -- Bob grumbles "...AGAIN"
+		-- the laugh: Bob's (the bubble's voice from 5.64, then this), his investors one after the other
+		{ 7.5, "laughBob", vol = 0.75, pitch = 0.9, dur = 2.12, fade = 0.03 },
+		{ 5.75, "invLaughA", vol = 0.6, pitch = 1.05 },
+		{ 6.6, "invLaughB", vol = 0.55 },
+		{ 7.6, "invLaughC", vol = 0.55, dur = 2.02, fade = 0.03 },
+		{ 6.95, "whoosh", vol = 0.4 },     -- the iPad comes out
+		{ 8.5, "riser", vol = 0.6, dur = 0.95, fade = 0.1 }, { 9.4, "ding", vol = 0.7, dur = 0.22, fade = 0.04 },   -- the line shoots up: +312%
+		{ 9.62, "scratch", vol = 0.8 },    -- ...and everything stops
+		{ 11.0, "shock", vol = 0.85 },     -- it lands
+		{ 13.4, "money", vol = 0.8 }, { 13.45, "ding", vol = 0.45 }, { 13.5, "bills", vol = 0.6 },   -- ka-ching
+		{ 15.35, "whoosh", vol = 0.5 }, { 15.45, "kick", vol = 0.9 }, { 15.5, "fly", vol = 0.6 },
+		{ 16.35, "boing", vol = 0.8 }, { 16.4, "thud", vol = 0.95 },
+		{ 17.65, "victory", vol = 0.7 },
 	},
 }
 
@@ -454,24 +513,65 @@ function BobScript.at(name, t, reduced)
 	return f
 end
 
--- the sounds to start in (t0, t1]: { id, vol?, dur?, pitch? }. A scene's cues, and for every bubble
--- its pop and its voice (the voice stops when the bubble goes)
+-- the sounds to start in (t0, t1]: { t, id, vol, dur?, pitch?, fade?, bubble? }. A scene's cues, and
+-- for every bubble its pop and its voice (the voice fades out as the bubble goes, unless `free`;
+-- `bubble` is how long the bubble is up)
+local VOICE_FADE = 0.15
 function BobScript.cues(name, t0, t1)
 	local s, out = scene(name), {}
 	for _, c in ipairs(s.cues) do
-		if c[1] > t0 and c[1] <= t1 then table.insert(out, { id = c[2], vol = c.vol, dur = c.dur, pitch = c.pitch }) end
+		if c[1] > t0 and c[1] <= t1 then
+			table.insert(out, { t = c[1], id = c[2], vol = c.vol or 0.6, dur = c.dur, pitch = c.pitch, fade = c.fade })
+		end
 	end
-	for _, b in ipairs(s.bubbles) do
-		if b[3] > t0 and b[3] <= t1 then table.insert(out, { id = "pop", vol = 0.45 }) end
+	for i, b in ipairs(s.bubbles) do
+		if b[3] > t0 and b[3] <= t1 then
+			table.insert(out, { t = b[3], id = "pop", vol = 0.3, pitch = POP_PITCH[(i - 1) % #POP_PITCH + 1] })
+		end
 		local tv = b[3] + 0.04
 		if b.voice and tv > t0 and tv <= t1 then
-			table.insert(out, { id = b.voice, vol = b.vol or 0.6, dur = b[4] - tv, pitch = b.pitch })
+			table.insert(out, { t = tv, id = b.voice, vol = b.vol or 0.9, pitch = b.pitch, bubble = b[4] - b[3],
+				dur = not b.free and (b[4] - tv) or nil, fade = not b.free and VOICE_FADE or nil })
 		end
 	end
 	return out
 end
 
--- the scene's loops: { { id, t0, t1, vol } }; the client fades each in and out with its span
+-- the scene's loops and music: { { id, t0, t1, vol, fin?, fout?, duck? } }
 function BobScript.beds(name) return scene(name).beds or {} end
+
+-- a bed's volume at t (before its trim): faded in over `fin` and out over `fout` (0.35 s unless
+-- set), and under DUCK while a bubble is up if it ducks (the dip ramps over 0.15 s, no jump)
+function BobScript.bedLevel(name, b, t)
+	if t < b[2] or t >= b[3] then return 0 end
+	local fin, fout = b.fin or 0.35, b.fout or 0.35
+	local k = math.min(fin > 0 and (t - b[2]) / fin or 1, fout > 0 and (b[3] - t) / fout or 1)
+	k = clamp01(k)
+	if b.duck then
+		local under = 0
+		for _, bb in ipairs(scene(name).bubbles) do
+			if t >= bb[3] and t < bb[4] then under = math.max(under, clamp01(math.min((t - bb[3]) / 0.15, (bb[4] - t) / 0.15))) end
+		end
+		k *= 1 - (1 - DUCK) * under
+	end
+	return b[4] * k
+end
+
+-- every sound heard at t, by name: a cue from its start for its length (cut by dur, sped by pitch,
+-- and nothing outlives the scene) and every bed above zero. What the tests and the offline mix use
+function BobScript.sounding(name, t)
+	local s, out = scene(name), {}
+	if t >= s.length then return out end
+	for _, c in ipairs(BobScript.cues(name, -1, s.length)) do
+		local info = BobScript.SOUND[c.id]
+		local len = (info and info.len or 0) / (c.pitch or 1)
+		if c.dur then len = math.min(len, c.dur) end
+		if t >= c.t and t < c.t + len then table.insert(out, c.id) end
+	end
+	for _, b in ipairs(BobScript.beds(name)) do
+		if BobScript.bedLevel(name, b, t) > 0 then table.insert(out, b[1]) end
+	end
+	return out
+end
 
 return BobScript

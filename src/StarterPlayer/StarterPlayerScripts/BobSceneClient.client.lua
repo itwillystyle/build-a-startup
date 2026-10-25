@@ -33,8 +33,21 @@ local BobClips = require(RS:WaitForChild("BobClips"))
 local Sfx = require(RS:WaitForChild("Sfx"))
 local isTouch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
-local SOUND = BobScript.SOUND   -- a scene's sound names -> Sfx.ID keys
+local SOUND = BobScript.SOUND   -- a scene's sound names -> { Sfx.ID key, at, len, gain }
 local INK = UIKit.INK
+
+-- a sound's volume down to 0 over `secs`, then it stops (an audio fade: not motion, so Reduce Motion
+-- leaves it alone, and it is not a tween)
+local function fadeOut(s, secs)
+	task.spawn(function()
+		local v0, t0 = s.Volume, os.clock()
+		while s.Parent and os.clock() - t0 < secs do
+			s.Volume = v0 * (1 - (os.clock() - t0) / secs)
+			RunService.Heartbeat:Wait()
+		end
+		if s.Parent then s:Stop() end
+	end)
+end
 local PAPER = UIKit.PAPER
 
 local playing = false
@@ -569,14 +582,43 @@ local function play(name, info)
 	playing = true
 	-- live 25 Oct: on a fresh join the AI meshes were not loaded yet, so for the first frames only Bob's
 	-- tie and toothpick showed. Load the cast while still "loading" (at most 4 s; IntroClient waits 15)
+	-- The scene's sounds too, as a BANK: one Sound per cue and per loop, made and loaded now and only
+	-- played on cue. (live 25 Oct: a Sound made at its cue was still loading 0.12 s later, its playhead
+	-- frozen, so nearly every sound came in late or not at all; only a repeat of one already heard
+	-- played on time. Preloading the asset URL is not enough: each new Sound loads again)
+	local bank = Instance.new("Folder")
+	bank.Name = "BobSceneSounds"
+	local cueSound, bedSound = {}, {}
+	local function bankSound(id)
+		local info = SOUND[id]
+		local url = info and Sfx.url(info[1])
+		if not url then return nil end
+		local s = Instance.new("Sound")
+		s.Name = id
+		s.SoundId = url
+		s.Volume = 0
+		s.Parent = bank
+		return s
+	end
+	for _, c in ipairs(BobScript.cues(name, -1, BobScript.length(name))) do
+		cueSound[("%.3f|%s"):format(c.t, c.id)] = bankSound(c.id)
+	end
+	for i, b in ipairs(BobScript.beds(name)) do bedSound[i] = bankSound(b[1]) end
+	bank.Parent = game:GetService("SoundService")
 	local loaded = false
 	task.spawn(function()
-		pcall(function() game:GetService("ContentProvider"):PreloadAsync({ cast }) end)
+		local list = { cast }
+		for _, s in ipairs(bank:GetChildren()) do table.insert(list, s) end
+		pcall(function() game:GetService("ContentProvider"):PreloadAsync(list) end)
 		loaded = true
 	end)
 	for _, b in ipairs(BobScript.at(name, 0, true).bubbles) do task.spawn(measure, b.text) end   -- every line's size, up front
 	local tLoad = os.clock()
-	while not loaded and os.clock() - tLoad < 4 do task.wait() end
+	local function allLoaded()
+		for _, s in ipairs(bank:GetChildren()) do if not s.IsLoaded then return false end end
+		return true
+	end
+	while not (loaded and allLoaded()) and os.clock() - tLoad < 6 do task.wait() end
 	local folder = Instance.new("Folder")
 	folder.Name = "BobScene"
 	local actors = {}
@@ -603,6 +645,16 @@ local function play(name, info)
 	local fov0 = cam.FieldOfView
 	local function putBack()
 		if conn then conn:Disconnect() end
+		-- sounds still ringing (the victory sting, the street) fade out over the game instead of
+		-- stopping dead with the scene (25 Oct: the sting was cut off at 20.0 s)
+		for _, s in ipairs(bank:GetChildren()) do
+			if s.IsPlaying and s.Volume > 0 then
+				s.Parent = game:GetService("SoundService")
+				fadeOut(s, 0.9)
+				game:GetService("Debris"):AddItem(s, 1.2)
+			end
+		end
+		bank:Destroy()
 		folder:Destroy()
 		for inst, props in pairs(restore) do
 			for prop, v in pairs(props) do pcall(function() inst[prop] = v end) end
@@ -776,19 +828,14 @@ local function play(name, info)
 		end
 	end
 	local cloud = rainCloud(folder)
-	-- the scene's loops (ambience, rain, dizzy birds): silent until their span, faded in and out
+	-- the scene's loops and music: each starts (from its `at`) when its span does, at the level
+	-- BobScript.bedLevel gives (faded, ducked under talking), times its loudness trim
 	local beds = {}
-	for _, b in ipairs(BobScript.beds(name)) do
-		local url = SOUND[b[1]] and Sfx.url(SOUND[b[1]])
-		if url then
-			local s = Instance.new("Sound")
-			s.Name = "Bed_" .. b[1]
-			s.SoundId = url
-			s.Looped = true
-			s.Volume = 0
-			s.Parent = folder
-			s:Play()
-			table.insert(beds, { sound = s, t0 = b[2], t1 = b[3], vol = b[4] })
+	for i, b in ipairs(BobScript.beds(name)) do
+		local s = bedSound[i]
+		if s and not (b[1] == "music" and player:GetAttribute("MenuMuted") == true) then
+			s.Looped = b[1] ~= "music"
+			table.insert(beds, { sound = s, bed = b, info = SOUND[b[1]] })
 		end
 	end
 	local fxs = {}
@@ -1118,18 +1165,31 @@ local function play(name, info)
 		local sign = bc:FindFirstChild("Sign")
 		local sg = sign and sign:FindFirstChildOfClass("SurfaceGui")
 		if sg then override(sg, "Enabled", cutaway == 0) end
-		-- sounds started since the last frame: cues, bubble pops, voices (a voice stops with its bubble)
+		-- sounds started since the last frame: cues, bubble pops, voices. Each from its measured start,
+		-- at its trimmed loudness; one with a dur fades out over `fade` and stops (no chopped notes)
 		for _, cue in ipairs(BobScript.cues(name, lastT, t)) do
-			local isMusic = cue.id == "music" or cue.id == "victory"
-			if SOUND[cue.id] and not (isMusic and player:GetAttribute("MenuMuted") == true) then
-				local s = Sfx.play(folder, SOUND[cue.id], { volume = cue.vol or 0.6, pitch = cue.pitch,
-					life = cue.dur and (cue.dur + 1) or (cue.id == "music" and 24 or 8) })
-				if s and cue.dur then task.delay(cue.dur, function() if s.Parent then s:Stop() end end) end
+			local info, s = SOUND[cue.id], cueSound[("%.3f|%s"):format(cue.t, cue.id)]
+			if s and not (cue.id == "victory" and player:GetAttribute("MenuMuted") == true) then
+				s.Volume = cue.vol * info.gain
+				s.PlaybackSpeed = cue.pitch or 1
+				s.TimePosition = info.at
+				s:Play()
+				if cue.dur then
+					local fade = cue.fade or 0.1
+					task.delay(math.max(0, cue.dur - fade), function()
+						if s.Parent then fadeOut(s, fade) end
+					end)
+				end
 			end
 		end
 		for _, b in ipairs(beds) do
-			local k = math.clamp(math.min((t - b.t0) / 0.35, (b.t1 - t) / 0.35), 0, 1)
-			b.sound.Volume = b.vol * k
+			local v = BobScript.bedLevel(name, b.bed, t)
+			if v > 0 and not b.started then
+				b.started = true
+				b.sound.TimePosition = b.info.at
+				b.sound:Play()
+			end
+			b.sound.Volume = v * b.info.gain
 		end
 		lastT = t
 		fadeIn.BackgroundTransparency = math.clamp((t - 0.2) / 0.3, 0, 1)   -- black 0.2 s, then a fade (kept under Reduce Motion)
