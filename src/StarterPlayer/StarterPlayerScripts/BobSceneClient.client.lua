@@ -34,6 +34,7 @@ local Sfx = require(RS:WaitForChild("Sfx"))
 local isTouch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
 local SOUND = BobScript.SOUND   -- a scene's sound names -> { Sfx.ID key, at, len, gain }
+local POSE_BLEND = 0.2   -- s: a change of pose inside a shot eases over this
 local INK = UIKit.INK
 
 -- a sound's volume down to 0 over `secs`, then it stops (an audio fade: not motion, so Reduce Motion
@@ -196,7 +197,7 @@ local function clipFor(scene, id, pose, t)
 			if scene == "intro" and t >= 12 then return "hero_vow" end
 			return "hero_idle"
 		end
-		return ({ fly = "hero_fly", lie = "hero_land", sit = "hero_situp", kick = "hero_kick", holdChart = "hero_ipad",
+		return ({ fly = "hero_fly", lie = "hero_land", sit = "hero_situp", getup = "hero_getup", kick = "hero_kick", holdChart = "hero_ipad",
 			cheer = "hero_cheer", walk = scene == "intro" and "hero_sadwalk" or "hero_strut" })[pose]
 	elseif id == "bob" then
 		if pose == "stand" then return scene == "payoff" and "bob_shock" or "bob_smug" end
@@ -305,13 +306,22 @@ local function measure(text)
 	measured[text] = ok and v or Vector2.new(#text * 17, UIKit.TYPE.display)
 	return measured[text]
 end
+-- a bubble is drawn inside a CanvasGroup, so it fades as ONE picture. (live 25 Oct: fading each piece
+-- on its own let them show through each other half-way: the ink shadow greyed the card and the tail
+-- showed as a doubled diamond.) A CanvasGroup clips to its bounds, so it is padded round the card
+-- for the tail and the shadow
+local PAD = 32
 local function bubbleFor(a)
+	local group = Instance.new("CanvasGroup")
+	group.Name = "Bubble"
+	group.BackgroundTransparency = 1
+	group.Visible = false
 	local box = Instance.new("Frame")
-	box.Name = "Bubble"
+	box.Name = "Card"
 	box.BackgroundTransparency = 1
-	box.AnchorPoint = Vector2.new(0.5, 1)
+	box.Position = UDim2.fromOffset(PAD, PAD)
 	box.Size = UDim2.fromOffset(200, 60)
-	box.Visible = false
+	box.Parent = group
 	local shadow = Instance.new("Frame")
 	shadow.BackgroundColor3 = INK
 	shadow.BorderSizePixel = 0
@@ -346,8 +356,8 @@ local function bubbleFor(a)
 	patch.BorderSizePixel = 0
 	patch.ZIndex = 9
 	patch.Parent = box
-	local sc = Instance.new("UIScale"); sc.Parent = box
-	return { box = box, card = card, tail = tail, patch = patch, scale = sc, head = a.head }
+	local sc = Instance.new("UIScale"); sc.Parent = group
+	return { group = group, box = box, card = card, tail = tail, patch = patch, scale = sc, head = a.head }
 end
 
 -- a clamp for screen positions that never errors: when the room is smaller than the thing (a
@@ -390,29 +400,33 @@ local function placeBubble(cam, bb, shot)
 	if bb.lockText ~= bb.text or bb.lockShot ~= shot then bb.lock = nil end
 	if not bb.lock then
 		local size = measured[bb.text]
-		if not size then bb.box.Visible = false return end   -- still being measured: next frame
+		if not size then bb.group.Visible = false return end   -- still being measured: next frame
 		local w = size.X + 46
 		local h = math.max(60, size.Y + 24)
 		local x, y, side, hx, hy = bubbleAt(cam, bb.head, w, h + 18)
-		if not x then bb.box.Visible = false return end
+		if not x then bb.group.Visible = false return end
 		bb.lock = { x = x, y = y, side = side, hx = hx, hy = hy, w = w, h = h }
 		bb.lockText, bb.lockShot = bb.text, shot
 	end
 	local L = bb.lock
 	local x, y, side, hx, hy, w, h = L.x, L.y, L.side, L.hx, L.hy, L.w, L.h
-	bb.box.Visible = true
+	bb.group.Visible = true
+	bb.group.Size = UDim2.fromOffset(w + 2 * PAD, h + 2 * PAD)
 	bb.box.Size = UDim2.fromOffset(w, h)
 	if side == nil then
-		-- above the head: the tail hangs from the bottom edge toward the head
-		bb.box.Position = UDim2.fromOffset(x, y - 16)
+		-- above the head: the tail hangs from the bottom edge toward the head. The box is anchored
+		-- where the tail joins it, so the pop grows out of the tail, from the speaker
 		local tx = fit(hx - x, -w / 2 + 30, w / 2 - 30)
+		bb.group.AnchorPoint = Vector2.new((PAD + w / 2 + tx) / (w + 2 * PAD), (PAD + h) / (h + 2 * PAD))
+		bb.group.Position = UDim2.fromOffset(x + tx, y - 16)
 		bb.tail.Position = UDim2.new(0.5, tx, 1, 1)
 		bb.patch.Size, bb.patch.Position = UDim2.fromOffset(TAIL + 8, 10), UDim2.new(0.5, tx, 1, -4)
 	else
-		-- beside the head: the tail sticks out of the side that faces it
-		bb.box.Position = UDim2.fromOffset(x, y)
+		-- beside the head: the tail sticks out of the side that faces it (and the pop grows from there)
 		local ty = fit(hy - (y - h / 2), -h / 2 + 18, h / 2 - 18)
 		local edgeX = side == 1 and 0 or 1
+		bb.group.AnchorPoint = Vector2.new((PAD + edgeX * w) / (w + 2 * PAD), (PAD + h / 2 + ty) / (h + 2 * PAD))
+		bb.group.Position = UDim2.fromOffset(x - w / 2 + edgeX * w, y - h / 2 + ty)
 		bb.tail.Position = UDim2.new(edgeX, side == 1 and -1 or 1, 0.5, ty)
 		bb.patch.Size, bb.patch.Position = UDim2.fromOffset(10, TAIL + 8), UDim2.new(edgeX, side == 1 and 4 or -4, 0.5, ty)
 	end
@@ -718,7 +732,7 @@ local function play(name, info)
 		return f
 	end
 	local barT, barB = bar(true), bar(false)
-	for _, bb in pairs(bubbles) do bb.box.Parent = gui end
+	for _, bb in pairs(bubbles) do bb.group.Parent = gui end
 	-- in from black (0.5 s): covers the first frames, when the cast's textures are still arriving
 	-- (live 25 Oct: grey heads for about 0.15 s on a fresh join)
 	local fadeIn = Instance.new("Frame")
@@ -883,6 +897,7 @@ local function play(name, info)
 	cam.CameraType = Enum.CameraType.Scriptable
 
 	local t0, lastT, finished = os.clock(), 0, false
+	local lastShot = 1
 	local gone = {}   -- bystanders already stepped out of the shot
 	-- everyone with a Humanoid: one scan now, then only the ones that arrive (a full scan a second hitched)
 	local people = {}
@@ -966,7 +981,20 @@ local function play(name, info)
 				setVisible(a, st.visible)
 				place(a, A[st.anchor], st.pos, st.rot, st.roll, { folder, char, bc:FindFirstChild("Dressing") })
 				local clip = clipFor(name, id, st.pose, t)
-				if clip ~= a.clip then a.clip, a.clipStart = clip, t end
+				if clip ~= a.clip or (not clip and st.pose ~= a.lastPose) then
+					local began = t
+					if a.clip == nil and t > 0 then
+						-- the first frame of a scene started part-way (BobSceneHold, for screenshots): the clip
+						-- began when its pose did, not now (a held sit-up showed him standing straight)
+						while began > 0 and clipFor(name, id, BobScript.at(name, began - 1 / 30, true).actors[id].pose, began - 1 / 30) == clip do
+							began -= 1 / 30
+						end
+					end
+					a.clip, a.clipStart, a.lastPose = clip, began, st.pose
+					-- a change of pose inside a shot blends from where the joints were (live 25 Oct: every
+					-- pose change was a one-frame snap, sitting to standing among them); on a cut it snaps
+					a.blendFrom = f.shot == lastShot and a.last or nil
+				end
 				if clip and BobClips.has(clip) then
 					for _, j in pairs(a.motors) do j.Transform = CFrame.new() end
 					for joint, cf in pairs(BobClips.sample(clip, math.max(0, t - a.clipStart))) do
@@ -975,6 +1003,15 @@ local function play(name, info)
 					end
 				else
 					pose(a, st.pose, t)
+				end
+				local k = a.blendFrom and math.clamp((t - a.clipStart) / POSE_BLEND, 0, 1) or 1
+				a.last = {}
+				for joint, j in pairs(a.motors) do
+					if k < 1 then
+						local e = 1 - (1 - k) ^ 3   -- ease-out: it answers at once, then settles
+						j.Transform = (a.blendFrom[joint] or CFrame.new()):Lerp(j.Transform, e)
+					end
+					a.last[joint] = j.Transform
 				end
 				a.face.set(st.face)
 				if st.visible then BobFace.facing(a.model, cam.CFrame.Position) end
@@ -1003,9 +1040,13 @@ local function play(name, info)
 					bb.card.Text = comicText(bb.on.text)
 					if not measured[bb.text] then task.spawn(measure, bb.text) end
 				end
-				bb.scale.Scale = bb.on.k
+				local look = bb.on.look
+				bb.scale.Scale = look.scale
+				bb.group.GroupTransparency = 1 - look.alpha
+				bb.card.MaxVisibleGraphemes = look.reveal >= 1 and -1 or math.floor(#bb.text * look.reveal)
+				bb.group.Rotation = look.shake
 			else
-				bb.box.Visible = false
+				bb.group.Visible = false
 				bb.lock = nil
 			end
 		end
@@ -1192,6 +1233,7 @@ local function play(name, info)
 			b.sound.Volume = v * b.info.gain
 		end
 		lastT = t
+		lastShot = f.shot
 		fadeIn.BackgroundTransparency = math.clamp((t - 0.2) / 0.3, 0, 1)   -- black 0.2 s, then a fade (kept under Reduce Motion)
 		fadeIn.Visible = t < 0.5   -- gone after, so it never sits over SKIP
 		-- letterbox out at the hand-off

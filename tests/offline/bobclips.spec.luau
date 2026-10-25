@@ -6,7 +6,7 @@ local function test(name, fn) table.insert(T, { name = name, fn = fn }) end
 
 local NEEDED = {
 	"hero_idle", "hero_ask", "hero_hurt", "hero_fly", "hero_land", "hero_situp", "hero_sadwalk", "hero_vow",
-	"hero_strut", "hero_ipad", "hero_kick", "hero_cheer",
+	"hero_strut", "hero_ipad", "hero_kick", "hero_cheer", "hero_getup",
 	"bob_smug", "bob_laugh", "bob_kick", "bob_shock", "bob_throw", "bob_fly", "bob_dizzy",
 	"inv_idle", "inv_laugh", "inv_shock", "bob_laughdie", "inv_laughdie",
 }
@@ -76,6 +76,28 @@ test("a Root lean keeps the legs planted (Luke: Bob looked like he was falling)"
 			end
 		end
 	end
+end)
+
+-- Luke 25 Oct: after the kick "he resets extremely quick": sitting, then standing the next frame
+-- (measured: root 2.2 -> 3.4 studs in one frame at 8.74 s). The get-up is a clip that starts in the
+-- sit-up's last pose and ends in the idle's first, so neither seam can jump
+local function same(a, b, tag)
+	for joint, cf in pairs(a) do
+		local o = b[joint] or CFrame.new()
+		local d = (cf.LookVector - o.LookVector).Magnitude + (cf.UpVector - o.UpVector).Magnitude
+		assert(d < 0.02, ("%s: %s jumps (%.3f)"):format(tag, joint, d))
+	end
+	for joint, cf in pairs(b) do
+		if not a[joint] then
+			local d = (cf.LookVector - Vector3.new(0, 0, -1)).Magnitude + (cf.UpVector - Vector3.new(0, 1, 0)).Magnitude
+			assert(d < 0.02, ("%s: %s jumps from rest (%.3f)"):format(tag, joint, d))
+		end
+	end
+end
+test("the get-up starts where the sit-up ends and ends in the idle's first pose", function()
+	same(B.sample("hero_situp", B.length("hero_situp")), B.sample("hero_getup", 0), "sit-up > get-up")
+	same(B.sample("hero_getup", B.length("hero_getup")), B.sample("hero_idle", 0), "get-up > idle")
+	assert(B.length("hero_getup") >= 0.4, "a get-up under 0.4 s reads as a snap")
 end)
 
 return T

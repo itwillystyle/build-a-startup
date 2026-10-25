@@ -173,9 +173,14 @@ SCENES.intro = {
 		hero = {
 			{ t = 0, anchor = "board", p = V(7, 0, 0), r = -60, roll = 0 },
 			{ t = 6.3, anchor = "door", p = V(0.8, 1, 0), r = 90, roll = 0 },
-			{ t = 7.25, p = V(11, 0, 3), roll = -450, move = "arc", h = 3.5 },
-			{ t = 8.1, roll = -90 },
-			{ t = 8.7, roll = 0, move = "out" },
+			-- 1 3/4 turns, landing on his BACK (-630 is +90). Live 25 Oct: after 1 1/4 turns he landed face
+			-- down, and from face down no sit-up keeps the legs on the pavement: rolling upright drove them
+			-- into it and threw him 2.3 studs up in 0.1 s
+			{ t = 7.25, p = V(11, 0, 3), roll = -630, move = "arc", h = 3.5 },
+			-- (Luke: "he gets up too quickly"): he settles (7.75), sits up (7.95-8.3, the sit-up clip bends
+			-- his hips in step, so his legs stay on the pavement), rubs his head, then a 0.55 s get-up
+			{ t = 7.95, roll = 90 },
+			{ t = 8.3, roll = 0, move = "out" },
 			{ t = 9.0, anchor = "street", p = V(-4, 0, 0), r = 90 },
 			{ t = 10.4, p = V(4, 0, 0), move = "linear" },
 			{ t = 10.41, anchor = "garage", p = V(-9, 0, 0), r = 90 },
@@ -204,9 +209,9 @@ SCENES.intro = {
 			{ t = 3.6, face = "sad" },
 			{ t = 6.3, pose = "fly", face = "shock" },
 			{ t = 7.25, pose = "lie", face = "dizzy" },
-			{ t = 8.1, pose = "sit" },
-			{ t = 8.5, face = "sad" },
-			{ t = 8.7, pose = "stand" },
+			{ t = 7.75, pose = "sit" },
+			{ t = 8.35, face = "sad" },
+			{ t = 8.45, pose = "getup" },
 			{ t = 9.0, pose = "walk" },
 			{ t = 12.0, pose = "stand" },
 			{ t = 13.0, face = "determined" },
@@ -219,7 +224,9 @@ SCENES.intro = {
 		{ "hero", L.rue, 13.2, 16.21 },   -- (no voice: the DUN DUN DUNNN says it)
 	},
 	fx = {
-		{ text = "BOING!", anchor = "door", p = V(10, 6.5, 3), t0 = 7.25, t1 = 8.25 },   -- above the landing, not on it
+		-- beside the landing, and brief (live 25 Oct: a second long and right over him, it hid the whole
+		-- sit-up). A comic impact word flashes and goes
+		{ text = "BOING!", anchor = "door", p = V(16, 6.5, 3), t0 = 7.25, t1 = 7.9 },
 		{ kind = "cloud", follow = "hero", t0 = 9.0, t1 = 11.4 },
 	},
 	vals = {
@@ -347,7 +354,7 @@ SCENES.payoff = {
 	},
 	fx = {
 		{ kind = "debris", anchor = "door", p = V(0, 0, -0.6), t0 = 1.25, t1 = 2.2 },
-		{ text = "BOING!", anchor = "door", p = V(10, 6.5, 3), t0 = 16.35, t1 = 17.35 },   -- above the landing, not on it
+		{ text = "BOING!", anchor = "door", p = V(16, 6.5, 3), t0 = 16.35, t1 = 17.0 },   -- beside the landing, brief (as the intro)
 		{ kind = "stars", follow = "bob", t0 = 16.35, t1 = 20.01 },
 	},
 	vals = {
@@ -461,6 +468,30 @@ local function lerpCam(a, b, x)
 		dist = a.dist and (a.dist + ((b.dist or a.dist) - a.dist) * x) }
 end
 
+--[[ How a speech bubble looks at t (Luke 25 Oct: they "seem kind of static when they pop up", and the
+	rue line flashed up "in the middle"). Emil Kowalski's motion rules, translated for Roblox:
+	  never from nothing   it grows from 60% (it was from 0, a sliver), fading in over 0.1 s
+	  from its origin      the client scales it from its TAIL, where the speaker is (it grew from the
+	                       bubble's bottom middle, so a bubble beside a head swept in from nowhere)
+	  ease-out, a nudge    0.28 s with a 4% overshoot, a pop that settles (was 0.35 s, 10%)
+	  out faster than in   it shrinks a touch and fades in the last 0.14 s of its line (it vanished)
+	  alive while it talks the words type on as the wah-wah speaks them (TextLabel.MaxVisibleGraphemes:
+	                       the layout stays put); a shout ("...!") shakes, then settles
+	  Reduce Motion        no growing, no typing, no shake: only the fade
+	-> { scale, alpha 0..1, reveal 0..1 (share of the letters shown), shake (degrees) } ]]
+local POP_IN, POP_OUT, POP_FROM = 0.28, 0.14, 0.6
+function BobScript.bubbleLook(b, t, reduced)
+	local age, left = t - b[3], b[4] - t
+	local alpha = clamp01(age / 0.1) * clamp01(left / POP_OUT)
+	if reduced then return { scale = 1, alpha = alpha, reveal = 1, shake = 0 } end
+	local scale = POP_FROM + (1 - POP_FROM) * EASE.back(clamp01(age / POP_IN))
+	scale *= 0.94 + 0.06 * clamp01(left / POP_OUT)
+	local typing = math.clamp(#b[2] * 0.03, 0.25, 0.7)
+	local shake = 0
+	if b[2]:sub(-1) == "!" then shake = math.sin(age * 42) * 2.2 * math.exp(-age * 5) end
+	return { scale = scale, alpha = alpha, reveal = clamp01((age - 0.02) / typing), shake = shake }
+end
+
 function BobScript.at(name, t, reduced)
 	local s = scene(name)
 	t = math.clamp(t, 0, s.length)
@@ -495,7 +526,7 @@ function BobScript.at(name, t, reduced)
 
 	for _, b in ipairs(s.bubbles) do
 		local k = (t >= b[3] and t < b[4]) and pop(t, b[3]) or 0
-		table.insert(f.bubbles, { actor = b[1], text = b[2], k = k })
+		table.insert(f.bubbles, { actor = b[1], text = b[2], k = k, look = k > 0 and BobScript.bubbleLook(b, t, reduced) or nil })
 	end
 	for _, x in ipairs(s.fx) do
 		local k = (t >= x.t0 and t < x.t1) and pop(t, x.t0) or 0

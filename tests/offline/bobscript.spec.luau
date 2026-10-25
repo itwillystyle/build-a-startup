@@ -301,4 +301,58 @@ test("speech is short, one bubble at a time, and up long enough to read", functi
 	end
 end)
 
+-- the get-up has time: he sits up (rolled upright before he rises), stays a beat, then gets up
+-- over 0.4 s or more, all inside the shot (Luke 25 Oct: "he gets up too quickly")
+test("after the kick he sits up, then gets up slowly", function()
+	local spans, last, t0 = {}, nil, nil
+	local t = 7.0
+	while t <= 9.2 do
+		local p = B.at("intro", t, false).actors.hero.pose
+		if p ~= last then
+			if last then spans[last] = { t0, t } end
+			last, t0 = p, t
+		end
+		t += 0.01
+	end
+	local sit, up = spans.sit, spans.getup
+	assert(sit and up, "no sit or getup in the intro")
+	assert(sit[2] - sit[1] >= 0.5 - 0.011, ("sits %.2f s"):format(sit[2] - sit[1]))
+	assert(up[2] - up[1] >= 0.4, ("gets up in %.2f s"):format(up[2] - up[1]))
+	assert(math.abs(B.at("intro", up[1], false).actors.hero.roll % 360) < 1, "still rolling when he starts to rise")
+	-- while he rolls upright his hips bend by the same amount, so his legs stay flat on the pavement
+	-- (live 25 Oct: legs bent first swung under him and lifted him over sitting height, then he sank)
+	local Clips = require("../../src/ReplicatedStorage/BobClips")
+	local tt = sit[1]
+	while tt <= sit[1] + 0.55 do
+		local r = ((B.at("intro", tt, false).actors.hero.roll + 180) % 360) - 180   -- -90 lying, 0 upright
+		local raised = 90 - math.abs(r)
+		local flex = math.deg((Clips.sample("hero_situp", tt - sit[1]).RightHip:ToEulerAnglesXYZ()))
+		assert(math.abs(flex - raised) < 8, ("%.2f s: body up %.0f deg, hips %.0f deg: the legs leave the floor"):format(tt, raised, flex))
+		tt += 0.02
+	end
+	assert(up[2] <= 9.0 + 0.011, "the get-up runs into the next shot")   -- (one sweep step)
+end)
+
+-- a bubble's look (Luke 25 Oct: the bubbles "seem static when they pop up"; the rue line "pops up in
+-- the middle"). Emil Kowalski's rules, in Roblox: never from nothing (scale >= 0.6, faded in),
+-- a small overshoot, out before the line ends; the words type on as they are spoken
+test("a bubble pops in from 60%, fades in, settles, types on and leaves before its line ends", function()
+	local b = { "hero", "Can I get an offer?", 0.5, 3.4 }
+	local first = B.bubbleLook(b, 0.5, false)
+	assert(first.scale >= 0.6 and first.alpha < 0.2, ("first frame: scale %.2f alpha %.2f"):format(first.scale, first.alpha))
+	local peak, t = 0, 0.5
+	while t < 1.2 do peak = math.max(peak, B.bubbleLook(b, t, false).scale); t += 0.01 end
+	assert(peak > 1.0 and peak <= 1.06, ("overshoot to %.3f"):format(peak))
+	assert(B.bubbleLook(b, 0.62, false).alpha >= 0.99, "opaque by 0.12 s")
+	assert(math.abs(B.bubbleLook(b, 1.5, false).scale - 1) < 0.005, "settled")
+	local r0, r1 = B.bubbleLook(b, 0.55, false).reveal, B.bubbleLook(b, 1.4, false).reveal
+	assert(r0 > 0 and r0 < 0.3 and r1 == 1, ("reveal %.2f then %.2f"):format(r0, r1))
+	assert(B.bubbleLook(b, 3.399, false).alpha < 0.1, "gone by the end of its line")
+	local red = B.bubbleLook(b, 0.5, true)
+	assert(red.scale == 1 and red.reveal == 1 and red.shake == 0, "Reduce Motion: no motion, all the words at once")
+	local shout = B.bubbleLook({ "bob", "W-WHAT?!", 11.15, 13.2 }, 11.2, false)
+	assert(shout.shake ~= 0, "a shout shakes")
+	assert(B.bubbleLook(b, 0.6, false).shake == 0, "a plain line does not")
+end)
+
 return T

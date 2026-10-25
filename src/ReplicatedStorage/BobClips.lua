@@ -67,7 +67,7 @@ C.hero_fly = { length = 0.32, loop = true, keys = {
 		RightHip = { 40, 0, -20 }, LeftHip = { -30, 0, 25 }, RightKnee = { -70, 0, 0 }, LeftKnee = { -20, 0, 0 }, Neck = { -20, 0, 10 } },
 } }
 
--- face down on the pavement, dazed: splayed, a twitch
+-- flat on his back on the pavement, dazed: splayed, a twitch
 C.hero_land = { length = 0.85, keys = {
 	{ t = 0, RightShoulder = { 0, 0, -80 }, LeftShoulder = { 0, 0, 80 }, RightElbow = { 30, 0, 0 }, LeftElbow = { 30, 0, 0 }, RightHip = { 0, 0, -15 }, LeftHip = { 0, 0, 15 }, Neck = { 0, 0, 0 } },
 	{ t = 0.12, ease = "out", RightShoulder = { 0, 0, -95 }, LeftShoulder = { 0, 0, 95 }, Neck = { 0, 30, 0 } },
@@ -76,12 +76,34 @@ C.hero_land = { length = 0.85, keys = {
 	{ t = 0.85, Neck = { 0, 18, 0 } },
 } }
 
--- push up to sitting, rub your head
-C.hero_situp = { length = 0.6, keys = {
-	{ t = 0, RightHip = { 0, 0, 0 }, LeftHip = { 0, 0, 0 }, RightShoulder = { 20, 0, -40 }, LeftShoulder = { 20, 0, 40 }, RightElbow = { 10, 0, 0 } },
-	{ t = 0.45, ease = "out", RightHip = { 85, 0, -8 }, LeftHip = { 85, 0, 8 }, RightKnee = { -30, 0, 0 }, LeftKnee = { -30, 0, 0 },
-		RightShoulder = { 120, 0, -30 }, RightElbow = { 110, 0, 0 }, LeftShoulder = { 10, 0, 25 }, Neck = { 14, 0, -10 } },
-	{ t = 0.6, RightShoulder = { 128, 0, -28 }, Neck = { 18, 0, -12 } },
+-- sit up and rub your head. For 0.2 s he settles flat (the pose blend lands while he still lies on
+-- the pavement); then the hips bend IN STEP with the body rolling upright (the scene rolls him 90
+-- degrees over the same 0.35 s, same ease), so the legs stay flat and the body pivots up off them.
+-- Last the knees come up, the thighs tilting up by half the knee bend, so the feet stay down.
+-- (live 25 Oct: legs bent before the roll swung under him and lifted him over sitting height,
+-- 1.0 -> 2.9 studs; a pose blend that lagged the roll did the same, 0.7 studs)
+C.hero_situp = { length = 0.7, keys = {
+	{ t = 0, RightHip = { 0, 0, 0 }, LeftHip = { 0, 0, 0 }, RightKnee = { 0, 0, 0 }, LeftKnee = { 0, 0, 0 },
+		RightShoulder = { 20, 0, -40 }, LeftShoulder = { 20, 0, 40 }, RightElbow = { 10, 0, 0 }, Neck = { 0, 0, 0 } },
+	{ t = 0.2, RightHip = { 0, 0, 0 }, LeftHip = { 0, 0, 0 }, RightKnee = { 0, 0, 0 }, LeftKnee = { 0, 0, 0 }, Neck = { 0, 0, 0 } },
+	{ t = 0.4, RightShoulder = { 20, 0, -40 }, RightElbow = { 10, 0, 0 } },   -- the hand stays off the pavement until he is half up
+	{ t = 0.55, ease = "out", RightHip = { 90, 0, 0 }, LeftHip = { 90, 0, 0 }, RightKnee = { 0, 0, 0 }, LeftKnee = { 0, 0, 0 }, Neck = { 14, 0, -10 } },
+	{ t = 0.65, RightHip = { 105, 0, -8 }, LeftHip = { 105, 0, 8 }, RightKnee = { -30, 0, 0 }, LeftKnee = { -30, 0, 0 },
+		RightShoulder = { 120, 0, -30 }, RightElbow = { 110, 0, 0 }, LeftShoulder = { 10, 0, 25 } },
+	{ t = 0.7, RightShoulder = { 128, 0, -28 }, Neck = { 18, 0, -12 } },
+} }
+
+-- up off the pavement (Luke 25 Oct: "he gets up too quickly"; it was sitting, then standing the next
+-- frame). From the sit-up's last pose: lean in, feet under, hands to the knees, then push up into
+-- the idle's first pose. The feet stay on the floor (the client puts the lowest point there), so
+-- the body rises as the legs straighten
+C.hero_getup = { length = 0.55, keys = {
+	{ t = 0, RightHip = { 105, 0, -8 }, LeftHip = { 105, 0, 8 }, RightKnee = { -30, 0, 0 }, LeftKnee = { -30, 0, 0 }, Waist = { 0, 0, 0 },
+		RightShoulder = { 128, 0, -28 }, LeftShoulder = { 10, 0, 25 }, RightElbow = { 110, 0, 0 }, LeftElbow = { 0, 0, 0 }, Neck = { 18, 0, -12 } },
+	{ t = 0.2, RightHip = { 105, 0, -6 }, LeftHip = { 105, 0, 6 }, RightKnee = { -115, 0, 0 }, LeftKnee = { -115, 0, 0 }, Waist = { 28, 0, 0 },
+		RightShoulder = { 45, 0, -12 }, LeftShoulder = { 45, 0, 12 }, RightElbow = { 35, 0, 0 }, LeftElbow = { 35, 0, 0 }, Neck = { -8, 0, 0 } },
+	{ t = 0.55, RightHip = { 0, 0, 0 }, LeftHip = { 0, 0, 0 }, RightKnee = { 0, 0, 0 }, LeftKnee = { 0, 0, 0 }, Waist = { 0, 0, 0 },
+		RightShoulder = { 0, 0, -6 }, LeftShoulder = { 0, 0, 6 }, RightElbow = { 0, 0, 0 }, LeftElbow = { 0, 0, 0 }, Neck = { 0, 0, 0 } },
 } }
 
 -- the slumped walk home (in place: the code moves you)
