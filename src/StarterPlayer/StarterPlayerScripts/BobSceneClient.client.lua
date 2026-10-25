@@ -1043,7 +1043,8 @@ local function play(name, info)
 		end
 		for _, fx in pairs(fxs) do
 			if fx.burst then
-				local p = fx.on and fx.world and cam:WorldToViewportPoint(fx.world)
+				-- (the doctor, 25 Oct: "fx.on and ..." gave false, not nil, when off, and false.Z errored every frame)
+				local p = (fx.on and fx.world) and cam:WorldToViewportPoint(fx.world) or nil
 				fx.box.Visible = p ~= nil and p.Z > 0
 				if fx.box.Visible then
 					local vp = cam.ViewportSize
