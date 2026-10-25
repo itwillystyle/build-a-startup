@@ -4179,7 +4179,33 @@ do
 	remotes.BobIntro.OnServerEvent:Connect(function(player, what)
 		if Telemetry and type(what) == "string" and #what <= 16 then Telemetry.event(player, "bob_intro", 1, { { "at", what } }) end
 	end)
-	Players.PlayerRemoving:Connect(function(p) paying[p] = nil; tapedAt[p] = nil end)
+	Players.PlayerRemoving:Connect(function(p)
+		paying[p] = nil; tapedAt[p] = nil
+		local plot = plotOf(p)
+		local tr = plot and plot.folder and plot.folder:FindFirstChild("BobTrophy")
+		if tr then tr:Destroy() end   -- the next owner of this lot has not beaten Bob
+	end)
+	--[[ BOB'S TOOTHPICK (spec 3f): a save that beat Bob keeps his gold toothpick on a stand at the
+	front of its lot, where visiting friends see it. Kept by a slow check rather than the HQ
+	builders, so an HQ rebuild, a tower floor or a spin-off can never lose it. ]]
+	local BobBuilding = require(ServerScriptService:WaitForChild("BobBuilding"))
+	task.spawn(function()
+		while true do
+			task.wait(3)
+			for _, p in ipairs(Players:GetPlayers()) do
+				local s, plot = sessions[p.UserId], plotOf(p)
+				if s and plot and plot.folder and plot.pivot then
+					local want = s.jr and s.jr.bobPaid == true
+					local have = plot.folder:FindFirstChild("BobTrophy")
+					if want and not have then
+						pcall(BobBuilding.trophy, plot.folder, plot.pivot * CFrame.new(14, 0.4, 20) * CFrame.Angles(0, math.pi, 0))
+					elseif have and not want then
+						have:Destroy()
+					end
+				end
+			end
+		end
+	end)
 end
 
 -- ============ PLAYERS ============

@@ -47,6 +47,16 @@ Sfx.ID = {
 	-- uploaded (no asset uploads on this pass), so it REUSES keyTap's id, the closest soft short
 	-- click in the library; the last three ticks play it higher. Swap the id here for a real tick.
 	clientTick = 9113145647,    -- = keyTap (Apple Keyboard 72, 0.40s)
+
+	-- P-5 (25 Oct): Bob's cutscenes (BobSceneClient plays them at BobScript's cues). Creator Store
+	-- audio only (spec 4). Pro Sound Effects / APM are Roblox's licensed libraries; the two marked
+	-- "Creator Store upload" are free public uploads (no partner library had a boing or coins).
+	bobMusic = 1836665607,      -- APM, "Hot Potato 60" (quirky comedy bed)
+	bobLaugh = 9116452672,      -- Pro Sound Effects, "Male Laugh 3 (SFX)", 3.0s
+	boing = 2772396665,         -- Creator Store upload (Dizzota), "Cartoon Jump Sound [HQ] - BOING"
+	thud = 9113480917,          -- Pro Sound Effects, "Body Fall Thud 1 (SFX)", 0.5s
+	money = 1319346243,         -- Creator Store upload (codes4breakfast), "Money, Coins, Drop In Cash Register"
+	victory = 115889148511042,  -- APM, "To the Victor (Sting)"
 }
 
 function Sfx.url(key)
