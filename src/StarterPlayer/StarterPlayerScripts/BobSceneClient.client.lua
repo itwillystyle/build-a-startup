@@ -75,7 +75,12 @@ local function prep(model, name)
 	end
 	local motors = {}
 	for _, m in ipairs(model:GetDescendants()) do
-		if m:IsA("Motor6D") then motors[m.Name] = m end
+		if m:IsA("Motor6D") then
+			motors[m.Name] = m
+		elseif m:IsA("AnimationConstraint") then
+			motors[m.Name] = m
+			pcall(function() m.IsKinematic = true end)   -- a pose is a pose, not a spring
+		end
 	end
 	return { model = model, root = model:FindFirstChild("HumanoidRootPart"), hum = hum, motors = motors,
 		face = BobFace.attach(model), head = model:FindFirstChild("Head") }
@@ -171,9 +176,15 @@ end
 local rayParams = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Exclude
 local function floorAt(world, ignore)
-	rayParams.FilterDescendantsInstances = ignore
-	local hit = workspace:Raycast(world + Vector3.new(0, 6, 0), Vector3.new(0, -14, 0), rayParams)
-	return hit and hit.Position.Y or nil
+	local skip = table.clone(ignore)
+	for _ = 1, 5 do
+		rayParams.FilterDescendantsInstances = skip
+		local hit = workspace:Raycast(world + Vector3.new(0, 6, 0), Vector3.new(0, -14, 0), rayParams)
+		if not hit then return nil end
+		if hit.Position.Y <= world.Y + 1.2 then return hit.Position.Y end
+		table.insert(skip, hit.Instance)   -- a desk, a table, a chair: not the floor
+	end
+	return nil
 end
 local function place(a, anchorCF, pos, rot, roll, ignore)
 	if not (a.root and anchorCF) then return end
@@ -448,12 +459,17 @@ local function play(name, info)
 	cam.CameraType = Enum.CameraType.Scriptable
 
 	local t0, lastT, finished = os.clock(), 0, false
+	local lastExtras
+	-- everyone with a Humanoid: one scan now, then only the ones that arrive (a full scan a second hitched)
+	local people = {}
+	for _, d in ipairs(workspace:GetDescendants()) do if d:IsA("Humanoid") then people[d] = true end end
+	local cPeople = workspace.DescendantAdded:Connect(function(d) if d:IsA("Humanoid") then people[d] = true end end)
 	local length = BobScript.length(name)
 
 	local function finish(wasSkipped)
 		if finished then return end
 		finished = true
-		c0:Disconnect(); c1:Disconnect(); c2:Disconnect()
+		c0:Disconnect(); c1:Disconnect(); c2:Disconnect(); cPeople:Disconnect()
 		local endT = os.clock() - t0
 		-- a skipped intro still ends where the story ends: you at your laptop
 		if name == "intro" and char and char.PrimaryPart and A.garage then
@@ -475,7 +491,39 @@ local function play(name, info)
 	end
 
 	conn = RunService.RenderStepped:Connect(function()
+		-- live 25 Oct: a client walking into the garage stood in front of the camera. Anyone else near
+		-- the set (staff, clients, other players) steps out of the shot, once a second
+		if os.clock() - (lastExtras or 0) > 1 then
+			lastExtras = os.clock()
+			for mdl in pairs(people) do
+				if mdl.Parent and not mdl:IsDescendantOf(folder) then
+					local who = mdl.Parent
+					local root = who:FindFirstChild("HumanoidRootPart") or who.PrimaryPart
+					local near = false
+					if root then
+						for _, a in pairs(A) do
+							if (root.Position - a.Position).Magnitude < 45 then near = true break end
+						end
+					end
+					if near then
+						for _, d in ipairs(who:GetDescendants()) do
+							if d:IsA("BasePart") or d:IsA("Decal") then override(d, "LocalTransparencyModifier", 1)
+							elseif d:IsA("BillboardGui") or d:IsA("SurfaceGui") then override(d, "Enabled", false) end
+						end
+					end
+				end
+			end
+		end
+		for _, g in ipairs(player.PlayerGui:GetChildren()) do
+			if g:IsA("ScreenGui") and g.Enabled and g ~= gui and not table.find(hidden, g) then
+				g.Enabled = false
+				table.insert(hidden, g)
+			end
+		end
 		local t = os.clock() - t0
+		-- Studio only: hold the scene at one moment (BobSceneHold = seconds) so each shot can be screenshotted
+		local hold = RunService:IsStudio() and player:GetAttribute("BobSceneHold")
+		if type(hold) == "number" then t = math.clamp(hold, 0, length - 0.01); t0 = os.clock() - t end
 		if skipped or t >= length then finish(skipped) return end
 		local reduced = UIKit.reducedMotion()
 		local f = BobScript.at(name, t, reduced)
@@ -484,7 +532,7 @@ local function play(name, info)
 			local st = f.actors[id]
 			if st then
 				setVisible(a, st.visible)
-				place(a, A[st.anchor], st.pos, st.rot, st.roll, { folder, char })
+				place(a, A[st.anchor], st.pos, st.rot, st.roll, { folder, char, bc:FindFirstChild("Dressing") })
 				pose(a, st.pose, t)
 				a.face.set(st.face)
 			end
@@ -517,7 +565,7 @@ local function play(name, info)
 				local hero = actors.hero
 				for k, p in ipairs(cloud) do
 					p.Transparency = x.k > 0 and 0.1 or 1
-					if hero and hero.head and x.k > 0 then p.CFrame = hero.head.CFrame * CFrame.new((k - 2) * 1.1, 3.2 + (k == 2 and 0.4 or 0), 0) end
+					if hero and hero.head and x.k > 0 then p.CFrame = hero.head.CFrame * CFrame.new((k - 2) * 1.1, 2.3 + (k == 2 and 0.35 or 0), 0) end
 				end
 			elseif fx then
 				fx.gui.Enabled = x.k > 0
@@ -567,11 +615,20 @@ local function play(name, info)
 			override(door, "CanCollide", false)
 		end
 		if tape then for _, p in ipairs(tape:GetChildren()) do if p:IsA("BasePart") then override(p, "LocalTransparencyModifier", f.tape) end end end
+		local cutaway = f.cam.anchor == "board" and 1 or 0
 		if front then
 			for _, p in ipairs(front:GetDescendants()) do
-				if p:IsA("BasePart") then override(p, "LocalTransparencyModifier", f.cam.anchor == "board" and 1 or 0) end
+				if p:IsA("BasePart") then override(p, "LocalTransparencyModifier", cutaway)
+				elseif p:IsA("SurfaceGui") then override(p, "Enabled", cutaway == 0) end   -- a hidden part still draws its gui
 			end
 		end
+		for _, n in ipairs({ "Door", "Knob", "Sign" }) do
+			local p = bc:FindFirstChild(n)
+			if p then override(p, "LocalTransparencyModifier", cutaway) end
+		end
+		local sign = bc:FindFirstChild("Sign")
+		local sg = sign and sign:FindFirstChildOfClass("SurfaceGui")
+		if sg then override(sg, "Enabled", cutaway == 0) end
 		-- sound cues crossed since the last frame
 		for _, cue in ipairs(BobScript.cues(name, lastT, t)) do
 			local isMusic = cue == "music" or cue == "victory"

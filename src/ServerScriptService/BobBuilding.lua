@@ -139,7 +139,10 @@ function BobBuilding.build(world)
 	-- 25 Oct: a facade, not a blue box. Stone base, a framed glass curtain wall above the door line,
 	-- a gold trim at the roof and a big sign. Every piece is vertical and touches the wall (no floating
 	-- flat parts: the doctor reads those as sinking surfaces). All in FrontWall: cut away inside.
-	part(fw, { Name = "Base", Size = Vector3.new(W + 0.4, 3, 0.4), CFrame = at(0, 1.5, front + 0.15), Color = STONE, Material = Enum.Material.Slate, CanCollide = false, CanQuery = false })
+	local baseL = (doorX - doorW / 2) - (-W / 2 - 0.2)
+	part(fw, { Name = "Base", Size = Vector3.new(baseL, 3, 0.4), CFrame = at(-W / 2 - 0.2 + baseL / 2, 1.5, front + 0.15), Color = STONE, Material = Enum.Material.Slate, CanCollide = false, CanQuery = false })
+	local baseR = (W / 2 + 0.2) - (doorX + doorW / 2)
+	part(fw, { Name = "Base", Size = Vector3.new(baseR, 3, 0.4), CFrame = at(W / 2 + 0.2 - baseR / 2, 1.5, front + 0.15), Color = STONE, Material = Enum.Material.Slate, CanCollide = false, CanQuery = false })
 	part(fw, { Name = "CurtainGlass", Size = Vector3.new(W - 2, H - doorH - 3, 0.2), CFrame = at(0, doorH + 1 + (H - doorH - 3) / 2, front + 0.05),
 		Color = GLASS, Material = Enum.Material.Glass, Transparency = 0.15, Reflectance = 0.25, CanCollide = false, CanQuery = false })
 	for x = -W / 2 + 1, W / 2 - 1, 3.5 do
@@ -178,7 +181,7 @@ function BobBuilding.build(world)
 		for _, x in ipairs({ -10.5, 2.5 }) do part(m, { Name = "TableLeg", Size = Vector3.new(0.6, 2.7, 2.6), CFrame = at(x, 1.65, -3), Color = DOORWOOD }) end
 		for _, x in ipairs({ -12, -7, -2.5 }) do part(m, { Name = "Chair", Size = Vector3.new(2, 4, 0.5), CFrame = at(x, 2.4, -5.6), Color = CHARCOAL }) end
 	end
-	placeKit("Portrait", dress, at(10.5, 4.6, -front + 1.3), 3, 0)
+	placeKit("Portrait", dress, at(10.5, 4.6, -front + 1.3), 3, 180)
 	placeKit("Safe", dress, at(-12, 0.4, -8.5), 1.3, 30)
 	placeKit("Plant", dress, at(12.8, 0.4, -9.5), 2.4, 0)
 	placeKit("Plant", dress, at(-13, 0.4, 8.5), 2.4, 0)
