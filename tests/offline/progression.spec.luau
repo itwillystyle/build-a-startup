@@ -203,4 +203,25 @@ test("ties straddling the cutoff: p2,p4 (the 5s) then p1 (first of the 4s)", fun
 	assert(order(got) == "p2,p4,p1", order(got))
 end)
 
+-- ---------------------------------------------------------------- P-5 Bob's payout (spec 5b-2)
+test("niceMoney keeps Phone's rounding", function()
+	assert(P.niceMoney(1234) == 1200, tostring(P.niceMoney(1234)))
+	assert(P.niceMoney(98765) == 99000, tostring(P.niceMoney(98765)))
+	assert(P.niceMoney(4321000) == 4300000, tostring(P.niceMoney(4321000)))
+	assert(P.niceMoney(456) == 460, tostring(P.niceMoney(456)))
+end)
+
+test("bobPayout is the pushed interest-8 Series A", function()
+	local amount, item = P.bobPayout(50, 4, nil)
+	local want = P.niceMoney(P.niceMoney(math.max(800, 50 * (20 + 12 * 8)) * 3) * 1.5)
+	assert(amount == want, ("%s ~= %s"):format(tostring(amount), tostring(want)))
+	assert(item == "frontpage", tostring(item))
+	assert(P.BOB_INTEREST == 8, "interest 8")
+end)
+
+test("bobPayout respects the seriesPush cap", function()
+	local amount = P.bobPayout(5000, 4, 10000)
+	assert(amount <= math.floor(10000 * P.CAPS.seriesPush), tostring(amount))
+end)
+
 return T

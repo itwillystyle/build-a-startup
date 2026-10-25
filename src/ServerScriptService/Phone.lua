@@ -315,12 +315,6 @@ local function makeChips(player, th)
 	send(player, { kind = "chips", id = th.id, chips = th.chipsOut, round = th.round })
 end
 
-local function niceMoney(n)
-	if n < 1000 then return math.floor(n / 10 + 0.5) * 10 end
-	local mag = 10 ^ (math.floor(math.log10(n)) - 1)
-	return math.floor(n / mag + 0.5) * mag
-end
-
 local function close(player, th, reason)
 	th.status = "closed"
 	th.chips, th.chipsOut = nil, nil
@@ -335,6 +329,7 @@ end
 
 -- v4.5 THE ECONOMY CLOCK: an offer is a share of what you are saving for, never all of it
 local Prog = require(script.Parent:WaitForChild("Progression"))
+local niceMoney = Prog.niceMoney   -- P-5: shared with Bob's payout
 local function capped(player, kind, amount)
 	local goal = api.nextGoal and api.nextGoal(player)
 	return Prog.capWindfall(kind, amount, goal)
