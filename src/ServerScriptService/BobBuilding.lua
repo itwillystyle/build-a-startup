@@ -30,7 +30,7 @@ local LINES = require(RS:WaitForChild("BobScript")).LINES
 BobBuilding.SIZE = { w = 30, d = 24, h = 30, room = 12 }
 function BobBuilding.site()
 	local Downtown = require(script.Parent:WaitForChild("Downtown"))
-	return Downtown.RES * CFrame.new(-60, 0, 4)
+	return Downtown.RES * CFrame.new(65, 0, 4)   -- east of it: the kick throws you away from The Residences, not into it
 end
 
 local CHARCOAL = Color3.fromRGB(38, 41, 48)
@@ -133,7 +133,17 @@ function BobBuilding.build(world)
 	part(m, { Name = "Table", Size = Vector3.new(16, 0.6, 3.4), CFrame = at(-4, 3, -3), Color = OAK })
 	for _, x in ipairs({ -10.5, 2.5 }) do part(m, { Name = "TableLeg", Size = Vector3.new(0.6, 2.7, 2.6), CFrame = at(x, 1.65, -3), Color = DOORWOOD }) end
 	for _, x in ipairs({ -12, -7, -2.5 }) do part(m, { Name = "Chair", Size = Vector3.new(2, 4, 0.5), CFrame = at(x, 2.4, -5.6), Color = CHARCOAL }) end
-	part(m, { Name = "Window", Size = Vector3.new(20, 6, 0.2), CFrame = at(-2, 7, -front + 1.1), Color = GLASS, Material = Enum.Material.Glass, Transparency = 0.1, CanCollide = false })
+	part(m, { Name = "Window", Size = Vector3.new(20, 6, 0.2), CFrame = at(-2, 7, -front + 1.1), Color = GLASS, Material = Enum.Material.Neon, Transparency = 0.25, CanCollide = false })
+	-- live 25 Oct: a closed room is black without its own light (both cutscenes play in here)
+	for _, x in ipairs({ -8, 4 }) do
+		local lamp = part(m, { Name = "Lamp", Size = Vector3.new(3, 0.3, 3), CFrame = at(x, S.room - 0.4, 0), Color = PAPER, Material = Enum.Material.Neon, CanCollide = false, CanQuery = false })
+		local light = Instance.new("PointLight")
+		light.Range = 22
+		light.Brightness = 1.6
+		light.Color = Color3.fromRGB(255, 236, 210)
+		light.Shadows = false
+		light.Parent = lamp
+	end
 	local inner = part(m, { Name = "InnerSign", Size = Vector3.new(10, 1.4, 0.2), CFrame = at(-2, 10.8, -front + 1.1), Color = NAVY, CanCollide = false })
 	label(inner, Enum.NormalId.Front, "BOB CAPITAL", GOLD)
 	part(m, { Name = "Plant", Shape = Enum.PartType.Ball, Size = Vector3.new(3, 3, 3), CFrame = at(-13, 3.6, -9), Color = Color3.fromRGB(78, 168, 92), CanCollide = false })
@@ -143,10 +153,8 @@ function BobBuilding.build(world)
 	m:SetAttribute("AnchorBoard", at(0, 0.4, 0))
 	m:SetAttribute("AnchorDoor", at(doorX, 0.4, front))
 	m:SetAttribute("AnchorStreet", at(doorX + 36, 0.4, front + 14))
-	local curb = Instance.new("Attachment")
-	curb.Name = "CurbSeat"
-	curb.Parent = door
-	curb.WorldCFrame = at(doorX + 6, 0.4, front + 4)
+	-- where the winner sees Bob sit dizzy (BobDoorClient); facing the street (+Z)
+	m:SetAttribute("AnchorCurb", at(doorX + 6, 0.4, front + 4))
 
 	m.PrimaryPart = door
 	m.Parent = world
@@ -219,9 +227,16 @@ function BobBuilding.buildCast()
 		weldTo(head, pick)
 	end
 	bob.Parent = f
+	local function noHats(m)
+		for _, a in ipairs(m:GetChildren()) do
+			if a:IsA("Accessory") and a.AccessoryType ~= Enum.AccessoryType.Hair then a:Destroy() end
+		end
+	end
 	local inv1 = castMember("Inv1", 7002, Color3.fromRGB(74, 80, 104), Color3.fromRGB(47, 51, 66))
+	noHats(inv1)
 	inv1.Parent = f
 	local inv2 = castMember("Inv2", 7003, Color3.fromRGB(94, 74, 110), Color3.fromRGB(47, 51, 66))
+	noHats(inv2)
 	inv2.Parent = f
 	-- the REVENUE chart the player holds up in the payoff (the client draws the line)
 	local chart = part(f, { Name = "Chart", Size = Vector3.new(5, 3.6, 0.2), CFrame = CFrame.new(), Color = PAPER, CanCollide = false })

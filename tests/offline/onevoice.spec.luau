@@ -270,6 +270,8 @@ test("nothing speaks while a Bob scene plays", function()
 	assert(V.phoneOk(p.voice) == false, "phone banners wait")
 	assert(V.milestoneOk(p.voice) == false, "GO PUBLIC waits")
 	assert(V.coachOk(p.voice, nil) == false, "coach tips wait")
+	-- live 25 Oct: the goal's world marker and its "94m behind" edge arrow showed during the intro
+	assert(V.folds(p.voice) == true, "the goal folds: no world marker, no edge arrow")
 end)
 
 return T

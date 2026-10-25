@@ -4165,6 +4165,7 @@ do
 			Telemetry.event(player, "bob_payoff", amount)
 		end
 		if Econ and Econ.Inv and Econ.Inv.grant then pcall(Econ.Inv.grant, player, item, 1, "Bob sent a gift") end
+		player:SetAttribute("BobPayouts", (player:GetAttribute("BobPayouts") or 0) + 1)   -- the doctor counts these
 		remotes.BobPayoff:FireClient(player, { amount = amount, item = item })
 		refreshObjective(player)
 		task.spawn(function() pcall(SaveLoad.saveNow, player) end)
@@ -4176,9 +4177,22 @@ do
 		local trig = bc and bc:WaitForChild("Trigger", 10)
 		if trig then trig.Touched:Connect(onTouch) else warn("[SV] Bob Capital has no Trigger: no payoff") end
 	end)
+	local introSaid = {}
 	remotes.BobIntro.OnServerEvent:Connect(function(player, what)
-		if Telemetry and type(what) == "string" and #what <= 16 then Telemetry.event(player, "bob_intro", 1, { { "at", what } }) end
+		if type(what) ~= "string" or #what > 16 then return end
+		local kind = what:match("^(%a+)")
+		introSaid[player] = introSaid[player] or {}
+		if not kind or introSaid[player][kind] then return end   -- each kind once a session (no flood)
+		introSaid[player][kind] = true
+		-- the intro started on a save this server loaded as NEW: now it has Bob's story (review I-4)
+		local s = sessions[player.UserId]
+		if kind == "start" and s and s.newSave then
+			s.jr = s.jr or {}
+			s.jr.bobArc = true
+		end
+		if Telemetry then Telemetry.event(player, "bob_intro", 1, { { "at", what } }) end
 	end)
+	Players.PlayerRemoving:Connect(function(p) introSaid[p] = nil end)
 	Players.PlayerRemoving:Connect(function(p)
 		paying[p] = nil; tapedAt[p] = nil
 		local plot = plotOf(p)

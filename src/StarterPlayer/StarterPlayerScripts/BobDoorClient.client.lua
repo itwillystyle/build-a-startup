@@ -41,12 +41,17 @@ local function apply()
 	end
 	if not curbBob then
 		local cast = RS:FindFirstChild("BobCast")
-		local seat = door and door:FindFirstChild("CurbSeat")
+		local seat = bc:GetAttribute("AnchorCurb")   -- review I-6: never read off the swinging door
 		if cast and cast:FindFirstChild("Bob") and seat then
 			curbBob = cast.Bob:Clone()
 			curbBob.Name = "BobOnTheCurb"
 			for _, d in ipairs(curbBob:GetDescendants()) do
-				if d:IsA("BasePart") then d.Anchored = true; d.CanCollide = false; d.CanQuery = false; d.CanTouch = false end
+				if d:IsA("BasePart") then
+					d.Anchored = d.Name == "HumanoidRootPart"   -- the limbs hang off the root, so he can sit
+					d.CanCollide = false; d.CanQuery = false; d.CanTouch = false
+				elseif d:IsA("Animator") or d:IsA("AnimationController") then
+					d:Destroy()
+				end
 			end
 			local glasses = curbBob:FindFirstChild("Sunglasses")
 			if glasses then glasses:Destroy() end   -- they flew off in the payoff
@@ -54,8 +59,15 @@ local function apply()
 			if pick then pick:Destroy() end         -- it's in your HQ now, on a stand
 			local hum = curbBob:FindFirstChildOfClass("Humanoid")
 			if hum then hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None end
-			curbBob:PivotTo(seat.WorldCFrame * CFrame.new(0, 1.6, 0) * CFrame.Angles(0, math.rad(180), 0))
+			-- sitting on the kerb: legs out in front, the root lowered by the thigh length
+			local root = curbBob:FindFirstChild("HumanoidRootPart")
+			local lift = (hum and hum.HipHeight or 2) + (root and root.Size.Y / 2 or 1) - 1.4
 			curbBob.Parent = workspace
+			if root then root.CFrame = seat * CFrame.new(0, lift, 0) * CFrame.Angles(0, math.rad(180), 0) end
+			for _, m in ipairs(curbBob:GetDescendants()) do
+				if m:IsA("Motor6D") and (m.Name == "RightHip" or m.Name == "LeftHip") then m.Transform = CFrame.Angles(math.rad(85), 0, 0) end
+				if m:IsA("Motor6D") and m.Name == "Neck" then m.Transform = CFrame.Angles(math.rad(-12), 0, math.rad(10)) end
+			end
 			BobFace.attach(curbBob).set("dizzy")
 			local head = curbBob:FindFirstChild("Head")
 			if head then

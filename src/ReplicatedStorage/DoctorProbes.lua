@@ -405,7 +405,9 @@ function Probes.bobscene(args)
 		{ name = "bob " .. name .. ": started", ok = started, measured = started, expected = true },
 		{ name = "bob " .. name .. ": camera Custom after", ok = cam.CameraType == Enum.CameraType.Custom, measured = tostring(cam.CameraType), expected = "Custom" },
 		{ name = "bob " .. name .. ": camera on the humanoid", ok = hum ~= nil and cam.CameraSubject == hum, measured = cam.CameraSubject and cam.CameraSubject.ClassName or "nil", expected = "Humanoid" },
-		{ name = "bob " .. name .. ": nothing left behind", ok = workspace:FindFirstChild("BobScene") == nil and player.PlayerGui:FindFirstChild("BobSceneGui") == nil or name == "payoff",
+		-- (the payoff's toast keeps its gui 3 s on purpose; the actors and props must still be gone)
+		{ name = "bob " .. name .. ": nothing left behind", ok = workspace:FindFirstChild("BobScene") == nil
+			and (name == "payoff" or player.PlayerGui:FindFirstChild("BobSceneGui") == nil),
 			measured = tostring(workspace:FindFirstChild("BobScene") ~= nil), expected = "false" },
 		{ name = "bob " .. name .. ": HUD back", ok = lost == 0, measured = lost, expected = 0 },
 		{ name = "bob " .. name .. ": playing flag cleared", ok = player:GetAttribute("BobScenePlaying") ~= true, measured = player:GetAttribute("BobScenePlaying"), expected = false },

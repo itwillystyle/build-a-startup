@@ -290,15 +290,23 @@ local function runIntro()
 	local ok
 	-- P-5 (25 Oct): a new save meets Bob instead of the flyover (spec 3a, option A). The server
 	-- marks a brand-new save (BobArc); BobSceneClient plays it and hands the camera back at the laptop.
-	local t1 = os.clock()
-	while player:GetAttribute("BobArc") == nil and os.clock() - t1 < 3 do task.wait(0.1) end
-	local bob = player:GetAttribute("BobArc") == true and player.PlayerGui:WaitForChild("SVBobScene", 5)
+	-- review I-4: the server marks a save it loaded as new (BobNew); the scene says how it went
+	-- (BobSceneState), and if it could not play the player still gets the flyover
+	local bob = player:GetAttribute("BobNew") == true and player.PlayerGui:WaitForChild("SVBobScene", 5)
+	local state
 	if bob then
-		if ghost then ghost:Destroy(); ghost = nil end
+		player:SetAttribute("BobSceneState", nil)
 		bob:Fire("intro")
-		task.wait(0.2)
-		local t2 = os.clock()
-		while player:GetAttribute("BobScenePlaying") == true and os.clock() - t2 < 30 do task.wait(0.1) end
+		local t1 = os.clock()
+		repeat task.wait(0.1); state = player:GetAttribute("BobSceneState")
+		until (state ~= nil and state ~= "loading") or os.clock() - t1 > 15
+		if state == "playing" then
+			if ghost then ghost:Destroy(); ghost = nil end
+			local t2 = os.clock()
+			while player:GetAttribute("BobSceneState") == "playing" and os.clock() - t2 < 30 do task.wait(0.1) end
+		end
+	end
+	if state == "playing" or state == "done" then
 		ok = true
 	else
 		ok = Cine.play(shots, { fov = 60, hold = 0.4 })

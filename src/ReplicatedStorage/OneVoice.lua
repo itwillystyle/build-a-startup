@@ -37,7 +37,7 @@ end
 -- 24 Oct (F-6): and under a coach tip, until GOT IT (the tip's card had landed on the goal pill)
 -- 24 Oct: and under a phone banner, until it leaves (the banner sat on the goal pill at hq:5)
 function OneVoice.folds(voice)
-	return voice == "verb" or voice == "launch" or voice == "tip" or voice == "phone"
+	return voice == "verb" or voice == "launch" or voice == "tip" or voice == "phone" or voice == "scene"
 end
 
 -- 24 Oct (live): may a milestone button (GO PUBLIC!) show? Only on a calm screen or while the goal

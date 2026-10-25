@@ -431,10 +431,12 @@ return function(core)
 			player:SetAttribute("Returning", true)
 			applySave(player, plot, data)
 		elseif ok then
-			-- P-5: a brand-new save gets Bob's story (his intro, PROVE BOB WRONG, the payoff).
-			-- Only here: an old save never saw the intro, and a failed read is not new.
+			-- P-5: a brand-new save MAY get Bob's story. It is only marked new here (a failed read
+			-- is not new); jr.bobArc is set when its intro actually starts (SiliconCore, BobIntro
+			-- "start"), so nobody gets PROVE BOB WRONG without having seen Bob (review I-4).
 			local s = sessions[player.UserId]
-			if s then s.jr = s.jr or {}; s.jr.bobArc = true end
+			if s then s.newSave = true end
+			player:SetAttribute("BobNew", true)
 		end
 		if Econ and Econ.Inv then pcall(Econ.Inv.load, player, sessions[player.UserId], data and data.items) end
 		if Econ and Econ.Daily and Econ.Daily.refresh then pcall(Econ.Daily.refresh, player) end

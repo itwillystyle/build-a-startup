@@ -69,6 +69,10 @@ local function prep(model, name)
 	end
 	local hum = model:FindFirstChildOfClass("Humanoid")
 	if hum then hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None end
+	-- review I-8: an Animator would overwrite the code-driven poses every frame
+	for _, d in ipairs(model:GetDescendants()) do
+		if d:IsA("Animator") or d:IsA("AnimationController") then d:Destroy() end
+	end
 	local motors = {}
 	for _, m in ipairs(model:GetDescendants()) do
 		if m:IsA("Motor6D") then motors[m.Name] = m end
@@ -78,22 +82,21 @@ local function prep(model, name)
 end
 
 local function heroModel()
-	local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-	local result
-	if hum then
-		local done = false
-		task.spawn(function()
-			local ok, m = pcall(function()
-				return Players:CreateHumanoidModelFromDescription(hum:GetAppliedDescription(), Enum.HumanoidRigType.R15)
-			end)
-			if ok and m and not done then result = m end
-			done = true
-		end)
-		local t0 = os.clock()
-		while not done and os.clock() - t0 < 2 do task.wait() end
-		done = true
+	-- review I-2: Players:CreateHumanoidModelFromDescription is server-only; a client clones its
+	-- own character instead (TalentRevealClient and RigPortrait do the same)
+	local char = player.Character
+	if char and char:FindFirstChildOfClass("Humanoid") then
+		local was = char.Archivable
+		char.Archivable = true
+		local ok, m = pcall(function() return char:Clone() end)
+		char.Archivable = was
+		if ok and m and m:FindFirstChild("HumanoidRootPart") then
+			for _, d in ipairs(m:GetDescendants()) do
+				if d:IsA("ForceField") or d:IsA("BillboardGui") then d:Destroy() end
+			end
+			return m
+		end
 	end
-	if result then return result end
 	-- the stand-in: a cast member in your-avatar colours (never a hang on a black screen)
 	local cast = RS:FindFirstChild("BobCast")
 	local m = cast and cast:FindFirstChild("Inv1") and cast.Inv1:Clone()
@@ -242,18 +245,19 @@ end
 -- ------------------------------------------------------------------ one scene
 local function play(name, info)
 	if playing then return false end
+	player:SetAttribute("BobSceneState", "loading")
 	local A, bc = anchors()
-	if not A then warn("[Bob] no Bob Capital in the world: scene skipped") return false end
+	-- review I-3: build every actor BEFORE the scene takes the screen, so there is never a moment
+	-- with the HUD gone and no SKIP, and a missing cast fails before anything has changed
+	local cast = A and RS:WaitForChild("BobCast", 10)
+	if not (A and cast) then
+		warn("[Bob] no Bob Capital or BobCast in the world: scene skipped")
+		player:SetAttribute("BobSceneState", "failed")
+		return false
+	end
 	playing = true
-	player:SetAttribute("BobScenePlaying", true)
-	local remotes = RS:FindFirstChild("SVRemotes")
-	local tele = remotes and remotes:FindFirstChild("BobIntro")
-	if name == "intro" and tele then tele:FireServer("start") end
-
 	local folder = Instance.new("Folder")
 	folder.Name = "BobScene"
-	folder.Parent = workspace
-	local cast = RS:WaitForChild("BobCast", 10)
 	local actors = {}
 	local function add(id, model)
 		if not model then return end
@@ -267,33 +271,57 @@ local function play(name, info)
 	local bubbles = {}
 	for id, a in pairs(actors) do bubbles[id] = bubbleFor(a) end
 
-	-- local overrides of the server's world, all put back by finish()
-	local restore = {}
+	-- everything the scene changes, so finish() -- or a failure anywhere below -- puts it all back
+	local restore, hidden, controls, gui, conn = {}, {}, nil, nil, nil
+	local door, tape, front = bc:FindFirstChild("Door"), bc:FindFirstChild("Tape"), bc:FindFirstChild("FrontWall")
+	local doorCF = door and door.CFrame
+	local char = player.Character
+	local cam = workspace.CurrentCamera
+	local fov0 = cam.FieldOfView
+	local function putBack()
+		if conn then conn:Disconnect() end
+		folder:Destroy()
+		for inst, props in pairs(restore) do
+			for prop, v in pairs(props) do pcall(function() inst[prop] = v end) end
+		end
+		if door and doorCF then door.CFrame = doorCF end
+		cam.CameraType = Enum.CameraType.Custom
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		if hum then cam.CameraSubject = hum end
+		cam.FieldOfView = fov0
+		if controls then controls:Enable() end
+		for _, g in ipairs(hidden) do if g.Parent then g.Enabled = true end end
+		player:SetAttribute("BobScenePlaying", false)
+		playing = false
+	end
+
+	local okRun, result = pcall(function()
+	player:SetAttribute("BobScenePlaying", true)
+	player:SetAttribute("BobSceneState", "playing")
+	folder.Parent = workspace
+	local remotes = RS:FindFirstChild("SVRemotes")
+	local tele = remotes and remotes:FindFirstChild("BobIntro")
+	if name == "intro" and tele then tele:FireServer("start") end
 	local function override(inst, prop, value)
 		if not inst then return end
 		if restore[inst] == nil then restore[inst] = {} end
 		if restore[inst][prop] == nil then restore[inst][prop] = inst[prop] end
 		inst[prop] = value
 	end
-	local door, tape, front = bc:FindFirstChild("Door"), bc:FindFirstChild("Tape"), bc:FindFirstChild("FrontWall")
-	local doorCF = door and door.CFrame
-	local char = player.Character
 	if char then
 		for _, d in ipairs(char:GetDescendants()) do
 			if d:IsA("BasePart") or d:IsA("Decal") then override(d, "LocalTransparencyModifier", 1) end
 		end
 	end
 	-- the HUD steps aside (a cutscene owns the screen); the chosen ScreenGuis come back after
-	local hidden = {}
 	for _, g in ipairs(player.PlayerGui:GetChildren()) do
 		if g:IsA("ScreenGui") and g.Enabled and g.Name ~= "BobSceneGui" then g.Enabled = false; table.insert(hidden, g) end
 	end
-	local controls
 	pcall(function() controls = require(player.PlayerScripts:WaitForChild("PlayerModule", 2)):GetControls() end)
 	if controls then controls:Disable() end
 
 	-- letterbox, SKIP, the money counter
-	local gui = Instance.new("ScreenGui")
+	gui = Instance.new("ScreenGui")
 	gui.Name = "BobSceneGui"
 	gui.IgnoreGuiInset = true
 	gui.DisplayOrder = 30
@@ -401,18 +429,14 @@ local function play(name, info)
 	end
 
 	-- the camera owns the view until finish()
-	local cam = workspace.CurrentCamera
-	local fov0 = cam.FieldOfView
 	cam.CameraType = Enum.CameraType.Scriptable
 
 	local t0, lastT, finished = os.clock(), 0, false
 	local length = BobScript.length(name)
-	local conn
 
 	local function finish(wasSkipped)
 		if finished then return end
 		finished = true
-		if conn then conn:Disconnect() end
 		c0:Disconnect(); c1:Disconnect(); c2:Disconnect()
 		local endT = os.clock() - t0
 		-- a skipped intro still ends where the story ends: you at your laptop
@@ -420,19 +444,8 @@ local function play(name, info)
 			local hero = BobScript.at(name, length, true).actors.hero
 			pcall(function() char:PivotTo(A.garage * CFrame.new(hero.pos + Vector3.new(0, 3, 0)) * CFrame.Angles(0, R(180 + hero.rot), 0)) end)
 		end
-		folder:Destroy()
-		for inst, props in pairs(restore) do
-			for prop, v in pairs(props) do pcall(function() inst[prop] = v end) end
-		end
-		if door and doorCF then door.CFrame = doorCF end
-		cam.CameraType = Enum.CameraType.Custom
-		local hum = char and char:FindFirstChildOfClass("Humanoid")
-		if hum then cam.CameraSubject = hum end
-		cam.FieldOfView = fov0
-		if controls then controls:Enable() end
-		for _, g in ipairs(hidden) do if g.Parent then g.Enabled = true end end
-		player:SetAttribute("BobScenePlaying", false)
-		playing = false
+		putBack()
+		player:SetAttribute("BobSceneState", "done")
 		if tele and name == "intro" then tele:FireServer(wasSkipped and ("skip:" .. math.floor(endT)) or "end") end
 		if name == "payoff" and money then
 			-- the toast lingers 3 s over the game, it blocks nothing
@@ -465,6 +478,9 @@ local function play(name, info)
 		if bob then
 			local g, pk = f.vals.glasses or 0, f.vals.pick or 0
 			local sg, tp = bob.model:FindFirstChild("Sunglasses"), bob.model:FindFirstChild("Toothpick")
+			-- review I-7: anchoring a welded part drags Bob with it, so unweld each one as it moves
+			if sg and g > 0 and sg:FindFirstChildOfClass("WeldConstraint") then sg:FindFirstChildOfClass("WeldConstraint"):Destroy() end
+			if tp and pk > 0 and tp:FindFirstChildOfClass("WeldConstraint") then tp:FindFirstChildOfClass("WeldConstraint"):Destroy() end
 			if sg and g > 0 and bob.head then sg.Anchored = true; sg.CFrame = bob.head.CFrame * CFrame.new(g * 1.2, 1 + g * 3, -0.7) * CFrame.Angles(0, 0, g * 1.2) end
 			if tp and pk > 0 and bob.head then tp.Anchored = true; tp.CFrame = bob.head.CFrame * CFrame.new(0.4, -0.6 - pk * 2.6, -0.8) * CFrame.Angles(0, 0, pk * 3) end
 		end
@@ -503,7 +519,7 @@ local function play(name, info)
 			chart.Transparency = shown and 0 or 1
 			if chart:FindFirstChild("ChartGui") then chart.ChartGui.Enabled = shown end
 			local hero = actors.hero
-			if shown and hero and hero.head then chart.CFrame = hero.head.CFrame * CFrame.new(0, 3.4, -0.6) end
+			if shown and hero and hero.head then chart.CFrame = hero.head.CFrame * CFrame.new(0, 2.3, -1.2) end
 			local n = math.floor((f.vals.chart or 0) * #chartLine + 0.5)
 			for i, seg in ipairs(chartLine) do seg.Visible = i <= n end
 		end
@@ -542,7 +558,10 @@ local function play(name, info)
 		end
 		-- sound cues crossed since the last frame
 		for _, cue in ipairs(BobScript.cues(name, lastT, t)) do
-			if SOUND[cue] then Sfx.play(folder, SOUND[cue], { volume = 0.6, life = cue == "music" and 18 or 6 }) end
+			local isMusic = cue == "music" or cue == "victory"
+			if SOUND[cue] and not (isMusic and player:GetAttribute("MenuMuted") == true) then
+				Sfx.play(folder, SOUND[cue], { volume = 0.6, life = cue == "music" and 18 or 6 })
+			end
 		end
 		lastT = t
 		-- letterbox out at the hand-off
@@ -553,6 +572,7 @@ local function play(name, info)
 		if base then
 			local shake = f.shake > 0 and Vector3.new(math.random() - 0.5, math.random() - 0.5, 0) * 2 * f.shake or Vector3.zero
 			-- motion: camera (reduced read above: BobScript.at(name, t, UIKit.reducedMotion()))
+			if cam.CameraType ~= Enum.CameraType.Scriptable then cam.CameraType = Enum.CameraType.Scriptable end   -- anything that resets it loses
 			cam.CFrame = CFrame.lookAt(base * f.cam.offset, base * f.cam.look) * CFrame.new(shake)
 			cam.FieldOfView = f.cam.fov
 		end
@@ -560,6 +580,15 @@ local function play(name, info)
 
 	while not finished do task.wait(0.1) end
 	return not skipped
+	end)
+	if not okRun then
+		warn("[Bob] the scene failed and was put back: " .. tostring(result))
+		putBack()
+		if gui then gui:Destroy() end
+		player:SetAttribute("BobSceneState", "failed")
+		return false
+	end
+	return result
 end
 
 event.Event:Connect(function(name, info)

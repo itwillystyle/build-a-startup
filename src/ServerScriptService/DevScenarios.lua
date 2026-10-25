@@ -314,7 +314,9 @@ function Scen.run(ctx, player, name)
 			local trig = sv and sv:FindFirstChild("BobCapital") and sv.BobCapital:FindFirstChild("Trigger")
 			if not trig then return done(false, "no Bob Capital in the world") end
 			local plot = ctx.plotOf(player)
-			return done(true, nil, { hq = plot and plot.hq and plot.hq.level, door = trig.Position })
+			-- outside: 10 studs in front of the door, along the BUILDING's front (it sits on the ring, rotated)
+			return done(true, nil, { hq = plot and plot.hq and plot.hq.level, door = trig.Position,
+				outside = (trig.CFrame * CFrame.new(0, 0, 10)).Position })
 		end
 		return done(false, "usage: bob:intro | bob:due")
 	elseif kind == "home" then

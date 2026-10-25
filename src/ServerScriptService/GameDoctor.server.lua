@@ -661,23 +661,23 @@ local function run()
 		end
 		local due = sv:Invoke("scenario", player, "bob:due")
 		check("bob: due scenario", due and due.ok, "BUG", due and (due.ok and ("hq " .. tostring(due.hq)) or tostring(due.err)) or "no answer", "ok")
-		if not (due and due.ok and due.door) then return end
-		local cash = player:FindFirstChild("leaderstats") and player.leaderstats:FindFirstChild("Cash")
+		if not (due and due.ok and due.door and due.outside) then return end
+		-- payouts are counted by the server (BobPayouts): a cash delta also holds passive income
 		local function walkIn()
-			local before = cash and cash.Value or 0
-			char:PivotTo(CFrame.new(due.door + Vector3.new(0, 0, 8)))
+			local before = player:GetAttribute("BobPayouts") or 0
+			char:PivotTo(CFrame.new(due.outside))
 			task.wait(0.5)
 			char:PivotTo(CFrame.new(due.door))
 			task.wait(2.5)
-			return (cash and cash.Value or 0) - before
+			return (player:GetAttribute("BobPayouts") or 0) - before
 		end
 		local first = walkIn()
-		check("bob payoff: pays", first > 0, "BLOCKER", first, "> 0")
+		check("bob payoff: pays", first == 1, "BLOCKER", first, 1)
 		check("bob payoff: BobPaid set", player:GetAttribute("BobPaid") == true, "BUG", player:GetAttribute("BobPaid"), true)
 		task.wait(18)   -- the payoff scene plays on the client
 		local second = walkIn()
-		check("bob payoff: pays once", second == 0, "BLOCKER", second, 0)
-		check("bob payoff: scene over", player:GetAttribute("BobScenePlaying") ~= true, "BUG", player:GetAttribute("BobScenePlaying"), false)
+		check("bob payoff: pays once", second == 0, "BLOCKER", second, "0 more payouts")
+		-- (whether the payoff scene ended cleanly is the client's to say: the bobscene probe checks it)
 	end)
 
 	step("motion", function()
