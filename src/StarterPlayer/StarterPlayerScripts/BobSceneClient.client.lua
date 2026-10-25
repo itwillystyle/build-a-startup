@@ -23,6 +23,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local RS = game:GetService("ReplicatedStorage")
+local TextService = game:GetService("TextService")
 
 local player = Players.LocalPlayer
 local UIKit = require(RS:WaitForChild("UIKit"))
@@ -275,6 +276,22 @@ local function comicText(s)
 end
 
 local TAIL = 26   -- the tail is a turned square half under the card
+
+-- a line's size in pixels at full scale, measured once and kept. (live 25 Oct: read off the label,
+-- TextBounds includes the pop-in's UIScale, so on its first frame a bubble measured almost nothing
+-- and locked itself tiny, the words spilling out)
+local measured = {}
+local function measure(text)
+	if measured[text] then return measured[text] end
+	local p = Instance.new("GetTextBoundsParams")
+	p.Text = text:upper()
+	p.Font = UIKit.COMIC
+	p.Size = UIKit.TYPE.display
+	p.Width = 4000
+	local ok, v = pcall(TextService.GetTextBoundsAsync, TextService, p)
+	measured[text] = ok and v or Vector2.new(#text * 17, UIKit.TYPE.display)
+	return measured[text]
+end
 local function bubbleFor(a)
 	local box = Instance.new("Frame")
 	box.Name = "Bubble"
@@ -358,9 +375,10 @@ end
 local function placeBubble(cam, bb, shot)
 	if bb.lockText ~= bb.text or bb.lockShot ~= shot then bb.lock = nil end
 	if not bb.lock then
-		if bb.card.TextBounds.X < 1 then bb.box.Visible = false return end   -- not measured yet: next frame
-		local w = bb.card.TextBounds.X + 46
-		local h = math.max(60, bb.card.TextBounds.Y + 24)
+		local size = measured[bb.text]
+		if not size then bb.box.Visible = false return end   -- still being measured: next frame
+		local w = size.X + 46
+		local h = math.max(60, size.Y + 24)
 		local x, y, side, hx, hy = bubbleAt(cam, bb.head, w, h + 18)
 		if not x then bb.box.Visible = false return end
 		bb.lock = { x = x, y = y, side = side, hx = hx, hy = hy, w = w, h = h }
@@ -555,6 +573,7 @@ local function play(name, info)
 		pcall(function() game:GetService("ContentProvider"):PreloadAsync({ cast }) end)
 		loaded = true
 	end)
+	for _, b in ipairs(BobScript.at(name, 0, true).bubbles) do task.spawn(measure, b.text) end   -- every line's size, up front
 	local tLoad = os.clock()
 	while not loaded and os.clock() - tLoad < 4 do task.wait() end
 	local folder = Instance.new("Folder")
@@ -916,7 +935,11 @@ local function play(name, info)
 				if b.actor == id and b.k > 0 then bb.on = b end
 			end
 			if bb.on then
-				if bb.text ~= bb.on.text then bb.text = bb.on.text; bb.card.Text = comicText(bb.on.text) end
+				if bb.text ~= bb.on.text then
+					bb.text = bb.on.text
+					bb.card.Text = comicText(bb.on.text)
+					if not measured[bb.text] then task.spawn(measure, bb.text) end
+				end
 				bb.scale.Scale = bb.on.k
 			else
 				bb.box.Visible = false
