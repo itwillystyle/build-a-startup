@@ -172,6 +172,17 @@ C.bob_laugh = { length = 0.6, loop = true, keys = {
 	{ t = 0.6, Root = { -6, 0, 0 }, Neck = { -26, 0, 0 }, RightShoulder = { 45, 0, -30 }, LeftShoulder = { 20, 0, 50 } },
 } }
 
+-- payoff (Luke 25 Oct: "he stops laughing ... a coming to earth moment"): the laugh runs down. Each
+-- bounce smaller and slower, the head comes forward, the arms sink, and he freezes, staring
+C.bob_laughdie = { length = 1.4, keys = {
+	{ t = 0, Root = { -6, 0, 0 }, Neck = { -26, 0, 0 }, RightShoulder = { 45, 0, -30 }, LeftShoulder = { 20, 0, 50 } },
+	{ t = 0.18, ease = "out", Root = { -9, 0, 2 }, Neck = { -30, 0, 3 }, RightShoulder = { 32, 0, -26 }, LeftShoulder = { 24, 0, 54 } },
+	{ t = 0.4, Root = { -5, 0, 0 }, Neck = { -18, 0, 0 }, RightShoulder = { 42, 0, -30 }, LeftShoulder = { 20, 0, 48 } },
+	{ t = 0.65, ease = "out", Root = { -6, 0, -1 }, Neck = { -14, 0, -2 }, RightShoulder = { 36, 0, -28 }, LeftShoulder = { 22, 0, 44 } },
+	{ t = 1.0, Root = { -2, 0, 0 }, Neck = { -4, 0, 0 }, RightShoulder = { 30, 0, -26 }, LeftShoulder = { 26, 0, 32 } },
+	{ t = 1.4, ease = "out", Root = { 0, 0, 0 }, Neck = { 2, 0, 0 }, RightShoulder = { 26, 0, -24 }, LeftShoulder = { 26, 0, 26 } },
+} }
+
 -- THE KICK: wind up (the leg comes back), snap forward and up, hold, recover
 C.bob_kick = { length = 0.55, keys = {
 	{ t = 0, Root = { 0, 0, 0 }, RightHip = { 0, 0, 0 }, RightShoulder = { 30, 0, -28 }, LeftShoulder = { 30, 0, 28 } },
@@ -230,6 +241,14 @@ C.inv_laugh = { length = 0.5, loop = true, keys = {
 	{ t = 0.25, Root = { 12, 0, 0 }, Neck = { -20, 0, 0 }, RightShoulder = { 90, 0, -10 }, LeftShoulder = { 28, 0, 28 } },
 	{ t = 0.375, ease = "out", Root = { 20, 0, 0 }, Neck = { -10, 0, 0 }, LeftShoulder = { 40, 0, 36 } },
 	{ t = 0.5, Root = { 14, 0, 0 }, Neck = { -18, 0, 0 }, RightShoulder = { 95, 0, -8 }, LeftShoulder = { 30, 0, 30 } },
+} }
+
+-- payoff: the laugh along runs down too, then a stare
+C.inv_laughdie = { length = 1.0, keys = {
+	{ t = 0, Root = { 14, 0, 0 }, Neck = { -18, 0, 0 }, RightShoulder = { 95, 0, -8 }, LeftShoulder = { 30, 0, 30 } },
+	{ t = 0.2, ease = "out", Root = { 16, 0, 0 }, Neck = { -12, 0, 0 }, LeftShoulder = { 36, 0, 32 } },
+	{ t = 0.45, Root = { 8, 0, 0 }, Neck = { -6, 0, 0 }, RightShoulder = { 60, 0, -8 }, LeftShoulder = { 20, 0, 18 } },
+	{ t = 1.0, ease = "out", Root = { 2, 0, 0 }, Neck = { 0, 0, 0 }, RightShoulder = { 12, 0, -8 }, LeftShoulder = { 10, 0, 10 } },
 } }
 
 -- payoff: a jolt back, hands up, frozen

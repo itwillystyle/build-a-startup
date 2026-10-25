@@ -8,7 +8,7 @@ local NEEDED = {
 	"hero_idle", "hero_ask", "hero_hurt", "hero_fly", "hero_land", "hero_situp", "hero_sadwalk", "hero_vow",
 	"hero_strut", "hero_ipad", "hero_kick", "hero_cheer",
 	"bob_smug", "bob_laugh", "bob_kick", "bob_shock", "bob_throw", "bob_fly", "bob_dizzy",
-	"inv_idle", "inv_laugh", "inv_shock",
+	"inv_idle", "inv_laugh", "inv_shock", "bob_laughdie", "inv_laughdie",
 }
 local SIX = { Root = true, Neck = true, LeftShoulder = true, RightShoulder = true, LeftHip = true, RightHip = true }
 

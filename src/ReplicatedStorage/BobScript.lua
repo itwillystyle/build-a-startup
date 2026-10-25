@@ -37,7 +37,8 @@ BobScript.LINES = {
 	rue = "He will rue the day.",
 	text = "...Ok. I may have been hasty. Come to my office.",
 	task = "Go to Bob's office",
-	whatHere = "What are YOU doing here?",
+	youAgain = "You AGAIN?",                         -- 25 Oct (Luke): the payoff opens on Bob's sneer,
+	myOffer = "I've come to make YOU an offer.",    -- you turn his line round, they laugh, the iPad lands
 	what = "W-WHAT?!",
 	takeIt = "Take it! TAKE IT ALL!",
 	laughing = "Who's laughing now?",   -- Luke 25 Oct: "PROVED WRONG!" read as out of place; a line he'd say
@@ -76,13 +77,14 @@ local function pop(t, t0) return EASE.back(clamp01((t - t0) / 0.35)) end
 -- live 25 Oct (Luke: "the room looks like a set"): the wide shot stood OUTSIDE the cut-away front
 -- wall and saw the floor's edge, the grass and the tops of the walls. It stands inside now, against
 -- the front wall (z 11.5), a wide lens that keeps the investor at the far end in frame.
-local WIDE = { offset = V(0, 6.5, 11.3), look = V(0, 3, -3), fov = 58 }
+local WIDE = { offset = V(0, 6.5, 10.9), look = V(0, 3, -3), fov = 58 }
 local ONBOB = { offset = V(-7, 4.5, 10), look = V(-7, 4.2, 1), fov = 50 }
 local OUTSIDE = { offset = V(6, 4, 16), look = V(6, 3, 0), fov = 60 }
 -- where the boardroom cast stands: clear of the table (measured 25 Oct: it covers x -9.6..1.6,
 -- z -8.1..-0.3 from the anchor; the short investor stood inside it, Bob's belly in its edge).
 -- The tall investor stands at the table's far end, where Bob does not hide him from the wide shot
-local BOB_AT, INV1_AT, INV2_AT = V(-7, 0, 1), V(3.2, 0, -5), V(-2.2, 0, 1.4)
+-- (and the short one out of the sightline from your shoulder to Bob's face, live 25 Oct)
+local BOB_AT, INV1_AT, INV2_AT = V(-7, 0, 1), V(3.2, 0, -5), V(-3.6, 0, 2.6)
 local INV1_ROT = 32   -- turned to you
 
 local SCENES = {}
@@ -156,7 +158,7 @@ SCENES.intro = {
 		{ "hero", L.rue, 13.2, 16.21 },
 	},
 	fx = {
-		{ text = "BOING!", anchor = "door", p = V(11, 3.5, 3), t0 = 7.25, t1 = 8.25 },
+		{ text = "BOING!", anchor = "door", p = V(10, 6.5, 3), t0 = 7.25, t1 = 8.25 },   -- above the landing, not on it
 		{ kind = "cloud", follow = "hero", t0 = 9.0, t1 = 11.4 },
 	},
 	vals = {
@@ -171,22 +173,30 @@ SCENES.intro = {
 }
 
 SCENES.payoff = {
-	length = 17.0,
-	-- 25 Oct, Luke's review of the first recording: you SLAM his door down (it breaks and falls into
-	-- the room), pull an iPad from behind your back (not a bright paper board), the line shoots up on
-	-- its screen in close-up, then the snap zoom on Bob's "W-WHAT?!" (he liked that beat: kept, sharper)
+	length = 20.0,
+	--[[ 25 Oct, Luke's second review. You SLAM his door down. "You AGAIN?" -- "I've come to make YOU
+		an offer." They roar laughing; you calmly pull the iPad from behind your back; the line shoots up;
+		the laughing dies (the back-to-earth beat, over your shoulder); then the snap zoom on "W-WHAT?!".
+		The money, the kick out, "Who's laughing now?" ]]
 	shots = {
 		{ 0, 1.7, "door", from = { offset = V(5.5, 4.2, 14), look = V(1, 3.2, 0), fov = 58 } },
-		{ 1.7, 3.8, "board", from = WIDE },
-		{ 3.8, 5.4, "board", from = { offset = V(0, 6.2, 11.2), look = V(0, 3.5, -2), fov = 56 },
+		{ 1.7, 3.7, "board", from = WIDE },
+		{ 3.7, 5.4, "board", from = { offset = V(0, 6.2, 10.9), look = V(0, 3.5, -2), fov = 56 },
 			to = { offset = V(0, 6, 10.4), look = V(0, 3.5, -2), fov = 55 } },
-		{ 5.4, 6.6, "board", aim = "tablet", from = { offset = V(2.7, 3.8, 2.6), look = V(5.7, 3.4, 1.5), fov = 38, dist = 5.4 },
+		{ 5.4, 6.8, "board", from = ONBOB, to = { offset = V(-7, 4.5, 9), look = V(-7, 4.4, 1), fov = 50 } },
+		{ 6.8, 8.4, "board", from = { offset = V(2.5, 6, 10.5), look = V(1, 3.5, -2), fov = 56 },
+			to = { offset = V(2.5, 5.8, 9.8), look = V(1, 3.5, -2), fov = 54 } },
+		{ 8.4, 9.6, "board", aim = "tablet", from = { offset = V(2.7, 3.8, 2.6), look = V(5.7, 3.4, 1.5), fov = 38, dist = 5.4 },
 			to = { offset = V(3.2, 3.75, 2.4), look = V(5.7, 3.4, 1.5), fov = 34, dist = 4.6 } },
-		{ 6.6, 9.0, "board", zoom = 0.22, from = { offset = V(-7, 4.6, 10.5), look = V(-7, 4.3, 1), fov = 52 },
+		-- over your shoulder at Bob while his laugh dies
+		-- (live 25 Oct: from lower down the short investor's hair hid Bob's mouth: high, looking down on him)
+		{ 9.6, 11.0, "board", from = { offset = V(9.6, 6.8, -2.2), look = V(-7, 4.6, 1), fov = 30 },
+			to = { offset = V(9.4, 6.7, -2.1), look = V(-7, 4.6, 1), fov = 27 } },
+		{ 11.0, 13.2, "board", zoom = 0.22, from = { offset = V(-7, 4.6, 10.5), look = V(-7, 4.3, 1), fov = 52 },
 			to = { offset = V(-7, 4.6, 10.5), look = V(-7, 4.45, 1), fov = 30 } },
-		{ 9.0, 11.4, "board", from = WIDE },
-		{ 11.4, 13.8, "door", from = OUTSIDE },
-		{ 13.8, 17.0, "door", from = { offset = V(3, 4.5, 14), look = V(2, 3.5, 0), fov = 60 },
+		{ 13.2, 15.4, "board", from = WIDE },
+		{ 15.4, 17.6, "door", from = OUTSIDE },
+		{ 17.6, 20.0, "door", from = { offset = V(3, 4.5, 14), look = V(2, 3.5, 0), fov = 60 },
 			to = { offset = V(2.5, 4.3, 12), look = V(2, 3.5, 0), fov = 60 } },
 	},
 	moves = {
@@ -199,17 +209,20 @@ SCENES.payoff = {
 			{ t = 1.71, anchor = "board", p = V(9, 0, 9.5), r = 190 },
 			{ t = 2.6, p = V(7, 0, 1), move = "linear" },
 			{ t = 2.8, r = -70, move = "out" },   -- face Bob
-			{ t = 11.4, anchor = "door", p = V(0, 0, -1), r = 90 },
+			{ t = 15.4, anchor = "door", p = V(0, 0, -1), r = 90 },
 			-- live 25 Oct: side-on in the dark doorway the cheer's fists vanished; turn to us, step into the light
-			{ t = 13.8, r = 90 },
-			{ t = 14.15, p = V(0, 0, 0.8), r = 10, move = "out" },
+			{ t = 17.6, r = 90 },
+			{ t = 17.95, p = V(0, 0, 0.8), r = 10, move = "out" },
 		},
 		bob = {
 			{ t = 0, anchor = "board", p = BOB_AT, r = 45, roll = 0 },
-			{ t = 11.4, anchor = "door", p = V(0.8, 1, 0), r = -90, roll = 0 },
-			{ t = 12.35, p = V(11, 0, 3), roll = 450, move = "arc", h = 3.5 },
-			{ t = 13.2, roll = 90 },
-			{ t = 13.8, roll = 0, move = "out" },
+			-- over your shoulder he faces you square, staring at the iPad (turned on the cuts, unseen)
+			{ t = 9.6, r = 80 },
+			{ t = 11.0, r = 45 },
+			{ t = 15.4, anchor = "door", p = V(0.8, 1, 0), r = -90, roll = 0 },
+			{ t = 16.35, p = V(11, 0, 3), roll = 450, move = "arc", h = 3.5 },
+			{ t = 17.2, roll = 90 },
+			{ t = 17.8, roll = 0, move = "out" },
 		},
 		inv1 = { { t = 0, anchor = "board", p = INV1_AT, r = INV1_ROT } },
 		inv2 = { { t = 0, anchor = "board", p = INV2_AT, r = 20 } },
@@ -221,33 +234,42 @@ SCENES.payoff = {
 			{ t = 1.35, pose = "walk" },
 			{ t = 1.71, face = "smug" },
 			{ t = 2.6, pose = "stand" },
-			{ t = 3.9, pose = "holdChart" },
-			{ t = 9.0, pose = "stand" },
-			{ t = 11.4, pose = "kick", face = "determined" },
-			{ t = 11.85, pose = "stand" },
-			{ t = 13.8, pose = "cheer", face = "grin" },
+			{ t = 6.9, pose = "holdChart" },
+			{ t = 13.2, pose = "stand" },
+			{ t = 15.4, pose = "kick", face = "determined" },
+			{ t = 15.85, pose = "stand" },
+			{ t = 17.6, pose = "cheer", face = "grin" },
 		},
 		bob = {
-			{ t = 0, pose = "laugh", face = "laugh", vis = true },
-			{ t = 6.6, pose = "stand", face = "shock" },
-			{ t = 9.0, pose = "throw" },
-			{ t = 11.4, pose = "fly" },
-			{ t = 12.35, pose = "lie", face = "dizzy" },
-			{ t = 13.2, pose = "sit" },
+			{ t = 0, pose = "annoyed", face = "smug", vis = true },
+			{ t = 5.4, pose = "laugh", face = "laugh" },
+			{ t = 9.6, pose = "laughdie" },
+			{ t = 10.1, face = "grin" },
+			{ t = 10.45, face = "deadpan" },
+			{ t = 11.0, pose = "shock", face = "shock" },
+			{ t = 13.2, pose = "throw" },
+			{ t = 15.4, pose = "fly" },
+			{ t = 16.35, pose = "lie", face = "dizzy" },
+			{ t = 17.2, pose = "sit" },
 		},
-		inv1 = { { t = 0, pose = "laugh", face = "laugh", vis = true }, { t = 6.6, pose = "stand", face = "shock" }, { t = 11.4, vis = false } },
-		inv2 = { { t = 0, pose = "laugh", face = "laugh", vis = true }, { t = 6.6, pose = "stand", face = "shock" }, { t = 11.4, vis = false } },
+		inv1 = { { t = 0, pose = "stand", face = "neutral", vis = true }, { t = 5.6, pose = "laugh", face = "laugh" },
+			{ t = 9.8, pose = "laughdie" }, { t = 10.5, face = "deadpan" }, { t = 11.0, pose = "shock", face = "shock" }, { t = 15.4, vis = false } },
+		inv2 = { { t = 0, pose = "stand", face = "neutral", vis = true }, { t = 5.6, pose = "laugh", face = "laugh" },
+			{ t = 9.7, pose = "laughdie" }, { t = 10.4, face = "deadpan" }, { t = 11.0, pose = "shock", face = "shock" }, { t = 15.4, vis = false } },
 	},
 	bubbles = {
-		{ "bob", L.whatHere, 2.0, 3.8 },
-		{ "bob", L.what, 6.75, 9.0 },
-		{ "bob", L.takeIt, 9.2, 11.3 },
-		{ "hero", L.laughing, 14.1, 16.6 },
+		{ "bob", L.youAgain, 2.1, 3.6 },
+		{ "hero", L.myOffer, 3.85, 5.4 },
+		{ "bob", L.haha, 5.5, 6.8 },
+		{ "inv2", L.haha, 5.9, 6.8 },
+		{ "bob", L.what, 11.15, 13.2 },
+		{ "bob", L.takeIt, 13.4, 15.3 },
+		{ "hero", L.laughing, 17.9, 19.7 },
 	},
 	fx = {
 		{ kind = "debris", anchor = "door", p = V(0, 0, -0.6), t0 = 1.25, t1 = 2.2 },
-		{ text = "BOING!", anchor = "door", p = V(11, 3.5, 3), t0 = 12.35, t1 = 13.35 },
-		{ kind = "stars", follow = "bob", t0 = 12.35, t1 = 17.01 },
+		{ text = "BOING!", anchor = "door", p = V(10, 6.5, 3), t0 = 16.35, t1 = 17.35 },   -- above the landing, not on it
+		{ kind = "stars", follow = "bob", t0 = 16.35, t1 = 20.01 },
 	},
 	vals = {
 		-- the door falls flat into the room (0 = shut, 1 = flat), with a bounce; it lies there after
@@ -255,16 +277,16 @@ SCENES.payoff = {
 		tape = { { t = 0, v = 0 }, { t = 1.08, v = 0 }, { t = 1.55, v = 1 } },
 		lid = { { t = 0, v = 0 } },
 		glow = { { t = 0, v = 0 } },
-		chart = { { t = 0, v = 0 }, { t = 5.5, v = 0 }, { t = 6.4, v = 1 } },
-		chartShown = { { t = 0, v = 0 }, { t = 3.89, v = 0 }, { t = 3.9, v = 1 }, { t = 9.19, v = 1 }, { t = 9.2, v = 0 } },
-		glasses = { { t = 0, v = 0 }, { t = 6.7, v = 0 }, { t = 7.2, v = 1 } },
-		pick = { { t = 0, v = 0 }, { t = 6.8, v = 0 }, { t = 7.4, v = 1 } },
-		bills = { { t = 0, v = 0 }, { t = 9.2, v = 0 }, { t = 10.8, v = 1 } },
-		confetti = { { t = 0, v = 0 }, { t = 13.8, v = 0 }, { t = 17.0, v = 1 } },
-		handoff = { { t = 0, v = 0 }, { t = 15.8, v = 0 }, { t = 16.4, v = 1 } },
+		chart = { { t = 0, v = 0 }, { t = 8.5, v = 0 }, { t = 9.4, v = 1 } },
+		chartShown = { { t = 0, v = 0 }, { t = 6.89, v = 0 }, { t = 6.9, v = 1 }, { t = 13.19, v = 1 }, { t = 13.2, v = 0 } },
+		glasses = { { t = 0, v = 0 }, { t = 11.1, v = 0 }, { t = 11.6, v = 1 } },
+		pick = { { t = 0, v = 0 }, { t = 11.2, v = 0 }, { t = 11.8, v = 1 } },
+		bills = { { t = 0, v = 0 }, { t = 13.4, v = 0 }, { t = 15.0, v = 1 } },
+		confetti = { { t = 0, v = 0 }, { t = 17.6, v = 0 }, { t = 20.0, v = 1 } },
+		handoff = { { t = 0, v = 0 }, { t = 19.2, v = 0 }, { t = 19.8, v = 1 } },
 	},
-	shakes = { { 1.25, 1.55, 0.45 }, { 6.6, 6.85, 0.3 }, { 11.4, 11.9, 0.6 } },
-	cues = { { 0.05, "music" }, { 1.26, "thud" }, { 2.0, "laugh" }, { 9.2, "money" }, { 12.35, "boing" }, { 12.4, "thud" }, { 13.85, "victory" } },
+	shakes = { { 1.25, 1.55, 0.45 }, { 11.0, 11.25, 0.3 }, { 15.4, 15.9, 0.6 } },
+	cues = { { 0.05, "music" }, { 1.26, "thud" }, { 5.45, "laugh" }, { 13.4, "money" }, { 16.35, "boing" }, { 16.4, "thud" }, { 17.65, "victory" } },
 }
 
 -- ------------------------------------------------------------------ evaluator

@@ -743,6 +743,15 @@ local function chairInfo(chair)
 	end
 	if n == 0 then return nil end
 	sx, sz = sx / n, sz / n
+	-- 25 Oct (Luke: the garage worker "floating in the air on the chair"): a mesh chair whose
+	-- collision is its box gives every ray the box's top, so the "seat" was the top of the backrest
+	-- (1.8 studs too high). Flat hits at the very top with no backrest = the box, not the cushion:
+	-- sit at a desk chair's seat height instead, 52% of the way up
+	local boxTop = pivot:PointToObjectSpace(bcf * Vector3.new(0, bsz.Y / 2, 0)).Y
+	if nb == 0 and seatY > boxTop - 0.3 then
+		seatY = pivot:PointToObjectSpace(bcf * Vector3.new(0, -bsz.Y / 2 + bsz.Y * 0.52, 0)).Y
+		sx, sz = pivot:PointToObjectSpace(bcf.Position).X, pivot:PointToObjectSpace(bcf.Position).Z
+	end
 	local front = Vector3.new(0, 0, -1)
 	if nb > 0 then
 		local back = Vector3.new(bx / nb - sx, 0, bz / nb - sz)

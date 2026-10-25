@@ -39,7 +39,7 @@ test("payoff words are exact", function()
 		for _, b in ipairs(f.bubbles) do if b.k > 0 then seen[b.text] = true end end
 		for _, x in ipairs(f.fx) do if x.k > 0 and x.text then seen[x.text] = true end end
 	end)
-	for _, w in ipairs({ "What are YOU doing here?", "W-WHAT?!", "Take it! TAKE IT ALL!", "Who's laughing now?" }) do
+	for _, w in ipairs({ "You AGAIN?", "I've come to make YOU an offer.", "HAHAHA!", "W-WHAT?!", "Take it! TAKE IT ALL!", "Who's laughing now?" }) do
 		assert(seen[w], "missing: " .. w)
 	end
 end)
@@ -78,9 +78,9 @@ test("reduced: the camera holds still inside a shot", function()
 	end
 end)
 
--- 25 Oct: the payoff gained the iPad close-up (Luke's review): 8 shots
-test("hard cuts: shots run in order, 6 in the intro, 8 in the payoff", function()
-	for name, n in pairs({ intro = 6, payoff = 8 }) do
+-- 25 Oct: the payoff's story grew in Luke's reviews (the iPad close-up, the laugh, the laugh dying): 11
+test("hard cuts: shots run in order, 6 in the intro, 11 in the payoff", function()
+	for name, n in pairs({ intro = 6, payoff = 11 }) do
 		local last, count = 0, 0
 		sweep(name, function(f)
 			assert(f.shot >= last, name .. " shot went back")
@@ -124,7 +124,7 @@ test("every line in the spec is in LINES, verbatim", function()
 	local want = {
 		offer = "Can I get an offer?", haOffer = "HA! An OFFER?", haha = "HAHAHA!", rue = "He will rue the day.",
 		text = "...Ok. I may have been hasty. Come to my office.", task = "Go to Bob's office",
-		whatHere = "What are YOU doing here?", what = "W-WHAT?!", takeIt = "Take it! TAKE IT ALL!",
+		youAgain = "You AGAIN?", myOffer = "I've come to make YOU an offer.", what = "W-WHAT?!", takeIt = "Take it! TAKE IT ALL!",
 		laughing = "Who's laughing now?", toast = "SERIES A CLOSED · x3", taped = "Bob isn't taking meetings... yet.",
 		trophy = "BOB'S TOOTHPICK",
 	}
@@ -151,8 +151,31 @@ test("the payoff door falls flat and stays down; the snap zoom lands in under 0.
 	assert(B.at("payoff", 0, false).doorDown == 0, "shut at the start")
 	assert(B.at("payoff", 1.5, false).doorDown == 1, "flat after the kick")
 	assert(B.at("payoff", 16, false).doorDown == 1, "still down at the end")
-	local a, b = B.at("payoff", 6.6, false).cam.fov, B.at("payoff", 6.85, false).cam.fov
+	local a, b = B.at("payoff", 11.0, false).cam.fov, B.at("payoff", 11.25, false).cam.fov
 	assert(a > 45 and b < 32, ("zoom %.0f -> %.0f"):format(a, b))
+end)
+
+-- Luke 25 Oct: the laugh has to DIE before "W-WHAT?!" (the back-to-earth beat): Bob laughs at your
+-- offer, is not laughing by the time the line has shot up, and is deadpan before the shock
+test("the payoff: they laugh at your offer, the laugh dies after the iPad, then the shock", function()
+	local function bob(t) return B.at("payoff", t, false).actors.bob end
+	assert(bob(6.0).pose == "laugh", "laughing at the offer")
+	assert(B.at("payoff", 9.4, false).vals.chart == 1, "the line is up by 9.4")
+	assert(bob(10.6).pose == "laughdie" and bob(10.6).face == "deadpan", "deadpan before the shock")
+	assert(bob(11.2).face == "shock", "then the shock")
+end)
+
+-- every boardroom camera stands inside the room (Luke 25 Oct: "it looks like a set" from outside the
+-- cut-away wall; the front wall's inner face is 11 studs in front of the anchor)
+test("boardroom cameras stand inside the room", function()
+	for _, name in ipairs({ "intro", "payoff" }) do
+		sweep(name, function(f, t)
+			if f.cam.anchor == "board" then
+				assert(f.cam.offset.Z < 11 and math.abs(f.cam.offset.X) < 13.5,
+					("%s at %.1f s: camera at (%.1f, %.1f)"):format(name, t, f.cam.offset.X, f.cam.offset.Z))
+			end
+		end)
+	end
 end)
 
 return T

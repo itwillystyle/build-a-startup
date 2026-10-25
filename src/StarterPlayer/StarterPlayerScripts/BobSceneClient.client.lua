@@ -186,11 +186,10 @@ local function clipFor(scene, id, pose, t)
 			cheer = "hero_cheer", walk = scene == "intro" and "hero_sadwalk" or "hero_strut" })[pose]
 	elseif id == "bob" then
 		if pose == "stand" then return scene == "payoff" and "bob_shock" or "bob_smug" end
-		return ({ laugh = "bob_laugh", kick = "bob_kick", throw = "bob_throw", fly = "bob_fly", lie = "bob_dizzy", sit = "bob_dizzy" })[pose]
+		return ({ annoyed = "bob_smug", laugh = "bob_laugh", laughdie = "bob_laughdie", shock = "bob_shock", kick = "bob_kick",
+			throw = "bob_throw", fly = "bob_fly", lie = "bob_dizzy", sit = "bob_dizzy" })[pose]
 	end
-	if pose == "laugh" then return "inv_laugh" end
-	if scene == "payoff" and t >= 6.6 then return "inv_shock" end
-	return "inv_idle"
+	return ({ laugh = "inv_laugh", laughdie = "inv_laughdie", shock = "inv_shock" })[pose] or "inv_idle"
 end
 
 -- feet at pos (anchor space); rot 0 faces the camera (+Z), 90 faces +X; roll spins round Z
@@ -259,32 +258,71 @@ local function setVisible(a, on)
 end
 
 -- ------------------------------------------------------------------ GUI
--- live 25 Oct (Luke's review of the recording): a 3D speech bubble above a head went off the top of
--- the frame in close shots ("He will rue the day.", "W-WHAT?!") and off the side on narrow screens.
--- A bubble is a 2D card now, placed every frame over the speaker's head and kept inside the frame:
--- with no room above the head it sits beside it, on the side with more room.
-local function bubbleFor(a)
-	local card = Instance.new("TextLabel")
-	card.Name = "Bubble"
-	card.AnchorPoint = Vector2.new(0.5, 1)
-	card.AutomaticSize = Enum.AutomaticSize.X
-	card.Size = UDim2.fromOffset(0, 54)
-	card.BackgroundColor3 = PAPER
-	card.TextColor3 = INK
-	card.Font = UIKit.HEAD
-	card.TextSize = UIKit.TYPE.headline
-	card.ZIndex = 6
-	card.Visible = false
-	local pad = Instance.new("UIPadding")
-	pad.PaddingLeft, pad.PaddingRight = UDim.new(0, 18), UDim.new(0, 18)
-	pad.Parent = card
-	local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, UIKit.RADIUS.lg); c.Parent = card
-	local s = Instance.new("UIStroke"); s.Thickness = 3; s.Color = INK; s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; s.Parent = card
-	local sc = Instance.new("UIScale"); sc.Parent = card
-	return { card = card, scale = sc, head = a.head }
+--[[ Speech (25 Oct, Luke's second review: the bubbles "don't fit the scene ... sans serif, sloppish").
+	A comic speech bubble: Bangers lettering in capitals, a heavy ink outline, a hard ink shadow, and
+	a tail that points at whoever is talking. A word the script shouts (written in capitals: YOU,
+	AGAIN, TAKE IT ALL) is set in red. A bubble is 2D, placed over the speaker's head each frame and
+	kept inside the frame; with no room above the head it sits beside it, tail pointing across. ]]
+local function comicText(s)
+	local out = {}
+	for word in s:gmatch("%S+") do
+		local letters = (word:gsub("[^%a]", ""))
+		local w = (word:upper():gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;"))
+		if #letters >= 2 and letters == letters:upper() then w = ('<font color="#%s">%s</font>'):format(UIKit.RED:ToHex(), w) end
+		table.insert(out, w)
+	end
+	return table.concat(out, " ")
 end
 
--- where a bubble goes this frame, in viewport pixels (the scene's gui ignores the inset)
+local TAIL = 26   -- the tail is a turned square half under the card
+local function bubbleFor(a)
+	local box = Instance.new("Frame")
+	box.Name = "Bubble"
+	box.BackgroundTransparency = 1
+	box.AnchorPoint = Vector2.new(0.5, 1)
+	box.Size = UDim2.fromOffset(200, 60)
+	box.Visible = false
+	local shadow = Instance.new("Frame")
+	shadow.BackgroundColor3 = INK
+	shadow.BorderSizePixel = 0
+	shadow.Position, shadow.Size = UDim2.fromOffset(5, 6), UDim2.fromScale(1, 1)
+	shadow.ZIndex = 6
+	Instance.new("UICorner", shadow).CornerRadius = UDim.new(0, UIKit.RADIUS.xl)
+	shadow.Parent = box
+	local card = Instance.new("TextLabel")
+	card.Size = UDim2.fromScale(1, 1)
+	card.BackgroundColor3 = PAPER
+	card.TextColor3 = INK
+	card.FontFace = UIKit.COMIC
+	card.TextSize = UIKit.TYPE.display
+	card.RichText = true
+	card.ZIndex = 8
+	Instance.new("UICorner", card).CornerRadius = UDim.new(0, UIKit.RADIUS.xl)
+	local s = Instance.new("UIStroke"); s.Thickness = 4; s.Color = INK; s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; s.Parent = card
+	card.Parent = box
+	local tail = Instance.new("Frame")
+	tail.AnchorPoint = Vector2.new(0.5, 0.5)
+	tail.Size = UDim2.fromOffset(TAIL, TAIL)
+	tail.Rotation = 45
+	tail.BackgroundColor3 = PAPER
+	tail.BorderSizePixel = 0
+	tail.ZIndex = 7
+	local ts = Instance.new("UIStroke"); ts.Thickness = 4; ts.Color = INK; ts.Parent = tail
+	tail.Parent = box
+	-- paper over the card's outline where the tail joins, so the tail opens into the bubble
+	local patch = Instance.new("Frame")
+	patch.AnchorPoint = Vector2.new(0.5, 0.5)
+	patch.BackgroundColor3 = PAPER
+	patch.BorderSizePixel = 0
+	patch.ZIndex = 9
+	patch.Parent = box
+	local sc = Instance.new("UIScale"); sc.Parent = box
+	return { box = box, card = card, tail = tail, patch = patch, scale = sc, head = a.head }
+end
+
+-- where a bubble goes this frame, in viewport pixels (the scene's gui ignores the inset):
+-- x, y = the bubble's bottom centre; side = nil above the head, 1 right of it, -1 left of it;
+-- hx, hy = the head on screen, for the tail
 local SKIP_ZONE = 150   -- the SKIP button's corner, top right
 local function bubbleAt(cam, head, w, h)
 	local vp = cam.ViewportSize
@@ -292,44 +330,129 @@ local function bubbleAt(cam, head, w, h)
 	local mid, onScreen = cam:WorldToViewportPoint(head.Position)
 	if top.Z <= 0 or not onScreen and mid.Z <= 0 then return nil end
 	local safeTop, safeBot, edge = vp.Y * 0.1 + 12, vp.Y * 0.9 - 12, 16
-	local x, y = top.X, top.Y - 6
+	local x, y, side = top.X, top.Y - 6, nil
 	if y - h < safeTop then
 		-- no room above the head: beside it, on the side with more room
 		local r = math.max(mid.Y - top.Y, 20)
-		local side = mid.X < vp.X / 2 and 1 or -1
-		x = mid.X + side * (r + 18 + w / 2)
+		side = mid.X < vp.X / 2 and 1 or -1
+		x = mid.X + side * (r + 24 + w / 2)
 		y = math.max(mid.Y + h / 2, safeTop + h)
 	end
 	local right = (y - h < SKIP_ZONE * 0.6) and vp.X - SKIP_ZONE or vp.X - edge
 	x = math.clamp(x, edge + w / 2, math.max(edge + w / 2, right - w / 2))
 	y = math.clamp(y, safeTop + h, safeBot)
-	return x, y
+	return x, y, side, mid.X, mid.Y
 end
 
-local function worldText(parent, text, color)
-	local p = Instance.new("Part")
-	p.Name = "FxAnchor"
-	p.Anchored, p.CanCollide, p.CanQuery, p.CanTouch, p.Transparency = true, false, false, false, 1
-	p.Size = Vector3.new(0.2, 0.2, 0.2)
-	p.Parent = parent
-	local bb = Instance.new("BillboardGui")
-	bb.Size = UDim2.fromOffset(420, 110)
-	bb.AlwaysOnTop = true
-	bb.LightInfluence = 0
-	bb.Adornee = p
-	local t = Instance.new("TextLabel")
-	t.BackgroundTransparency = 1
-	t.Size = UDim2.fromScale(1, 1)
-	t.Font = UIKit.HEAD
-	t.TextScaled = true
-	t.Text = text
-	t.TextColor3 = color or UIKit.GOLD
-	t.Rotation = -6
-	local st = Instance.new("UIStroke"); st.Thickness = 4; st.Color = INK; st.Parent = t
-	local sc = Instance.new("UIScale"); sc.Parent = t
-	t.Parent = bb
-	bb.Parent = p
-	return { part = p, gui = bb, scale = sc }
+-- lay a bubble out for this frame (its text already set)
+local function placeBubble(cam, bb)
+	local w = bb.card.TextBounds.X + 46
+	local h = math.max(60, bb.card.TextBounds.Y + 24)
+	local x, y, side, hx, hy = bubbleAt(cam, bb.head, w, h + 18)
+	bb.box.Visible = x ~= nil
+	if not x then return end
+	bb.box.Size = UDim2.fromOffset(w, h)
+	if side == nil then
+		-- above the head: the tail hangs from the bottom edge toward the head
+		bb.box.Position = UDim2.fromOffset(x, y - 16)
+		local tx = math.clamp(hx - x, -w / 2 + 30, w / 2 - 30)
+		bb.tail.Position = UDim2.new(0.5, tx, 1, 1)
+		bb.patch.Size, bb.patch.Position = UDim2.fromOffset(TAIL + 8, 10), UDim2.new(0.5, tx, 1, -4)
+	else
+		-- beside the head: the tail sticks out of the side that faces it
+		bb.box.Position = UDim2.fromOffset(x, y)
+		local ty = math.clamp(hy - (y - h / 2), -h / 2 + 18, h / 2 - 18)
+		local edgeX = side == 1 and 0 or 1
+		bb.tail.Position = UDim2.new(edgeX, side == 1 and -1 or 1, 0.5, ty)
+		bb.patch.Size, bb.patch.Position = UDim2.fromOffset(10, TAIL + 8), UDim2.new(edgeX, side == 1 and 4 or -4, 0.5, ty)
+	end
+end
+
+--[[ A sound effect (BOING!), Luke 25 Oct: "it just looks like you put text on it". A comic impact: a
+	jagged gold starburst with an ink edge (squares turned round one centre), the word in Luckiest Guy
+	with a hard ink drop, and a springy wobble as it lands. Drawn in 2D at its point in the world. ]]
+local function burstFor(text)
+	local box = Instance.new("Frame")
+	box.Name = "Burst"
+	box.BackgroundTransparency = 1
+	box.AnchorPoint = Vector2.new(0.5, 0.5)
+	box.Size = UDim2.fromOffset(280, 200)
+	box.Visible = false
+	-- pointed spikes round a solid oval: each spike is a square turned so a corner points outward,
+	-- big and small in turn (rectangles gave square teeth: a gear, live 25 Oct). Ink first, a little
+	-- bigger, so it edges the gold
+	for layer, colour in ipairs({ INK, UIKit.GOLD }) do
+		local grow = layer == 1 and 12 or 0
+		for k = 0, 13 do
+			local a = math.rad(k * 360 / 14 + 7)
+			local spike = Instance.new("Frame")
+			spike.AnchorPoint = Vector2.new(0.5, 0.5)
+			spike.Position = UDim2.new(0.5, math.cos(a) * 100, 0.5, math.sin(a) * 60)
+			local px = (k % 2 == 0 and 66 or 46) + grow
+			spike.Size = UDim2.fromOffset(px, px)
+			spike.Rotation = math.deg(a) + 45
+			spike.BackgroundColor3 = colour
+			spike.BorderSizePixel = 0
+			spike.ZIndex = 3 + layer
+			spike.Parent = box
+		end
+		local core = Instance.new("Frame")
+		core.AnchorPoint = Vector2.new(0.5, 0.5)
+		core.Position = UDim2.fromScale(0.5, 0.5)
+		core.Size = UDim2.fromOffset(196 + grow, 116 + grow)
+		core.BackgroundColor3 = colour
+		core.BorderSizePixel = 0
+		core.ZIndex = 3 + layer
+		Instance.new("UICorner", core).CornerRadius = UDim.new(1, 0)
+		core.Parent = box
+	end
+	local function word(colour, dx, dy, z)
+		local t = Instance.new("TextLabel")
+		t.BackgroundTransparency = 1
+		t.AnchorPoint = Vector2.new(0.5, 0.5)
+		t.Position = UDim2.new(0.5, dx, 0.5, dy)
+		t.Size = UDim2.fromScale(1, 1)
+		t.FontFace = UIKit.IMPACT
+		t.TextSize = UIKit.TYPE.money
+		t.Text = text
+		t.TextColor3 = colour
+		t.Rotation = -8
+		t.ZIndex = z
+		local st = Instance.new("UIStroke"); st.Thickness = 4; st.Color = INK; st.Parent = t
+		t.Parent = box
+	end
+	word(INK, 4, 5, 6)
+	word(UIKit.RED, 0, 0, 7)
+	local sc = Instance.new("UIScale"); sc.Parent = box
+	return { box = box, scale = sc, burst = true }
+end
+
+-- dizzy: little gold stars circling the head (in the world, so the head hides them as they pass behind)
+local function starsFor(parent)
+	local s = { stars = {} }
+	for k = 1, 4 do
+		local p = Instance.new("Part")
+		p.Anchored, p.CanCollide, p.CanQuery, p.CanTouch, p.Transparency = true, false, false, false, 1
+		p.Size = Vector3.new(0.2, 0.2, 0.2)
+		p.Parent = parent
+		local bb = Instance.new("BillboardGui")
+		bb.Size = UDim2.fromOffset(56, 56)
+		bb.LightInfluence = 0
+		bb.Adornee = p
+		bb.Enabled = false
+		local t = Instance.new("TextLabel")
+		t.BackgroundTransparency = 1
+		t.Size = UDim2.fromScale(1, 1)
+		t.FontFace = UIKit.IMPACT
+		t.TextScaled = true
+		t.Text = "\u{2605}"
+		t.TextColor3 = UIKit.GOLD
+		local st = Instance.new("UIStroke"); st.Thickness = 3; st.Color = INK; st.Parent = t
+		t.Parent = bb
+		bb.Parent = p
+		s.stars[k] = { part = p, gui = bb }
+	end
+	return s
 end
 
 -- ------------------------------------------------------------------ one scene
@@ -444,7 +567,7 @@ local function play(name, info)
 		return f
 	end
 	local barT, barB = bar(true), bar(false)
-	for _, bb in pairs(bubbles) do bb.card.Parent = gui end
+	for _, bb in pairs(bubbles) do bb.box.Parent = gui end
 	-- in from black (0.5 s): covers the first frames, when the cast's textures are still arriving
 	-- (live 25 Oct: grey heads for about 0.15 s on a fresh join)
 	local fadeIn = Instance.new("Frame")
@@ -566,8 +689,8 @@ local function play(name, info)
 	local fxs = {}
 	local f0 = BobScript.at(name, 0, true)
 	for i, x in ipairs(f0.fx) do
-		if x.kind == "text" then fxs[i] = worldText(folder, x.text) end
-		if x.kind == "stars" then fxs[i] = worldText(folder, "* * *", UIKit.GOLD) end
+		if x.kind == "text" then fxs[i] = burstFor(x.text); fxs[i].box.Parent = gui end
+		if x.kind == "stars" then fxs[i] = starsFor(folder) end
 		if x.kind == "debris" then
 			-- the door coming down: wood splinters and a puff of dust out of the doorway
 			local d = { splinters = {} }
@@ -608,7 +731,7 @@ local function play(name, info)
 	cam.CameraType = Enum.CameraType.Scriptable
 
 	local t0, lastT, finished = os.clock(), 0, false
-	local lastExtras
+	local gone = {}   -- bystanders already stepped out of the shot
 	-- everyone with a Humanoid: one scan now, then only the ones that arrive (a full scan a second hitched)
 	local people = {}
 	for _, d in ipairs(workspace:GetDescendants()) do if d:IsA("Humanoid") then people[d] = true end end
@@ -641,11 +764,11 @@ local function play(name, info)
 
 	conn = RunService.RenderStepped:Connect(function()
 		-- live 25 Oct: a client walking into the garage stood in front of the camera. Anyone else near
-		-- the set (staff, clients, other players) steps out of the shot, once a second
-		if os.clock() - (lastExtras or 0) > 1 then
-			lastExtras = os.clock()
+		-- the set (staff, clients, other players) steps out of the shot. Every frame, from the first:
+		-- checked once a second, a worker at the garage desk showed for a moment, then vanished
+		do
 			for mdl in pairs(people) do
-				if mdl.Parent and not mdl:IsDescendantOf(folder) then
+				if mdl.Parent and not gone[mdl] and not mdl:IsDescendantOf(folder) then
 					local who = mdl.Parent
 					local root = who:FindFirstChild("HumanoidRootPart") or who.PrimaryPart
 					local near = false
@@ -655,6 +778,7 @@ local function play(name, info)
 						end
 					end
 					if near then
+						gone[mdl] = true
 						for _, d in ipairs(who:GetDescendants()) do
 							if d:IsA("BasePart") or d:IsA("Decal") then override(d, "LocalTransparencyModifier", 1)
 							elseif d:IsA("BillboardGui") or d:IsA("SurfaceGui") then override(d, "Enabled", false) end
@@ -714,7 +838,12 @@ local function play(name, info)
 			for _, b in ipairs(f.bubbles) do
 				if b.actor == id and b.k > 0 then bb.on = b end
 			end
-			if bb.on then bb.card.Text = bb.on.text; bb.scale.Scale = bb.on.k else bb.card.Visible = false end
+			if bb.on then
+				if bb.text ~= bb.on.text then bb.text = bb.on.text; bb.card.Text = comicText(bb.on.text) end
+				bb.scale.Scale = bb.on.k
+			else
+				bb.box.Visible = false
+			end
 		end
 		-- fx: words, the rain cloud over you, stars over Bob
 		for i, x in ipairs(f.fx) do
@@ -749,14 +878,26 @@ local function play(name, info)
 					fx.puff:Emit(30)
 					fx.puffed = true
 				end
-			elseif fx then
-				fx.gui.Enabled = x.k > 0
-				fx.scale.Scale = x.k
-				if x.follow and actors[x.follow] and actors[x.follow].head then
-					fx.part.CFrame = actors[x.follow].head.CFrame * CFrame.new(0, 2.2, 0)
-				elseif x.anchor and A[x.anchor] then
-					fx.part.CFrame = A[x.anchor] * CFrame.new(x.pos)
+			elseif x.kind == "stars" and fx then
+				local who = x.follow and actors[x.follow]
+				local head = who and who.head
+				for k, st in ipairs(fx.stars) do
+					st.gui.Enabled = x.k > 0 and head ~= nil
+					if head and x.k > 0 then
+						local a = (x.age or 0) * 4.2 + k * math.pi / 2
+						local r = head.Size.X * 0.6 + 0.5
+						st.part.CFrame = CFrame.new(head.Position + Vector3.new(math.cos(a) * r, head.Size.Y * 0.62 + math.sin(a * 2) * 0.15, math.sin(a) * r))
+						local pulse = 1 + 0.18 * math.sin((x.age or 0) * 9 + k)
+						st.gui.Size = UDim2.fromOffset(56 * pulse * x.k, 56 * pulse * x.k)
+					end
 				end
+			elseif fx and fx.burst then
+				fx.on, fx.world = x.k > 0, x.anchor and A[x.anchor] and (A[x.anchor] * CFrame.new(x.pos)).Position
+				-- lands with a spring: a squash that wobbles out (a fade-free pop, like the bubbles)
+				local age = x.age or 0
+				local wob = math.sin(age * 28) * math.exp(-age * 5)
+				fx.scale.Scale = x.k * (1 + 0.14 * wob)
+				fx.box.Rotation = -4 + 9 * wob
 			end
 		end
 		-- the iPad: out of sight behind your back, round in your right hand, then held in both
@@ -835,7 +976,9 @@ local function play(name, info)
 				end
 			end
 		end
-		local cutaway = f.cam.anchor == "board" and 1 or 0
+		-- the front wall is cut away only when the camera stands outside the room (z past the wall's inner
+		-- face); live 25 Oct: the inside shots that look sideways saw the street through the gap
+		local cutaway = (f.cam.anchor == "board" and f.cam.offset.Z > 11) and 1 or 0
 		if front then
 			for _, p in ipairs(front:GetDescendants()) do
 				if p:IsA("BasePart") then override(p, "LocalTransparencyModifier", cutaway)
@@ -889,11 +1032,16 @@ local function play(name, info)
 			end
 		end
 		for _, bb in pairs(bubbles) do
-			if bb.on and bb.head then
-				local w = bb.card.TextBounds.X + 36
-				local x, y = bubbleAt(cam, bb.head, w, 54)
-				bb.card.Visible = x ~= nil
-				if x then bb.card.Position = UDim2.fromOffset(x, y) end
+			if bb.on and bb.head then placeBubble(cam, bb) end
+		end
+		for _, fx in pairs(fxs) do
+			if fx.burst then
+				local p = fx.on and fx.world and cam:WorldToViewportPoint(fx.world)
+				fx.box.Visible = p ~= nil and p.Z > 0
+				if fx.box.Visible then
+					local vp = cam.ViewportSize
+					fx.box.Position = UDim2.fromOffset(math.clamp(p.X, 150, vp.X - 150), math.clamp(p.Y, vp.Y * 0.1 + 110, vp.Y * 0.9 - 110))
+				end
 			end
 		end
 	end)

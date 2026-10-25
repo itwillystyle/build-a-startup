@@ -200,6 +200,8 @@ local function drawMouth(gui, expr)
 		frame(gui, { Position = UDim2.fromScale(0.5, 0.45), Size = UDim2.fromScale(0.3, 0.1), BackgroundColor3 = INK })
 		frame(gui, { Position = UDim2.fromScale(0.33, 0.58), Size = UDim2.fromScale(0.1, 0.1), Rotation = 40, BackgroundColor3 = INK })
 		frame(gui, { Position = UDim2.fromScale(0.67, 0.58), Size = UDim2.fromScale(0.1, 0.1), Rotation = -40, BackgroundColor3 = INK })
+	elseif expr == "deadpan" then   -- the laugh gone: a flat line (25 Oct, the payoff's "back to earth" beat)
+		frame(gui, { Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.3, 0.08), BackgroundColor3 = INK })
 	elseif expr == "smug" then
 		frame(gui, { Position = UDim2.fromScale(0.55, 0.5), Size = UDim2.fromScale(0.42, 0.1), Rotation = -9, BackgroundColor3 = INK })
 		frame(gui, { Position = UDim2.fromScale(0.78, 0.38), Size = UDim2.fromScale(0.1, 0.1), Rotation = -40, BackgroundColor3 = INK })
@@ -218,7 +220,7 @@ end
 local BROWS = {
 	neutral = { 0.55, 0, 0.55, 0 }, hope = { 0.42, -8, 0.42, 8 }, laugh = { 0.38, -14, 0.38, 14 },
 	shock = { 0.22, -6, 0.22, 6 }, sad = { 0.45, -18, 0.45, 18 }, determined = { 0.6, 22, 0.6, -22 },
-	smug = { 0.6, 6, 0.32, 14 }, dizzy = { 0.5, -12, 0.35, 26 }, grin = { 0.4, -10, 0.4, 10 },
+	smug = { 0.6, 6, 0.32, 14 }, deadpan = { 0.58, 0, 0.58, 0 }, dizzy = { 0.5, -12, 0.35, 26 }, grin = { 0.4, -10, 0.4, 10 },
 }
 local function drawBrows(gui, expr)
 	gui:ClearAllChildren()
