@@ -33,7 +33,7 @@ local BobClips = require(RS:WaitForChild("BobClips"))
 local Sfx = require(RS:WaitForChild("Sfx"))
 local isTouch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
-local SOUND = { music = "bobMusic", laugh = "bobLaugh", boing = "boing", thud = "thud", money = "money", victory = "victory" }
+local SOUND = BobScript.SOUND   -- a scene's sound names -> Sfx.ID keys
 local INK = UIKit.INK
 local PAPER = UIKit.PAPER
 
@@ -353,7 +353,8 @@ local function bubbleAt(cam, head, w, h)
 	local vp = cam.ViewportSize
 	local top = cam:WorldToViewportPoint(head.Position + Vector3.new(0, head.Size.Y / 2 + 0.5, 0))
 	local mid, onScreen = cam:WorldToViewportPoint(head.Position)
-	if top.Z <= 0 or not onScreen and mid.Z <= 0 then return nil end
+	-- (live 25 Oct: a speaker off the frame got their bubble pinned to its edge, as if someone else spoke)
+	if top.Z <= 0 or not onScreen then return nil end
 	local safeTop, safeBot, edge = vp.Y * 0.1 + 12, vp.Y * 0.9 - 12, 16
 	local x, y, side = top.X, top.Y - 6, nil
 	if y - h < safeTop then
@@ -775,6 +776,21 @@ local function play(name, info)
 		end
 	end
 	local cloud = rainCloud(folder)
+	-- the scene's loops (ambience, rain, dizzy birds): silent until their span, faded in and out
+	local beds = {}
+	for _, b in ipairs(BobScript.beds(name)) do
+		local url = SOUND[b[1]] and Sfx.url(SOUND[b[1]])
+		if url then
+			local s = Instance.new("Sound")
+			s.Name = "Bed_" .. b[1]
+			s.SoundId = url
+			s.Looped = true
+			s.Volume = 0
+			s.Parent = folder
+			s:Play()
+			table.insert(beds, { sound = s, t0 = b[2], t1 = b[3], vol = b[4] })
+		end
+	end
 	local fxs = {}
 	local f0 = BobScript.at(name, 0, true)
 	for i, x in ipairs(f0.fx) do
@@ -1102,12 +1118,18 @@ local function play(name, info)
 		local sign = bc:FindFirstChild("Sign")
 		local sg = sign and sign:FindFirstChildOfClass("SurfaceGui")
 		if sg then override(sg, "Enabled", cutaway == 0) end
-		-- sound cues crossed since the last frame
+		-- sounds started since the last frame: cues, bubble pops, voices (a voice stops with its bubble)
 		for _, cue in ipairs(BobScript.cues(name, lastT, t)) do
-			local isMusic = cue == "music" or cue == "victory"
-			if SOUND[cue] and not (isMusic and player:GetAttribute("MenuMuted") == true) then
-				Sfx.play(folder, SOUND[cue], { volume = 0.6, life = cue == "music" and 18 or 6 })
+			local isMusic = cue.id == "music" or cue.id == "victory"
+			if SOUND[cue.id] and not (isMusic and player:GetAttribute("MenuMuted") == true) then
+				local s = Sfx.play(folder, SOUND[cue.id], { volume = cue.vol or 0.6, pitch = cue.pitch,
+					life = cue.dur and (cue.dur + 1) or (cue.id == "music" and 24 or 8) })
+				if s and cue.dur then task.delay(cue.dur, function() if s.Parent then s:Stop() end end) end
 			end
+		end
+		for _, b in ipairs(beds) do
+			local k = math.clamp(math.min((t - b.t0) / 0.35, (b.t1 - t) / 0.35), 0, 1)
+			b.sound.Volume = b.vol * k
 		end
 		lastT = t
 		fadeIn.BackgroundTransparency = math.clamp((t - 0.2) / 0.3, 0, 1)   -- black 0.2 s, then a fade (kept under Reduce Motion)

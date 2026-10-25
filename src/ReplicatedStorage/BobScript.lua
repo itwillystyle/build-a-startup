@@ -48,6 +48,22 @@ BobScript.LINES = {
 }
 local L = BobScript.LINES
 
+--[[ SOUND (25 Oct, Luke: "add the sounds"). Every sound the scenes use, by the name the data below
+	uses -> its key in Sfx.ID (where the asset ids live, with what each recording is). Three kinds:
+	  cues    one-shots at a time: { t, name, vol?, dur?, pitch? } (dur: stop it after that long)
+	  beds    loops that fade in and out with their span: { name, t0, t1, vol }
+	  voices  a bubble's sound: every bubble pops in ("pop") and plays its `voice` for as long as it
+	          is up. Nobody speaks real words: cartoon nonsense talk, the rich "ho ho" laugh, a "huh?" ]]
+BobScript.SOUND = {
+	music = "bobMusic", victory = "victory",
+	officeAmb = "bobOffice", streetAmb = "bobStreet", rain = "bobRain", dizzy = "bobDizzy",
+	pop = "bobPop", talk = "bobTalk", laughRich = "bobLaugh", laughCrowd = "bobChuckle", huh = "bobHuh", gasp = "bobGasp",
+	whoosh = "bobWhoosh", kick = "bobKick", fly = "bobFly", boing = "bobBoing", thud = "thud",
+	doorSlam = "bobDoorSlam", doorBreak = "bobDoorBreak", sad = "bobSad", tbc = "bobTbc", laptop = "bobLaptop",
+	riser = "bobRiser", ding = "bobDing", scratch = "bobScratch", crickets = "bobCrickets", realize = "bobRealize",
+	money = "money", bills = "bobBills",
+}
+
 local V = Vector3.new
 
 -- ------------------------------------------------------------------ easing
@@ -152,9 +168,9 @@ SCENES.intro = {
 		},
 	},
 	bubbles = {
-		{ "hero", L.offer, 0.5, 3.4 },
-		{ "bob", L.haOffer, 3.6, 6.2 },   -- (one bubble at a time: the investors laugh without one)
-		{ "hero", L.rue, 13.2, 16.21 },
+		{ "hero", L.offer, 0.5, 3.4, voice = "talk" },
+		{ "bob", L.haOffer, 3.6, 6.2, voice = "laughRich", pitch = 0.85 },   -- deeper: a rich man's laugh   -- (one bubble at a time: the investors laugh without one)
+		{ "hero", L.rue, 13.2, 16.21 },   -- (no voice: the to-be-continued sting says it)
 	},
 	fx = {
 		{ text = "BOING!", anchor = "door", p = V(10, 6.5, 3), t0 = 7.25, t1 = 8.25 },   -- above the landing, not on it
@@ -168,7 +184,22 @@ SCENES.intro = {
 		handoff = { { t = 0, v = 0 }, { t = 15.2, v = 0 }, { t = 15.8, v = 1 } },
 	},
 	shakes = { { 6.3, 6.8, 0.6 } },
-	cues = { { 0.05, "music" }, { 3.6, "laugh" }, { 7.25, "boing" }, { 7.3, "thud" } },
+	beds = {
+		{ "officeAmb", 0, 6.2, 0.22 },     -- an investor's office, not an empty room
+		{ "streetAmb", 6.2, 10.4, 0.2 },
+		{ "rain", 9.0, 11.4, 0.3 },        -- under your cloud
+		{ "dizzy", 7.35, 8.5, 0.3 },       -- seeing stars on the pavement
+	},
+	cues = {
+		{ 0.05, "music", vol = 0.3 },
+		{ 4.2, "laughCrowd", vol = 0.3, dur = 2.0 },  -- the investors join in
+		{ 6.22, "whoosh", vol = 0.45 }, { 6.3, "kick", vol = 0.6 }, { 6.4, "fly", vol = 0.5 },
+		{ 7.25, "boing", vol = 0.6 }, { 7.3, "thud", vol = 0.55 },
+		{ 7.95, "doorSlam", vol = 0.5 },
+		{ 9.05, "sad", vol = 0.45 },
+		{ 12.25, "laptop", vol = 0.5 },
+		{ 13.25, "tbc", vol = 0.55 },      -- "He will rue the day." ... to be continued
+	},
 }
 
 SCENES.payoff = {
@@ -180,9 +211,9 @@ SCENES.payoff = {
 	shots = {
 		{ 0, 1.7, "door", from = { offset = V(5.5, 4.2, 14), look = V(1, 3.2, 0), fov = 58 } },
 		{ 1.7, 3.7, "board", from = WIDE },
-		{ 3.7, 5.4, "board", from = { offset = V(0, 6.2, 10.9), look = V(0, 3.5, -2), fov = 56 },
+		{ 3.7, 5.6, "board", from = { offset = V(0, 6.2, 10.9), look = V(0, 3.5, -2), fov = 56 },
 			to = { offset = V(0, 6, 10.4), look = V(0, 3.5, -2), fov = 55 } },
-		{ 5.4, 6.8, "board", from = ONBOB, to = { offset = V(-7, 4.5, 9), look = V(-7, 4.4, 1), fov = 50 } },
+		{ 5.6, 6.8, "board", from = ONBOB, to = { offset = V(-7, 4.5, 9), look = V(-7, 4.4, 1), fov = 50 } },
 		{ 6.8, 8.4, "board", from = { offset = V(2.5, 6, 10.5), look = V(1, 3.5, -2), fov = 56 },
 			to = { offset = V(2.5, 5.8, 9.8), look = V(1, 3.5, -2), fov = 54 } },
 		{ 8.4, 9.6, "board", aim = "tablet", from = { offset = V(2.7, 3.8, 2.6), look = V(5.7, 3.4, 1.5), fov = 38, dist = 5.4 },
@@ -257,12 +288,12 @@ SCENES.payoff = {
 			{ t = 9.7, pose = "laughdie" }, { t = 10.4, face = "deadpan" }, { t = 11.0, pose = "shock", face = "shock" }, { t = 15.4, vis = false } },
 	},
 	bubbles = {
-		{ "bob", L.youAgain, 2.1, 3.6 },
-		{ "hero", L.myOffer, 3.75, 5.6 },
-		{ "bob", L.haha, 5.6, 6.8 },
-		{ "bob", L.what, 11.15, 13.2 },
-		{ "bob", L.takeIt, 13.4, 15.3 },
-		{ "hero", L.laughing, 17.9, 19.7 },
+		{ "bob", L.youAgain, 2.1, 3.6, voice = "huh", pitch = 1.15 },
+		{ "hero", L.myOffer, 3.75, 5.6, voice = "talk" },
+		{ "bob", L.haha, 5.6, 6.8, voice = "laughRich", pitch = 0.85 },
+		{ "bob", L.what, 11.15, 13.2, voice = "gasp" },
+		{ "bob", L.takeIt, 13.4, 15.3, voice = "talk", pitch = 1.3 },   -- panicked: higher
+		{ "hero", L.laughing, 17.9, 19.7, voice = "talk" },
 	},
 	fx = {
 		{ kind = "debris", anchor = "door", p = V(0, 0, -0.6), t0 = 1.25, t1 = 2.2 },
@@ -284,7 +315,26 @@ SCENES.payoff = {
 		handoff = { { t = 0, v = 0 }, { t = 19.2, v = 0 }, { t = 19.8, v = 1 } },
 	},
 	shakes = { { 1.25, 1.55, 0.45 }, { 11.0, 11.25, 0.3 }, { 15.4, 15.9, 0.6 } },
-	cues = { { 0.05, "music" }, { 1.26, "thud" }, { 5.45, "laugh" }, { 13.4, "money" }, { 16.35, "boing" }, { 16.4, "thud" }, { 17.65, "victory" } },
+	beds = {
+		{ "streetAmb", 0, 1.7, 0.2 },
+		{ "officeAmb", 1.7, 15.4, 0.22 },  -- minding their own business
+		{ "streetAmb", 15.4, 20.0, 0.2 },
+		{ "dizzy", 16.5, 20.0, 0.3 },      -- the stars round Bob's head
+	},
+	cues = {
+		{ 0.05, "music", vol = 0.3 },
+		{ 0.9, "whoosh", vol = 0.45 }, { 1.1, "kick", vol = 0.6 }, { 1.2, "doorBreak", vol = 0.6 }, { 1.26, "thud", vol = 0.5 },
+		{ 5.8, "laughCrowd", vol = 0.3, dur = 2.0 },
+		{ 6.95, "whoosh", vol = 0.35 },    -- the iPad comes out
+		{ 8.5, "riser", vol = 0.5, dur = 0.95 }, { 9.4, "ding", vol = 0.55 },   -- the line shoots up: +312%
+		{ 9.62, "scratch", vol = 0.55 },   -- the laugh stops dead
+		{ 10.2, "crickets", vol = 0.4, dur = 0.8 },
+		{ 11.0, "realize", vol = 0.6 },    -- it lands
+		{ 13.4, "money", vol = 0.55 }, { 13.45, "ding", vol = 0.35 }, { 13.5, "bills", vol = 0.5 },   -- ka-ching
+		{ 15.35, "whoosh", vol = 0.45 }, { 15.45, "kick", vol = 0.6 }, { 15.5, "fly", vol = 0.5 },
+		{ 16.35, "boing", vol = 0.6 }, { 16.4, "thud", vol = 0.55 },
+		{ 17.65, "victory", vol = 0.55 },
+	},
 }
 
 -- ------------------------------------------------------------------ evaluator
@@ -404,13 +454,24 @@ function BobScript.at(name, t, reduced)
 	return f
 end
 
--- sound cues whose time falls in (t0, t1]
+-- the sounds to start in (t0, t1]: { id, vol?, dur?, pitch? }. A scene's cues, and for every bubble
+-- its pop and its voice (the voice stops when the bubble goes)
 function BobScript.cues(name, t0, t1)
-	local out = {}
-	for _, c in ipairs(scene(name).cues) do
-		if c[1] > t0 and c[1] <= t1 then table.insert(out, c[2]) end
+	local s, out = scene(name), {}
+	for _, c in ipairs(s.cues) do
+		if c[1] > t0 and c[1] <= t1 then table.insert(out, { id = c[2], vol = c.vol, dur = c.dur, pitch = c.pitch }) end
+	end
+	for _, b in ipairs(s.bubbles) do
+		if b[3] > t0 and b[3] <= t1 then table.insert(out, { id = "pop", vol = 0.45 }) end
+		local tv = b[3] + 0.04
+		if b.voice and tv > t0 and tv <= t1 then
+			table.insert(out, { id = b.voice, vol = b.vol or 0.6, dur = b[4] - tv, pitch = b.pitch })
+		end
 	end
 	return out
 end
+
+-- the scene's loops: { { id, t0, t1, vol } }; the client fades each in and out with its span
+function BobScript.beds(name) return scene(name).beds or {} end
 
 return BobScript

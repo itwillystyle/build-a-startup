@@ -57,6 +57,33 @@ Sfx.ID = {
 	thud = 9113480917,          -- Pro Sound Effects, "Body Fall Thud 1 (SFX)", 0.5s
 	money = 1319346243,         -- Creator Store upload (codes4breakfast), "Money, Coins, Drop In Cash Register"
 	victory = 115889148511042,  -- APM, "To the Victor (Sting)"
+
+	-- 25 Oct (Luke: "add the sounds"): the full cutscene sound pass. All Pro Sound Effects (PSE) or APM,
+	-- picked from the store's own names and descriptions (not heard yet: Luke judges them by ear)
+	bobOffice = 9125716185,     -- PSE, Office Ambience Interior Library Reference Desk 1, 39.2s (voices, hum)
+	bobStreet = 9112874053,     -- PSE, Small Town Ambience 1, 36s loop (birds, light cars)
+	bobRain = 9112852836,       -- PSE, Rain Continuous Drizzle 2, 36s loop
+	bobDizzy = 9116394756,      -- PSE, Magic Glows Soft Clusters Of Chiming Hits 3, 3.9s (seeing stars)
+	bobPop = 9119669618,        -- PSE, Suction Pop 6 (toy pop), 0.5s: a bubble appearing
+	bobTalk = 1841185078,       -- APM, Sliding Trombone (a), 2s: cartoon "wah-wah" talk, no words
+	bobChuckle = 9114011832,    -- PSE, Crowd Laugh Reverberant Interior 1, 3.4s: the investors join in
+	bobHuh = 9113854411,        -- PSE, Comic Boinks 2, 0.8s: a cartoon "huh?" bloop
+	bobGasp = 9113438543,       -- PSE, Bike Horn Squeeze 4, 0.8s: the comic shock honk
+	bobWhoosh = 9126047581,     -- PSE, Synth Air Whoosh Cheesy Karate Style Swishes 13, 0.4s
+	bobKick = 9120413351,       -- PSE, Video Game Effects 9 (kicks, punches, impacts), 0.9s
+	bobFly = 9119198140,        -- PSE, Slide Whistle 4 (classic cartoon riffs), 1.4s: tumbling through the air
+	bobBoing = 9113854388,      -- PSE, Comic Boinks 3 (springy cartoon), 1.0s: licensed, replaces the upload
+	bobDoorSlam = 9114153398,   -- PSE, Door Slams 7, 1.2s
+	bobDoorBreak = 9113647302,  -- PSE, Bust Door Open 3, 2.1s: the door kicked in
+	bobSad = 1842248431,        -- APM, Linking Trombone (1), 3s: descending sad trombone
+	bobTbc = 9039636793,        -- APM, Stargazing (sting c), 2s: "to be continued" funk horn sting
+	bobLaptop = 9113140784,     -- PSE, Apple Keyboard 4, 0.3s
+	bobRiser = 9120733055,      -- PSE, Whoosh Rising Swish Airy Various Pitches 1, 1.7s: the line shooting up
+	bobDing = 9126073001,       -- PSE, Synth Sparkle Tone High Pitch Bell Tone Ding 4, 1.2s: +312%
+	bobScratch = 9118090423,    -- PSE, Record Scratch Variety Pack 4, 0.9s: the laugh stops dead
+	bobCrickets = 9112764546,   -- PSE, Crickets Night 1, 36s loop (a second of it)
+	bobRealize = 1846902250,    -- APM, Showdown At The Docks 18, 3s: a single powerful low hit
+	bobBills = 9113726379,      -- PSE, Cash Drop 1, 1.3s
 }
 
 function Sfx.url(key)

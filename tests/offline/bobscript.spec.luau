@@ -99,15 +99,47 @@ test("the end frame is the hand-off", function()
 	assert(B.at("intro", 0, false).handoff == 0, "starts not handed off")
 end)
 
-test("cues fire once", function()
-	local n = {}
-	local t, step = 0, 1 / 60
-	while t < B.length("intro") do
-		for _, c in ipairs(B.cues("intro", t, t + step)) do n[c] = (n[c] or 0) + 1 end
-		t += step
+-- every cue, every bubble pop and every voice starts exactly once when the scene plays frame by frame
+test("every sound fires once", function()
+	for _, name in ipairs({ "intro", "payoff" }) do
+		local fired, t, step = 0, 0, 1 / 60
+		while t < B.length(name) do
+			fired += #B.cues(name, t, t + step)
+			t += step
+		end
+		local want = #B.cues(name, -1, B.length(name))
+		assert(fired == want and want > 10, ("%s: %d fired, %d in the script"):format(name, fired, want))
 	end
-	for _, id in ipairs({ "music", "laugh", "boing", "thud" }) do
-		assert(n[id] == 1, id .. " fired " .. tostring(n[id]))
+end)
+
+-- Luke 25 Oct: "I've got an offer for you" sat on Bob's close-up after the cut. A line ends in its shot
+test("no bubble runs across a cut", function()
+	for _, name in ipairs({ "intro", "payoff" }) do
+		local last = {}
+		sweep(name, function(f, t)
+			for _, b in ipairs(f.bubbles) do
+				if b.k > 0 then
+					if last[b.text] and last[b.text] ~= f.shot then
+						error(("%s: %q runs from shot %d into shot %d at %.1f s"):format(name, b.text, last[b.text], f.shot, t))
+					end
+					last[b.text] = f.shot
+				end
+			end
+		end)
+	end
+end)
+
+-- every sound name the scenes use is wired to a real id in Sfx (a missing one is silent, not an error)
+test("every sound has an id", function()
+	local Sfx = require("../../src/ReplicatedStorage/Sfx")
+	for _, name in ipairs({ "intro", "payoff" }) do
+		local ids = {}
+		for _, c in ipairs(B.cues(name, -1, B.length(name))) do ids[c.id] = true end
+		for _, bed in ipairs(B.beds(name)) do ids[bed[1]] = true end
+		for id in pairs(ids) do
+			local key = B.SOUND[id]
+			assert(key and Sfx.ID[key], ("%s uses %q, which has no Sfx id"):format(name, id))
+		end
 	end
 end)
 
