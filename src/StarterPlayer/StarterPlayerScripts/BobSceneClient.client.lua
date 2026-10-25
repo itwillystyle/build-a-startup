@@ -320,6 +320,14 @@ local function bubbleFor(a)
 	return { box = box, card = card, tail = tail, patch = patch, scale = sc, head = a.head }
 end
 
+-- a clamp for screen positions that never errors: when the room is smaller than the thing (a
+-- bubble's first frame, before its text is measured; a tiny window) it centres it instead
+-- (the doctor, 25 Oct: math.clamp errored with max < min)
+local function fit(v, lo, hi)
+	if hi < lo then return (lo + hi) / 2 end
+	return math.clamp(v, lo, hi)
+end
+
 -- where a bubble goes this frame, in viewport pixels (the scene's gui ignores the inset):
 -- x, y = the bubble's bottom centre; side = nil above the head, 1 right of it, -1 left of it;
 -- hx, hy = the head on screen, for the tail
@@ -339,8 +347,8 @@ local function bubbleAt(cam, head, w, h)
 		y = math.max(mid.Y + h / 2, safeTop + h)
 	end
 	local right = (y - h < SKIP_ZONE * 0.6) and vp.X - SKIP_ZONE or vp.X - edge
-	x = math.clamp(x, edge + w / 2, math.max(edge + w / 2, right - w / 2))
-	y = math.clamp(y, safeTop + h, safeBot)
+	x = fit(x, edge + w / 2, right - w / 2)
+	y = fit(y, safeTop + h, safeBot)
 	return x, y, side, mid.X, mid.Y
 end
 
@@ -355,13 +363,13 @@ local function placeBubble(cam, bb)
 	if side == nil then
 		-- above the head: the tail hangs from the bottom edge toward the head
 		bb.box.Position = UDim2.fromOffset(x, y - 16)
-		local tx = math.clamp(hx - x, -w / 2 + 30, w / 2 - 30)
+		local tx = fit(hx - x, -w / 2 + 30, w / 2 - 30)
 		bb.tail.Position = UDim2.new(0.5, tx, 1, 1)
 		bb.patch.Size, bb.patch.Position = UDim2.fromOffset(TAIL + 8, 10), UDim2.new(0.5, tx, 1, -4)
 	else
 		-- beside the head: the tail sticks out of the side that faces it
 		bb.box.Position = UDim2.fromOffset(x, y)
-		local ty = math.clamp(hy - (y - h / 2), -h / 2 + 18, h / 2 - 18)
+		local ty = fit(hy - (y - h / 2), -h / 2 + 18, h / 2 - 18)
 		local edgeX = side == 1 and 0 or 1
 		bb.tail.Position = UDim2.new(edgeX, side == 1 and -1 or 1, 0.5, ty)
 		bb.patch.Size, bb.patch.Position = UDim2.fromOffset(10, TAIL + 8), UDim2.new(edgeX, side == 1 and 4 or -4, 0.5, ty)
@@ -1048,7 +1056,7 @@ local function play(name, info)
 				fx.box.Visible = p ~= nil and p.Z > 0
 				if fx.box.Visible then
 					local vp = cam.ViewportSize
-					fx.box.Position = UDim2.fromOffset(math.clamp(p.X, 150, vp.X - 150), math.clamp(p.Y, vp.Y * 0.1 + 110, vp.Y * 0.9 - 110))
+					fx.box.Position = UDim2.fromOffset(fit(p.X, 150, vp.X - 150), fit(p.Y, vp.Y * 0.1 + 110, vp.Y * 0.9 - 110))
 				end
 			end
 		end
