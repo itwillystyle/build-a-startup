@@ -317,8 +317,13 @@ local function play(name, info)
 	for _, g in ipairs(player.PlayerGui:GetChildren()) do
 		if g:IsA("ScreenGui") and g.Enabled and g.Name ~= "BobSceneGui" then g.Enabled = false; table.insert(hidden, g) end
 	end
-	pcall(function() controls = require(player.PlayerScripts:WaitForChild("PlayerModule", 2)):GetControls() end)
+	pcall(function()
+		local pm = player.PlayerScripts:FindFirstChild("PlayerModule")
+		controls = pm and require(pm):GetControls()
+	end)
 	if controls then controls:Disable() end
+	local myRoot = char and char:FindFirstChild("HumanoidRootPart")
+	if myRoot then override(myRoot, "Anchored", true) end
 
 	-- letterbox, SKIP, the money counter
 	gui = Instance.new("ScreenGui")

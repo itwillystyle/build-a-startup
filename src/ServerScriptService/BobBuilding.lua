@@ -98,7 +98,7 @@ function BobBuilding.build(world)
 	part(m, { Name = "SideL", Size = Vector3.new(1, H, D), CFrame = at(-W / 2 + 0.5, H / 2, 0), Color = NAVY })
 	part(m, { Name = "SideR", Size = Vector3.new(1, H, D), CFrame = at(W / 2 - 0.5, H / 2, 0), Color = NAVY })
 	part(m, { Name = "Roof", Size = Vector3.new(W, 1, D), CFrame = at(0, H + 0.5, 0), Color = CHARCOAL })
-	part(m, { Name = "RoomCeiling", Size = Vector3.new(W - 2, 0.4, D - 2), CFrame = at(0, S.room, 0), Color = CHARCOAL })
+	local ceiling = part(m, { Name = "RoomCeiling", Size = Vector3.new(W - 2, 0.4, D - 2), CFrame = at(0, S.room, 0), Color = CHARCOAL })
 	local doorX, doorW, doorH = 9, 4, 8
 	local fw = Instance.new("Model")
 	fw.Name = "FrontWall"   -- the client hides this during the boardroom shots (a cutaway)
@@ -134,15 +134,19 @@ function BobBuilding.build(world)
 	for _, x in ipairs({ -10.5, 2.5 }) do part(m, { Name = "TableLeg", Size = Vector3.new(0.6, 2.7, 2.6), CFrame = at(x, 1.65, -3), Color = DOORWOOD }) end
 	for _, x in ipairs({ -12, -7, -2.5 }) do part(m, { Name = "Chair", Size = Vector3.new(2, 4, 0.5), CFrame = at(x, 2.4, -5.6), Color = CHARCOAL }) end
 	part(m, { Name = "Window", Size = Vector3.new(20, 6, 0.2), CFrame = at(-2, 7, -front + 1.1), Color = GLASS, Material = Enum.Material.Neon, Transparency = 0.25, CanCollide = false })
-	-- live 25 Oct: a closed room is black without its own light (both cutscenes play in here)
+	-- live 25 Oct: a closed room is black without its own light (both cutscenes play in here).
+	-- The lights hang off the ceiling part (a flat lamp part read as a sinking surface to the doctor)
 	for _, x in ipairs({ -8, 4 }) do
-		local lamp = part(m, { Name = "Lamp", Size = Vector3.new(3, 0.3, 3), CFrame = at(x, S.room - 0.4, 0), Color = PAPER, Material = Enum.Material.Neon, CanCollide = false, CanQuery = false })
+		local a = Instance.new("Attachment")
+		a.Name = "Lamp"
+		a.Parent = ceiling
+		a.WorldCFrame = at(x, S.room - 0.6, 0)
 		local light = Instance.new("PointLight")
 		light.Range = 22
 		light.Brightness = 1.6
 		light.Color = Color3.fromRGB(255, 236, 210)
 		light.Shadows = false
-		light.Parent = lamp
+		light.Parent = a
 	end
 	local inner = part(m, { Name = "InnerSign", Size = Vector3.new(10, 1.4, 0.2), CFrame = at(-2, 10.8, -front + 1.1), Color = NAVY, CanCollide = false })
 	label(inner, Enum.NormalId.Front, "BOB CAPITAL", GOLD)
