@@ -410,6 +410,7 @@ local function syncCode()
 		hands, else LAUNCH!, else the goal. The pick goes out as the client-local attribute OneVoice:
 		GuideClient folds the goal card to its icon, PromptClient hides prompts, CoachClient waits. ]]
 	local pick = OneVoice.pick({
+		scene = player:GetAttribute("BobScenePlaying") == true,   -- P-5: Bob's cutscene owns the screen
 		verb = codeBtn.Visible and verb or nil, carrying = carrying,
 		midJob = player:GetAttribute("MidJob") == true, recruit = player:GetAttribute("Carrying") ~= nil,
 		launch = launchState ~= nil, goal = goalShown(),

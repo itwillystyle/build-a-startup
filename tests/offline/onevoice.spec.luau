@@ -262,4 +262,14 @@ test("an incoming call on screen is the voice: the goal folds and its card keeps
 	assert(V.bannerY(card, nil) == 96, "no goal card on screen: the usual row")
 end)
 
+-- P-5 (25 Oct): while Bob's cutscene plays nothing else speaks (spec 5: "One voice")
+test("nothing speaks while a Bob scene plays", function()
+	local p = V.pick({ scene = true, verb = "code", carrying = true, launch = true, phone = true, tip = true, goal = true })
+	assert(p.voice == "scene", tostring(p.voice))
+	assert(p.goal == "hidden" and p.launch == nil and p.marker == false, "goal hidden, no LAUNCH, no marker")
+	assert(V.phoneOk(p.voice) == false, "phone banners wait")
+	assert(V.milestoneOk(p.voice) == false, "GO PUBLIC waits")
+	assert(V.coachOk(p.voice, nil) == false, "coach tips wait")
+end)
+
 return T
