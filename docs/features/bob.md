@@ -49,4 +49,4 @@ Spec: `silicon-startup/docs/superpowers/specs/2026-10-25-bob-first-boss-investor
   - the payoff pays once and sets BobPaid
 - The `bobscene` probe is in `DoctorProbes.lua`.
 
-**Last verified:** 2026-10-25 (branch bob-intro)
+**Last verified:** 2026-10-25 4d91950
