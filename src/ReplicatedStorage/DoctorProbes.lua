@@ -372,6 +372,47 @@ end
 	frame (SiliconCore buildShell: GarageFloor sits at g(0, -2, 0); the desk at z -9,
 	the door at z +14.5). C1 matches Luke's 21 Oct shot from beside the laptop; C2 is
 	the garage-outside mock's view of the forecourt. C3/C4 belong to plans 3 and 4. ]]
+--[[ P-5 (25 Oct): one Bob cutscene, end to end, on this client. args = { name = "intro"|"payoff",
+	skipAt = seconds or nil }. Measures what the spec promises: it starts, it ends (or skips) into
+	the same state -- camera Custom on the humanoid, no BobScene folder or BobSceneGui left, every
+	ScreenGui that was on is on again, BobScenePlaying false -- and how long it ran. ]]
+function Probes.bobscene(args)
+	local player = game:GetService("Players").LocalPlayer
+	local ev = player.PlayerGui:FindFirstChild("SVBobScene")
+	if not ev then return { error = "no SVBobScene (BobSceneClient not running)" } end
+	local before = {}
+	for _, g in ipairs(player.PlayerGui:GetChildren()) do
+		if g:IsA("ScreenGui") and g.Enabled then before[g] = true end
+	end
+	local name = args.name or "intro"
+	ev:Fire(name, { amount = 0 })
+	local t0 = os.clock()
+	while player:GetAttribute("BobScenePlaying") ~= true and os.clock() - t0 < 3 do task.wait() end
+	local started = player:GetAttribute("BobScenePlaying") == true
+	local tStart = os.clock()
+	while player:GetAttribute("BobScenePlaying") == true and os.clock() - tStart < 30 do
+		if args.skipAt and os.clock() - tStart >= args.skipAt then player:SetAttribute("BobSkipNow", true) end
+		task.wait()
+	end
+	local ran = os.clock() - tStart
+	player:SetAttribute("BobSkipNow", nil)
+	task.wait(0.3)
+	local cam = workspace.CurrentCamera
+	local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	local lost = 0
+	for g in pairs(before) do if g.Parent and not g.Enabled then lost += 1 end end
+	local checks = {
+		{ name = "bob " .. name .. ": started", ok = started, measured = started, expected = true },
+		{ name = "bob " .. name .. ": camera Custom after", ok = cam.CameraType == Enum.CameraType.Custom, measured = tostring(cam.CameraType), expected = "Custom" },
+		{ name = "bob " .. name .. ": camera on the humanoid", ok = hum ~= nil and cam.CameraSubject == hum, measured = cam.CameraSubject and cam.CameraSubject.ClassName or "nil", expected = "Humanoid" },
+		{ name = "bob " .. name .. ": nothing left behind", ok = workspace:FindFirstChild("BobScene") == nil and player.PlayerGui:FindFirstChild("BobSceneGui") == nil or name == "payoff",
+			measured = tostring(workspace:FindFirstChild("BobScene") ~= nil), expected = "false" },
+		{ name = "bob " .. name .. ": HUD back", ok = lost == 0, measured = lost, expected = 0 },
+		{ name = "bob " .. name .. ": playing flag cleared", ok = player:GetAttribute("BobScenePlaying") ~= true, measured = player:GetAttribute("BobScenePlaying"), expected = false },
+	}
+	return { checks = checks, ran = math.floor(ran * 100) / 100 }
+end
+
 Probes.LOOK_CAMS = {
 	C1 = { eye = Vector3.new(-5.5, 7.5, -13.5), at = Vector3.new(9, 3.5, 5) },
 	C2 = { eye = Vector3.new(0, 9, 52), at = Vector3.new(0, 5, 10) },

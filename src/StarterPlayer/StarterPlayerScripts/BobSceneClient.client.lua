@@ -317,6 +317,10 @@ local function play(name, info)
 		Size = UDim2.new(0, 104, 0, 48), ZIndex = 8,
 	}, { textSize = 18, dark = true })
 	skip.MouseButton1Click:Connect(function() skipped = true end)
+	-- the doctor's hand on the SKIP button (DoctorProbes.bobscene): it can only skip your own scene
+	local c0 = player:GetAttributeChangedSignal("BobSkipNow"):Connect(function()
+		if player:GetAttribute("BobSkipNow") == true then skipped = true end
+	end)
 	local tapAt, tapPos
 	local c1 = UserInputService.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.Touch then tapAt, tapPos = os.clock(), input.Position end
@@ -409,7 +413,7 @@ local function play(name, info)
 		if finished then return end
 		finished = true
 		if conn then conn:Disconnect() end
-		c1:Disconnect(); c2:Disconnect()
+		c0:Disconnect(); c1:Disconnect(); c2:Disconnect()
 		local endT = os.clock() - t0
 		-- a skipped intro still ends where the story ends: you at your laptop
 		if name == "intro" and char and char.PrimaryPart and A.garage then

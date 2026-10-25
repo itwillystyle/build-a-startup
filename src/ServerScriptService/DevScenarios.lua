@@ -39,7 +39,7 @@ local snapped = {} -- userId -> true once a snapshot was taken in THIS server
 Scen.LIST = {
 	"snapshot", "rich", "ready", "chase:skilled", "chase:star", "chase:genius",
 	"vip-chase", "hq:<n>", "office:<dept>", "finish:<W_|T_|D_>", "home:<0-3>", "spinoff", "tp:hq", "tp:apt", "tp:car",
-	"tp:candidate:<tier>", "tp:vip", "tp:door", "geo", "restock", "health", "fresh", "list",
+	"tp:candidate:<tier>", "tp:vip", "tp:door", "geo", "restock", "health", "fresh", "bob:intro", "bob:due", "list",
 }
 
 local function allowed(userId)
@@ -298,6 +298,25 @@ function Scen.run(ctx, player, name)
 		local r = step("clients", "fresh")
 		if type(r) == "table" and r.ok == false then return done(false, r.err) end
 		return done(true)
+	elseif kind == "bob" then
+		-- P-5 (25 Oct): a save with Bob's story. "intro": a fresh garage, ready to replay the intro
+		-- (fire PlayerGui.SVBobScene "intro" on the client). "due": the HQ 4 stage, unpaid, at his door.
+		step("jr", "bobPaid false")
+		step("jr", "seriesA false")
+		step("jr", "bobArc true")
+		if rest == "intro" then
+			step("wlevel", "1!")
+			step("work", "nil")
+			return done(true)
+		elseif rest == "due" then
+			step("wlevel", "13!")
+			local sv = workspace:FindFirstChild("SiliconValley")
+			local trig = sv and sv:FindFirstChild("BobCapital") and sv.BobCapital:FindFirstChild("Trigger")
+			if not trig then return done(false, "no Bob Capital in the world") end
+			local plot = ctx.plotOf(player)
+			return done(true, nil, { hq = plot and plot.hq and plot.hq.level, door = trig.Position })
+		end
+		return done(false, "usage: bob:intro | bob:due")
 	elseif kind == "home" then
 		local n = tonumber(rest)
 		if not n then return done(false, "usage: home:<0-3>") end

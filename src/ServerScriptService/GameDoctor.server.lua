@@ -638,6 +638,48 @@ local function run()
 	end)
 
 	-- 23 Oct: the motion layer, Reduce Motion forced on for the probe (DoctorProbes.motion)
+	-- P-5 (25 Oct): Bob. The intro end to end, the intro skipped at 3 s (both must land in the
+	-- same state), then the payoff at his door: it pays, it sets BobPaid, and a second walk-in
+	-- pays nothing. The money is the server's; the client only shows it.
+	step("bob", function()
+		local r = sv:Invoke("scenario", player, "bob:intro")
+		check("bob: intro scenario", r and r.ok, "BUG", r and (r.ok and "ok" or tostring(r.err)) or "no answer", "ok")
+		for _, args in ipairs({ { name = "intro" }, { name = "intro", skipAt = 3 } }) do
+			local res = probe(player, "bobscene", args, 40)
+			if not res or res.error then
+				check("bob probe answered", false, "BUG", res and res.error or "no answer", "answer")
+				return
+			end
+			for _, c in ipairs(res.checks or {}) do
+				check(c.name .. (args.skipAt and " (skipped at 3 s)" or ""), c.ok, "BUG", c.measured, c.expected)
+			end
+			if args.skipAt then
+				check("bob intro: SKIP lands at once", res.ran < args.skipAt + 1, "BUG", res.ran, "under " .. (args.skipAt + 1) .. " s")
+			else
+				check("bob intro: 15 to 17 s", res.ran >= 15 and res.ran <= 17.5, "FEEL", res.ran, "15-17 s")
+			end
+		end
+		local due = sv:Invoke("scenario", player, "bob:due")
+		check("bob: due scenario", due and due.ok, "BUG", due and (due.ok and ("hq " .. tostring(due.hq)) or tostring(due.err)) or "no answer", "ok")
+		if not (due and due.ok and due.door) then return end
+		local cash = player:FindFirstChild("leaderstats") and player.leaderstats:FindFirstChild("Cash")
+		local function walkIn()
+			local before = cash and cash.Value or 0
+			char:PivotTo(CFrame.new(due.door + Vector3.new(0, 0, 8)))
+			task.wait(0.5)
+			char:PivotTo(CFrame.new(due.door))
+			task.wait(2.5)
+			return (cash and cash.Value or 0) - before
+		end
+		local first = walkIn()
+		check("bob payoff: pays", first > 0, "BLOCKER", first, "> 0")
+		check("bob payoff: BobPaid set", player:GetAttribute("BobPaid") == true, "BUG", player:GetAttribute("BobPaid"), true)
+		task.wait(18)   -- the payoff scene plays on the client
+		local second = walkIn()
+		check("bob payoff: pays once", second == 0, "BLOCKER", second, 0)
+		check("bob payoff: scene over", player:GetAttribute("BobScenePlaying") ~= true, "BUG", player:GetAttribute("BobScenePlaying"), false)
+	end)
+
 	step("motion", function()
 		local res = probe(player, "motion", {}, 20)
 		if not res or res.error then
