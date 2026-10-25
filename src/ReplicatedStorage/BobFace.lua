@@ -96,11 +96,137 @@ local function draw(gui, expr)
 	end
 end
 
+
+-- ------------------------------------------------------------------ card mode (AI mesh heads)
+--[[ 25 Oct (Luke: "generate the head with no mouth or eyebrows"): the AI cast have blank faces
+	under their glasses. A decal cannot follow a curved mesh head, so each head carries two small
+	invisible cards, welded to it, sitting on the skin: MouthCard below the nose and BrowCard above
+	the glasses. The expression is drawn on their SurfaceGuis. ensureCards places them by measuring
+	the head (raycasts from the front), so any blank-faced head works, not just Bob's. ]]
+BobFace.MOUTH_AT = -0.27   -- fractions of the head's height from its centre (Bob, measured 25 Oct)
+BobFace.BROW_AT = 0.25
+local SKIN_GAP = 0.04
+
+local function cardPart(head, name, cf, size)
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Size = size
+	p.CFrame = cf
+	p.Transparency = 1
+	p.CanCollide, p.CanQuery, p.CanTouch, p.CastShadow, p.Massless = false, false, false, false, true
+	p.Anchored = head.Anchored
+	local w = Instance.new("WeldConstraint")
+	w.Part0, w.Part1 = head, p
+	w.Parent = p
+	local g = Instance.new("SurfaceGui")
+	g.Name = "Draw"
+	g.Face = Enum.NormalId.Front
+	g.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	g.PixelsPerStud = 200
+	g.LightInfluence = 0.6
+	g.Parent = p
+	p.Parent = head.Parent
+	return p
+end
+
+-- needs the head in a WorldRoot (raycasts); the model must face -Z of its torso
+function BobFace.ensureCards(model)
+	local head = model and model:FindFirstChild("Head", true)
+	if not head or model:FindFirstChild("MouthCard", true) then return end
+	local torso = model:FindFirstChild("Torso", true) or head
+	local front = torso.CFrame.LookVector
+	local up = torso.CFrame.UpVector
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { head }
+	local world = head:FindFirstAncestorWhichIsA("WorldRoot")
+	if not world then return end
+	local function skin(k)
+		local at = head.Position + up * (k * head.Size.Y)
+		local from = at + front * (head.Size.Z + 4)
+		local hit = world:Raycast(from, -front * (head.Size.Z + 8), params)
+		return hit and hit.Position or (at + front * head.Size.Z / 2)
+	end
+	local w = head.Size.X
+	local m = skin(BobFace.MOUTH_AT)
+	cardPart(head, "MouthCard", CFrame.lookAt(m + front * SKIN_GAP, m + front * 2, up), Vector3.new(w * 0.36, w * 0.18, 0.02))
+	-- the brow card leans back with the forehead: aim it along the surface normal between two samples
+	local b, b2 = skin(BobFace.BROW_AT), skin(BobFace.BROW_AT + 0.08)
+	local slope = (b2 - b).Unit
+	local normal = slope:Cross(torso.CFrame.RightVector).Unit
+	if normal:Dot(front) < 0 then normal = -normal end
+	cardPart(head, "BrowCard", CFrame.lookAt(b + normal * SKIN_GAP, b + normal * 2, slope), Vector3.new(w * 0.62, w * 0.14, 0.02))
+end
+
+local MOUTH_RED = Color3.fromRGB(110, 28, 34)
+local TONGUE = Color3.fromRGB(232, 92, 100)
+local TEETH = Color3.fromRGB(250, 248, 240)
+
+local function dShape(gui, x, y, w, h, fill, inner)   -- an open "D" mouth: the bottom half of an oval
+	local box = frame(gui, { Position = UDim2.fromScale(x, y), Size = UDim2.fromScale(w, h / 2), BackgroundTransparency = 1, ClipsDescendants = true })
+	box.AnchorPoint = Vector2.new(0.5, 0)
+	local o = round(frame(box, { Position = UDim2.fromScale(0.5, 0), Size = UDim2.fromScale(1, 2), BackgroundColor3 = fill }), 0.5)
+	local st = Instance.new("UIStroke"); st.Thickness = 5; st.Color = INK; st.Parent = o
+	frame(gui, { Position = UDim2.fromScale(x, y), Size = UDim2.fromScale(w + 0.02, 0.07), BackgroundColor3 = INK })
+	if inner then round(frame(o, { Position = UDim2.fromScale(0.5, 0.82), Size = UDim2.fromScale(0.5, 0.28), BackgroundColor3 = inner }), 0.5) end
+end
+
+local function drawMouth(gui, expr)
+	gui:ClearAllChildren()
+	if expr == "laugh" then dShape(gui, 0.5, 0.18, 0.72, 1.3, MOUTH_RED, TONGUE)
+	elseif expr == "grin" then dShape(gui, 0.5, 0.25, 0.66, 0.95, TEETH)
+	elseif expr == "hope" then dShape(gui, 0.5, 0.35, 0.36, 0.5, MOUTH_RED)
+	elseif expr == "shock" then
+		local o = round(frame(gui, { Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.26, 0.9), BackgroundColor3 = MOUTH_RED }), 0.5)
+		local st = Instance.new("UIStroke"); st.Thickness = 5; st.Color = INK; st.Parent = o
+	elseif expr == "sad" then
+		frame(gui, { Position = UDim2.fromScale(0.5, 0.45), Size = UDim2.fromScale(0.3, 0.1), BackgroundColor3 = INK })
+		frame(gui, { Position = UDim2.fromScale(0.33, 0.58), Size = UDim2.fromScale(0.1, 0.1), Rotation = 40, BackgroundColor3 = INK })
+		frame(gui, { Position = UDim2.fromScale(0.67, 0.58), Size = UDim2.fromScale(0.1, 0.1), Rotation = -40, BackgroundColor3 = INK })
+	elseif expr == "smug" then
+		frame(gui, { Position = UDim2.fromScale(0.55, 0.5), Size = UDim2.fromScale(0.42, 0.1), Rotation = -9, BackgroundColor3 = INK })
+		frame(gui, { Position = UDim2.fromScale(0.78, 0.38), Size = UDim2.fromScale(0.1, 0.1), Rotation = -40, BackgroundColor3 = INK })
+	elseif expr == "determined" then
+		frame(gui, { Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.42, 0.13), BackgroundColor3 = INK })
+	elseif expr == "dizzy" then
+		for i, r in ipairs({ 30, -30, 30 }) do
+			frame(gui, { Position = UDim2.fromScale(0.34 + (i - 1) * 0.16, 0.5), Size = UDim2.fromScale(0.18, 0.09), Rotation = r, BackgroundColor3 = INK })
+		end
+	else
+		frame(gui, { Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.34, 0.09), BackgroundColor3 = INK })
+	end
+end
+
+-- brows: { left y, left rotation, right y, right rotation }
+local BROWS = {
+	neutral = { 0.55, 0, 0.55, 0 }, hope = { 0.42, -8, 0.42, 8 }, laugh = { 0.38, -14, 0.38, 14 },
+	shock = { 0.22, -6, 0.22, 6 }, sad = { 0.45, -18, 0.45, 18 }, determined = { 0.6, 22, 0.6, -22 },
+	smug = { 0.6, 6, 0.32, 14 }, dizzy = { 0.5, -12, 0.35, 26 }, grin = { 0.4, -10, 0.4, 10 },
+}
+local function drawBrows(gui, expr)
+	gui:ClearAllChildren()
+	local b = BROWS[expr] or BROWS.neutral
+	frame(gui, { Position = UDim2.fromScale(0.27, b[1]), Size = UDim2.fromScale(0.3, 0.24), Rotation = b[2], BackgroundColor3 = INK })
+	frame(gui, { Position = UDim2.fromScale(0.73, b[3]), Size = UDim2.fromScale(0.3, 0.24), Rotation = b[4], BackgroundColor3 = INK })
+end
+
 function BobFace.attach(model)
 	local head = model and model:FindFirstChild("Head")
 	local h = { current = nil }
 	if not head then
 		function h.set() end
+		return h
+	end
+	-- an AI mesh head with its face cards: draw on the cards
+	local mouthCard, browCard = model:FindFirstChild("MouthCard", true), model:FindFirstChild("BrowCard", true)
+	if mouthCard and browCard then
+		local mg, bg = mouthCard:FindFirstChild("Draw"), browCard:FindFirstChild("Draw")
+		function h.set(expr)
+			if h.current == expr then return end
+			h.current = expr
+			if mg then drawMouth(mg, expr) end
+			if bg then drawBrows(bg, expr) end
+		end
 		return h
 	end
 	local fc = head:FindFirstChildOfClass("FaceControls")

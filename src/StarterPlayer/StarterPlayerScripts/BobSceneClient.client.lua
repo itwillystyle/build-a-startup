@@ -166,10 +166,21 @@ local function pose(a, name, t)
 end
 
 -- feet at pos (anchor space); rot 0 faces the camera (+Z), 90 faces +X; roll spins round Z
-local function place(a, anchorCF, pos, rot, roll)
+-- live 25 Oct (Luke: "phasing through the floor"): an anchor's height is not the floor's (the
+-- garage floor sits above the lot), so each actor stands on the real floor under its feet
+local rayParams = RaycastParams.new()
+rayParams.FilterType = Enum.RaycastFilterType.Exclude
+local function floorAt(world, ignore)
+	rayParams.FilterDescendantsInstances = ignore
+	local hit = workspace:Raycast(world + Vector3.new(0, 6, 0), Vector3.new(0, -14, 0), rayParams)
+	return hit and hit.Position.Y or nil
+end
+local function place(a, anchorCF, pos, rot, roll, ignore)
 	if not (a.root and anchorCF) then return end
 	local lift = (a.hum and a.hum.HipHeight or 2) + a.root.Size.Y / 2
-	a.root.CFrame = anchorCF * CFrame.new(pos + Vector3.new(0, lift, 0)) * CFrame.Angles(0, 0, R(roll or 0))
+	local at = (anchorCF * CFrame.new(pos.X, 0, pos.Z)).Position
+	local floor = floorAt(at, ignore or {}) or at.Y
+	a.root.CFrame = CFrame.new(at.X, floor + pos.Y + lift, at.Z) * anchorCF.Rotation * CFrame.Angles(0, 0, R(roll or 0))
 		* CFrame.Angles(0, R(180 + (rot or 0)), 0)
 end
 
@@ -473,7 +484,7 @@ local function play(name, info)
 			local st = f.actors[id]
 			if st then
 				setVisible(a, st.visible)
-				place(a, A[st.anchor], st.pos, st.rot, st.roll)
+				place(a, A[st.anchor], st.pos, st.rot, st.roll, { folder, char })
 				pose(a, st.pose, t)
 				a.face.set(st.face)
 			end

@@ -80,6 +80,34 @@ local function label(p, face, text, color, size)
 	return g
 end
 
+-- ------------------------------------------------------------------ the AI kit
+--[[ 25 Oct (Luke: "everything is just so bad", "let's do these steps with AI"): Studio's mesh
+	generator made Bob, two investors and the boardroom props. They live in the place itself, in
+	ReplicatedStorage (Rojo leaves that folder's unknown children alone):
+	  BobModel                 Bob (take C + a long tie). Luke may replace it with his own rig.
+	  BobKit.Inv1 / Inv2       the two investors
+	  BobKit.Table / Portrait / Safe / Plant
+	A missing piece is simply not used: the old parts stand in, nothing breaks. ]]
+local function kitPiece(name)
+	local kit = RS:FindFirstChild("BobKit")
+	return kit and kit:FindFirstChild(name)
+end
+-- clone a kit model, scale it, turn it (degrees), stand it with its base on cf
+local function placeKit(name, parent, cf, scale, yaw)
+	local src = kitPiece(name)
+	if not src then return nil end
+	local m = src:Clone()
+	if scale and scale ~= 1 then m:ScaleTo(m:GetScale() * scale) end
+	local box, size = m:GetBoundingBox()
+	local base = cf * CFrame.Angles(0, math.rad(yaw or 0), 0)
+	m:PivotTo(base * CFrame.new(0, size.Y / 2, 0) * box:Inverse() * m:GetPivot())
+	for _, d in ipairs(m:GetDescendants()) do
+		if d:IsA("BasePart") then d.Anchored = true; d.CanCollide = false; d.CastShadow = true end
+	end
+	m.Parent = parent
+	return m
+end
+
 -- ------------------------------------------------------------------ the building
 function BobBuilding.build(world)
 	local old = world:FindFirstChild("BobCapital")
@@ -108,11 +136,23 @@ function BobBuilding.build(world)
 	local rightW = W / 2 - (doorX + doorW / 2)
 	part(fw, { Name = "FrontR", Size = Vector3.new(rightW, H, 1), CFrame = at(W / 2 - rightW / 2, H / 2, front - 0.5), Color = NAVY })
 	part(fw, { Name = "Lintel", Size = Vector3.new(doorW, H - doorH, 1), CFrame = at(doorX, doorH + (H - doorH) / 2, front - 0.5), Color = NAVY })
-	-- glass bands on the facade (outside only)
-	for i = 0, 2 do
-		part(fw, { Name = "Band", Size = Vector3.new(W - 14, 3, 0.2), CFrame = at(-4, 11 + i * 6.5, front + 0.05), Color = GLASS,
-			Material = Enum.Material.Glass, Transparency = 0.2, CanCollide = false, CanQuery = false })
+	-- 25 Oct: a facade, not a blue box. Stone base, a framed glass curtain wall above the door line,
+	-- a gold trim at the roof and a big sign. Every piece is vertical and touches the wall (no floating
+	-- flat parts: the doctor reads those as sinking surfaces). All in FrontWall: cut away inside.
+	part(fw, { Name = "Base", Size = Vector3.new(W + 0.4, 3, 0.4), CFrame = at(0, 1.5, front + 0.15), Color = STONE, Material = Enum.Material.Slate, CanCollide = false, CanQuery = false })
+	part(fw, { Name = "CurtainGlass", Size = Vector3.new(W - 2, H - doorH - 3, 0.2), CFrame = at(0, doorH + 1 + (H - doorH - 3) / 2, front + 0.05),
+		Color = GLASS, Material = Enum.Material.Glass, Transparency = 0.15, Reflectance = 0.25, CanCollide = false, CanQuery = false })
+	for x = -W / 2 + 1, W / 2 - 1, 3.5 do
+		part(fw, { Name = "Mullion", Size = Vector3.new(0.3, H - doorH - 3, 0.3), CFrame = at(x, doorH + 1 + (H - doorH - 3) / 2, front + 0.2), Color = CHARCOAL, CanCollide = false, CanQuery = false })
 	end
+	for y = doorH + 1, H - 2, 4 do
+		part(fw, { Name = "Transom", Size = Vector3.new(W - 2, 0.3, 0.3), CFrame = at(0, y, front + 0.2), Color = CHARCOAL, CanCollide = false, CanQuery = false })
+	end
+	part(fw, { Name = "Trim", Size = Vector3.new(W + 0.4, 0.8, 0.5), CFrame = at(0, H - 0.4, front + 0.2), Color = GOLD, Material = Enum.Material.Metal, CanCollide = false, CanQuery = false })
+	local big = part(fw, { Name = "BigSign", Size = Vector3.new(18, 3.2, 0.3), CFrame = at(-3, H - 3.4, front + 0.4), Color = CHARCOAL, CanCollide = false, CanQuery = false })
+	label(big, Enum.NormalId.Front, "BOB CAPITAL", GOLD)
+	placeKit("Plant", fw, at(doorX - 4.2, 0.4, front + 1.6), 2.2, 0)
+	placeKit("Plant", fw, at(doorX + 4.2, 0.4, front + 1.6), 2.2, 0)
 	local sign = part(m, { Name = "Sign", Size = Vector3.new(12, 2.2, 0.3), CFrame = at(doorX - 3, doorH + 1.6, front + 0.2), Color = GOLD, CanCollide = false })
 	label(sign, Enum.NormalId.Front, "BOB CAPITAL", CHARCOAL)
 
@@ -130,9 +170,18 @@ function BobBuilding.build(world)
 		CanCollide = false, CanQuery = false, CanTouch = true })
 
 	-- the boardroom (both cutscenes): a long table, chairs, a window, a plant, the name inside
-	part(m, { Name = "Table", Size = Vector3.new(16, 0.6, 3.4), CFrame = at(-4, 3, -3), Color = OAK })
-	for _, x in ipairs({ -10.5, 2.5 }) do part(m, { Name = "TableLeg", Size = Vector3.new(0.6, 2.7, 2.6), CFrame = at(x, 1.65, -3), Color = DOORWOOD }) end
-	for _, x in ipairs({ -12, -7, -2.5 }) do part(m, { Name = "Chair", Size = Vector3.new(2, 4, 0.5), CFrame = at(x, 2.4, -5.6), Color = CHARCOAL }) end
+	local dress = Instance.new("Model")
+	dress.Name = "Dressing"
+	dress.Parent = m
+	if not placeKit("Table", dress, at(-4, 0.4, -4.2), 1.6, 90) then
+		part(m, { Name = "Table", Size = Vector3.new(16, 0.6, 3.4), CFrame = at(-4, 3, -3), Color = OAK })
+		for _, x in ipairs({ -10.5, 2.5 }) do part(m, { Name = "TableLeg", Size = Vector3.new(0.6, 2.7, 2.6), CFrame = at(x, 1.65, -3), Color = DOORWOOD }) end
+		for _, x in ipairs({ -12, -7, -2.5 }) do part(m, { Name = "Chair", Size = Vector3.new(2, 4, 0.5), CFrame = at(x, 2.4, -5.6), Color = CHARCOAL }) end
+	end
+	placeKit("Portrait", dress, at(10.5, 4.6, -front + 1.3), 3, 0)
+	placeKit("Safe", dress, at(-12, 0.4, -8.5), 1.3, 30)
+	placeKit("Plant", dress, at(12.8, 0.4, -9.5), 2.4, 0)
+	placeKit("Plant", dress, at(-13, 0.4, 8.5), 2.4, 0)
 	part(m, { Name = "Window", Size = Vector3.new(20, 6, 0.2), CFrame = at(-2, 7, -front + 1.1), Color = GLASS, Material = Enum.Material.Neon, Transparency = 0.25, CanCollide = false })
 	-- live 25 Oct: a closed room is black without its own light (both cutscenes play in here).
 	-- The lights hang off the ceiling part (a flat lamp part read as a sinking surface to the doctor)
@@ -204,11 +253,54 @@ local function castMember(name, index, shirt, pants)
 	return m, head
 end
 
+-- an AI cast member: cloned, rigged (BobRig), given face cards (BobFace) while it stands in
+-- the world for a moment (the cards are placed by raycasting the head), then stored
+local function aiMember(src, name, parent)
+	if not src then return nil end
+	local BobRig = require(RS:WaitForChild("BobRig"))
+	local BobFace = require(RS:WaitForChild("BobFace"))
+	local m = src:Clone()
+	m.Name = name
+	m:PivotTo(CFrame.new(0, -400, 0))
+	m.Parent = workspace
+	local ok = pcall(function()
+		if not BobRig.ensure(m) then error("not six pieces") end
+		BobFace.ensureCards(m)
+	end)
+	if not ok then m:Destroy() return nil end
+	m.Parent = parent
+	return m
+end
+
 function BobBuilding.buildCast()
 	local old = RS:FindFirstChild("BobCast")
 	if old then old:Destroy() end
 	local f = Instance.new("Folder")
 	f.Name = "BobCast"
+	-- 25 Oct: the AI cast (BobModel, BobKit.Inv1/Inv2) when the place has them
+	local aiBob = aiMember(RS:FindFirstChild("BobModel"), "Bob", f)
+	if aiBob then
+		local head = aiBob:FindFirstChild("Head")
+		local mouth = aiBob:FindFirstChild("MouthCard")
+		if head and mouth then
+			-- his gold toothpick, in the corner of his mouth (welded: it drops in the payoff)
+			local pick = part(aiBob, { Name = "Toothpick", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.75, 0.07, 0.07),
+				CFrame = mouth.CFrame * CFrame.new(mouth.Size.X * 0.42, 0.02, -0.12) * CFrame.Angles(0, math.rad(-25), math.rad(-15)),
+				Color = GOLD, Material = Enum.Material.Metal })
+			weldTo(head, pick)
+		end
+	end
+	local aiInv1 = aiMember(kitPiece("Inv1"), "Inv1", f)
+	local aiInv2 = aiMember(kitPiece("Inv2"), "Inv2", f)
+	if aiBob and aiInv1 and aiInv2 then
+		for _, d in ipairs(f:GetDescendants()) do
+			if d:IsA("BasePart") then d.Anchored = true end
+		end
+		BobBuilding.buildChart(f)
+		f.Parent = RS
+		return f
+	end
+	for _, m in ipairs({ aiBob, aiInv1, aiInv2 }) do if m then m:Destroy() end end
 	-- Bob: a dark suit, a red tie, a belly, slicked hair, black sunglasses and a GOLD TOOTHPICK
 	local bob, head = castMember("Bob", 7001, CHARCOAL, CHARCOAL)
 	for _, a in ipairs(bob:GetChildren()) do if a:IsA("Accessory") then a:Destroy() end end
@@ -242,7 +334,16 @@ function BobBuilding.buildCast()
 	local inv2 = castMember("Inv2", 7003, Color3.fromRGB(94, 74, 110), Color3.fromRGB(47, 51, 66))
 	noHats(inv2)
 	inv2.Parent = f
-	-- the REVENUE chart the player holds up in the payoff (the client draws the line)
+	BobBuilding.buildChart(f)
+	for _, d in ipairs(f:GetDescendants()) do
+		if d:IsA("BasePart") then d.Anchored = true end
+	end
+	f.Parent = RS
+	return f
+end
+
+-- the REVENUE chart the player holds up in the payoff (the client draws the line)
+function BobBuilding.buildChart(f)
 	local chart = part(f, { Name = "Chart", Size = Vector3.new(5, 3.6, 0.2), CFrame = CFrame.new(), Color = PAPER, CanCollide = false })
 	local g = Instance.new("SurfaceGui")
 	g.Name = "ChartGui"
@@ -251,11 +352,7 @@ function BobBuilding.buildCast()
 	g.PixelsPerStud = 60
 	g.LightInfluence = 0
 	g.Parent = chart
-	for _, d in ipairs(f:GetDescendants()) do
-		if d:IsA("BasePart") then d.Anchored = true end
-	end
-	f.Parent = RS
-	return f
+	return chart
 end
 
 -- ------------------------------------------------------------------ the trophy
