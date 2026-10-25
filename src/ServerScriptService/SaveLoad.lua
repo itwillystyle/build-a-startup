@@ -430,6 +430,11 @@ return function(core)
 		if data then
 			player:SetAttribute("Returning", true)
 			applySave(player, plot, data)
+		elseif ok then
+			-- P-5: a brand-new save gets Bob's story (his intro, PROVE BOB WRONG, the payoff).
+			-- Only here: an old save never saw the intro, and a failed read is not new.
+			local s = sessions[player.UserId]
+			if s then s.jr = s.jr or {}; s.jr.bobArc = true end
 		end
 		if Econ and Econ.Inv then pcall(Econ.Inv.load, player, sessions[player.UserId], data and data.items) end
 		if Econ and Econ.Daily and Econ.Daily.refresh then pcall(Econ.Daily.refresh, player) end

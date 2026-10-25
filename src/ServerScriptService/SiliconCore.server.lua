@@ -557,6 +557,8 @@ local offerEvent = remote("Offer")          -- server -> client: a rival wants y
 local answerOffer = remote("AnswerOffer")   -- client -> server: accept / decline
 local menuStats = remote("MenuStats")       -- server -> client: the numbers on the menu
 local setMuted = remote("SetMuted")         -- client -> server: remember the mute
+remote("BobPayoff")                        -- P-5 server -> client: { amount, item } play Bob's payoff (money already paid)
+remote("BobIntro")                         -- P-5 client -> server: telemetry only ("start" | "skip:<s>" | "end")
 local menuDone = remote("MenuDone")         -- client -> server: PLAY pressed (the SERVER owns the attribute;
                                             -- a client-set attribute never replicates up, so rivals were dead)
 local clientInfo = remote("ClientInfo")     -- client -> server: touch device or not, once
@@ -1625,6 +1627,7 @@ local function journeyState(player, s, plot)
 		vipStanding = (Econ and Econ.Drop and Econ.Drop.hasVip and Econ.Drop.hasVip(player)) or false,
 		vipDone = (s.vipDay or 0) ~= 0, geniusAvailable = gen ~= nil and (s.staff or 0) < cap, geniusPos = gen and gen.pos or nil,
 		geniusDone = s.jr.genius == true, seriesA = s.jr.seriesA == true,
+		bobArc = s.jr.bobArc == true, bobPaid = s.jr.bobPaid == true,   -- P-5 Bob, the first boss investor
 		productReady = s.pendingProduct ~= nil, items = (type(items) == "string" and items ~= "") and 1 or 0,
 		indexCount = idx, dailyReady = player:GetAttribute("DailyReady") == true,
 		carrying = (Econ and Econ.Drop and Econ.Drop.carrying(player) ~= nil) or false,
@@ -1705,6 +1708,13 @@ local function refreshObjective(player)
 			-- v5: no world arrow for the car: the goal says "Tap CAR" (the button calls
 			-- the car to you) and an arrow to the parked car 27 m away said otherwise
 			if jt.target == "car" then at = nil
+			elseif jt.target == "bob" then   -- P-5: Bob's office (his text arrives once a session)
+				local bc = workspace:FindFirstChild("SiliconValley") and workspace.SiliconValley:FindFirstChild("BobCapital")
+				at = bc and bc:FindFirstChild("Trigger") and bc.Trigger.Position or nil
+				if not s.bobTexted and Econ and Econ.Phone and Econ.Phone.notice and os.clock() - (plot.hqUpAt or -1e9) > 12 then
+					s.bobTexted = true
+					Econ.Phone.notice(player, "bob", "Bob", "Bob Capital", require(ReplicatedStorage:WaitForChild("BobScript")).LINES.text)
+				end
 			elseif jt.target == "residences" then
 				at = Econ and Econ.Apt and Econ.Apt.deskPosition and Econ.Apt.deskPosition()
 				-- 20 Oct: the drive step marks your car until you are in it (Journey.driveTarget)
@@ -1894,6 +1904,9 @@ local function refreshObjective(player)
 	local mc = m.cost and math.floor(m.cost) or nil
 	if player:GetAttribute("MilestoneCost") ~= mc then player:SetAttribute("MilestoneCost", mc) end
 	if player:GetAttribute("MilestoneUnlock") ~= m.unlock then player:SetAttribute("MilestoneUnlock", m.unlock) end
+	if player:GetAttribute("MilestoneBob") ~= m.bob then player:SetAttribute("MilestoneBob", m.bob) end   -- P-5 Bob's bar (0..1) or nil
+	if player:GetAttribute("BobArc") ~= st.bobArc then player:SetAttribute("BobArc", st.bobArc) end
+	if player:GetAttribute("BobPaid") ~= st.bobPaid then player:SetAttribute("BobPaid", st.bobPaid) end
 	-- 17 Oct (Luke's playtest): no coach tip before the lobby, and a tip that was taken
 	-- away without GOT IT (a carry, a ready app) waits its 25 s like a seen one: the BAG
 	-- card came back three times in a minute
@@ -3204,6 +3217,7 @@ spinOff = function(player, plot)
 	s.launch = nil; s.pressure = nil; s.share = 1; s.pendingOffer = nil
 	s.listed = false                   -- v4.3: the new company goes public again at its own HQ 5
 	if s.jr then s.jr.seriesA = nil end  -- ... and raises its own Series A at HQ 4
+	-- (P-5: bobArc / bobPaid stay: Bob is a once-per-save story, and his trophy stays home)
 	-- v3.1: an app finished before the spin-off belongs to the old company; its
 	-- LAUNCH card used to survive the reset showing the old payday
 	s.pendingProduct = nil
@@ -4118,6 +4132,55 @@ local SaveLoad = require(ServerScriptService:WaitForChild("SaveLoad"))({
 	titleOf = titleOf,
 	updateHirePad = updateHirePad,
 })
+
+--[[ P-5 BOB'S PAYOFF (spec docs/superpowers/specs/2026-10-25-bob-first-boss-investor-design.md 3e, 5, 5b-2).
+Walking into Bob's taped door at the HQ 4 stage, on a save that got his intro, pays the best
+Series A the phone could have given and plays the payoff on that client. The server pays and
+sets the flags FIRST: a crash or a leave mid-cutscene can never pay twice or replay it.
+A do-block: this file sits at Luau's 200-local limit. ]]
+do
+	local paying, tapedAt = {}, {}
+	local function onTouch(hit)
+		local player = Players:GetPlayerFromCharacter(hit.Parent)
+		if not player or paying[player] then return end
+		local s, plot = sessions[player.UserId], plotOf(player)
+		if not s or not plot then return end
+		s.jr = s.jr or {}
+		local st = { bobArc = s.jr.bobArc == true, bobPaid = s.jr.bobPaid == true, seriesA = s.jr.seriesA == true, hq = plot.hq.level }
+		if not Journey.bobPayoffDue(st) then
+			if st.bobArc and not st.bobPaid and os.clock() - (tapedAt[player] or -1e9) > 10 then
+				tapedAt[player] = os.clock()
+				toast:FireClient(player, require(ReplicatedStorage:WaitForChild("BobScript")).LINES.taped)
+			end
+			return
+		end
+		paying[player] = true
+		s.jr.bobPaid = true
+		s.jr.seriesA = true
+		local amount, item = Prog.bobPayout(s.rate or 0, plot.hq.level, nextGoalOf(s, plot))
+		local cash = cashOf(player)
+		if cash then cash.Value += amount end
+		if Telemetry then
+			Telemetry.money(player, "source", amount, "investor")
+			Telemetry.event(player, "bob_payoff", amount)
+		end
+		if Econ and Econ.Inv and Econ.Inv.grant then pcall(Econ.Inv.grant, player, item, 1, "Bob sent a gift") end
+		remotes.BobPayoff:FireClient(player, { amount = amount, item = item })
+		refreshObjective(player)
+		task.spawn(function() pcall(SaveLoad.saveNow, player) end)
+		paying[player] = nil
+	end
+	task.spawn(function()
+		local sv = workspace:WaitForChild("SiliconValley", 120)
+		local bc = sv and sv:WaitForChild("BobCapital", 120)
+		local trig = bc and bc:WaitForChild("Trigger", 10)
+		if trig then trig.Touched:Connect(onTouch) else warn("[SV] Bob Capital has no Trigger: no payoff") end
+	end)
+	remotes.BobIntro.OnServerEvent:Connect(function(player, what)
+		if Telemetry and type(what) == "string" and #what <= 16 then Telemetry.event(player, "bob_intro", 1, { { "at", what } }) end
+	end)
+	Players.PlayerRemoving:Connect(function(p) paying[p] = nil; tapedAt[p] = nil end)
+end
 
 -- ============ PLAYERS ============
 
