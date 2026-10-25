@@ -765,8 +765,14 @@ local function play(name, info)
 	conn = RunService.RenderStepped:Connect(function()
 		-- live 25 Oct: a client walking into the garage stood in front of the camera. Anyone else near
 		-- the set (staff, clients, other players) steps out of the shot. Every frame, from the first:
-		-- checked once a second, a worker at the garage desk showed for a moment, then vanished
+		-- checked once a second, a worker at the garage desk showed for a moment, then vanished.
+		-- And held every frame: the game's own scripts show staff again, so a one-off hide flickered
 		do
+			for _, list in pairs(gone) do
+				for _, d in ipairs(list) do
+					if d:IsA("BasePart") or d:IsA("Decal") then d.LocalTransparencyModifier = 1 else d.Enabled = false end
+				end
+			end
 			for mdl in pairs(people) do
 				if mdl.Parent and not gone[mdl] and not mdl:IsDescendantOf(folder) then
 					local who = mdl.Parent
@@ -778,11 +784,12 @@ local function play(name, info)
 						end
 					end
 					if near then
-						gone[mdl] = true
+						local list = {}
 						for _, d in ipairs(who:GetDescendants()) do
-							if d:IsA("BasePart") or d:IsA("Decal") then override(d, "LocalTransparencyModifier", 1)
-							elseif d:IsA("BillboardGui") or d:IsA("SurfaceGui") then override(d, "Enabled", false) end
+							if d:IsA("BasePart") or d:IsA("Decal") then override(d, "LocalTransparencyModifier", 1); table.insert(list, d)
+							elseif d:IsA("BillboardGui") or d:IsA("SurfaceGui") then override(d, "Enabled", false); table.insert(list, d) end
 						end
+						gone[mdl] = list
 					end
 				end
 			end
