@@ -12,9 +12,11 @@
 	(Root, Neck, LeftShoulder, RightShoulder, LeftHip, RightHip), so a clip for them uses only
 	those, and the hero's clips may also use Waist, elbows, wrists, knees and ankles.
 
-	Axes, measured live on R15 (25 Oct): +x on a shoulder or hip swings the limb FORWARD (and up);
-	-z on the right shoulder / +z on the left raises the arm OUT to the side; +x on an elbow bends
-	the forearm up; -x on a knee bends the shin back; +x on Root/Waist leans FORWARD.
+	Axes as WRITTEN in the clips: +x on a shoulder or hip swings the limb FORWARD (and up); -z on the
+	right shoulder / +z on the left raises the arm OUT to the side; +x on an elbow bends the forearm
+	up; -x on a knee bends the shin back; +x on Root/Waist/Neck leans FORWARD. (Live on the rig the
+	z of shoulders and hips, and the x of Root/Waist/Neck, are the other way round, measured 25 Oct
+	with the hands and the head; sample() flips them, so the clips read the way they were written.)
 
 	BobClips.sample(name, t) -> { [joint] = CFrame }    (t in seconds since the clip started)
 ]]
@@ -230,6 +232,9 @@ C.inv_shock = { length = 1.0, keys = {
 
 BobClips.CLIPS = C
 
+local FLIP_Z = { LeftShoulder = true, RightShoulder = true, LeftHip = true, RightHip = true }
+local FLIP_X = { Root = true, Waist = true, Neck = true }
+
 -- build each joint's own track once: { joint = { {t, x, y, z, ease}, ... } }
 local TRACKS = {}
 for name, clip in pairs(C) do
@@ -267,6 +272,10 @@ function BobClips.sample(name, t)
 			local k = E(b[5], (t - a[1]) / (b[1] - a[1]))
 			x, y, z = a[2] + (b[2] - a[2]) * k, a[3] + (b[3] - a[3]) * k, a[4] + (b[4] - a[4]) * k
 		end
+		-- measured live 25 Oct: on the rig, +z swings a RIGHT limb out (and a left one in); the clips are
+		-- written as "-z = right limb out", so shoulders and hips flip z here, once, for every clip
+		if FLIP_Z[joint] then z = -z end
+		if FLIP_X[joint] then x = -x end   -- measured 25 Oct: +x on the body joints leans BACK on the rig
 		out[joint] = CFrame.Angles(math.rad(x), math.rad(y), math.rad(z))
 	end
 	return out

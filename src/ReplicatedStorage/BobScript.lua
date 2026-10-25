@@ -83,8 +83,9 @@ SCENES.intro = {
 		{ 6.2, 9.0, "door", from = OUTSIDE },
 		{ 9.0, 10.4, "street", from = { offset = V(1.5, 4, 12), look = V(1.5, 3, 0), fov = 60 }, follow = "hero" },
 		{ 10.4, 12.0, "garage", from = { offset = V(-3, 5, 15), look = V(-3, 3, 0), fov = 60 } },
-		{ 12.0, 16.2, "garage", from = { offset = V(0, 4.5, 12), look = V(0, 3.5, 0), fov = 55 },
-			to = { offset = V(0.5, 4.2, 8), look = V(0.5, 3.6, 0), fov = 55 } },
+		-- live 25 Oct: the vow fist sat under the top letterbox bar; aim higher, push in less
+		{ 12.0, 16.2, "garage", from = { offset = V(0, 5, 13), look = V(-0.5, 4.4, 0), fov = 55 },
+			to = { offset = V(-0.4, 5, 10), look = V(-0.8, 4.8, 0), fov = 55 } },
 	},
 	moves = {
 		bob = {
@@ -96,13 +97,18 @@ SCENES.intro = {
 		hero = {
 			{ t = 0, anchor = "board", p = V(7, 0, 0), r = -60, roll = 0 },
 			{ t = 6.3, anchor = "door", p = V(0.8, 1, 0), r = 90, roll = 0 },
-			{ t = 7.25, p = V(11, 0, 3), roll = -450, move = "arc", h = 5 },
+			{ t = 7.25, p = V(11, 0, 3), roll = -450, move = "arc", h = 3.5 },
 			{ t = 8.1, roll = -90 },
 			{ t = 8.7, roll = 0, move = "out" },
 			{ t = 9.0, anchor = "street", p = V(-4, 0, 0), r = 90 },
 			{ t = 10.4, p = V(4, 0, 0), move = "linear" },
 			{ t = 10.41, anchor = "garage", p = V(-9, 0, 0), r = 90 },
-			{ t = 12.0, p = V(-2.5, 0, 0), move = "linear" },
+			-- live 25 Oct: he stood side-on inside the desk. The laptop faces the camera, so he stands
+			-- on our side of the desk, turns to it, then turns round to us for the vow
+			{ t = 12.0, p = V(-1.2, 0, 2.3), move = "linear" },
+			{ t = 12.35, r = 180, move = "out" },
+			{ t = 12.9, r = 180 },
+			{ t = 13.2, r = 15, move = "out" },
 		},
 	},
 	looks = {
@@ -157,8 +163,9 @@ SCENES.payoff = {
 	shots = {
 		{ 0, 1.6, "door", from = { offset = V(4, 4, 15), look = V(2, 3, 0), fov = 60 } },
 		{ 1.6, 3.8, "board", from = WIDE },
-		{ 3.8, 6.6, "board", from = { offset = V(5, 5, 12), look = V(6, 4.5, 0), fov = 55 },
-			to = { offset = V(5.5, 5, 11), look = V(6, 4.6, 0), fov = 55 } },
+		-- live 25 Oct: the raised chart's top sat under the letterbox bar; aim higher
+		{ 3.8, 6.6, "board", from = { offset = V(5, 5.8, 13), look = V(6, 5.3, 0), fov = 55 },
+			to = { offset = V(5.5, 5.8, 12), look = V(6, 5.4, 0), fov = 55 } },
 		{ 6.6, 9.0, "board", from = ONBOB, to = { offset = V(-7, 4.5, 7.5), look = V(-7, 4.4, 0), fov = 50 } },
 		{ 9.0, 11.4, "board", from = WIDE },
 		{ 11.4, 13.8, "door", from = OUTSIDE },
@@ -173,11 +180,14 @@ SCENES.payoff = {
 			{ t = 2.4, p = V(7, 0, 0), move = "linear" },
 			{ t = 2.41, r = -60 },
 			{ t = 11.4, anchor = "door", p = V(0, 0, -1), r = 90 },
+			-- live 25 Oct: side-on in the dark doorway the cheer's fists vanished; turn to us, step into the light
+			{ t = 13.8, r = 90 },
+			{ t = 14.15, p = V(0, 0, 0.8), r = 10, move = "out" },
 		},
 		bob = {
 			{ t = 0, anchor = "board", p = V(-7, 0, 0), r = 45, roll = 0 },
 			{ t = 11.4, anchor = "door", p = V(0.8, 1, 0), r = -90, roll = 0 },
-			{ t = 12.35, p = V(11, 0, 3), roll = 450, move = "arc", h = 5 },
+			{ t = 12.35, p = V(11, 0, 3), roll = 450, move = "arc", h = 3.5 },
 			{ t = 13.2, roll = 90 },
 			{ t = 13.8, roll = 0, move = "out" },
 		},

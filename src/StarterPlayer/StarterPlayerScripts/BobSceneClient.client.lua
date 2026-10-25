@@ -209,9 +209,33 @@ local function floorAt(world, ignore)
 	end
 	return nil
 end
+-- the lowest visible point of the body, relative to the root (last frame's pose: a joint's
+-- Transform reaches its parts on the next step, so this lags one frame)
+local function lowestBelowRoot(a)
+	local low
+	for _, p in ipairs(a.model:GetDescendants()) do
+		if p:IsA("BasePart") and p ~= a.root and p.Transparency < 1 then
+			local cf, h = p.CFrame, p.Size / 2
+			local y = cf.Y - math.abs(cf.RightVector.Y) * h.X - math.abs(cf.UpVector.Y) * h.Y - math.abs(cf.LookVector.Y) * h.Z
+			if not low or y < low then low = y end
+		end
+	end
+	return low and low - a.root.Position.Y
+end
+
 local function place(a, anchorCF, pos, rot, roll, ignore)
 	if not (a.root and anchorCF) then return end
-	local lift = (a.hum and a.hum.HipHeight or 2) + a.root.Size.Y / 2
+	-- live 25 Oct: lying flat or sitting, an actor floated at standing height (2.4 studs over the
+	-- street). On the ground, the body's lowest point goes on the floor, whatever the pose; in the
+	-- air (pos.Y > 0), it blends from standing height to half a torso as it rolls flat
+	local stand = (a.hum and a.hum.HipHeight or 2) + a.root.Size.Y / 2
+	local torso = a.model:FindFirstChild("UpperTorso") or a.model:FindFirstChild("Torso")
+	local lie = torso and torso.Size.Z / 2 + 0.1 or 0.6
+	local lift = stand + (lie - stand) * math.abs(math.sin(R(roll or 0)))
+	if pos.Y <= 0.05 then
+		local rel = lowestBelowRoot(a)
+		if rel and rel < 0 then lift = -rel end
+	end
 	local at = (anchorCF * CFrame.new(pos.X, 0, pos.Z)).Position
 	local floor = floorAt(at, ignore or {}) or at.Y
 	a.root.CFrame = CFrame.new(at.X, floor + pos.Y + lift, at.Z) * anchorCF.Rotation * CFrame.Angles(0, 0, R(roll or 0))
@@ -681,6 +705,15 @@ local function play(name, info)
 			if cam.CameraType ~= Enum.CameraType.Scriptable then cam.CameraType = Enum.CameraType.Scriptable end   -- anything that resets it loses
 			cam.CFrame = CFrame.lookAt(base * f.cam.offset, base * f.cam.look) * CFrame.new(shake)
 			cam.FieldOfView = f.cam.fov
+			-- Studio only: BobSceneLook = an actor id ("hero", "bob", "inv1", "inv2") frames that actor up close,
+			-- from its front-left, so a held clip can be checked by eye
+			local look = RunService:IsStudio() and actors[player:GetAttribute("BobSceneLook") or ""]
+			if look and look.root then
+				local r = look.root.CFrame
+				local at = r.Position + Vector3.new(0, 0.6, 0)
+				cam.CFrame = CFrame.lookAt(at + r.LookVector * 9 - r.RightVector * 4 + Vector3.new(0, 1.5, 0), at)
+				cam.FieldOfView = 50
+			end
 		end
 	end)
 
