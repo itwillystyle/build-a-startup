@@ -445,8 +445,8 @@ local function play(name, info)
 	end
 	local barT, barB = bar(true), bar(false)
 	for _, bb in pairs(bubbles) do bb.card.Parent = gui end
-	-- in from black (0.3 s): covers the first frames, when the cast's textures are still arriving
-	-- (live 25 Oct: grey heads for about 0.1 s on a fresh join)
+	-- in from black (0.5 s): covers the first frames, when the cast's textures are still arriving
+	-- (live 25 Oct: grey heads for about 0.15 s on a fresh join)
 	local fadeIn = Instance.new("Frame")
 	fadeIn.BackgroundColor3 = INK
 	fadeIn.BorderSizePixel = 0
@@ -857,8 +857,8 @@ local function play(name, info)
 			end
 		end
 		lastT = t
-		fadeIn.BackgroundTransparency = math.clamp(t / 0.3, 0, 1)   -- a fade, kept under Reduce Motion
-		fadeIn.Visible = t < 0.3   -- gone after, so it never sits over SKIP
+		fadeIn.BackgroundTransparency = math.clamp((t - 0.2) / 0.3, 0, 1)   -- black 0.2 s, then a fade (kept under Reduce Motion)
+		fadeIn.Visible = t < 0.5   -- gone after, so it never sits over SKIP
 		-- letterbox out at the hand-off
 		barT.Position = UDim2.new(0, 0, -0.1 * f.handoff, 0)
 		barB.Position = UDim2.new(0, 0, 1 + 0.1 * f.handoff, 0)
