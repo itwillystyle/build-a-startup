@@ -28,6 +28,7 @@ local player = Players.LocalPlayer
 local UIKit = require(RS:WaitForChild("UIKit"))
 local BobScript = require(RS:WaitForChild("BobScript"))
 local BobFace = require(RS:WaitForChild("BobFace"))
+local BobClips = require(RS:WaitForChild("BobClips"))
 local Sfx = require(RS:WaitForChild("Sfx"))
 local isTouch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
@@ -168,6 +169,28 @@ local function pose(a, name, t)
 		set("RightShoulder", CFrame.Angles(R(110 + 50 * s), 0, 0))
 		set("LeftShoulder", CFrame.Angles(R(110 - 50 * s), 0, 0))
 	end
+end
+
+-- 25 Oct (Luke: "the emotive animations are very static"): the body moves by keyframed CLIPS
+-- (BobClips, the shot list's clips as data). A clip starts when it first appears and runs on
+-- through looks that share it (the vow is one 4.2 s take across "stand" and "gesture").
+local function clipFor(scene, id, pose, t)
+	if id == "hero" then
+		if pose == "gesture" then return (scene == "intro" and t >= 12) and "hero_vow" or "hero_ask" end
+		if pose == "stand" then
+			if scene == "intro" and t >= 3.4 and t < 6.3 then return "hero_hurt" end
+			if scene == "intro" and t >= 12 then return "hero_vow" end
+			return "hero_idle"
+		end
+		return ({ fly = "hero_fly", lie = "hero_land", sit = "hero_situp", kick = "hero_kick", holdChart = "hero_chart",
+			cheer = "hero_cheer", walk = scene == "intro" and "hero_sadwalk" or "hero_strut" })[pose]
+	elseif id == "bob" then
+		if pose == "stand" then return scene == "payoff" and "bob_shock" or "bob_smug" end
+		return ({ laugh = "bob_laugh", kick = "bob_kick", throw = "bob_throw", fly = "bob_fly", lie = "bob_dizzy", sit = "bob_dizzy" })[pose]
+	end
+	if pose == "laugh" then return "inv_laugh" end
+	if scene == "payoff" and t >= 6.6 then return "inv_shock" end
+	return "inv_idle"
 end
 
 -- feet at pos (anchor space); rot 0 faces the camera (+Z), 90 faces +X; roll spins round Z
@@ -533,7 +556,17 @@ local function play(name, info)
 			if st then
 				setVisible(a, st.visible)
 				place(a, A[st.anchor], st.pos, st.rot, st.roll, { folder, char, bc:FindFirstChild("Dressing") })
-				pose(a, st.pose, t)
+				local clip = clipFor(name, id, st.pose, t)
+				if clip ~= a.clip then a.clip, a.clipStart = clip, t end
+				if clip and BobClips.has(clip) then
+					for _, j in pairs(a.motors) do j.Transform = CFrame.new() end
+					for joint, cf in pairs(BobClips.sample(clip, math.max(0, t - a.clipStart))) do
+						local j = a.motors[joint]
+						if j then j.Transform = cf end
+					end
+				else
+					pose(a, st.pose, t)
+				end
 				a.face.set(st.face)
 			end
 		end
