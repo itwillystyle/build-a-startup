@@ -27,7 +27,7 @@ test("intro words are exact, in order", function()
 			if b.k > 0 and not seen[b.text] then seen[b.text] = true; table.insert(order, b.text) end
 		end
 	end)
-	local want = { B.LINES.offer, B.LINES.haOffer, B.LINES.haha, B.LINES.rue }
+	local want = { B.LINES.offer, B.LINES.haOffer, B.LINES.rue }
 	assert(#order == #want, "got " .. table.concat(order, " | "))
 	for i, w in ipairs(want) do assert(order[i] == w, ("%d: %s ~= %s"):format(i, order[i], w)) end
 	assert(B.LINES.offer == "Can I get an offer?" and B.LINES.rue == "He will rue the day.", "exact copy")
@@ -39,7 +39,7 @@ test("payoff words are exact", function()
 		for _, b in ipairs(f.bubbles) do if b.k > 0 then seen[b.text] = true end end
 		for _, x in ipairs(f.fx) do if x.k > 0 and x.text then seen[x.text] = true end end
 	end)
-	for _, w in ipairs({ "You AGAIN?", "I've come to make YOU an offer.", "HAHAHA!", "W-WHAT?!", "Take it! TAKE IT ALL!", "Who's laughing now?" }) do
+	for _, w in ipairs({ "You AGAIN?", "I've got an offer for YOU.", "HAHAHA!", "W-WHAT?!", "TAKE IT ALL!", "Who's laughing now?" }) do
 		assert(seen[w], "missing: " .. w)
 	end
 end)
@@ -124,7 +124,7 @@ test("every line in the spec is in LINES, verbatim", function()
 	local want = {
 		offer = "Can I get an offer?", haOffer = "HA! An OFFER?", haha = "HAHAHA!", rue = "He will rue the day.",
 		text = "...Ok. I may have been hasty. Come to my office.", task = "Go to Bob's office",
-		youAgain = "You AGAIN?", myOffer = "I've come to make YOU an offer.", what = "W-WHAT?!", takeIt = "Take it! TAKE IT ALL!",
+		youAgain = "You AGAIN?", myOffer = "I've got an offer for YOU.", what = "W-WHAT?!", takeIt = "TAKE IT ALL!",
 		laughing = "Who's laughing now?", toast = "SERIES A CLOSED · x3", taped = "Bob isn't taking meetings... yet.",
 		trophy = "BOB'S TOOTHPICK",
 	}
@@ -175,6 +175,39 @@ test("boardroom cameras stand inside the room", function()
 					("%s at %.1f s: camera at (%.1f, %.1f)"):format(name, t, f.cam.offset.X, f.cam.offset.Z))
 			end
 		end)
+	end
+end)
+
+-- Luke 25 Oct: "too much text may be too much noise". One bubble on screen at a time, six words at
+-- most, and each one up long enough to read (0.8 s + 0.04 s a character)
+test("speech is short, one bubble at a time, and up long enough to read", function()
+	for _, name in ipairs({ "intro", "payoff" }) do
+		sweep(name, function(f, t)
+			local on = 0
+			for _, b in ipairs(f.bubbles) do if b.k > 0 then on += 1 end end
+			assert(on <= 1, ("%s at %.1f s: %d bubbles at once"):format(name, t, on))
+		end)
+	end
+	local B2 = require("../../src/ReplicatedStorage/BobScript")
+	for _, name in ipairs({ "intro", "payoff" }) do
+		local seen = {}
+		local t = 0
+		while t <= B2.length(name) do
+			for _, b in ipairs(B2.at(name, t, false).bubbles) do
+				if b.k > 0 then
+					local s = seen[b.text] or { t0 = t, t1 = t }
+					s.t1 = t
+					seen[b.text] = s
+				end
+			end
+			t += 0.05
+		end
+		for text, s in pairs(seen) do
+			local words = select(2, text:gsub("%S+", ""))
+			assert(words <= 6, ("%q has %d words"):format(text, words))
+			local need = 0.8 + 0.04 * #text
+			assert(s.t1 - s.t0 + 0.05 >= need, ("%q is up %.2f s, needs %.2f"):format(text, s.t1 - s.t0 + 0.05, need))
+		end
 	end
 end)
 

@@ -38,9 +38,9 @@ BobScript.LINES = {
 	text = "...Ok. I may have been hasty. Come to my office.",
 	task = "Go to Bob's office",
 	youAgain = "You AGAIN?",                         -- 25 Oct (Luke): the payoff opens on Bob's sneer,
-	myOffer = "I've come to make YOU an offer.",    -- you turn his line round, they laugh, the iPad lands
+	myOffer = "I've got an offer for YOU.",         -- you turn his line round, they laugh, the iPad lands
 	what = "W-WHAT?!",
-	takeIt = "Take it! TAKE IT ALL!",
+	takeIt = "TAKE IT ALL!",   -- Luke 25 Oct: fewer words on screen (was "Take it! TAKE IT ALL!")
 	laughing = "Who's laughing now?",   -- Luke 25 Oct: "PROVED WRONG!" read as out of place; a line he'd say
 	toast = "SERIES A CLOSED · x3",
 	taped = "Bob isn't taking meetings... yet.",
@@ -95,7 +95,7 @@ SCENES.intro = {
 		{ 0, 3.4, "board", from = WIDE, to = { offset = V(0.8, 6.3, 10.6), look = V(0.8, 3, -3), fov = 57 } },
 		{ 3.4, 6.2, "board", from = ONBOB, to = { offset = V(-7, 4.5, 9), look = V(-7, 4.4, 1), fov = 50 } },
 		{ 6.2, 9.0, "door", from = OUTSIDE },
-		{ 9.0, 10.4, "street", from = { offset = V(1.5, 4, 12), look = V(1.5, 3, 0), fov = 60 }, follow = "hero" },
+		{ 9.0, 10.4, "street", from = { offset = V(1.5, 4.6, 12), look = V(1.5, 3.9, 0), fov = 60 }, follow = "hero" },   -- room for the rain cloud
 		{ 10.4, 12.0, "garage", from = { offset = V(-3, 5, 15), look = V(-3, 3, 0), fov = 60 } },
 		-- live 25 Oct: the vow fist sat under the top letterbox bar; aim higher, push in less
 		{ 12.0, 16.2, "garage", from = { offset = V(0, 5, 13), look = V(-0.5, 4.4, 0), fov = 55 },
@@ -153,8 +153,7 @@ SCENES.intro = {
 	},
 	bubbles = {
 		{ "hero", L.offer, 0.5, 3.4 },
-		{ "bob", L.haOffer, 3.6, 6.2 },
-		{ "inv2", L.haha, 4.4, 6.2 },
+		{ "bob", L.haOffer, 3.6, 6.2 },   -- (one bubble at a time: the investors laugh without one)
 		{ "hero", L.rue, 13.2, 16.21 },
 	},
 	fx = {
@@ -259,9 +258,8 @@ SCENES.payoff = {
 	},
 	bubbles = {
 		{ "bob", L.youAgain, 2.1, 3.6 },
-		{ "hero", L.myOffer, 3.85, 5.4 },
-		{ "bob", L.haha, 5.5, 6.8 },
-		{ "inv2", L.haha, 5.9, 6.8 },
+		{ "hero", L.myOffer, 3.75, 5.6 },
+		{ "bob", L.haha, 5.6, 6.8 },
 		{ "bob", L.what, 11.15, 13.2 },
 		{ "bob", L.takeIt, 13.4, 15.3 },
 		{ "hero", L.laughing, 17.9, 19.7 },

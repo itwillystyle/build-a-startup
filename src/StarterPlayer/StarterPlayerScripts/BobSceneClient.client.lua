@@ -352,13 +352,23 @@ local function bubbleAt(cam, head, w, h)
 	return x, y, side, mid.X, mid.Y
 end
 
--- lay a bubble out for this frame (its text already set)
-local function placeBubble(cam, bb)
-	local w = bb.card.TextBounds.X + 46
-	local h = math.max(60, bb.card.TextBounds.Y + 24)
-	local x, y, side, hx, hy = bubbleAt(cam, bb.head, w, h + 18)
-	bb.box.Visible = x ~= nil
-	if not x then return end
+-- lay a bubble out. Luke 25 Oct: "the text boxes keep glitching around when they're talking": placed
+-- fresh every frame, a bubble chased a head that bobs while it laughs and talks. Now it is placed ONCE,
+-- when its words have been measured, and holds still until the line ends or the shot cuts
+local function placeBubble(cam, bb, shot)
+	if bb.lockText ~= bb.text or bb.lockShot ~= shot then bb.lock = nil end
+	if not bb.lock then
+		if bb.card.TextBounds.X < 1 then bb.box.Visible = false return end   -- not measured yet: next frame
+		local w = bb.card.TextBounds.X + 46
+		local h = math.max(60, bb.card.TextBounds.Y + 24)
+		local x, y, side, hx, hy = bubbleAt(cam, bb.head, w, h + 18)
+		if not x then bb.box.Visible = false return end
+		bb.lock = { x = x, y = y, side = side, hx = hx, hy = hy, w = w, h = h }
+		bb.lockText, bb.lockShot = bb.text, shot
+	end
+	local L = bb.lock
+	local x, y, side, hx, hy, w, h = L.x, L.y, L.side, L.hx, L.hy, L.w, L.h
+	bb.box.Visible = true
 	bb.box.Size = UDim2.fromOffset(w, h)
 	if side == nil then
 		-- above the head: the tail hangs from the bottom edge toward the head
@@ -433,6 +443,67 @@ local function burstFor(text)
 	word(UIKit.RED, 0, 0, 7)
 	local sc = Instance.new("UIScale"); sc.Parent = box
 	return { box = box, scale = sc, burst = true }
+end
+
+--[[ The walk home (Luke 25 Oct: "those cartoons where there's a rain cloud over them"; three grey
+	balls "looked like his balls"). A comic cloud like the bubbles: overlapping round puffs on a flat
+	base, ink-edged, slate grey, with blue drops falling out of it onto your head. A billboard sized in
+	studs, so it is cloud-sized at any distance. ]]
+local function rainCloud(parent)
+	local p = Instance.new("Part")
+	p.Anchored, p.CanCollide, p.CanQuery, p.CanTouch, p.Transparency = true, false, false, false, 1
+	p.Size = Vector3.new(0.2, 0.2, 0.2)
+	p.Parent = parent
+	local bb = Instance.new("BillboardGui")
+	bb.Size = UDim2.fromScale(4.4, 3.4)   -- studs
+	bb.LightInfluence = 0
+	bb.Adornee = p
+	bb.Enabled = false
+	local box = Instance.new("Frame")
+	box.BackgroundTransparency = 1
+	box.Size = UDim2.fromScale(1, 1)
+	box.Parent = bb
+	local sc = Instance.new("UIScale"); sc.Parent = box
+	-- the puffs: { x, y, size } in the box (centre, fraction of its width); the base fills under them
+	local puffs = { { 0.24, 0.3, 0.3 }, { 0.43, 0.2, 0.38 }, { 0.63, 0.24, 0.34 }, { 0.79, 0.33, 0.24 } }
+	for layer, colour in ipairs({ INK, UIKit.SLATE }) do
+		local grow = layer == 1 and 0.04 or 0
+		for _, q in ipairs(puffs) do
+			local c = Instance.new("Frame")
+			c.AnchorPoint = Vector2.new(0.5, 0.5)
+			c.Position = UDim2.fromScale(q[1], q[2])
+			c.Size = UDim2.fromScale(q[3] + grow, (q[3] + grow) * 4.4 / 3.4)
+			c.BackgroundColor3 = colour
+			c.BorderSizePixel = 0
+			c.ZIndex = layer
+			Instance.new("UICorner", c).CornerRadius = UDim.new(1, 0)
+			c.Parent = box
+		end
+		local base = Instance.new("Frame")
+		base.AnchorPoint = Vector2.new(0.5, 0.5)
+		base.Position = UDim2.fromScale(0.51, 0.38)
+		base.Size = UDim2.fromScale(0.74 + grow, 0.16 + grow)
+		base.BackgroundColor3 = colour
+		base.BorderSizePixel = 0
+		base.ZIndex = layer
+		Instance.new("UICorner", base).CornerRadius = UDim.new(1, 0)
+		base.Parent = box
+	end
+	local drops = {}
+	for k = 1, 8 do
+		local d = Instance.new("Frame")
+		d.AnchorPoint = Vector2.new(0.5, 0.5)
+		d.Size = UDim2.fromScale(0.035, 0.1)
+		d.Rotation = 12
+		d.BackgroundColor3 = UIKit.BLUE
+		d.BorderSizePixel = 0
+		d.ZIndex = 0
+		Instance.new("UICorner", d).CornerRadius = UDim.new(1, 0)
+		d.Parent = box
+		drops[k] = d
+	end
+	bb.Parent = p
+	return { part = p, gui = bb, scale = sc, drops = drops }
 end
 
 -- dizzy: little gold stars circling the head (in the world, so the head hides them as they pass behind)
@@ -684,16 +755,7 @@ local function play(name, info)
 			bills[i] = p
 		end
 	end
-	local cloud = {}
-	for i = 1, 3 do
-		local p = Instance.new("Part")
-		p.Shape = Enum.PartType.Ball
-		p.Size = Vector3.new(2.2, 1.6, 1.6) * (i == 2 and 1.2 or 1)
-		p.Color = Color3.fromRGB(109, 115, 131)   -- world colour
-		p.Anchored, p.CanCollide, p.CanQuery, p.CanTouch, p.Transparency = true, false, false, false, 1
-		p.Parent = folder
-		cloud[i] = p
-	end
+	local cloud = rainCloud(folder)
 	local fxs = {}
 	local f0 = BobScript.at(name, 0, true)
 	for i, x in ipairs(f0.fx) do
@@ -858,6 +920,7 @@ local function play(name, info)
 				bb.scale.Scale = bb.on.k
 			else
 				bb.box.Visible = false
+				bb.lock = nil
 			end
 		end
 		-- fx: words, the rain cloud over you, stars over Bob
@@ -865,9 +928,18 @@ local function play(name, info)
 			local fx = fxs[i]
 			if x.kind == "cloud" then
 				local hero = actors.hero
-				for k, p in ipairs(cloud) do
-					p.Transparency = x.k > 0 and 0.1 or 1
-					if hero and hero.head and x.k > 0 then p.CFrame = hero.head.CFrame * CFrame.new((k - 2) * 1.1, 2.3 + (k == 2 and 0.35 or 0), 0) end
+				local on = x.k > 0 and hero ~= nil and hero.head ~= nil
+				cloud.gui.Enabled = on
+				if on then
+					local age = x.age or 0
+					-- it hangs over your head and bobs, a beat behind you
+					cloud.part.CFrame = CFrame.new(hero.head.Position + Vector3.new(0, 2.2 + math.sin(age * 3) * 0.1, 0))
+					cloud.scale.Scale = x.k
+					for k, d in ipairs(cloud.drops) do
+						local fall = (age * 1.7 + k * 0.37) % 1
+						d.Position = UDim2.fromScale(0.2 + ((k * 0.29) % 0.62), 0.52 + fall * 0.42)
+						d.BackgroundTransparency = fall > 0.8 and (fall - 0.8) * 5 or 0
+					end
 				end
 			elseif x.kind == "debris" and fx then
 				local base = A[x.anchor] and A[x.anchor] * CFrame.new(x.pos)
@@ -1047,7 +1119,7 @@ local function play(name, info)
 			end
 		end
 		for _, bb in pairs(bubbles) do
-			if bb.on and bb.head then placeBubble(cam, bb) end
+			if bb.on and bb.head then placeBubble(cam, bb, f.shot) end
 		end
 		for _, fx in pairs(fxs) do
 			if fx.burst then
