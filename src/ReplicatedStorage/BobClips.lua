@@ -119,16 +119,23 @@ C.hero_strut = { length = 0.9, loop = true, keys = {
 		RightShoulder = { -28, 0, -8 }, LeftShoulder = { 28, 0, 8 }, RightElbow = { 20, 0, 0 }, LeftElbow = { 35, 0, 0 } },
 } }
 
--- payoff: the REVENUE chart held high, a proud bounce
-C.hero_chart = { length = 5.2, keys = {
-	{ t = 0, RightShoulder = { 0, 0, -6 }, LeftShoulder = { 0, 0, 6 }, RightElbow = { 0, 0, 0 }, LeftElbow = { 0, 0, 0 }, Waist = { 0, 0, 0 } },
-	{ t = 0.3, ease = "out", RightShoulder = { 170, 0, -18 }, LeftShoulder = { 170, 0, 18 }, RightElbow = { 25, 0, 0 }, LeftElbow = { 25, 0, 0 }, Waist = { -8, 0, 0 }, Neck = { -10, 0, 0 } },
-	{ t = 1.3, Waist = { -10, 0, 0 } },
-	{ t = 2.3, Waist = { -6, 0, 0 } },
-	{ t = 3.3, Waist = { -10, 0, 0 } },
-	{ t = 4.9, RightShoulder = { 168, 0, -18 }, LeftShoulder = { 168, 0, 18 } },
-	{ t = 5.2, RightShoulder = { 60, 0, -10 }, LeftShoulder = { 60, 0, 10 } },
+-- payoff (Luke 25 Oct: "an iPad that I pull out from behind my back"): reach behind, bring it round,
+-- hold it out to Bob in both hands, a smug lean. The client puts the tablet in the right hand while it
+-- comes round (0.35-0.95 s) and between both hands after
+C.hero_ipad = { length = 5.2, keys = {
+	{ t = 0, RightShoulder = { 0, 0, -6 }, LeftShoulder = { 0, 0, 6 }, RightElbow = { 0, 0, 0 }, LeftElbow = { 0, 0, 0 }, Waist = { 0, 0, 0 }, Neck = { 0, 0, 0 } },
+	{ t = 0.35, ease = "out", RightShoulder = { -45, 0, -12 }, RightElbow = { 70, 0, 0 }, Waist = { 0, -12, 0 }, Neck = { -6, 10, 0 } },
+	{ t = 0.55, RightShoulder = { -40, 0, -12 } },
+	-- live 25 Oct: held at chest height (higher, it hid his face): upper arms forward-down, forearms up
+	{ t = 0.95, ease = "out", RightShoulder = { 52, 0, -10 }, RightElbow = { 62, 0, 0 }, LeftShoulder = { 50, 0, 12 }, LeftElbow = { 62, 0, 0 },
+		Waist = { 0, 0, 0 }, Neck = { -4, 0, 0 } },
+	{ t = 1.2, RightShoulder = { 56, 0, -10 }, LeftShoulder = { 54, 0, 12 } },
+	{ t = 2.0, RightShoulder = { 52, 0, -10 }, LeftShoulder = { 50, 0, 12 }, Waist = { -5, 0, 0 } },
+	{ t = 3.0, RightShoulder = { 55, 0, -10 }, LeftShoulder = { 53, 0, 12 }, Waist = { -3, 0, 0 } },
+	{ t = 4.0, RightShoulder = { 52, 0, -10 }, LeftShoulder = { 50, 0, 12 }, Waist = { -5, 0, 0 } },
+	{ t = 5.2, RightShoulder = { 53, 0, -10 }, LeftShoulder = { 51, 0, 12 }, Waist = { -4, 0, 0 } },
 } }
+BobClips.IPAD_IN_HAND, BobClips.IPAD_HELD = 0.35, 0.95   -- the tablet's beats inside hero_ipad (s)
 
 -- your kick: wind up, SNAP, hold
 C.hero_kick = { length = 0.45, keys = {
@@ -154,13 +161,15 @@ C.bob_smug = { length = 3.0, loop = true, keys = {
 	{ t = 3.0, Root = { -4, 0, 0 }, Neck = { -10, 8, 0 }, RightShoulder = { 30, 0, -28 }, LeftShoulder = { 30, 0, 28 } },
 } }
 
--- the belly laugh: back he goes, the belly bounces, one hand slaps it
+-- the belly laugh: back he goes, the belly bounces, one hand slaps it. Live 25 Oct (Luke: "bobbing
+-- around like literally falling"): the lean is small and the head does the throwing back; the legs
+-- stay planted (sample() counters any Root lean at the hips)
 C.bob_laugh = { length = 0.6, loop = true, keys = {
-	{ t = 0, Root = { -14, 0, 0 }, Neck = { -24, 0, 0 }, RightShoulder = { 45, 0, -30 }, LeftShoulder = { 20, 0, 50 } },
-	{ t = 0.15, ease = "out", Root = { -20, 0, 3 }, Neck = { -32, 0, 4 }, RightShoulder = { 30, 0, -24 }, LeftShoulder = { 26, 0, 58 } },
-	{ t = 0.3, Root = { -12, 0, 0 }, Neck = { -20, 0, 0 }, RightShoulder = { 50, 0, -32 }, LeftShoulder = { 18, 0, 46 } },
-	{ t = 0.45, ease = "out", Root = { -20, 0, -3 }, Neck = { -32, 0, -4 }, RightShoulder = { 28, 0, -24 }, LeftShoulder = { 26, 0, 58 } },
-	{ t = 0.6, Root = { -14, 0, 0 }, Neck = { -24, 0, 0 }, RightShoulder = { 45, 0, -30 }, LeftShoulder = { 20, 0, 50 } },
+	{ t = 0, Root = { -6, 0, 0 }, Neck = { -26, 0, 0 }, RightShoulder = { 45, 0, -30 }, LeftShoulder = { 20, 0, 50 } },
+	{ t = 0.15, ease = "out", Root = { -10, 0, 2 }, Neck = { -34, 0, 4 }, RightShoulder = { 30, 0, -24 }, LeftShoulder = { 26, 0, 58 } },
+	{ t = 0.3, Root = { -5, 0, 0 }, Neck = { -22, 0, 0 }, RightShoulder = { 50, 0, -32 }, LeftShoulder = { 18, 0, 46 } },
+	{ t = 0.45, ease = "out", Root = { -10, 0, -2 }, Neck = { -34, 0, -4 }, RightShoulder = { 28, 0, -24 }, LeftShoulder = { 26, 0, 58 } },
+	{ t = 0.6, Root = { -6, 0, 0 }, Neck = { -26, 0, 0 }, RightShoulder = { 45, 0, -30 }, LeftShoulder = { 20, 0, 50 } },
 } }
 
 -- THE KICK: wind up (the leg comes back), snap forward and up, hold, recover
@@ -277,6 +286,13 @@ function BobClips.sample(name, t)
 		if FLIP_Z[joint] then z = -z end
 		if FLIP_X[joint] then x = -x end   -- measured 25 Oct: +x on the body joints leans BACK on the rig
 		out[joint] = CFrame.Angles(math.rad(x), math.rad(y), math.rad(z))
+	end
+	-- live 25 Oct: on the six-joint rigs the legs hang off the torso, so a Root lean tipped the whole
+	-- body over like a plank (Bob looked like he was falling). The hips take the lean back out, so the
+	-- legs stay planted and only the body above them leans. (The hero's clips lean with Waist.)
+	if out.Root then
+		local undo = out.Root:Inverse()
+		for _, hip in ipairs({ "LeftHip", "RightHip" }) do out[hip] = undo * (out[hip] or CFrame.new()) end
 	end
 	return out
 end

@@ -43,8 +43,16 @@ local DOORWOOD = Color3.fromRGB(110, 74, 48)
 local TAPE = Color3.fromRGB(255, 200, 61)
 local PAPER = Color3.fromRGB(243, 239, 230)
 local RED = Color3.fromRGB(198, 72, 62)
+local WALNUT = Color3.fromRGB(92, 60, 40)
+local CEILING = Color3.fromRGB(232, 226, 214)
+local RUG = Color3.fromRGB(120, 36, 44)
+local DEVICE = Color3.fromRGB(28, 30, 36)
 
+-- props.Keep = true: a boardroom piece whose colour IS the point (walnut, the red rug, a dark screen);
+-- the palette would pull it to the world's tans, so it takes the palette's stated exemption instead
 local function part(parent, props)
+	local keep = props.Keep
+	props.Keep = nil
 	local p = Instance.new("Part")
 	p.Anchored = true
 	p.TopSurface = Enum.SurfaceType.Smooth
@@ -52,7 +60,7 @@ local function part(parent, props)
 	p.Material = Enum.Material.SmoothPlastic
 	p.CastShadow = false
 	for k, v in pairs(props) do p[k] = v end
-	if Pal then Pal.author(p, props) end
+	if keep then CollectionService:AddTag(p, "SVNoPalette") elseif Pal then Pal.author(p, props) end
 	p.Parent = parent
 	return p
 end
@@ -108,6 +116,124 @@ local function placeKit(name, parent, cf, scale, yaw)
 	return m
 end
 
+-- ------------------------------------------------------------------ the boardroom's dressing
+--[[ 25 Oct (Luke: "the room looks like a set ... a baseplate with a plain blue wall and nothing above
+	it"): a real office. Wood panelling to rail height round three walls, a light ceiling with light
+	panels, a rug under the table, bookcases, a display cabinet, a lamp, a wall screen with a ticker,
+	and a city skyline in the window instead of a glowing panel. Flat pieces are either solid (the rug)
+	or under 3 studs across (the light panels), so the doctor's sinking-surface check stays quiet. ]]
+function BobBuilding.dressRoom(m, dress, at, W, front)
+	local FK = require(RS:WaitForChild("FurnitureKit"))
+	local inner = W / 2 - 1   -- the side walls' inner faces
+	local back = -front + 1   -- the back wall's inner face
+	-- wainscot: a panel to 3.6 studs with a rail on top, on the back and both side walls
+	local PANEL, RAIL = 3.6, 3.75
+	part(m, { Name = "Wainscot", Keep = true, Size = Vector3.new(W - 2, PANEL, 0.25), CFrame = at(0, 0.4 + PANEL / 2, back + 0.13), Color = WALNUT, Material = Enum.Material.Wood })
+	part(m, { Name = "Rail", Keep = true, Size = Vector3.new(W - 2, 0.3, 0.45), CFrame = at(0, 0.4 + RAIL, back + 0.23), Color = GOLD, Material = Enum.Material.Wood })
+	for _, sx in ipairs({ -1, 1 }) do
+		local x = sx * (inner - 0.13)
+		part(m, { Name = "Wainscot", Keep = true, Size = Vector3.new(0.25, PANEL, front * 2 - 2), CFrame = at(x, 0.4 + PANEL / 2, 0), Color = WALNUT, Material = Enum.Material.Wood })
+		part(m, { Name = "Rail", Keep = true, Size = Vector3.new(0.45, 0.3, front * 2 - 2), CFrame = at(sx * (inner - 0.23), 0.4 + RAIL, 0), Color = GOLD, Material = Enum.Material.Wood })
+	end
+	-- light panels set into the ceiling
+	for _, xz in ipairs({ { -8, -4 }, { 4, -4 }, { -8, 5 }, { 4, 5 } }) do
+		local p = part(m, { Name = "LightPanel", Keep = true, Size = Vector3.new(2.4, 0.1, 5), CFrame = at(xz[1], BobBuilding.SIZE.room - 0.22, xz[2]),
+			Color = Color3.fromRGB(255, 250, 238), Material = Enum.Material.SmoothPlastic, CanCollide = false })
+		local light = Instance.new("SurfaceLight")
+		light.Face = Enum.NormalId.Bottom
+		light.Range, light.Brightness, light.Angle = 14, 0.8, 120
+		light.Color = Color3.fromRGB(255, 240, 220)
+		light.Parent = p
+	end
+	-- the rug under the table (solid, so it is floor: the cast stands on it)
+	part(m, { Name = "RugEdge", Keep = true, Size = Vector3.new(15, 0.1, 11), CFrame = at(-4, 0.45, -3.6), Color = GOLD, Material = Enum.Material.Fabric })
+	part(m, { Name = "Rug", Keep = true, Size = Vector3.new(14, 0.12, 10), CFrame = at(-4, 0.46, -3.6), Color = RUG, Material = Enum.Material.Fabric })
+	-- the window: a city at dusk behind a framed pane, not a lit box
+	local win = part(m, { Name = "Window", Keep = true, Size = Vector3.new(20, 6, 0.2), CFrame = at(-2, 7, back + 0.1), Color = Color3.fromRGB(60, 84, 128), CanCollide = false })
+	local g = Instance.new("SurfaceGui")
+	g.Face = Enum.NormalId.Back   -- the room side (+Z); live 25 Oct the Front face drew it into the wall
+	g.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	g.PixelsPerStud = 20
+	g.LightInfluence = 0.15
+	local sky = Instance.new("Frame")
+	sky.BorderSizePixel = 0
+	sky.Size = UDim2.fromScale(1, 1)
+	sky.BackgroundColor3 = Color3.new(1, 1, 1)
+	local grad = Instance.new("UIGradient")
+	grad.Rotation = 90
+	grad.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(86, 120, 178)),   -- dusk sky, top
+		ColorSequenceKeypoint.new(0.6, Color3.fromRGB(196, 150, 160)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(240, 170, 112)),   -- the glow at the horizon
+	})
+	grad.Parent = sky
+	sky.Parent = g
+	local heights = { 0.55, 0.8, 0.42, 0.66, 0.92, 0.5, 0.74, 0.38, 0.86, 0.6, 0.47, 0.78, 0.58, 0.7 }
+	for i, h in ipairs(heights) do
+		local b = Instance.new("Frame")
+		b.BorderSizePixel = 0
+		b.AnchorPoint = Vector2.new(0, 1)
+		b.Position = UDim2.fromScale((i - 1) / #heights, 1)
+		b.Size = UDim2.fromScale(1 / #heights * (0.8 + (i % 3) * 0.12), h * 0.7)
+		b.BackgroundColor3 = i % 2 == 0 and Color3.fromRGB(46, 58, 88) or Color3.fromRGB(58, 70, 104)
+		for k = 1, 6 do
+			local lit = Instance.new("Frame")
+			lit.BorderSizePixel = 0
+			lit.Size = UDim2.fromScale(0.16, 0.05)
+			lit.Position = UDim2.fromScale(0.2 + ((k * 3 + i) % 3) * 0.24, 0.12 + k * 0.13)
+			lit.BackgroundColor3 = Color3.fromRGB(255, 214, 140)
+			lit.BackgroundTransparency = (k + i) % 3 == 0 and 1 or 0.15
+			lit.Parent = b
+		end
+		b.Parent = sky
+	end
+	g.Parent = win
+	for _, x in ipairs({ -12, -7, -2, 3, 8 }) do
+		part(m, { Name = "WindowFrame", Keep = true, Size = Vector3.new(0.35, 6.4, 0.3), CFrame = at(x, 7, back + 0.25), Color = CHARCOAL, CanCollide = false })
+	end
+	for _, y in ipairs({ 3.85, 10.15 }) do
+		part(m, { Name = "WindowFrame", Keep = true, Size = Vector3.new(20.4, 0.35, 0.3), CFrame = at(-2, y + 0.05, back + 0.25), Color = CHARCOAL, CanCollide = false })
+	end
+	-- the wall screen on the right wall: a ticker going up (Bob's money)
+	local screen = part(m, { Name = "WallScreen", Keep = true, Size = Vector3.new(0.2, 3.4, 6), CFrame = at(inner - 0.12, 6.6, -1), Color = DEVICE, CanCollide = false })
+	local sg = Instance.new("SurfaceGui")
+	sg.Face = Enum.NormalId.Left
+	sg.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	sg.PixelsPerStud = 40
+	sg.LightInfluence = 0.2
+	local bg = Instance.new("Frame")
+	bg.BorderSizePixel = 0
+	bg.Position, bg.Size = UDim2.fromScale(0.03, 0.05), UDim2.fromScale(0.94, 0.9)
+	bg.BackgroundColor3 = Color3.fromRGB(15, 21, 36)
+	bg.Parent = sg
+	local bars = { 0.3, 0.38, 0.34, 0.46, 0.42, 0.55, 0.5, 0.62, 0.6, 0.72, 0.68, 0.8 }
+	for i, h in ipairs(bars) do
+		local c = Instance.new("Frame")
+		c.BorderSizePixel = 0
+		c.AnchorPoint = Vector2.new(0, 1)
+		c.Position = UDim2.fromScale(0.05 + (i - 1) * 0.075, 0.9 - (h - 0.25) * 0.6)
+		c.Size = UDim2.fromScale(0.045, 0.2 + (i % 3) * 0.05)
+		c.BackgroundColor3 = (i % 4 == 3) and Color3.fromRGB(239, 68, 68) or Color3.fromRGB(34, 197, 94)
+		c.Parent = bg
+	end
+	local tick = Instance.new("TextLabel")
+	tick.BackgroundTransparency = 1
+	tick.Position, tick.Size = UDim2.fromScale(0.05, 0.06), UDim2.fromScale(0.6, 0.16)
+	tick.Font = Enum.Font.FredokaOne
+	tick.TextScaled = true
+	tick.TextXAlignment = Enum.TextXAlignment.Left
+	tick.Text = "BOB CAPITAL  +4.2%"
+	tick.TextColor3 = Color3.fromRGB(148, 163, 184)
+	tick.Parent = bg
+	sg.Parent = screen
+	-- furniture from the game's own kit (+Z is a piece's front; yaw 90 faces +X)
+	FK.put("bookcaseClosedDoors", at(-inner + 0.9, 0.4, 2.2), dress, { yaw = 90 })
+	FK.put("bookcaseClosedDoors", at(-inner + 0.9, 0.4, 4.7), dress, { yaw = 90 })
+	FK.put("cabinet_medium_decorated", at(inner - 1.1, 0.4, -5.5), dress, { yaw = -90 })
+	FK.put("lamp_standing", at(inner - 1.2, 0.4, 2.4), dress, {})
+	FK.put("shelf_B_small_decorated", at(-6, 0.4, back + 0.7), dress, {})
+end
+
 -- ------------------------------------------------------------------ the building
 function BobBuilding.build(world)
 	local old = world:FindFirstChild("BobCapital")
@@ -126,7 +252,7 @@ function BobBuilding.build(world)
 	part(m, { Name = "SideL", Size = Vector3.new(1, H, D), CFrame = at(-W / 2 + 0.5, H / 2, 0), Color = NAVY })
 	part(m, { Name = "SideR", Size = Vector3.new(1, H, D), CFrame = at(W / 2 - 0.5, H / 2, 0), Color = NAVY })
 	part(m, { Name = "Roof", Size = Vector3.new(W, 1, D), CFrame = at(0, H + 0.5, 0), Color = CHARCOAL })
-	local ceiling = part(m, { Name = "RoomCeiling", Size = Vector3.new(W - 2, 0.4, D - 2), CFrame = at(0, S.room, 0), Color = CHARCOAL })
+	local ceiling = part(m, { Name = "RoomCeiling", Size = Vector3.new(W - 2, 0.4, D - 2), CFrame = at(0, S.room, 0), Color = CEILING })
 	local doorX, doorW, doorH = 9, 4, 8
 	local fw = Instance.new("Model")
 	fw.Name = "FrontWall"   -- the client hides this during the boardroom shots (a cutaway)
@@ -185,14 +311,15 @@ function BobBuilding.build(world)
 	placeKit("Safe", dress, at(-12, 0.4, -8.5), 1.3, 30)
 	placeKit("Plant", dress, at(12.8, 0.4, -9.5), 2.4, 0)
 	placeKit("Plant", dress, at(-13, 0.4, 8.5), 2.4, 0)
-	part(m, { Name = "Window", Size = Vector3.new(20, 6, 0.2), CFrame = at(-2, 7, -front + 1.1), Color = GLASS, Material = Enum.Material.Neon, Transparency = 0.25, CanCollide = false })
+	BobBuilding.dressRoom(m, dress, at, W, front)
 	-- live 25 Oct: a closed room is black without its own light (both cutscenes play in here).
 	-- The lights hang off the ceiling part (a flat lamp part read as a sinking surface to the doctor)
-	for _, x in ipairs({ -8, 4 }) do
+	-- (25 Oct: a third over the front of the room, so faces are lit from the camera's side)
+	for _, xz in ipairs({ { -8, 0 }, { 4, 0 }, { -2, 7 } }) do
 		local a = Instance.new("Attachment")
 		a.Name = "Lamp"
 		a.Parent = ceiling
-		a.WorldCFrame = at(x, S.room - 0.6, 0)
+		a.WorldCFrame = at(xz[1], S.room - 0.6, xz[2])
 		local light = Instance.new("PointLight")
 		light.Range = 22
 		light.Brightness = 1.6
@@ -258,6 +385,8 @@ end
 
 -- an AI cast member: cloned, rigged (BobRig), given face cards (BobFace) while it stands in
 -- the world for a moment (the cards are placed by raycasting the head), then stored
+-- per-head face tuning (BobFace.ensureCards): measured live 25 Oct
+local FACE_TUNE = { Inv2 = { mouthIn = 0.15 } }
 local function aiMember(src, name, parent)
 	if not src then return nil end
 	local BobRig = require(RS:WaitForChild("BobRig"))
@@ -268,7 +397,7 @@ local function aiMember(src, name, parent)
 	m.Parent = workspace
 	local ok = pcall(function()
 		if not BobRig.ensure(m) then error("not six pieces") end
-		BobFace.ensureCards(m)
+		BobFace.ensureCards(m, FACE_TUNE[name])
 	end)
 	if not ok then m:Destroy() return nil end
 	m.Parent = parent
@@ -345,15 +474,16 @@ function BobBuilding.buildCast()
 	return f
 end
 
--- the REVENUE chart the player holds up in the payoff (the client draws the line)
+-- the iPad the player pulls from behind their back in the payoff (25 Oct, Luke: not the bright paper
+-- board). A dark tablet body; the client draws its screen (REVENUE, the line, the number)
 function BobBuilding.buildChart(f)
-	local chart = part(f, { Name = "Chart", Size = Vector3.new(5, 3.6, 0.2), CFrame = CFrame.new(), Color = PAPER, CanCollide = false })
+	local chart = part(f, { Name = "Chart", Keep = true, Size = Vector3.new(2.7, 1.9, 0.14), CFrame = CFrame.new(), Color = DEVICE, CanCollide = false })
 	local g = Instance.new("SurfaceGui")
 	g.Name = "ChartGui"
 	g.Face = Enum.NormalId.Front
 	g.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	g.PixelsPerStud = 60
-	g.LightInfluence = 0
+	g.PixelsPerStud = 120
+	g.LightInfluence = 0.25
 	g.Parent = chart
 	return chart
 end

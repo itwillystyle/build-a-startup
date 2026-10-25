@@ -8,8 +8,9 @@
 	  "intro"   option A "fast cuts" (Luke's pick from ui/storyboards/p5-bob): you ask Bob
 	            for an offer, he and his investors laugh, he kicks you out of his door, you
 	            walk home in the rain and vow at your laptop. New saves only. 16.2 s.
-	  "payoff"  floor 13 (the HQ 4 stage): you walk into his office, show your REVENUE
-	            chart, he throws the money (x3) and you kick HIM out. 17 s.
+	  "payoff"  floor 13 (the HQ 4 stage): you kick his door down, pull an iPad with your
+	            REVENUE on it from behind your back, he throws the money (x3) and you kick HIM
+	            out. 17 s.
 
 	Shot times come from the storyboard's cartoon.js. Spec:
 	docs/superpowers/specs/2026-10-25-bob-first-boss-investor-design.md (3a, 3e).
@@ -39,7 +40,7 @@ BobScript.LINES = {
 	whatHere = "What are YOU doing here?",
 	what = "W-WHAT?!",
 	takeIt = "Take it! TAKE IT ALL!",
-	proved = "PROVED WRONG!",
+	laughing = "Who's laughing now?",   -- Luke 25 Oct: "PROVED WRONG!" read as out of place; a line he'd say
 	toast = "SERIES A CLOSED · x3",
 	taped = "Bob isn't taking meetings... yet.",
 	trophy = "BOB'S TOOTHPICK",
@@ -60,7 +61,10 @@ local function pop(t, t0) return EASE.back(clamp01((t - t0) / 0.35)) end
 
 --[[ A scene:
 	length
-	shots   { { t0, t1, anchor, from = {offset, look, fov}, to = {...}?, follow = actorId? } }
+	shots   { { t0, t1, anchor, from = {offset, look, fov, dist?}, to = {...}?, follow = actorId?,
+	          zoom = s? (reach `to` in this many seconds, then hold: a snap zoom),
+	          aim = "tablet"? (the client frames the iPad's screen from `dist` studs; offset/look are
+	          the fallback when it is not out) } }
 	moves   [actor] = { { t, anchor?, p?, r?, roll?, move? ("linear"|"out"|"arc"), h? } }
 	looks   [actor] = { { t, pose?, face?, vis? } }
 	bubbles { { actor, text, t0, t1 } }
@@ -69,17 +73,25 @@ local function pop(t, t0) return EASE.back(clamp01((t - t0) / 0.35)) end
 	shakes  { { t0, t1, amp } }
 	cues    { { t, id } } ]]
 
-local WIDE = { offset = V(0, 5, 22), look = V(0, 3, 0), fov = 60 }
-local ONBOB = { offset = V(-7, 4.5, 9), look = V(-7, 4.2, 0), fov = 50 }
+-- live 25 Oct (Luke: "the room looks like a set"): the wide shot stood OUTSIDE the cut-away front
+-- wall and saw the floor's edge, the grass and the tops of the walls. It stands inside now, against
+-- the front wall (z 11.5), a wide lens that keeps the investor at the far end in frame.
+local WIDE = { offset = V(0, 6.5, 11.3), look = V(0, 3, -3), fov = 58 }
+local ONBOB = { offset = V(-7, 4.5, 10), look = V(-7, 4.2, 1), fov = 50 }
 local OUTSIDE = { offset = V(6, 4, 16), look = V(6, 3, 0), fov = 60 }
+-- where the boardroom cast stands: clear of the table (measured 25 Oct: it covers x -9.6..1.6,
+-- z -8.1..-0.3 from the anchor; the short investor stood inside it, Bob's belly in its edge).
+-- The tall investor stands at the table's far end, where Bob does not hide him from the wide shot
+local BOB_AT, INV1_AT, INV2_AT = V(-7, 0, 1), V(3.2, 0, -5), V(-2.2, 0, 1.4)
+local INV1_ROT = 32   -- turned to you
 
 local SCENES = {}
 
 SCENES.intro = {
 	length = 16.2,
 	shots = {
-		{ 0, 3.4, "board", from = WIDE, to = { offset = V(1.5, 5, 20.5), look = V(1.5, 3, 0), fov = 60 } },
-		{ 3.4, 6.2, "board", from = ONBOB, to = { offset = V(-7, 4.5, 8), look = V(-7, 4.4, 0), fov = 50 } },
+		{ 0, 3.4, "board", from = WIDE, to = { offset = V(0.8, 6.3, 10.6), look = V(0.8, 3, -3), fov = 57 } },
+		{ 3.4, 6.2, "board", from = ONBOB, to = { offset = V(-7, 4.5, 9), look = V(-7, 4.4, 1), fov = 50 } },
 		{ 6.2, 9.0, "door", from = OUTSIDE },
 		{ 9.0, 10.4, "street", from = { offset = V(1.5, 4, 12), look = V(1.5, 3, 0), fov = 60 }, follow = "hero" },
 		{ 10.4, 12.0, "garage", from = { offset = V(-3, 5, 15), look = V(-3, 3, 0), fov = 60 } },
@@ -89,11 +101,11 @@ SCENES.intro = {
 	},
 	moves = {
 		bob = {
-			{ t = 0, anchor = "board", p = V(-7, 0, 0), r = 45 },
+			{ t = 0, anchor = "board", p = BOB_AT, r = 45 },
 			{ t = 6.2, anchor = "door", p = V(0, 0, -1.5), r = 90 },
 		},
-		inv1 = { { t = 0, anchor = "board", p = V(-12, 0, -1.5), r = 30 } },
-		inv2 = { { t = 0, anchor = "board", p = V(-2.5, 0, -1.5), r = 20 } },
+		inv1 = { { t = 0, anchor = "board", p = INV1_AT, r = INV1_ROT } },
+		inv2 = { { t = 0, anchor = "board", p = INV2_AT, r = 20 } },
 		hero = {
 			{ t = 0, anchor = "board", p = V(7, 0, 0), r = -60, roll = 0 },
 			{ t = 6.3, anchor = "door", p = V(0.8, 1, 0), r = 90, roll = 0 },
@@ -160,13 +172,18 @@ SCENES.intro = {
 
 SCENES.payoff = {
 	length = 17.0,
+	-- 25 Oct, Luke's review of the first recording: you SLAM his door down (it breaks and falls into
+	-- the room), pull an iPad from behind your back (not a bright paper board), the line shoots up on
+	-- its screen in close-up, then the snap zoom on Bob's "W-WHAT?!" (he liked that beat: kept, sharper)
 	shots = {
-		{ 0, 1.6, "door", from = { offset = V(4, 4, 15), look = V(2, 3, 0), fov = 60 } },
-		{ 1.6, 3.8, "board", from = WIDE },
-		-- live 25 Oct: the raised chart's top sat under the letterbox bar; aim higher
-		{ 3.8, 6.6, "board", from = { offset = V(5, 5.8, 13), look = V(6, 5.3, 0), fov = 55 },
-			to = { offset = V(5.5, 5.8, 12), look = V(6, 5.4, 0), fov = 55 } },
-		{ 6.6, 9.0, "board", from = ONBOB, to = { offset = V(-7, 4.5, 7.5), look = V(-7, 4.4, 0), fov = 50 } },
+		{ 0, 1.7, "door", from = { offset = V(5.5, 4.2, 14), look = V(1, 3.2, 0), fov = 58 } },
+		{ 1.7, 3.8, "board", from = WIDE },
+		{ 3.8, 5.4, "board", from = { offset = V(0, 6.2, 11.2), look = V(0, 3.5, -2), fov = 56 },
+			to = { offset = V(0, 6, 10.4), look = V(0, 3.5, -2), fov = 55 } },
+		{ 5.4, 6.6, "board", aim = "tablet", from = { offset = V(2.7, 3.8, 2.6), look = V(5.7, 3.4, 1.5), fov = 38, dist = 5.4 },
+			to = { offset = V(3.2, 3.75, 2.4), look = V(5.7, 3.4, 1.5), fov = 34, dist = 4.6 } },
+		{ 6.6, 9.0, "board", zoom = 0.22, from = { offset = V(-7, 4.6, 10.5), look = V(-7, 4.3, 1), fov = 52 },
+			to = { offset = V(-7, 4.6, 10.5), look = V(-7, 4.45, 1), fov = 30 } },
 		{ 9.0, 11.4, "board", from = WIDE },
 		{ 11.4, 13.8, "door", from = OUTSIDE },
 		{ 13.8, 17.0, "door", from = { offset = V(3, 4.5, 14), look = V(2, 3.5, 0), fov = 60 },
@@ -174,32 +191,37 @@ SCENES.payoff = {
 	},
 	moves = {
 		hero = {
-			{ t = 0, anchor = "door", p = V(8, 0, 2), r = -90 },
-			{ t = 1.6, p = V(0.5, 0, 0.5), move = "linear" },
-			{ t = 1.61, anchor = "board", p = V(12, 0, 0), r = -90 },
-			{ t = 2.4, p = V(7, 0, 0), move = "linear" },
-			{ t = 2.41, r = -60 },
+			{ t = 0, anchor = "door", p = V(9, 0, 3.5), r = -90 },
+			{ t = 0.8, p = V(0.4, 0, 2.0), move = "linear" },
+			{ t = 0.92, r = 180, move = "out" },   -- square up to the door
+			{ t = 1.35, r = 180 },
+			{ t = 1.7, p = V(0.2, 0, -2.5), move = "linear" },   -- in over the fallen door
+			{ t = 1.71, anchor = "board", p = V(9, 0, 9.5), r = 190 },
+			{ t = 2.6, p = V(7, 0, 1), move = "linear" },
+			{ t = 2.8, r = -70, move = "out" },   -- face Bob
 			{ t = 11.4, anchor = "door", p = V(0, 0, -1), r = 90 },
 			-- live 25 Oct: side-on in the dark doorway the cheer's fists vanished; turn to us, step into the light
 			{ t = 13.8, r = 90 },
 			{ t = 14.15, p = V(0, 0, 0.8), r = 10, move = "out" },
 		},
 		bob = {
-			{ t = 0, anchor = "board", p = V(-7, 0, 0), r = 45, roll = 0 },
+			{ t = 0, anchor = "board", p = BOB_AT, r = 45, roll = 0 },
 			{ t = 11.4, anchor = "door", p = V(0.8, 1, 0), r = -90, roll = 0 },
 			{ t = 12.35, p = V(11, 0, 3), roll = 450, move = "arc", h = 3.5 },
 			{ t = 13.2, roll = 90 },
 			{ t = 13.8, roll = 0, move = "out" },
 		},
-		inv1 = { { t = 0, anchor = "board", p = V(-12, 0, -1.5), r = 30 } },
-		inv2 = { { t = 0, anchor = "board", p = V(-2.5, 0, -1.5), r = 20 } },
+		inv1 = { { t = 0, anchor = "board", p = INV1_AT, r = INV1_ROT } },
+		inv2 = { { t = 0, anchor = "board", p = INV2_AT, r = 20 } },
 	},
 	looks = {
 		hero = {
 			{ t = 0, pose = "walk", face = "determined", vis = true },
-			{ t = 1.61, face = "smug" },
-			{ t = 2.4, pose = "stand" },
-			{ t = 3.8, pose = "holdChart" },
+			{ t = 0.85, pose = "kick" },
+			{ t = 1.35, pose = "walk" },
+			{ t = 1.71, face = "smug" },
+			{ t = 2.6, pose = "stand" },
+			{ t = 3.9, pose = "holdChart" },
 			{ t = 9.0, pose = "stand" },
 			{ t = 11.4, pose = "kick", face = "determined" },
 			{ t = 11.85, pose = "stand" },
@@ -218,30 +240,31 @@ SCENES.payoff = {
 	},
 	bubbles = {
 		{ "bob", L.whatHere, 2.0, 3.8 },
-		{ "bob", L.what, 7.0, 9.0 },
+		{ "bob", L.what, 6.75, 9.0 },
 		{ "bob", L.takeIt, 9.2, 11.3 },
+		{ "hero", L.laughing, 14.1, 16.6 },
 	},
 	fx = {
-		{ text = "x3", anchor = "board", p = V(0, 7, -1), t0 = 9.5, t1 = 11.4 },
+		{ kind = "debris", anchor = "door", p = V(0, 0, -0.6), t0 = 1.25, t1 = 2.2 },
 		{ text = "BOING!", anchor = "door", p = V(11, 3.5, 3), t0 = 12.35, t1 = 13.35 },
-		{ text = L.proved, anchor = "door", p = V(4, 7.5, 0), t0 = 14.2, t1 = 17.01 },
 		{ kind = "stars", follow = "bob", t0 = 12.35, t1 = 17.01 },
 	},
 	vals = {
-		door = { { t = 0, v = 0 }, { t = 0.8, v = 0 }, { t = 1.0, v = 1 } },
-		tape = { { t = 0, v = 0 }, { t = 0.45, v = 0 }, { t = 1.2, v = 1 } },
+		-- the door falls flat into the room (0 = shut, 1 = flat), with a bounce; it lies there after
+		doorDown = { { t = 0, v = 0 }, { t = 1.08, v = 0 }, { t = 1.2, v = 0.35 }, { t = 1.28, v = 1 }, { t = 1.36, v = 0.9 }, { t = 1.44, v = 1 } },
+		tape = { { t = 0, v = 0 }, { t = 1.08, v = 0 }, { t = 1.55, v = 1 } },
 		lid = { { t = 0, v = 0 } },
 		glow = { { t = 0, v = 0 } },
-		chart = { { t = 0, v = 0 }, { t = 4.2, v = 0 }, { t = 5.6, v = 1 } },
-		chartShown = { { t = 0, v = 0 }, { t = 3.79, v = 0 }, { t = 3.8, v = 1 }, { t = 9.19, v = 1 }, { t = 9.2, v = 0 } },
+		chart = { { t = 0, v = 0 }, { t = 5.5, v = 0 }, { t = 6.4, v = 1 } },
+		chartShown = { { t = 0, v = 0 }, { t = 3.89, v = 0 }, { t = 3.9, v = 1 }, { t = 9.19, v = 1 }, { t = 9.2, v = 0 } },
 		glasses = { { t = 0, v = 0 }, { t = 6.7, v = 0 }, { t = 7.2, v = 1 } },
 		pick = { { t = 0, v = 0 }, { t = 6.8, v = 0 }, { t = 7.4, v = 1 } },
 		bills = { { t = 0, v = 0 }, { t = 9.2, v = 0 }, { t = 10.8, v = 1 } },
 		confetti = { { t = 0, v = 0 }, { t = 13.8, v = 0 }, { t = 17.0, v = 1 } },
 		handoff = { { t = 0, v = 0 }, { t = 15.8, v = 0 }, { t = 16.4, v = 1 } },
 	},
-	shakes = { { 11.4, 11.9, 0.6 } },
-	cues = { { 0.05, "music" }, { 2.0, "laugh" }, { 9.2, "money" }, { 12.35, "boing" }, { 12.4, "thud" }, { 13.85, "victory" } },
+	shakes = { { 1.25, 1.55, 0.45 }, { 6.6, 6.85, 0.3 }, { 11.4, 11.9, 0.6 } },
+	cues = { { 0.05, "music" }, { 1.26, "thud" }, { 2.0, "laugh" }, { 9.2, "money" }, { 12.35, "boing" }, { 12.4, "thud" }, { 13.85, "victory" } },
 }
 
 -- ------------------------------------------------------------------ evaluator
@@ -305,7 +328,8 @@ local function valAt(keys, t)
 end
 
 local function lerpCam(a, b, x)
-	return { offset = a.offset:Lerp(b.offset, x), look = a.look:Lerp(b.look, x), fov = a.fov + (b.fov - a.fov) * x }
+	return { offset = a.offset:Lerp(b.offset, x), look = a.look:Lerp(b.look, x), fov = a.fov + (b.fov - a.fov) * x,
+		dist = a.dist and (a.dist + ((b.dist or a.dist) - a.dist) * x) }
 end
 
 function BobScript.at(name, t, reduced)
@@ -324,10 +348,13 @@ function BobScript.at(name, t, reduced)
 	f.shot = shotN
 	local cam
 	if reduced or not shot.to then
-		cam = { offset = shot.from.offset, look = shot.from.look, fov = shot.from.fov }
+		cam = { offset = shot.from.offset, look = shot.from.look, fov = shot.from.fov, dist = shot.from.dist }
+	elseif shot.zoom then
+		cam = lerpCam(shot.from, shot.to, EASE.out(clamp01((t - shot[1]) / shot.zoom)))
 	else
 		cam = lerpCam(shot.from, shot.to, EASE.inout(clamp01((t - shot[1]) / (shot[2] - shot[1]))))
 	end
+	cam.aim = shot.aim
 	if shot.follow then
 		-- follow the actor's x; under Reduce Motion hold where it is halfway through the shot
 		local who = reduced and moveAt(s.moves[shot.follow], (shot[1] + shot[2]) / 2) or f.actors[shot.follow]
@@ -343,10 +370,11 @@ function BobScript.at(name, t, reduced)
 	end
 	for _, x in ipairs(s.fx) do
 		local k = (t >= x.t0 and t < x.t1) and pop(t, x.t0) or 0
-		table.insert(f.fx, { text = x.text, kind = x.kind or "text", anchor = x.anchor, pos = x.p, follow = x.follow, k = k })
+		table.insert(f.fx, { text = x.text, kind = x.kind or "text", anchor = x.anchor, pos = x.p, follow = x.follow, k = k, age = t - x.t0 })
 	end
 	for k, keys in pairs(s.vals) do f.vals[k] = valAt(keys, t) end
 	f.door, f.tape, f.lid, f.glow, f.handoff = f.vals.door or 0, f.vals.tape or 0, f.vals.lid or 0, f.vals.glow or 0, f.vals.handoff or 0
+	f.doorDown = f.vals.doorDown or 0
 
 	if not reduced then
 		for _, sh in ipairs(s.shakes) do

@@ -129,8 +129,11 @@ local function cardPart(head, name, cf, size)
 	return p
 end
 
--- needs the head in a WorldRoot (raycasts); the model must face -Z of its torso
-function BobFace.ensureCards(model)
+-- needs the head in a WorldRoot (raycasts); the model must face -Z of its torso.
+-- tune (optional): { mouthIn = studs } sets the mouth deeper into the face. The raycast meets the
+-- head's collision shell, which on some AI heads bulges in front of the drawn face (live 25 Oct: the
+-- short investor's mouth stood 0.2 studs proud and showed past his cheek from the side)
+function BobFace.ensureCards(model, tune)
 	local head = model and model:FindFirstChild("Head", true)
 	if not head or model:FindFirstChild("MouthCard", true) then return end
 	local torso = model:FindFirstChild("Torso", true) or head
@@ -148,7 +151,7 @@ function BobFace.ensureCards(model)
 		return hit and hit.Position or (at + front * head.Size.Z / 2)
 	end
 	local w = head.Size.X
-	local m = skin(BobFace.MOUTH_AT)
+	local m = skin(BobFace.MOUTH_AT) - front * ((tune and tune.mouthIn) or 0)
 	cardPart(head, "MouthCard", CFrame.lookAt(m + front * SKIN_GAP, m + front * 2, up), Vector3.new(w * 0.36, w * 0.18, 0.02))
 	-- the brow card leans back with the forehead: aim it along the surface normal between two samples
 	local b, b2 = skin(BobFace.BROW_AT), skin(BobFace.BROW_AT + 0.08)
@@ -156,6 +159,20 @@ function BobFace.ensureCards(model)
 	local normal = slope:Cross(torso.CFrame.RightVector).Unit
 	if normal:Dot(front) < 0 then normal = -normal end
 	cardPart(head, "BrowCard", CFrame.lookAt(b + normal * SKIN_GAP, b + normal * 2, slope), Vector3.new(w * 0.62, w * 0.14, 0.02))
+end
+
+-- a drawn face is only drawn where it can be seen: a card turned more than about 65 degrees from the
+-- camera stands out past the cheek like a sticker, so it hides until the face turns back
+function BobFace.facing(model, camPos)
+	for _, n in ipairs({ "MouthCard", "BrowCard" }) do
+		local c = model:FindFirstChild(n, true)
+		local g = c and c:FindFirstChild("Draw")
+		if g then
+			local toCam = camPos - c.Position
+			local face = toCam.Magnitude > 0 and c.CFrame.LookVector:Dot(toCam.Unit) or 1
+			if face < 0.42 then g.Enabled = false end
+		end
+	end
 end
 
 local MOUTH_RED = Color3.fromRGB(110, 28, 34)

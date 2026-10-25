@@ -6,7 +6,7 @@ local function test(name, fn) table.insert(T, { name = name, fn = fn }) end
 
 local NEEDED = {
 	"hero_idle", "hero_ask", "hero_hurt", "hero_fly", "hero_land", "hero_situp", "hero_sadwalk", "hero_vow",
-	"hero_strut", "hero_chart", "hero_kick", "hero_cheer",
+	"hero_strut", "hero_ipad", "hero_kick", "hero_cheer",
 	"bob_smug", "bob_laugh", "bob_kick", "bob_shock", "bob_throw", "bob_fly", "bob_dizzy",
 	"inv_idle", "inv_laugh", "inv_shock",
 }
@@ -54,8 +54,9 @@ test("keys are in time order inside the clip's length", function()
 end)
 
 test("the kick snaps: the hip goes from behind to high in under 0.15 s", function()
-	local back = select(1, B.sample("bob_kick", 0.2).RightHip:ToEulerAnglesXYZ())
-	local up = select(1, B.sample("bob_kick", 0.3).RightHip:ToEulerAnglesXYZ())
+	-- the leg's own angle: the hip on top of the Root lean (the hips take a Root lean back out)
+	local function leg(t) local s = B.sample("bob_kick", t) return select(1, (s.Root * s.RightHip):ToEulerAnglesXYZ()) end
+	local back, up = leg(0.2), leg(0.3)
 	assert(math.deg(back) < -30 and math.deg(up) > 90, ("%.0f -> %.0f"):format(math.deg(back), math.deg(up)))
 end)
 
@@ -63,6 +64,18 @@ test("sampling past the end of a one-shot holds its last pose", function()
 	local a = B.sample("hero_vow", 4.2).RightShoulder
 	local b = B.sample("hero_vow", 9).RightShoulder
 	assert(a == b, "held")
+end)
+
+test("a Root lean keeps the legs planted (Luke: Bob looked like he was falling)", function()
+	for _, name in ipairs({ "bob_laugh", "inv_laugh", "bob_shock" }) do
+		for _, t in ipairs({ 0, 0.15, 0.3 }) do
+			local s = B.sample(name, t)
+			for _, hip in ipairs({ "LeftHip", "RightHip" }) do
+				local leg = (s.Root * s[hip]).UpVector
+				assert(leg.Y > 0.99, ("%s at %.2f: %s tilts (%.3f)"):format(name, t, hip, leg.Y))
+			end
+		end
+	end
 end)
 
 return T

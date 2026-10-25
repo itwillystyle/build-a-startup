@@ -182,7 +182,7 @@ local function clipFor(scene, id, pose, t)
 			if scene == "intro" and t >= 12 then return "hero_vow" end
 			return "hero_idle"
 		end
-		return ({ fly = "hero_fly", lie = "hero_land", sit = "hero_situp", kick = "hero_kick", holdChart = "hero_chart",
+		return ({ fly = "hero_fly", lie = "hero_land", sit = "hero_situp", kick = "hero_kick", holdChart = "hero_ipad",
 			cheer = "hero_cheer", walk = scene == "intro" and "hero_sadwalk" or "hero_strut" })[pose]
 	elseif id == "bob" then
 		if pose == "stand" then return scene == "payoff" and "bob_shock" or "bob_smug" end
@@ -238,8 +238,15 @@ local function place(a, anchorCF, pos, rot, roll, ignore)
 	end
 	local at = (anchorCF * CFrame.new(pos.X, 0, pos.Z)).Position
 	local floor = floorAt(at, ignore or {}) or at.Y
-	a.root.CFrame = CFrame.new(at.X, floor + pos.Y + lift, at.Z) * anchorCF.Rotation * CFrame.Angles(0, 0, R(roll or 0))
+	local target = CFrame.new(at.X, floor + pos.Y + lift, at.Z) * anchorCF.Rotation * CFrame.Angles(0, 0, R(roll or 0))
 		* CFrame.Angles(0, R(180 + (rot or 0)), 0)
+	if (target.Position - a.root.Position).Magnitude > 5 then
+		-- a jump (the first frame, a cut to another set): the limbs follow the root one physics step
+		-- late, so for a frame the body was missing (live 25 Oct: Bob's tie floated alone). Move it all.
+		a.model:PivotTo(target * a.root.CFrame:ToObjectSpace(a.model:GetPivot()))
+	else
+		a.root.CFrame = target
+	end
 end
 
 local function setVisible(a, on)
@@ -252,37 +259,51 @@ local function setVisible(a, on)
 end
 
 -- ------------------------------------------------------------------ GUI
+-- live 25 Oct (Luke's review of the recording): a 3D speech bubble above a head went off the top of
+-- the frame in close shots ("He will rue the day.", "W-WHAT?!") and off the side on narrow screens.
+-- A bubble is a 2D card now, placed every frame over the speaker's head and kept inside the frame:
+-- with no room above the head it sits beside it, on the side with more room.
 local function bubbleFor(a)
-	local bb = Instance.new("BillboardGui")
-	bb.Name = "BobBubble"
-	bb.Size = UDim2.fromOffset(360, 90)
-	bb.StudsOffset = Vector3.new(0, 2.6, 0)
-	bb.AlwaysOnTop = true
-	bb.LightInfluence = 0
-	bb.Adornee = a.head
-	local holder = Instance.new("Frame")
-	holder.BackgroundTransparency = 1
-	holder.Size = UDim2.fromScale(1, 1)
-	holder.Parent = bb
 	local card = Instance.new("TextLabel")
-	card.Name = "Card"
+	card.Name = "Bubble"
 	card.AnchorPoint = Vector2.new(0.5, 1)
-	card.Position = UDim2.fromScale(0.5, 1)
 	card.AutomaticSize = Enum.AutomaticSize.X
 	card.Size = UDim2.fromOffset(0, 54)
 	card.BackgroundColor3 = PAPER
 	card.TextColor3 = INK
 	card.Font = UIKit.HEAD
 	card.TextSize = UIKit.TYPE.headline
+	card.ZIndex = 6
+	card.Visible = false
 	local pad = Instance.new("UIPadding")
 	pad.PaddingLeft, pad.PaddingRight = UDim.new(0, 18), UDim.new(0, 18)
 	pad.Parent = card
 	local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, UIKit.RADIUS.lg); c.Parent = card
 	local s = Instance.new("UIStroke"); s.Thickness = 3; s.Color = INK; s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; s.Parent = card
 	local sc = Instance.new("UIScale"); sc.Parent = card
-	card.Parent = holder
-	bb.Parent = a.model
-	return { gui = bb, card = card, scale = sc }
+	return { card = card, scale = sc, head = a.head }
+end
+
+-- where a bubble goes this frame, in viewport pixels (the scene's gui ignores the inset)
+local SKIP_ZONE = 150   -- the SKIP button's corner, top right
+local function bubbleAt(cam, head, w, h)
+	local vp = cam.ViewportSize
+	local top = cam:WorldToViewportPoint(head.Position + Vector3.new(0, head.Size.Y / 2 + 0.5, 0))
+	local mid, onScreen = cam:WorldToViewportPoint(head.Position)
+	if top.Z <= 0 or not onScreen and mid.Z <= 0 then return nil end
+	local safeTop, safeBot, edge = vp.Y * 0.1 + 12, vp.Y * 0.9 - 12, 16
+	local x, y = top.X, top.Y - 6
+	if y - h < safeTop then
+		-- no room above the head: beside it, on the side with more room
+		local r = math.max(mid.Y - top.Y, 20)
+		local side = mid.X < vp.X / 2 and 1 or -1
+		x = mid.X + side * (r + 18 + w / 2)
+		y = math.max(mid.Y + h / 2, safeTop + h)
+	end
+	local right = (y - h < SKIP_ZONE * 0.6) and vp.X - SKIP_ZONE or vp.X - edge
+	x = math.clamp(x, edge + w / 2, math.max(edge + w / 2, right - w / 2))
+	y = math.clamp(y, safeTop + h, safeBot)
+	return x, y
 end
 
 local function worldText(parent, text, color)
@@ -325,6 +346,15 @@ local function play(name, info)
 		return false
 	end
 	playing = true
+	-- live 25 Oct: on a fresh join the AI meshes were not loaded yet, so for the first frames only Bob's
+	-- tie and toothpick showed. Load the cast while still "loading" (at most 4 s; IntroClient waits 15)
+	local loaded = false
+	task.spawn(function()
+		pcall(function() game:GetService("ContentProvider"):PreloadAsync({ cast }) end)
+		loaded = true
+	end)
+	local tLoad = os.clock()
+	while not loaded and os.clock() - tLoad < 4 do task.wait() end
 	local folder = Instance.new("Folder")
 	folder.Name = "BobScene"
 	local actors = {}
@@ -344,6 +374,8 @@ local function play(name, info)
 	local restore, hidden, controls, gui, conn = {}, {}, nil, nil, nil
 	local door, tape, front = bc:FindFirstChild("Door"), bc:FindFirstChild("Tape"), bc:FindFirstChild("FrontWall")
 	local doorCF = door and door.CFrame
+	local knob = bc:FindFirstChild("Knob")
+	local knobRel = knob and doorCF and doorCF:ToObjectSpace(knob.CFrame)
 	local char = player.Character
 	local cam = workspace.CurrentCamera
 	local fov0 = cam.FieldOfView
@@ -412,6 +444,15 @@ local function play(name, info)
 		return f
 	end
 	local barT, barB = bar(true), bar(false)
+	for _, bb in pairs(bubbles) do bb.card.Parent = gui end
+	-- in from black (0.3 s): covers the first frames, when the cast's textures are still arriving
+	-- (live 25 Oct: grey heads for about 0.1 s on a fresh join)
+	local fadeIn = Instance.new("Frame")
+	fadeIn.BackgroundColor3 = INK
+	fadeIn.BorderSizePixel = 0
+	fadeIn.Size = UDim2.fromScale(1, 1)
+	fadeIn.ZIndex = 20
+	fadeIn.Parent = gui
 	local skipped = false
 	local skip = UIKit.button(gui, "SKIP", PAPER, {
 		Name = "Skip", AnchorPoint = Vector2.new(1, isTouch and 1 or 0),
@@ -451,25 +492,52 @@ local function play(name, info)
 	-- props: the chart, bills, the rain cloud / dizzy stars, BOING / x3 / PROVED WRONG
 	local chart = cast and cast:FindFirstChild("Chart") and cast.Chart:Clone()
 	if chart then chart.Parent = folder; chart.Transparency = 1 end
-	local chartLine = {}
+	-- Luke 25 Oct: "an iPad that I pull out from behind my back" (the paper board was "super bright").
+	-- A dark screen: REVENUE, a green line that shoots up, and the number counting up with it
+	local chartLine, chartNum = {}, nil
 	if chart and chart:FindFirstChild("ChartGui") then
 		local g = chart.ChartGui
+		local W, H = chart.Size.X * g.PixelsPerStud, chart.Size.Y * g.PixelsPerStud
+		local screen = Instance.new("Frame")
+		screen.BorderSizePixel = 0
+		screen.BackgroundColor3 = Color3.fromRGB(15, 21, 36)   -- world colour (the screen)
+		screen.Position, screen.Size = UDim2.fromScale(0.05, 0.07), UDim2.fromScale(0.9, 0.86)
+		local sr = Instance.new("UICorner"); sr.CornerRadius = UDim.new(0.04, 0); sr.Parent = screen
+		screen.Parent = g
+		for k = 1, 3 do
+			local grid = Instance.new("Frame")
+			grid.BorderSizePixel = 0
+			grid.BackgroundColor3 = Color3.fromRGB(38, 48, 72)   -- world colour (grid line)
+			grid.Position, grid.Size = UDim2.fromScale(0.06, 0.32 + k * 0.17), UDim2.new(0.88, 0, 0, 2)
+			grid.Parent = screen
+		end
 		local title = Instance.new("TextLabel")
-		title.BackgroundTransparency = 1; title.Size = UDim2.fromScale(1, 0.24); title.Font = UIKit.HEAD
-		title.TextScaled = true; title.Text = "REVENUE"; title.TextColor3 = INK; title.Parent = g
-		local pts = { { 0.1, 0.9 }, { 0.25, 0.86 }, { 0.4, 0.8 }, { 0.55, 0.7 }, { 0.7, 0.62 }, { 0.82, 0.42 }, { 0.92, 0.28 } }
+		title.BackgroundTransparency = 1
+		title.Position, title.Size = UDim2.fromScale(0.12, 0.1), UDim2.fromScale(0.5, 0.13)   -- clear of the holding hand
+		title.Font = UIKit.HEAD; title.TextScaled = true; title.TextXAlignment = Enum.TextXAlignment.Left
+		title.Text = "REVENUE"; title.TextColor3 = Color3.fromRGB(148, 163, 184)   -- world colour (muted label)
+		title.Parent = screen
+		chartNum = Instance.new("TextLabel")
+		chartNum.BackgroundTransparency = 1
+		chartNum.Position, chartNum.Size = UDim2.fromScale(0.12, 0.22), UDim2.fromScale(0.6, 0.19)
+		chartNum.Font = UIKit.HEAD; chartNum.TextScaled = true; chartNum.TextXAlignment = Enum.TextXAlignment.Left
+		chartNum.TextColor3 = Color3.fromRGB(74, 222, 128)   -- world colour (money up)
+		chartNum.Text = "+0%"
+		chartNum.Parent = screen
+		local pts = { { 0.06, 0.9 }, { 0.2, 0.87 }, { 0.34, 0.84 }, { 0.48, 0.78 }, { 0.62, 0.72 }, { 0.74, 0.6 }, { 0.84, 0.44 }, { 0.94, 0.26 } }
+		local sw, sh = W * 0.9, H * 0.86
 		for i = 1, #pts - 1 do
 			local a, b = pts[i], pts[i + 1]
 			local f = Instance.new("Frame")
 			f.BorderSizePixel = 0
-			f.BackgroundColor3 = Color3.fromRGB(22, 163, 74)   -- world colour
+			f.BackgroundColor3 = Color3.fromRGB(34, 197, 94)   -- world colour (the line)
 			f.AnchorPoint = Vector2.new(0.5, 0.5)
-			local dx, dy = (b[1] - a[1]) * 300, (b[2] - a[2]) * 216
-			f.Size = UDim2.fromOffset(math.sqrt(dx * dx + dy * dy) + 4, 9)
+			local dx, dy = (b[1] - a[1]) * sw, (b[2] - a[2]) * sh
+			f.Size = UDim2.fromOffset(math.sqrt(dx * dx + dy * dy) + 3, 6)
 			f.Position = UDim2.fromScale((a[1] + b[1]) / 2, (a[2] + b[2]) / 2)
 			f.Rotation = math.deg(math.atan2(dy, dx))
 			f.Visible = false
-			f.Parent = g
+			f.Parent = screen
 			chartLine[i] = f
 		end
 	end
@@ -498,8 +566,42 @@ local function play(name, info)
 	local fxs = {}
 	local f0 = BobScript.at(name, 0, true)
 	for i, x in ipairs(f0.fx) do
-		if x.kind == "text" then fxs[i] = worldText(folder, x.text, x.text == BobScript.LINES.proved and UIKit.GOLD or nil) end
+		if x.kind == "text" then fxs[i] = worldText(folder, x.text) end
 		if x.kind == "stars" then fxs[i] = worldText(folder, "* * *", UIKit.GOLD) end
+		if x.kind == "debris" then
+			-- the door coming down: wood splinters and a puff of dust out of the doorway
+			local d = { splinters = {} }
+			for k = 1, 10 do
+				d.splinters[k] = Instance.new("Part")
+				d.splinters[k].Size = Vector3.new(0.18, 0.18, 0.5 + (k % 3) * 0.3)
+				d.splinters[k].Color = Color3.fromRGB(110, 74, 48)   -- world colour (the door's wood)
+				d.splinters[k].Material = Enum.Material.Wood
+			end
+			for _, p in ipairs(d.splinters) do
+				p.Anchored, p.CanCollide, p.CanQuery, p.CanTouch, p.Transparency, p.CastShadow = true, false, false, false, 1, false
+				p.Parent = folder
+			end
+			-- live 25 Oct: dust as balls read as soap bubbles; a burst of Roblox's own smoke instead
+			local holder = Instance.new("Part")
+			holder.Anchored, holder.CanCollide, holder.CanQuery, holder.CanTouch, holder.Transparency = true, false, false, false, 1
+			holder.Size = Vector3.new(4, 0.2, 0.4)
+			holder.Parent = folder
+			local puff = Instance.new("ParticleEmitter")
+			puff.Texture = "rbxasset://textures/particles/smoke_main.dds"
+			puff.Color = ColorSequence.new(Color3.fromRGB(205, 196, 180))   -- world colour (plaster dust)
+			puff.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.35), NumberSequenceKeypoint.new(1, 1) })
+			puff.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.5), NumberSequenceKeypoint.new(1, 5) })
+			puff.Lifetime = NumberRange.new(0.7, 1.2)
+			puff.Speed = NumberRange.new(3, 8)
+			puff.SpreadAngle = Vector2.new(70, 25)
+			puff.Drag = 3
+			puff.Rate = 0
+			puff.LightInfluence = 0.6
+			puff.EmissionDirection = Enum.NormalId.Front
+			puff.Parent = holder
+			d.holder, d.puff = holder, puff
+			fxs[i] = d
+		end
 	end
 
 	-- the camera owns the view until finish()
@@ -592,6 +694,7 @@ local function play(name, info)
 					pose(a, st.pose, t)
 				end
 				a.face.set(st.face)
+				if st.visible then BobFace.facing(a.model, cam.CFrame.Position) end
 			end
 		end
 		-- Bob's sunglasses fly off and the toothpick drops (payoff)
@@ -605,15 +708,13 @@ local function play(name, info)
 			if sg and g > 0 and bob.head then sg.Anchored = true; sg.CFrame = bob.head.CFrame * CFrame.new(g * 1.2, 1 + g * 3, -0.7) * CFrame.Angles(0, 0, g * 1.2) end
 			if tp and pk > 0 and bob.head then tp.Anchored = true; tp.CFrame = bob.head.CFrame * CFrame.new(0.4, -0.6 - pk * 2.6, -0.8) * CFrame.Angles(0, 0, pk * 3) end
 		end
-		-- bubbles
-		for _, b in ipairs(f.bubbles) do
-			local bb = bubbles[b.actor]
-			if bb and b.k > 0 then bb.card.Text = b.text; bb.scale.Scale = b.k; bb.gui.Enabled = true end
-		end
+		-- bubbles (placed after the camera moves, below)
 		for id, bb in pairs(bubbles) do
-			local any = false
-			for _, b in ipairs(f.bubbles) do if b.actor == id and b.k > 0 then any = true end end
-			if not any then bb.gui.Enabled = false end
+			bb.on = nil
+			for _, b in ipairs(f.bubbles) do
+				if b.actor == id and b.k > 0 then bb.on = b end
+			end
+			if bb.on then bb.card.Text = bb.on.text; bb.scale.Scale = bb.on.k else bb.card.Visible = false end
 		end
 		-- fx: words, the rain cloud over you, stars over Bob
 		for i, x in ipairs(f.fx) do
@@ -623,6 +724,30 @@ local function play(name, info)
 				for k, p in ipairs(cloud) do
 					p.Transparency = x.k > 0 and 0.1 or 1
 					if hero and hero.head and x.k > 0 then p.CFrame = hero.head.CFrame * CFrame.new((k - 2) * 1.1, 2.3 + (k == 2 and 0.35 or 0), 0) end
+				end
+			elseif x.kind == "debris" and fx then
+				local base = A[x.anchor] and A[x.anchor] * CFrame.new(x.pos)
+				local age = x.age or 0
+				local on = x.k > 0 and base ~= nil
+				for k, p in ipairs(fx.splinters) do
+					if on then
+						-- out of the doorway toward us and up, then down to the pavement
+						local dir = Vector3.new(math.cos(k * 2.4) * 0.9, 1.1 + (k % 4) * 0.25, 0.9 + math.sin(k * 1.7) * 0.4)
+						local s = dir * 9 * age - Vector3.new(0, 30 * age * age, 0)
+						local pos = base * CFrame.new(math.cos(k) * 1.4, 1 + (k % 5) * 1.2, 0)
+						local at = pos.Position + base:VectorToWorldSpace(Vector3.new(s.X, 0, s.Z)) + Vector3.new(0, s.Y, 0)
+						at = Vector3.new(at.X, math.max(at.Y, base.Position.Y + 0.1), at.Z)
+						p.CFrame = CFrame.new(at) * CFrame.Angles(age * (6 + k), age * 4, k)
+						p.Transparency = age > 0.7 and math.clamp((age - 0.7) / 0.25, 0, 1) or 0
+					else
+						p.Transparency = 1
+					end
+				end
+				if on and not fx.puffed then
+					-- out of the doorway toward the street (the holder's front faces +Z, out of the building)
+					fx.holder.CFrame = base * CFrame.new(0, 0.6, 0.4) * CFrame.Angles(0, math.pi, 0)
+					fx.puff:Emit(30)
+					fx.puffed = true
 				end
 			elseif fx then
 				fx.gui.Enabled = x.k > 0
@@ -634,15 +759,33 @@ local function play(name, info)
 				end
 			end
 		end
-		-- the chart in your hands
+		-- the iPad: out of sight behind your back, round in your right hand, then held in both
 		if chart then
-			local shown = (f.vals.chartShown or 0) > 0.5
+			local hero = actors.hero
+			local clipT = hero and hero.clip == "hero_ipad" and (t - hero.clipStart) or -1
+			local shown = (f.vals.chartShown or 0) > 0.5 and hero ~= nil and clipT >= BobClips.IPAD_IN_HAND
 			chart.Transparency = shown and 0 or 1
 			if chart:FindFirstChild("ChartGui") then chart.ChartGui.Enabled = shown end
-			local hero = actors.hero
-			if shown and hero and hero.head then chart.CFrame = hero.head.CFrame * CFrame.new(0, 2.3, -1.2) end
-			local n = math.floor((f.vals.chart or 0) * #chartLine + 0.5)
+			if shown then
+				local m = hero.model
+				local rh = m:FindFirstChild("RightHand")
+				-- held out in front of the chest (live 25 Oct: placed between the hands it rode up over his
+				-- face), screen to Bob, tipped up a little
+				local torso = m:FindFirstChild("UpperTorso") or m:FindFirstChild("Torso") or hero.root
+				local look = hero.root.CFrame.LookVector
+				local at = torso.Position + look * (torso.Size.Z / 2 + 1.25) + Vector3.new(0, -0.1, 0)
+				local held = CFrame.lookAt(at, at + look) * CFrame.Angles(R(12), 0, 0)
+				if clipT < BobClips.IPAD_HELD and rh then
+					local inHand = rh.CFrame * CFrame.new(0, -0.15, 0) * CFrame.Angles(R(90), 0, 0)
+					chart.CFrame = inHand:Lerp(held, math.clamp((clipT - (BobClips.IPAD_HELD - 0.3)) / 0.3, 0, 1))
+				else
+					chart.CFrame = held
+				end
+			end
+			local k = f.vals.chart or 0
+			local n = math.floor(k * #chartLine + 0.5)
 			for i, seg in ipairs(chartLine) do seg.Visible = i <= n end
+			if chartNum then chartNum.Text = ("+%d%%"):format(math.floor(k * 312)) end
 		end
 		-- money flying from Bob to you, and the counter
 		if #bills > 0 then
@@ -667,11 +810,31 @@ local function play(name, info)
 		end
 		-- Bob's door, the tape, and the front wall (hidden for the boardroom shots: a cutaway)
 		if door and doorCF then
-			local hinge = doorCF * CFrame.new(-door.Size.X / 2, 0, 0)
-			door.CFrame = hinge * CFrame.Angles(0, R(-100 * f.door), 0) * CFrame.new(door.Size.X / 2, 0, 0)
+			if f.doorDown > 0 then
+				-- Luke 25 Oct: "you slam the door down": it falls flat into the room about its bottom
+				-- edge (the scene's door is -Z into the building) and lies there
+				local edge = doorCF * CFrame.new(0, -door.Size.Y / 2 + door.Size.Z / 2, 0)
+				door.CFrame = edge * CFrame.Angles(R(-90 * f.doorDown), 0, 0) * CFrame.new(0, door.Size.Y / 2 - door.Size.Z / 2, 0)
+			else
+				local hinge = doorCF * CFrame.new(-door.Size.X / 2, 0, 0)
+				door.CFrame = hinge * CFrame.Angles(0, R(-100 * f.door), 0) * CFrame.new(door.Size.X / 2, 0, 0)
+			end
 			override(door, "CanCollide", false)
+			if knob and knobRel then override(knob, "CFrame", door.CFrame * knobRel) end
 		end
-		if tape then for _, p in ipairs(tape:GetChildren()) do if p:IsA("BasePart") then override(p, "LocalTransparencyModifier", f.tape) end end end
+		if tape then
+			-- the tape tears off as the door goes: each strip flies its own way and fades
+			for i, p in ipairs(tape:GetChildren()) do
+				if p:IsA("BasePart") then
+					local side = i % 2 == 0 and 1 or -1
+					local k = f.tape
+					if restore[p] == nil or restore[p].CFrame == nil then override(p, "CFrame", p.CFrame) end
+					local p0 = restore[p].CFrame
+					p.CFrame = p0 * CFrame.new(side * k * 2.2, -k * 3.2, k * 1.6) * CFrame.Angles(k * 1.4, 0, side * k * 1.8)
+					override(p, "LocalTransparencyModifier", math.clamp(k * 1.4 - 0.4, 0, 1))
+				end
+			end
+		end
 		local cutaway = f.cam.anchor == "board" and 1 or 0
 		if front then
 			for _, p in ipairs(front:GetDescendants()) do
@@ -694,6 +857,8 @@ local function play(name, info)
 			end
 		end
 		lastT = t
+		fadeIn.BackgroundTransparency = math.clamp(t / 0.3, 0, 1)   -- a fade, kept under Reduce Motion
+		fadeIn.Visible = t < 0.3   -- gone after, so it never sits over SKIP
 		-- letterbox out at the hand-off
 		barT.Position = UDim2.new(0, 0, -0.1 * f.handoff, 0)
 		barB.Position = UDim2.new(0, 0, 1 + 0.1 * f.handoff, 0)
@@ -705,14 +870,30 @@ local function play(name, info)
 			if cam.CameraType ~= Enum.CameraType.Scriptable then cam.CameraType = Enum.CameraType.Scriptable end   -- anything that resets it loses
 			cam.CFrame = CFrame.lookAt(base * f.cam.offset, base * f.cam.look) * CFrame.new(shake)
 			cam.FieldOfView = f.cam.fov
-			-- Studio only: BobSceneLook = an actor id ("hero", "bob", "inv1", "inv2") frames that actor up close,
-			-- from its front-left, so a held clip can be checked by eye
+			-- the iPad close-up: framed from the tablet itself, so it holds on any avatar's size
+			if f.cam.aim == "tablet" and chart and chart.Transparency < 1 and f.cam.dist then
+				local c = chart.CFrame
+				local from = c.Position + c.LookVector * f.cam.dist + c.UpVector * 0.25 + c.RightVector * 0.35
+				cam.CFrame = CFrame.lookAt(from, c.Position + c.UpVector * 0.1) * CFrame.new(shake)
+			end
+			-- Studio only: BobSceneLook = an actor id ("hero", "bob", "inv1", "inv2") frames that actor's head
+			-- up close, from its front-left (BobSceneLookDist studs, default 9), so a held clip or a face
+			-- can be checked by eye
 			local look = RunService:IsStudio() and actors[player:GetAttribute("BobSceneLook") or ""]
 			if look and look.root then
 				local r = look.root.CFrame
-				local at = r.Position + Vector3.new(0, 0.6, 0)
-				cam.CFrame = CFrame.lookAt(at + r.LookVector * 9 - r.RightVector * 4 + Vector3.new(0, 1.5, 0), at)
+				local d = player:GetAttribute("BobSceneLookDist") or 9
+				local at = look.head and look.head.Position or r.Position + Vector3.new(0, 0.6, 0)
+				cam.CFrame = CFrame.lookAt(at + r.LookVector * d - r.RightVector * d * 0.35 + Vector3.new(0, d * 0.12, 0), at)
 				cam.FieldOfView = 50
+			end
+		end
+		for _, bb in pairs(bubbles) do
+			if bb.on and bb.head then
+				local w = bb.card.TextBounds.X + 36
+				local x, y = bubbleAt(cam, bb.head, w, 54)
+				bb.card.Visible = x ~= nil
+				if x then bb.card.Position = UDim2.fromOffset(x, y) end
 			end
 		end
 	end)

@@ -39,7 +39,7 @@ test("payoff words are exact", function()
 		for _, b in ipairs(f.bubbles) do if b.k > 0 then seen[b.text] = true end end
 		for _, x in ipairs(f.fx) do if x.k > 0 and x.text then seen[x.text] = true end end
 	end)
-	for _, w in ipairs({ "What are YOU doing here?", "W-WHAT?!", "Take it! TAKE IT ALL!", "PROVED WRONG!" }) do
+	for _, w in ipairs({ "What are YOU doing here?", "W-WHAT?!", "Take it! TAKE IT ALL!", "Who's laughing now?" }) do
 		assert(seen[w], "missing: " .. w)
 	end
 end)
@@ -78,8 +78,9 @@ test("reduced: the camera holds still inside a shot", function()
 	end
 end)
 
-test("hard cuts: shots run in order, 6 in the intro, 7 in the payoff", function()
-	for name, n in pairs({ intro = 6, payoff = 7 }) do
+-- 25 Oct: the payoff gained the iPad close-up (Luke's review): 8 shots
+test("hard cuts: shots run in order, 6 in the intro, 8 in the payoff", function()
+	for name, n in pairs({ intro = 6, payoff = 8 }) do
 		local last, count = 0, 0
 		sweep(name, function(f)
 			assert(f.shot >= last, name .. " shot went back")
@@ -124,10 +125,34 @@ test("every line in the spec is in LINES, verbatim", function()
 		offer = "Can I get an offer?", haOffer = "HA! An OFFER?", haha = "HAHAHA!", rue = "He will rue the day.",
 		text = "...Ok. I may have been hasty. Come to my office.", task = "Go to Bob's office",
 		whatHere = "What are YOU doing here?", what = "W-WHAT?!", takeIt = "Take it! TAKE IT ALL!",
-		proved = "PROVED WRONG!", toast = "SERIES A CLOSED · x3", taped = "Bob isn't taking meetings... yet.",
+		laughing = "Who's laughing now?", toast = "SERIES A CLOSED · x3", taped = "Bob isn't taking meetings... yet.",
 		trophy = "BOB'S TOOTHPICK",
 	}
 	for k, v in pairs(want) do assert(B.LINES[k] == v, k .. ": " .. tostring(B.LINES[k])) end
+end)
+
+-- 25 Oct (Luke: "inside the object"): nobody in the boardroom stands inside the table
+-- (measured live: it covers x -9.6..1.6, z -8.1..-0.3 from the anchor); 1 stud of body radius
+test("nobody stands inside the boardroom table", function()
+	for _, name in ipairs({ "intro", "payoff" }) do
+		sweep(name, function(f, t)
+			for id, a in pairs(f.actors) do
+				if a.anchor == "board" and a.visible then
+					local p = a.pos
+					local inside = p.X > -9.6 - 1 and p.X < 1.6 + 1 and p.Z > -8.1 - 1 and p.Z < -0.3 + 1
+					assert(not inside, ("%s %s at %.1f s stands in the table (%.1f, %.1f)"):format(name, id, t, p.X, p.Z))
+				end
+			end
+		end)
+	end
+end)
+
+test("the payoff door falls flat and stays down; the snap zoom lands in under 0.3 s", function()
+	assert(B.at("payoff", 0, false).doorDown == 0, "shut at the start")
+	assert(B.at("payoff", 1.5, false).doorDown == 1, "flat after the kick")
+	assert(B.at("payoff", 16, false).doorDown == 1, "still down at the end")
+	local a, b = B.at("payoff", 6.6, false).cam.fov, B.at("payoff", 6.85, false).cam.fov
+	assert(a > 45 and b < 32, ("zoom %.0f -> %.0f"):format(a, b))
 end)
 
 return T
