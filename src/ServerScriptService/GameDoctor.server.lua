@@ -645,7 +645,7 @@ local function run()
 		local r = sv:Invoke("scenario", player, "bob:intro")
 		check("bob: intro scenario", r and r.ok, "BUG", r and (r.ok and "ok" or tostring(r.err)) or "no answer", "ok")
 		-- 27 Oct: a scene that breaks while loading lets go (the intro below must then still start)
-		local broken = probe(player, "bobbroken", {}, 10)
+		local broken = probe(player, "bobbroken", {}, 25)   -- the late break loads the scene first (up to 6 s)
 		for _, c in ipairs(broken and broken.checks or {}) do check(c.name, c.ok, "BUG", c.measured, c.expected) end
 		if not broken or broken.error then check("bob broken probe answered", false, "BUG", broken and broken.error or "no answer", "answer") end
 		for _, args in ipairs({ { name = "intro" }, { name = "intro", skipAt = 3 } }) do
@@ -690,6 +690,13 @@ local function run()
 		-- 27 Oct: replay the payoff on the client with the door already open; it must end open, not 160
 		local replay = probe(player, "bobscene", { name = "payoff" }, 40)
 		if not replay or replay.error then check("bob payoff replay answered", false, "BUG", replay and replay.error or "no answer", "answer") end
+		-- what the replay puts back (review round 1: these were thrown away); its sound and pop checks are
+		-- the intro's job, so a replay does not report them twice
+		local RESTORE = { started = true, ["camera Custom after"] = true, ["camera on the humanoid"] = true,
+			["nothing left behind"] = true, ["HUD back"] = true, ["playing flag cleared"] = true }
+		for _, c in ipairs(replay and replay.checks or {}) do
+			if RESTORE[c.name:gsub("^bob payoff: ", "")] then check(c.name .. " (replay)", c.ok, "BUG", c.measured, c.expected) end
+		end
 		door(" (after a replay)")
 		-- (whether the payoff scene ended cleanly is the client's to say: the bobscene probe checks it)
 	end)

@@ -614,6 +614,7 @@ local function play(name, info)
 	-- scene BobScript does not know) left "loading" and `playing` on for good: the door never came back
 	-- and no Bob scene could play again that session (measured live; DoctorProbes.bobbroken)
 	local bank, folder, cueSound, bedSound, actors, bubbles
+	local door, tape, front, doorCF, knob, knobRel, char, cam, fov0
 	local okSetup, setupErr = pcall(function()
 		-- live 25 Oct: on a fresh join the AI meshes were not loaded yet, so for the first frames only Bob's
 		-- tie and toothpick showed. Load the cast while still "loading" (at most 4 s; IntroClient waits 15)
@@ -666,8 +667,19 @@ local function play(name, info)
 		add("inv1", cast and cast:FindFirstChild("Inv1") and cast.Inv1:Clone())
 		add("inv2", cast and cast:FindFirstChild("Inv2") and cast.Inv2:Clone())
 		add("hero", heroModel())
+		-- the doctor's fault, Studio only (DoctorProbes.bobbroken): fail here, with the bank and the cast
+		-- already out, to prove the let-go cleans up (review round 1: a bad scene name failed too early to)
+		if RunService:IsStudio() and player:GetAttribute("BobSceneFailAt") == "bubbles" then error("doctor: fail at bubbles") end
 		bubbles = {}
 		for id, a in pairs(actors) do bubbles[id] = bubbleFor(a) end
+		-- what the scene will change and put back, read here so a throw (no camera yet) also lets go (round 1)
+		door, tape, front = bc:FindFirstChild("Door"), bc:FindFirstChild("Tape"), bc:FindFirstChild("FrontWall")
+		doorCF = door and (door:GetAttribute("ClosedCF") or door.CFrame)   -- shut, even if your door is open
+		knob = bc:FindFirstChild("Knob")
+		knobRel = knob and doorCF and doorCF:ToObjectSpace(knob.CFrame)
+		char = player.Character
+		cam = workspace.CurrentCamera
+		fov0 = cam.FieldOfView
 	end)
 	if not okSetup then
 		warn("[Bob] the scene could not load and was let go: " .. tostring(setupErr))
@@ -680,13 +692,6 @@ local function play(name, info)
 
 	-- everything the scene changes, so finish() -- or a failure anywhere below -- puts it all back
 	local restore, hidden, controls, gui, conn = {}, {}, nil, nil, nil
-	local door, tape, front = bc:FindFirstChild("Door"), bc:FindFirstChild("Tape"), bc:FindFirstChild("FrontWall")
-	local doorCF = door and (door:GetAttribute("ClosedCF") or door.CFrame)   -- shut, even if your door is open
-	local knob = bc:FindFirstChild("Knob")
-	local knobRel = knob and doorCF and doorCF:ToObjectSpace(knob.CFrame)
-	local char = player.Character
-	local cam = workspace.CurrentCamera
-	local fov0 = cam.FieldOfView
 	local listeners = {}   -- input/attribute hooks: putBack drops them even when setup fails (review round 1)
 	local function putBack()
 		if conn then conn:Disconnect() end
