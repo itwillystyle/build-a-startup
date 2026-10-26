@@ -46,6 +46,12 @@ jobs:
       - name: Offline tests
         run: lune run tests/offline/run
 
+      - name: Type check
+        # luau-lsp over src/ with the Roblox types (pinned to luau-lsp 1.70.1, sha256-checked).
+        # Fails only on a type or syntax error a file did not have in tests/types-baseline.txt,
+        # so the 79 known ones (mostly tables that gain fields later) don't block anything.
+        run: lune run tools/typecheck
+
       - name: Formatting
         # Informational for now: `stylua src` has never been run on this codebase,
         # so failing the build on it would just be noise. Flip --check to a real
