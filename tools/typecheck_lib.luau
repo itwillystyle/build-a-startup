@@ -11,6 +11,9 @@ local L = {}
 -- each outermost "{| ... |}" becomes "{...}", by depth, so arrays, unions and nesting inside a
 -- shape are cut with it (review rounds 1-2: two gsub loops missed `{number}` and `number | nil`)
 local function clean(msg)
+	-- a path inside the message ("the following modules ...: c:\Users\...\src\X.lua") is cut to the
+	-- repo's src/ with forward slashes, so the name is the same on Luke's PC and on Linux CI
+	msg = msg:gsub("[^%s,]*[\\/](src[\\/][^%s,]*)", function(p) return (p:gsub("\\", "/")) end)
 	local out, depth, i = {}, 0, 1
 	while i <= #msg do
 		local two = msg:sub(i, i + 1)

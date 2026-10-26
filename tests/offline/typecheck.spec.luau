@@ -54,6 +54,13 @@ test("the path is the last src/ in it, whatever folder the repo sits in (review 
 	assert(e[1].path == "src/ServerScriptService/A.lua", e[1].path)
 end)
 
+test("paths inside a message are cut to the repo, so Windows and Linux CI agree (26 Oct)", function()
+	local win = L.parse([=[c:\Users\lukex\Downloads\game-bobmerge\src\ServerScriptService\BobBuilding.lua [game/ServerScriptService/BobBuilding](32,19): TypeError: Cyclic dependencies are only supported if all modules in the cycle use 'export' syntax. The following modules do not use 'export': c:\Users\lukex\Downloads\game-bobmerge\src\ServerScriptService\Downtown.lua [game/ServerScriptService/Downtown], c:\Users\lukex\Downloads\game-bobmerge\src\ServerScriptService\BobBuilding.lua [game/ServerScriptService/BobBuilding]]=])
+	local nix = L.parse([=[/home/runner/work/build-a-startup/build-a-startup/src/ServerScriptService/BobBuilding.lua [game/ServerScriptService/BobBuilding](32,19): TypeError: Cyclic dependencies are only supported if all modules in the cycle use 'export' syntax. The following modules do not use 'export': /home/runner/work/build-a-startup/build-a-startup/src/ServerScriptService/Downtown.lua [game/ServerScriptService/Downtown], /home/runner/work/build-a-startup/build-a-startup/src/ServerScriptService/BobBuilding.lua [game/ServerScriptService/BobBuilding]]=])
+	assert(win[1].key == nix[1].key, win[1].key .. "\n~=\n" .. nix[1].key)
+	assert(not win[1].key:find("lukex", 1, true), "a machine path leaked into the key")
+end)
+
 test("the baseline round-trips and counts each file + message", function()
 	local base = L.tally(L.parse(OUT))
 	local text = L.format(base)
