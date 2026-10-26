@@ -644,6 +644,10 @@ local function run()
 	step("bob", function()
 		local r = sv:Invoke("scenario", player, "bob:intro")
 		check("bob: intro scenario", r and r.ok, "BUG", r and (r.ok and "ok" or tostring(r.err)) or "no answer", "ok")
+		-- 27 Oct: a scene that breaks while loading lets go (the intro below must then still start)
+		local broken = probe(player, "bobbroken", {}, 10)
+		for _, c in ipairs(broken and broken.checks or {}) do check(c.name, c.ok, "BUG", c.measured, c.expected) end
+		if not broken or broken.error then check("bob broken probe answered", false, "BUG", broken and broken.error or "no answer", "answer") end
 		for _, args in ipairs({ { name = "intro" }, { name = "intro", skipAt = 3 } }) do
 			local res = probe(player, "bobscene", args, 40)
 			if not res or res.error then
@@ -675,8 +679,18 @@ local function run()
 		check("bob payoff: pays", first == 1, "BLOCKER", first, 1)
 		check("bob payoff: BobPaid set", player:GetAttribute("BobPaid") == true, "BUG", player:GetAttribute("BobPaid"), true)
 		task.wait(18)   -- the payoff scene plays on the client
+		local function door(after)
+			local d = probe(player, "bobdoor", {}, 40)
+			if not d or d.error then check("bob door probe answered", false, "BUG", d and d.error or "no answer", "answer") return end
+			for _, c in ipairs(d.checks or {}) do check(c.name .. after, c.ok, "BUG", c.measured, c.expected) end
+		end
+		door(" (after the payoff)")
 		local second = walkIn()
 		check("bob payoff: pays once", second == 0, "BLOCKER", second, "0 more payouts")
+		-- 27 Oct: replay the payoff on the client with the door already open; it must end open, not 160
+		local replay = probe(player, "bobscene", { name = "payoff" }, 40)
+		if not replay or replay.error then check("bob payoff replay answered", false, "BUG", replay and replay.error or "no answer", "answer") end
+		door(" (after a replay)")
 		-- (whether the payoff scene ended cleanly is the client's to say: the bobscene probe checks it)
 	end)
 

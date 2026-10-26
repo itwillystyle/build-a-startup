@@ -610,64 +610,78 @@ local function play(name, info)
 		return false
 	end
 	playing = true
-	-- live 25 Oct: on a fresh join the AI meshes were not loaded yet, so for the first frames only Bob's
-	-- tie and toothpick showed. Load the cast while still "loading" (at most 4 s; IntroClient waits 15)
-	-- The scene's sounds too, as a BANK: one Sound per cue and per loop, made and loaded now and only
-	-- played on cue. (live 25 Oct: a Sound made at its cue was still loading 0.12 s later, its playhead
-	-- frozen, so nearly every sound came in late or not at all; only a repeat of one already heard
-	-- played on time. Preloading the asset URL is not enough: each new Sound loads again)
-	local bank = Instance.new("Folder")
-	bank.Name = "BobSceneSounds"
-	local cueSound, bedSound = {}, {}
-	local function bankSound(id)
-		local info = SOUND[id]
-		local url = info and Sfx.url(info[1])
-		if not url then return nil end
-		local s = Instance.new("Sound")
-		s.Name = id
-		s.SoundId = url
-		s.Volume = 0
-		s.Parent = bank
-		return s
-	end
-	for _, c in ipairs(BobScript.cues(name, -1, BobScript.length(name))) do
-		cueSound[("%.3f|%s"):format(c.t, c.id)] = bankSound(c.id)
-	end
-	for i, b in ipairs(BobScript.beds(name)) do bedSound[i] = bankSound(b[1]) end
-	bank.Parent = game:GetService("SoundService")
-	local loaded = false
-	task.spawn(function()
-		local list = { cast }
-		for _, s in ipairs(bank:GetChildren()) do table.insert(list, s) end
-		pcall(function() game:GetService("ContentProvider"):PreloadAsync(list) end)
-		loaded = true
+	-- 27 Oct: the loading below runs inside a pcall of its own. Before, a throw here (a broken cast, a
+	-- scene BobScript does not know) left "loading" and `playing` on for good: the door never came back
+	-- and no Bob scene could play again that session (measured live; DoctorProbes.bobbroken)
+	local bank, folder, cueSound, bedSound, actors, bubbles
+	local okSetup, setupErr = pcall(function()
+		-- live 25 Oct: on a fresh join the AI meshes were not loaded yet, so for the first frames only Bob's
+		-- tie and toothpick showed. Load the cast while still "loading" (at most 4 s; IntroClient waits 15)
+		-- The scene's sounds too, as a BANK: one Sound per cue and per loop, made and loaded now and only
+		-- played on cue. (live 25 Oct: a Sound made at its cue was still loading 0.12 s later, its playhead
+		-- frozen, so nearly every sound came in late or not at all; only a repeat of one already heard
+		-- played on time. Preloading the asset URL is not enough: each new Sound loads again)
+		bank = Instance.new("Folder")
+		bank.Name = "BobSceneSounds"
+		cueSound, bedSound = {}, {}
+		local function bankSound(id)
+			local info = SOUND[id]
+			local url = info and Sfx.url(info[1])
+			if not url then return nil end
+			local s = Instance.new("Sound")
+			s.Name = id
+			s.SoundId = url
+			s.Volume = 0
+			s.Parent = bank
+			return s
+		end
+		for _, c in ipairs(BobScript.cues(name, -1, BobScript.length(name))) do
+			cueSound[("%.3f|%s"):format(c.t, c.id)] = bankSound(c.id)
+		end
+		for i, b in ipairs(BobScript.beds(name)) do bedSound[i] = bankSound(b[1]) end
+		bank.Parent = game:GetService("SoundService")
+		local loaded = false
+		task.spawn(function()
+			local list = { cast }
+			for _, s in ipairs(bank:GetChildren()) do table.insert(list, s) end
+			pcall(function() game:GetService("ContentProvider"):PreloadAsync(list) end)
+			loaded = true
+		end)
+		for _, b in ipairs(BobScript.at(name, 0, true).bubbles) do task.spawn(measure, b.text) end   -- every line's size, up front
+		local tLoad = os.clock()
+		local function allLoaded()
+			for _, s in ipairs(bank:GetChildren()) do if not s.IsLoaded then return false end end
+			return true
+		end
+		while not (loaded and allLoaded()) and os.clock() - tLoad < 6 do task.wait() end
+		folder = Instance.new("Folder")
+		folder.Name = "BobScene"
+		actors = {}
+		local function add(id, model)
+			if not model then return end
+			model.Parent = folder
+			actors[id] = prep(model, id)
+		end
+		add("bob", cast and cast:FindFirstChild("Bob") and cast.Bob:Clone())
+		add("inv1", cast and cast:FindFirstChild("Inv1") and cast.Inv1:Clone())
+		add("inv2", cast and cast:FindFirstChild("Inv2") and cast.Inv2:Clone())
+		add("hero", heroModel())
+		bubbles = {}
+		for id, a in pairs(actors) do bubbles[id] = bubbleFor(a) end
 	end)
-	for _, b in ipairs(BobScript.at(name, 0, true).bubbles) do task.spawn(measure, b.text) end   -- every line's size, up front
-	local tLoad = os.clock()
-	local function allLoaded()
-		for _, s in ipairs(bank:GetChildren()) do if not s.IsLoaded then return false end end
-		return true
+	if not okSetup then
+		warn("[Bob] the scene could not load and was let go: " .. tostring(setupErr))
+		if bank then bank:Destroy() end
+		if folder then folder:Destroy() end
+		playing = false
+		player:SetAttribute("BobSceneState", "failed")
+		return false
 	end
-	while not (loaded and allLoaded()) and os.clock() - tLoad < 6 do task.wait() end
-	local folder = Instance.new("Folder")
-	folder.Name = "BobScene"
-	local actors = {}
-	local function add(id, model)
-		if not model then return end
-		model.Parent = folder
-		actors[id] = prep(model, id)
-	end
-	add("bob", cast and cast:FindFirstChild("Bob") and cast.Bob:Clone())
-	add("inv1", cast and cast:FindFirstChild("Inv1") and cast.Inv1:Clone())
-	add("inv2", cast and cast:FindFirstChild("Inv2") and cast.Inv2:Clone())
-	add("hero", heroModel())
-	local bubbles = {}
-	for id, a in pairs(actors) do bubbles[id] = bubbleFor(a) end
 
 	-- everything the scene changes, so finish() -- or a failure anywhere below -- puts it all back
 	local restore, hidden, controls, gui, conn = {}, {}, nil, nil, nil
 	local door, tape, front = bc:FindFirstChild("Door"), bc:FindFirstChild("Tape"), bc:FindFirstChild("FrontWall")
-	local doorCF = door and door.CFrame
+	local doorCF = door and (door:GetAttribute("ClosedCF") or door.CFrame)   -- shut, even if your door is open
 	local knob = bc:FindFirstChild("Knob")
 	local knobRel = knob and doorCF and doorCF:ToObjectSpace(knob.CFrame)
 	local char = player.Character
