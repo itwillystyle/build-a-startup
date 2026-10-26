@@ -42,6 +42,13 @@ test("a nested table shape is cut whole (review round 1)", function()
 	assert(a[1].msg == "Key 'x' not found in table '{...}'", a[1].msg)
 end)
 
+test("a shape holding an array or a union is cut whole too (review round 2)", function()
+	for _, shape in { "{| a: {number}, c: number |}", "{| a: {| b: any |}, c: number | nil |}", "{| a: {| b: {| z: any |} |}, c: number |}" } do
+		local e = L.parse("src/C.lua(1,1): TypeError: Key 'x' not found in table '" .. shape .. "'")
+		assert(e[1].msg == "Key 'x' not found in table '{...}'", shape .. " -> " .. e[1].msg)
+	end
+end)
+
 test("the path is the last src/ in it, whatever folder the repo sits in (review round 1)", function()
 	local e = L.parse([[/x/src/build-a-startup/src/ServerScriptService/A.lua [game/A](3,1): TypeError: boom]])
 	assert(e[1].path == "src/ServerScriptService/A.lua", e[1].path)

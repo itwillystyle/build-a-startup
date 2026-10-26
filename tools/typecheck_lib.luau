@@ -8,12 +8,25 @@
 
 local L = {}
 
+-- each outermost "{| ... |}" becomes "{...}", by depth, so arrays, unions and nesting inside a
+-- shape are cut with it (review rounds 1-2: two gsub loops missed `{number}` and `number | nil`)
 local function clean(msg)
-	-- innermost shapes first, until none is left, so a nested shape is cut whole (review round 1)
-	local n
-	repeat msg, n = msg:gsub("{|[^{}]-|}", "{...}") until n == 0
-	repeat msg, n = msg:gsub("{|[^|]-{%.%.%.}[^|]-|}", "{...}") until n == 0
-	return (msg:gsub("%s+$", ""))
+	local out, depth, i = {}, 0, 1
+	while i <= #msg do
+		local two = msg:sub(i, i + 1)
+		if two == "{|" then
+			if depth == 0 then table.insert(out, "{...}") end
+			depth += 1
+			i += 2
+		elseif two == "|}" and depth > 0 then
+			depth -= 1
+			i += 2
+		else
+			if depth == 0 then table.insert(out, msg:sub(i, i)) end
+			i += 1
+		end
+	end
+	return (table.concat(out):gsub("%s+$", ""))
 end
 
 -- -> { {path, line, col, msg, key} }, TypeErrors and SyntaxErrors, exact duplicates dropped (luau-lsp

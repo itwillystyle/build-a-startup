@@ -70,6 +70,7 @@ if [ -x "$LUNE" ] && [ -f tools/typecheck.luau ]; then
 			echo "$YOUT" >&2
 			exit 1
 		fi
+		case "$YOUT" in *SKIPPED*) echo "pre-commit: $YOUT" >&2 ;; esac   # offline: say it did not check
 	else
 		echo "pre-commit: luau-lsp or rojo not found in ~/.rokit/bin, type check skipped" >&2
 	fi
