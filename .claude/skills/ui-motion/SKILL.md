@@ -1,6 +1,6 @@
 ---
 name: ui-motion
-description: Build or fix any GUI that appears, moves, fades or animates in Build a Startup! (speech bubbles, pop-ups, toasts, cards, burst words, HUD transitions). Use when Luke says a pop-up looks static, glitchy, sloppy, "inverted" or pops in wrong, and before writing any UIScale, GroupTransparency or tween code. Emil Kowalski's motion rules, translated to Roblox.
+description: Use when building or fixing a GUI that appears, moves or animates (bubbles, pop-ups, toasts), or when Luke says one looks wrong.
 ---
 
 # ui-motion

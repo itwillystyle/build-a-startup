@@ -1,6 +1,6 @@
 ---
 name: sound-design
-description: Choose, replace, time or mix any sound in Build a Startup! (SFX, music, ambience, cutscene audio, voices). Use before adding or swapping an Sfx.ID, when Luke says a sound is wrong, sloppy, late, generic or too loud, and when wiring cutscene cues. Never pick a sound by its store name alone.
+description: Use when choosing, replacing, timing or mixing a sound in the game, or when Luke says a sound is wrong.
 ---
 
 # sound-design

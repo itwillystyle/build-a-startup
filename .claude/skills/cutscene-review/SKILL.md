@@ -1,6 +1,6 @@
 ---
 name: cutscene-review
-description: Fix, change or review a scripted scene in Build a Startup! (Bob's cutscenes: BobScript, BobClips, BobSceneClient, or any keyframed animation). Use when Luke reports a pose that snaps, sinks, floats or resets too fast, something covering the action, or asks to "play" a scene for him. Measure before fixing; a fix is done when the measurement that showed the bug shows it gone.
+description: Use when changing or reviewing a cutscene or keyframed animation, when Luke says a pose or effect looks wrong, or when he says "play".
 ---
 
 # cutscene-review
