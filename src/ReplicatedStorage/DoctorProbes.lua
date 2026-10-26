@@ -502,21 +502,32 @@ end
 --[[ 27 Oct: a scene that breaks while it loads (here: a name BobScript has no scene for) must still
 	let go. Before the fix the setup ran outside the scene's pcall, so a throw there left "loading" and
 	`playing` on for good: Bob's door never came back and no Bob scene could play again that session. ]]
+-- Two breaks: a scene name BobScript does not know (it throws at once), and the Studio-only fault
+-- BobSceneFailAt = "bubbles" (it throws with the sound bank in SoundService and the cast cloned, so
+-- "nothing left behind" can fail; review round 1). The intro the doctor plays next proves `playing` let go.
 function Probes.bobbroken()
 	local player = game:GetService("Players").LocalPlayer
 	local ev = player.PlayerGui:FindFirstChild("SVBobScene")
 	if not ev then return { error = "no SVBobScene (BobSceneClient not running)" } end
-	ev:Fire("doctor-no-such-scene", { amount = 0 })
-	local t0 = os.clock()
-	while player:GetAttribute("BobSceneState") ~= "failed" and os.clock() - t0 < 3 do task.wait() end
-	local state = player:GetAttribute("BobSceneState")
 	local SS = game:GetService("SoundService")
+	local function breakOne(name, failAt)
+		player:SetAttribute("BobSceneState", nil)   -- a stale "failed" would pass at once (review round 1)
+		player:SetAttribute("BobSceneFailAt", failAt)
+		ev:Fire(name, { amount = 0 })
+		local t0 = os.clock()
+		while player:GetAttribute("BobSceneState") ~= "failed" and os.clock() - t0 < 8 do task.wait() end
+		player:SetAttribute("BobSceneFailAt", nil)
+		return player:GetAttribute("BobSceneState")
+	end
+	local unknown = breakOne("doctor-no-such-scene", nil)
+	local late = breakOne("intro", "bubbles")
+	local left = {}
+	if SS:FindFirstChild("BobSceneSounds") then table.insert(left, "the sound bank") end
+	if workspace:FindFirstChild("BobScene") then table.insert(left, "the cast") end
 	return { checks = {
-		{ name = "bob broken scene: state failed", ok = state == "failed", measured = tostring(state), expected = "failed" },
-		{ name = "bob broken scene: playing flag cleared", ok = player:GetAttribute("BobScenePlaying") ~= true,
-			measured = player:GetAttribute("BobScenePlaying"), expected = false },
-		{ name = "bob broken scene: nothing left behind", ok = SS:FindFirstChild("BobSceneSounds") == nil and workspace:FindFirstChild("BobScene") == nil,
-			measured = tostring(SS:FindFirstChild("BobSceneSounds") ~= nil or workspace:FindFirstChild("BobScene") ~= nil), expected = "false" },
+		{ name = "bob broken scene: an unknown scene lets go", ok = unknown == "failed", measured = tostring(unknown), expected = "failed" },
+		{ name = "bob broken scene: a late break lets go", ok = late == "failed", measured = tostring(late), expected = "failed" },
+		{ name = "bob broken scene: nothing left behind", ok = #left == 0, measured = #left == 0 and "none" or table.concat(left, ", "), expected = "none" },
 	} }
 end
 
