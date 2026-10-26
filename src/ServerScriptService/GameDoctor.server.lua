@@ -645,7 +645,7 @@ local function run()
 		local r = sv:Invoke("scenario", player, "bob:intro")
 		check("bob: intro scenario", r and r.ok, "BUG", r and (r.ok and "ok" or tostring(r.err)) or "no answer", "ok")
 		-- 27 Oct: a scene that breaks while loading lets go (the intro below must then still start)
-		local broken = probe(player, "bobbroken", {}, 25)   -- the late break loads the scene first (up to 6 s)
+		local broken = probe(player, "bobbroken", {}, 30)   -- three breaks: 4 + 12 + 4 s at most
 		for _, c in ipairs(broken and broken.checks or {}) do check(c.name, c.ok, "BUG", c.measured, c.expected) end
 		if not broken or broken.error then check("bob broken probe answered", false, "BUG", broken and broken.error or "no answer", "answer") end
 		for _, args in ipairs({ { name = "intro" }, { name = "intro", skipAt = 3 } }) do

@@ -658,7 +658,12 @@ local function play(name, info)
 		add("hero", heroModel())
 		-- the doctor's fault, Studio only (DoctorProbes.bobbroken): fail here, with the bank and the cast
 		-- already out, to prove the let-go cleans up (review round 1: a bad scene name failed too early to)
-		if RunService:IsStudio() and player:GetAttribute("BobSceneFailAt") == "bubbles" then error("doctor: fail at bubbles") end
+		-- It fires once and says it fired (review round 2: a pass must prove the fault was reached)
+		if RunService:IsStudio() and player:GetAttribute("BobSceneFailAt") == "bubbles" then
+			player:SetAttribute("BobSceneFailAt", nil)
+			player:SetAttribute("BobSceneFailHit", true)
+			error("doctor: fail at bubbles")
+		end
 		bubbles = {}
 		for id, a in pairs(actors) do bubbles[id] = bubbleFor(a) end
 		-- what the scene will change and put back, read here so a throw (no camera yet) also lets go (round 1)
