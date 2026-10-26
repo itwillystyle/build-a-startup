@@ -588,6 +588,17 @@ end
 -- ------------------------------------------------------------------ one scene
 local function play(name, info)
 	if playing then return false end
+	-- the kill switch (Flags.bobScenes, docs/ROLLBACK.md): no scene. "failed" sends the intro back to
+	-- IntroClient's flyover; the payoff's money is already paid by the server, so say so
+	if RS:GetAttribute("Flag_bobScenes") == false then
+		if name == "payoff" and type(info) == "table" and tonumber(info.amount) then
+			pcall(function()
+				require(RS:WaitForChild("Notify")).toast(("Bob paid you %s · %s"):format(UIKit.money(tonumber(info.amount)), BobScript.LINES.toast))
+			end)
+		end
+		player:SetAttribute("BobSceneState", "failed")
+		return false
+	end
 	player:SetAttribute("BobSceneState", "loading")
 	local A, bc = anchors()
 	-- review I-3: build every actor BEFORE the scene takes the screen, so there is never a moment

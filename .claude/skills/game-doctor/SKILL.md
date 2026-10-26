@@ -33,9 +33,16 @@ account's save. The doctor changes Wilz's save; it is ALWAYS restored at the end
    It must return ok. If not, say so first, loudly.
 7. `bash /c/Users/lukex/Downloads/silicon-startup/game-health/tools/routine.sh checkup-report /c/Users/lukex/Downloads/silicon-startup/doctor/report-<date>.json`
    then `... routine.sh checkup-post` (no webhook yet: say so, it is not a failure).
-8. Reply in under 12 lines, plain words, no em dashes: the verdict line, each
-   BLOCKER and BUG with what a player would see, the FEELs in one line, what got
-   fixed since the last run, and that the save was restored.
+8. Live errors (26 Oct, the safety net). Edit datamodel:
+   `return require(game.ServerScriptService.ErrorLog:Clone()).read(2)`
+   Today and yesterday on LIVE servers and players' clients. Any kind whose `v0` is the
+   newest place version came with the last publish: that is the first thing to report.
+   If a feature with a flag is breaking players, say so and point at docs/ROLLBACK.md step 1
+   (Luke decides; never flip a live flag yourself).
+9. Reply in under 12 lines, plain words, no em dashes: the verdict line, each
+   BLOCKER and BUG with what a player would see, the live errors (count, top kinds, new
+   since the last publish), the FEELs in one line, what got fixed since the last run, and
+   that the save was restored.
 
 ## PR mode: the doctor as a gate before merge (12 Oct)
 Use when a PR changes game code (anything under `src/`) and is about to be called
