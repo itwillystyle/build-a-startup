@@ -63,7 +63,7 @@ fi
 # The type check (luau-lsp, ~3 s): refuses a commit only for a type error a file did not have
 # before (tests/types-baseline.txt). Needs rojo + luau-lsp from rokit; missing ones skip it, CI still runs it.
 if [ -x "$LUNE" ] && [ -f tools/typecheck.luau ]; then
-	if [ -x "$HOME/.rokit/bin/luau-lsp" ] || [ -x "$HOME/.rokit/bin/luau-lsp.exe" ]; then
+	if { [ -x "$HOME/.rokit/bin/luau-lsp" ] || [ -x "$HOME/.rokit/bin/luau-lsp.exe" ]; } && { [ -x "$HOME/.rokit/bin/rojo" ] || [ -x "$HOME/.rokit/bin/rojo.exe" ]; }; then
 		YOUT=$(PATH="$HOME/.rokit/bin:$PATH" "$LUNE" run tools/typecheck 2>&1)
 		if [ $? -ne 0 ]; then
 			echo "pre-commit: new type errors, commit refused:" >&2
@@ -71,7 +71,7 @@ if [ -x "$LUNE" ] && [ -f tools/typecheck.luau ]; then
 			exit 1
 		fi
 	else
-		echo "pre-commit: luau-lsp not found in ~/.rokit/bin, type check skipped" >&2
+		echo "pre-commit: luau-lsp or rojo not found in ~/.rokit/bin, type check skipped" >&2
 	fi
 fi
 exit 0

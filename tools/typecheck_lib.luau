@@ -9,7 +9,11 @@
 local L = {}
 
 local function clean(msg)
-	return (msg:gsub("{|.-|}", "{...}"):gsub("%s+$", ""))
+	-- innermost shapes first, until none is left, so a nested shape is cut whole (review round 1)
+	local n
+	repeat msg, n = msg:gsub("{|[^{}]-|}", "{...}") until n == 0
+	repeat msg, n = msg:gsub("{|[^|]-{%.%.%.}[^|]-|}", "{...}") until n == 0
+	return (msg:gsub("%s+$", ""))
 end
 
 -- -> { {path, line, col, msg, key} }, TypeErrors and SyntaxErrors, exact duplicates dropped (luau-lsp
@@ -23,7 +27,7 @@ function L.parse(out)
 		if path and kind == "SyntaxError" then msg = "SyntaxError: " .. msg end   -- a file that cannot parse is never type-checked
 		if path then
 			path = path:gsub("\\", "/")
-			path = path:match("(src/.*)$") or path
+			path = path:match("^(src/.*)$") or path:match(".*/(src/.*)$") or path   -- the LAST src/: the repo's
 			local one = path .. ":" .. line .. ":" .. col .. ":" .. msg
 			if not seen[one] then
 				seen[one] = true

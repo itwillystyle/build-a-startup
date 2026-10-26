@@ -8,9 +8,9 @@
 1	src/ServerScriptService/Cars.lua	Key 'dealer' not found in table 'remotes'
 2	src/ServerScriptService/Cars.lua	Key 'forecourt' not found in table 'Cars'
 4	src/ServerScriptService/Cars.lua	Key 'toast' not found in table 'remotes'
-1	src/ServerScriptService/ClientsServer.lua	Key 'canGive' not found in table '{...}, sign: any, signAt: any, signLookAt: any, spotHeld: {...}, tapUntil: any |}'
-1	src/ServerScriptService/ClientsServer.lua	Key 'mode' not found in table '{...}, sign: any, signAt: any, signLookAt: any, spotHeld: {...}, tapUntil: any |}'
-1	src/ServerScriptService/ClientsServer.lua	Key 'signAt' not found in table '{...}, sign: any, signAt: any, signLookAt: any, spotHeld: {...}, tapUntil: any |}'
+1	src/ServerScriptService/ClientsServer.lua	Key 'canGive' not found in table '{...}'
+1	src/ServerScriptService/ClientsServer.lua	Key 'mode' not found in table '{...}'
+1	src/ServerScriptService/ClientsServer.lua	Key 'signAt' not found in table '{...}'
 1	src/ServerScriptService/DevHook.lua	Expected this to be 'number', but got 'number?'
 1	src/ServerScriptService/DevHook.lua	Type "spin" cannot be compared with "hq"
 1	src/ServerScriptService/GameDoctor.server.lua	Expected this to be 'string', but got 'number | string'

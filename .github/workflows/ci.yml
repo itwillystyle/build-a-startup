@@ -49,7 +49,9 @@ jobs:
       - name: Type check
         # luau-lsp over src/ with the Roblox types (pinned to luau-lsp 1.70.1, sha256-checked).
         # Fails only on a type or syntax error a file did not have in tests/types-baseline.txt,
-        # so the 79 known ones (mostly tables that gain fields later) don't block anything.
+        # so the known ones (mostly tables that gain fields later) don't block anything. A PR that
+        # raises a count in tests/types-baseline.txt should say why. Green is not "no type bugs":
+        # src/ is nonstrict (see the top of tools/typecheck.luau for what it misses).
         run: lune run tools/typecheck
 
       - name: Formatting

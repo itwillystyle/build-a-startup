@@ -35,6 +35,18 @@ test("a table's field list is not part of the error's name", function()
 	assert(not e[2].key:find("company", 1, true), "shape leaked into the key")
 end)
 
+test("a nested table shape is cut whole (review round 1)", function()
+	local a = L.parse("src/C.lua(1,1): TypeError: Key 'x' not found in table '{| a: {| b: any |}, sign: any |}'")
+	local b = L.parse("src/C.lua(2,1): TypeError: Key 'x' not found in table '{| a: {| b: any, c: any |}, sign: any, more: any |}'")
+	assert(a[1].key == b[1].key, a[1].key .. " ~= " .. b[1].key)
+	assert(a[1].msg == "Key 'x' not found in table '{...}'", a[1].msg)
+end)
+
+test("the path is the last src/ in it, whatever folder the repo sits in (review round 1)", function()
+	local e = L.parse([[/x/src/build-a-startup/src/ServerScriptService/A.lua [game/A](3,1): TypeError: boom]])
+	assert(e[1].path == "src/ServerScriptService/A.lua", e[1].path)
+end)
+
 test("the baseline round-trips and counts each file + message", function()
 	local base = L.tally(L.parse(OUT))
 	local text = L.format(base)
