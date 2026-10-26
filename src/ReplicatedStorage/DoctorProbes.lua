@@ -499,6 +499,47 @@ function Probes.bobscene(args)
 	return { checks = checks, ran = math.floor(ran * 100) / 100 }
 end
 
+--[[ 27 Oct: a scene that breaks while it loads (here: a name BobScript has no scene for) must still
+	let go. Before the fix the setup ran outside the scene's pcall, so a throw there left "loading" and
+	`playing` on for good: Bob's door never came back and no Bob scene could play again that session. ]]
+function Probes.bobbroken()
+	local player = game:GetService("Players").LocalPlayer
+	local ev = player.PlayerGui:FindFirstChild("SVBobScene")
+	if not ev then return { error = "no SVBobScene (BobSceneClient not running)" } end
+	ev:Fire("doctor-no-such-scene", { amount = 0 })
+	local t0 = os.clock()
+	while player:GetAttribute("BobSceneState") ~= "failed" and os.clock() - t0 < 3 do task.wait() end
+	local state = player:GetAttribute("BobSceneState")
+	local SS = game:GetService("SoundService")
+	return { checks = {
+		{ name = "bob broken scene: state failed", ok = state == "failed", measured = tostring(state), expected = "failed" },
+		{ name = "bob broken scene: playing flag cleared", ok = player:GetAttribute("BobScenePlaying") ~= true,
+			measured = player:GetAttribute("BobScenePlaying"), expected = false },
+		{ name = "bob broken scene: nothing left behind", ok = SS:FindFirstChild("BobSceneSounds") == nil and workspace:FindFirstChild("BobScene") == nil,
+			measured = tostring(SS:FindFirstChild("BobSceneSounds") ~= nil or workspace:FindFirstChild("BobScene") ~= nil), expected = "false" },
+	} }
+end
+
+--[[ 27 Oct: after you beat Bob your door stands open (BobDoorClient: 100 degrees about its hinge).
+	Measured from the server's shut door (the door's ClosedCF), never from where the door is now:
+	before the fix a replayed payoff read the open door as shut and left it at 160 degrees. ]]
+function Probes.bobdoor()
+	local player = game:GetService("Players").LocalPlayer
+	local sv = workspace:FindFirstChild("SiliconValley")
+	local door = sv and sv:FindFirstChild("BobCapital") and sv.BobCapital:FindFirstChild("Door")
+	local shut = door and door:GetAttribute("ClosedCF")
+	if not shut then return { error = door and "the door has no ClosedCF" or "no Bob Capital door" } end
+	local t0 = os.clock()
+	while player:GetAttribute("BobSceneState") == "playing" and os.clock() - t0 < 30 do task.wait(0.2) end
+	task.wait(1)
+	local ang = math.deg(math.acos(math.clamp(door.CFrame.LookVector:Dot(shut.LookVector), -1, 1)))
+	local want = player:GetAttribute("BobPaid") == true and 100 or 0
+	return { checks = {
+		{ name = "bob door: " .. (want == 100 and "open" or "shut") .. " as it should be", ok = math.abs(ang - want) < 3,
+			measured = math.floor(ang + 0.5), expected = want },
+	} }
+end
+
 Probes.LOOK_CAMS = {
 	C1 = { eye = Vector3.new(-5.5, 7.5, -13.5), at = Vector3.new(9, 3.5, 5) },
 	C2 = { eye = Vector3.new(0, 9, 52), at = Vector3.new(0, 5, 10) },

@@ -38,7 +38,7 @@ local function apply()
 		for _, p in ipairs(tape:GetChildren()) do if p:IsA("BasePart") then p.LocalTransparencyModifier = 1 end end
 	end
 	if door then
-		doorCF0 = doorCF0 or door.CFrame
+		doorCF0 = door:GetAttribute("ClosedCF") or doorCF0 or door.CFrame   -- the server's shut door (27 Oct)
 		local hinge = doorCF0 * CFrame.new(-door.Size.X / 2, 0, 0)
 		door.CFrame = hinge * CFrame.Angles(0, math.rad(-100), 0) * CFrame.new(door.Size.X / 2, 0, 0)
 		door.CanCollide = false

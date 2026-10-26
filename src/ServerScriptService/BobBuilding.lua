@@ -287,6 +287,9 @@ function BobBuilding.build(world)
 
 	-- the door (server: always shut) and the tape across it
 	local door = part(m, { Name = "Door", Size = Vector3.new(doorW, doorH, 0.4), CFrame = at(doorX, doorH / 2 + 0.4, front - 0.5), Color = DOORWOOD })
+	-- 27 Oct: where "shut" is, for the clients. A client that already opened the door for you (BobDoorClient)
+	-- must not read its own open door as shut (measured: a replayed payoff ended the door at 160 degrees)
+	door:SetAttribute("ClosedCF", door.CFrame)
 	part(m, { Name = "Knob", Shape = Enum.PartType.Ball, Size = Vector3.new(0.4, 0.4, 0.4), CFrame = at(doorX - 1.4, 4, front - 0.2), Color = GOLD, CanCollide = false })
 	local tape = Instance.new("Model")
 	tape.Name = "Tape"
