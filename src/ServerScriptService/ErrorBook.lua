@@ -119,8 +119,13 @@ function ErrorBook.merge(old, b, version, now)
 	rec.dropped += b.dropped or 0
 	-- keep the most frequent: at most CLIENT_MAX client kinds, then MAX_SIGS in all
 	local kinds = {}
-	for sig, o in rec.sigs do table.insert(kinds, { sig = sig, n = o.n, client = o.side == "client" }) end
-	table.sort(kinds, function(a, c) return a.n > c.n or (a.n == c.n and a.sig < c.sig) end)
+	for sig, o in rec.sigs do table.insert(kinds, { sig = sig, n = o.n, last = tonumber(o.last) or 0, client = o.side == "client" }) end
+	-- ties go to the newest: right after a publish, the new bug is the one that matters (review round 2)
+	table.sort(kinds, function(a, c)
+		if a.n ~= c.n then return a.n > c.n end
+		if a.last ~= c.last then return a.last > c.last end
+		return a.sig < c.sig
+	end)
 	local kept, clients = 0, 0
 	for _, k in kinds do
 		local keep = kept < ErrorBook.MAX_SIGS and (not k.client or clients < ErrorBook.CLIENT_MAX)

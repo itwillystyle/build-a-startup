@@ -69,6 +69,18 @@ test("merge keeps only the most frequent signatures", function()
 	assert(B.summary(rec)[1].n == B.MAX_SIGS + 20, "the biggest survives")
 end)
 
+test("when the record is full, the newest of equally rare errors stays (review round 2)", function()
+	local old = B.batch()
+	for i = 1, B.MAX_SIGS do B.note(old, "server", ("Old:%d: e"):format(i), "", 100) end
+	local rec = B.merge(nil, old, 1, 100)
+	local fresh = B.batch()
+	B.note(fresh, "server", "Zed:1: the bug the last publish brought", "", 500)   -- sorts last by name
+	rec = B.merge(rec, fresh, 2, 500)
+	local found = false
+	for _, k in B.summary(rec) do if k.sample:find("the bug the last publish", 1, true) then found = true end end
+	assert(found, "the newest n=1 error was trimmed")
+end)
+
 test("a broken stored record does not stop the merge", function()
 	local p = B.batch(); B.note(p, "server", "A:1: x", "", 1)
 	for _, old in { "junk", 5, { sigs = "no" }, { sigs = { bad = "x" } } } do

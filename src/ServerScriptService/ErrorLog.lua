@@ -55,10 +55,15 @@ function ErrorLog.init(a)
 			fails += 1
 			if fails < GIVE_UP then
 				pcall(Book.absorb, pending, batch)   -- keep them for the next minute rather than lose them
+				warn(("[SV] error log write failed (%d of %d): %s"):format(fails, GIVE_UP, tostring(err)))
 			else
-				fails = 0                            -- a batch that never writes is dropped, so the log goes on
+				-- a batch that never writes is dropped so the log goes on, but its count is kept
+				local lost = 0
+				for _, e in batch.sigs do lost += e.n end
+				pending.dropped += lost + (batch.dropped or 0)
+				fails = 0
+				warn(("[SV] error log write failed %d times: dropped a batch of %d errors: %s"):format(GIVE_UP, lost, tostring(err)))
 			end
-			warn("[SV] error log write failed (" .. fails .. "): " .. tostring(err))
 		end
 		busy = false
 	end

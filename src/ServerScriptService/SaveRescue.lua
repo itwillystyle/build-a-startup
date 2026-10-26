@@ -8,8 +8,9 @@
 	  R.restore(userId, version, "restore <userId>")
 
 	Restore copies the CURRENT save into SVRescue_v1 first ("<userId>/<unix time>"), then writes
-	the old version back with lastSeen = now, so a stale server session cannot overwrite it.
-	The player must be OFFLINE: a live session saves over it within a minute (docs/ROLLBACK.md).
+	the old version back with lastSeen = now, by compare-and-swap: only if the save is still the
+	one it backed up. The player must be OFFLINE (a live session autosaves every 120 s): it refuses
+	a save written in the last 200 s unless `force` is true (docs/ROLLBACK.md step 4).
 	tests/offline/saverescue.spec.luau ]]
 
 local SaveRescue = {}
