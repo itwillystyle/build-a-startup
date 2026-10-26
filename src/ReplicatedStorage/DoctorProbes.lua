@@ -390,17 +390,87 @@ function Probes.bobscene(args)
 	while player:GetAttribute("BobScenePlaying") ~= true and os.clock() - t0 < 3 do task.wait() end
 	local started = player:GetAttribute("BobScenePlaying") == true
 	local tStart = os.clock()
+	--[[ 25 Oct guards: each is a mistake that reached Luke's screen that day, measured live.
+		sounds   a Sound made at its cue was still loading 0.12 s later (late or silent): every scene
+		         sound is loaded before the scene starts, and each one's playhead moves on its cue
+		pops     poses switched in one frame (sitting to standing, 1.2 studs and 85 degrees at once): no
+		         on-screen body jumps over 1 stud, no joint over 45 degrees (the snaps were 85-128; Bob's
+		         kick, fast on purpose, turns 26), in a frame, out of near-stillness (3x its last frame's
+		         move: a fall is fast but not a jump). A cut is where the camera jumps. Frames slower than
+		         1/30 s are not judged (Studio runs at 2-3 FPS while it is the focused window)
+		ambience the valley's birds sang under the boardroom (0.22): silent while a scene plays ]]
+	local SS, RunService = game:GetService("SoundService"), game:GetService("RunService")
+	local BobScript = require(game:GetService("ReplicatedStorage"):WaitForChild("BobScript"))
+	-- a jump the script asks for (an actor moved to another set: the hero to Bob's door at 6.3 s) is
+	-- not a pop. (The probe's clock runs a frame or two off the scene's, so look 0.1 s either side)
+	local function moved(id, t)
+		local function at(x) local a = BobScript.at(name, math.clamp(x, 0, BobScript.length(name) - 0.01), true).actors[id] return a and a.anchor end
+		return at(t - 0.1) ~= at(t + 0.1)
+	end
+	local bank = SS:FindFirstChild("BobSceneSounds")
+	local banked = bank and #bank:GetChildren() or 0
+	local notLoaded, stuck, played = 0, {}, 0
+	for _, s in ipairs(bank and bank:GetChildren() or {}) do
+		if not s.IsLoaded then notLoaded += 1 end
+		s.Played:Connect(function()
+			played += 1
+			local p0 = s.TimePosition
+			task.wait(0.12)
+			if s.Parent and s.IsPlaying and s.TimePosition < p0 + 0.05 then table.insert(stuck, s.Name) end
+		end)
+	end
+	local folder, cam = workspace:FindFirstChild("BobScene"), workspace.CurrentCamera
+	local last, lastCam, cutAt, pops = {}, nil, 0, {}
+	local ambience = 0
+	local conn = RunService.RenderStepped:Connect(function(dt)
+		local t = os.clock() - tStart
+		if not (folder and folder.Parent) then return end
+		local c = cam.CFrame
+		if lastCam and ((c.Position - lastCam.Position).Magnitude > 3 or c.LookVector:Dot(lastCam.LookVector) < 0.94) then cutAt = t end
+		lastCam = c
+		local settled = t - cutAt > 0.05 and t > 0.2 and dt < 1 / 30   -- (a cut moves everything at once)
+		for _, m in ipairs(folder:GetChildren()) do
+			if m:IsA("Model") and m.PrimaryPart then
+				local _, onScreen = cam:WorldToViewportPoint(m.PrimaryPart.Position)
+				local j = {}
+				for _, mo in ipairs(m:GetDescendants()) do if mo:IsA("Motor6D") then j[mo.Name] = mo.Transform end end
+				local L = last[m]
+				local d, turn = 0, {}
+				if L then
+					d = (m.PrimaryPart.Position - L.pos).Magnitude
+					for jn, cf in pairs(j) do
+						local o = L.j[jn]
+						turn[jn] = o and math.deg(math.acos(math.clamp(cf.LookVector:Dot(o.LookVector), -1, 1))) or 0
+					end
+					if L.onScreen and onScreen and settled and not moved(m.Name, t) then
+						if d > 1 and d > 3 * L.d then table.insert(pops, ("%.2f s %s moved %.2f studs"):format(t, m.Name, d)) end
+						for jn, deg in pairs(turn) do
+							if deg > 45 and deg > 3 * (L.turn[jn] or 0) then table.insert(pops, ("%.2f s %s %s %.0f deg"):format(t, m.Name, jn, deg)) end
+						end
+					end
+				end
+				last[m] = { pos = m.PrimaryPart.Position, j = j, onScreen = onScreen, d = d, turn = turn }
+			end
+		end
+		if t > 1 then
+			for _, n in ipairs({ "ValleyBirds", "ValleyCrickets" }) do
+				local s = SS:FindFirstChild(n)
+				if s and s.IsPlaying then ambience = math.max(ambience, s.Volume) end
+			end
+		end
+	end)
 	while player:GetAttribute("BobScenePlaying") == true and os.clock() - tStart < 30 do
 		if args.skipAt and os.clock() - tStart >= args.skipAt then player:SetAttribute("BobSkipNow", true) end
 		task.wait()
 	end
+	conn:Disconnect()
 	local ran = os.clock() - tStart
 	player:SetAttribute("BobSkipNow", nil)
 	task.wait(0.3)
 	local cam = workspace.CurrentCamera
 	local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-	local lost = 0
-	for g in pairs(before) do if g.Parent and not g.Enabled then lost += 1 end end
+	local lost = {}
+	for g in pairs(before) do if g.Parent and not g.Enabled then table.insert(lost, g.Name) end end
 	local checks = {
 		{ name = "bob " .. name .. ": started", ok = started, measured = started, expected = true },
 		{ name = "bob " .. name .. ": camera Custom after", ok = cam.CameraType == Enum.CameraType.Custom, measured = tostring(cam.CameraType), expected = "Custom" },
@@ -409,8 +479,16 @@ function Probes.bobscene(args)
 		{ name = "bob " .. name .. ": nothing left behind", ok = workspace:FindFirstChild("BobScene") == nil
 			and (name == "payoff" or player.PlayerGui:FindFirstChild("BobSceneGui") == nil),
 			measured = tostring(workspace:FindFirstChild("BobScene") ~= nil), expected = "false" },
-		{ name = "bob " .. name .. ": HUD back", ok = lost == 0, measured = lost, expected = 0 },
+		{ name = "bob " .. name .. ": HUD back", ok = #lost == 0, measured = #lost == 0 and 0 or table.concat(lost, ", "), expected = 0 },
 		{ name = "bob " .. name .. ": playing flag cleared", ok = player:GetAttribute("BobScenePlaying") ~= true, measured = player:GetAttribute("BobScenePlaying"), expected = false },
+		{ name = "bob " .. name .. ": every sound loaded before it starts", ok = banked > 0 and notLoaded == 0,
+			measured = banked == 0 and "no sound bank" or (notLoaded .. " of " .. banked .. " not loaded"), expected = "0 not loaded" },
+		-- (a skipped scene plays only its first sounds; a check that saw none proves nothing)
+		{ name = "bob " .. name .. ": every sound plays on its cue", ok = played >= (args.skipAt and 1 or 10) and #stuck == 0,
+			measured = #stuck == 0 and (played .. " played, all moving") or table.concat(stuck, ", "), expected = "all moving" },
+		{ name = "bob " .. name .. ": nothing snaps inside a shot", ok = #pops == 0,
+			measured = #pops == 0 and "none" or (#pops .. ": " .. table.concat(pops, "; ", 1, math.min(#pops, 3))), expected = "none" },
+		{ name = "bob " .. name .. ": the valley's ambience is silent under it", ok = ambience < 0.01, measured = ambience, expected = 0 },
 	}
 	return { checks = checks, ran = math.floor(ran * 100) / 100 }
 end

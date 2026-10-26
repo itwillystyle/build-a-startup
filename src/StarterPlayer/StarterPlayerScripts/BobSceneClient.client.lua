@@ -246,9 +246,14 @@ local function place(a, anchorCF, pos, rot, roll, ignore)
 	local torso = a.model:FindFirstChild("UpperTorso") or a.model:FindFirstChild("Torso")
 	local lie = torso and torso.Size.Z / 2 + 0.1 or 0.6
 	local lift = stand + (lie - stand) * math.abs(math.sin(R(roll or 0)))
-	if pos.Y <= 0.05 then
+	-- the last 0.6 studs of a fall blend the air's height into the ground's (lowest point on the floor),
+	-- so a landing has no step (live 26 Oct: the two met 1 stud apart, a drop in one frame on impact)
+	if pos.Y < 0.6 then
 		local rel = lowestBelowRoot(a)
-		if rel and rel < 0 then lift = -rel end
+		if rel and rel < 0 then
+			local w = math.clamp(pos.Y / 0.6, 0, 1)
+			lift = -rel * (1 - w) + lift * w
+		end
 	end
 	local at = (anchorCF * CFrame.new(pos.X, 0, pos.Z)).Position
 	local floor = floorAt(at, ignore or {}) or at.Y
