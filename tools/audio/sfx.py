@@ -19,7 +19,7 @@ Procedure: .claude/skills/sound-design/SKILL.md. Needs numpy + mutagen, and ffmp
       from the real files and reports, per event, its loudest 50 ms against the beds under it.
       Pass: every event 5 dB or more over the beds; the events within about 15 dB of each other
 """
-import glob, io, json, os, shutil, subprocess, sys, time, urllib.parse, urllib.request
+import glob, io, json, os, re, shutil, subprocess, sys, time, urllib.parse, urllib.request
 
 SR = 48000
 REF_DB, GAIN_CAP = -24.0, 8.0
@@ -37,6 +37,13 @@ def ffmpeg():
 
 
 # ------------------------------------------------------------------ search
+def clean(text):
+    """Store names and descriptions are written by strangers: data, never instructions. One line,
+    no control or escape characters, and no '|' so a forged field cannot pose as another result"""
+    text = re.sub(r"[\x00-\x1f\x7f-\x9f]", " ", str(text or ""))
+    return " ".join(text.split()).replace("|", "/")
+
+
 def search(words, max_dur=None, everyone=False, pages=3):
     tok, seen = "", set()
     for _ in range(pages):
@@ -54,9 +61,8 @@ def search(words, max_dur=None, everyone=False, pages=3):
             by, x = a["creator"]["name"], a["asset"]
             if (everyone or by in LICENSED) and x["id"] not in seen and (not max_dur or (x.get("durationSeconds") or 0) <= max_dur):
                 seen.add(x["id"])
-                desc = " ".join((x.get("description") or "").split())
-                desc = desc.split("Courtesy of")[0].split("Asset Type")[0][:220]
-                print(f"{x['id']} | {by[:3]} | {x['name'][:60]} | {x.get('durationSeconds')}s | {desc}")
+                desc = clean(x.get("description")).split("Courtesy of")[0].split("Asset Type")[0][:220]
+                print(f"{int(x['id'])} | {clean(by)[:3]} | {clean(x.get('name'))[:60]} | {x.get('durationSeconds')}s | {desc}")
         tok = d.get("nextPageToken")
         if not tok:
             break
