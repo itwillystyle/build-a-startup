@@ -23,13 +23,14 @@ local CONTROLS = {
 	neutral = {},
 	hope = { LeftOuterBrowRaiser = 0.6, RightOuterBrowRaiser = 0.6, LeftLipCornerPuller = 0.3, RightLipCornerPuller = 0.3 },
 	laugh = { JawDrop = 0.6, LeftLipCornerPuller = 1, RightLipCornerPuller = 1, LeftEyeClosed = 0.8, RightEyeClosed = 0.8 },
-	shock = { JawDrop = 1, LeftUpperLidRaiser = 1, RightUpperLidRaiser = 1, LeftOuterBrowRaiser = 1, RightOuterBrowRaiser = 1 },
+	shock = { JawDrop = 1, LeftEyeUpperLidRaiser = 1, RightEyeUpperLidRaiser = 1, LeftOuterBrowRaiser = 1, RightOuterBrowRaiser = 1 },
 	sad = { LeftLipCornerDown = 0.8, RightLipCornerDown = 0.8, LeftInnerBrowRaiser = 0.8, RightInnerBrowRaiser = 0.8 },
 	determined = { LeftBrowLowerer = 1, RightBrowLowerer = 1, LipPresser = 0.6 },
 	smug = { LeftLipCornerPuller = 0.7, LeftEyeClosed = 0.4, RightEyeClosed = 0.4 },
 	dizzy = { JawDrop = 0.2, LeftEyeClosed = 0.5, RightEyeClosed = 0.9 },
 	grin = { LeftLipCornerPuller = 1, RightLipCornerPuller = 1, LeftCheekRaiser = 1, RightCheekRaiser = 1 },
 }
+BobFace.CONTROLS = CONTROLS   -- the bobface spec checks every name is real
 local ALL = {}
 for _, t in pairs(CONTROLS) do for k in pairs(t) do ALL[k] = true end end
 

@@ -355,4 +355,11 @@ test("a bubble pops in from 60%, fades in, settles, types on and leaves before i
 	assert(B.bubbleLook(b, 0.6, false).shake == 0, "a plain line does not")
 end)
 
+test("only the gamepad's B skips; no other key or button does (5b-1)", function()
+	assert(B.skipsOn("ButtonB") == true, "B skips")
+	for _, k in ipairs({ "ButtonA", "ButtonX", "ButtonY", "ButtonStart", "Space", "E", "W", "Escape", "Thumbstick1" }) do
+		assert(B.skipsOn(k) == false, k .. " must not skip")
+	end
+end)
+
 return T

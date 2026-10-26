@@ -91,6 +91,21 @@ local function apply()
 	applied = true
 end
 
+-- BobPaid back to false (a dev or doctor reset): the door, tape and curb back to everyone's view
+local function unapply()
+	local bc = building()
+	if bc then
+		local door, tape = bc:FindFirstChild("Door"), bc:FindFirstChild("Tape")
+		if tape then
+			for _, p in ipairs(tape:GetChildren()) do if p:IsA("BasePart") then p.LocalTransparencyModifier = 0 end end
+		end
+		if door and doorCF0 then door.CFrame = doorCF0 end
+		if door then door.CanCollide = true end
+	end
+	if curbBob then curbBob:Destroy() end
+	curbBob, stars, doorCF0, applied = nil, nil, nil, false
+end
+
 -- far hiding + the stars turning (cheap: a few times a second)
 task.spawn(function()
 	while true do
@@ -110,7 +125,9 @@ task.spawn(function()
 	end
 end)
 
-player:GetAttributeChangedSignal("BobPaid"):Connect(apply)
+player:GetAttributeChangedSignal("BobPaid"):Connect(function()
+	if player:GetAttribute("BobPaid") == true then apply() else unapply() end
+end)
 player:GetAttributeChangedSignal("BobScenePlaying"):Connect(function()
 	if player:GetAttribute("BobScenePlaying") ~= true then
 		applied = false

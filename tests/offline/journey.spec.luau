@@ -335,4 +335,11 @@ test("bob payoff is due only with the arc, at HQ 4, unpaid", function()
 	assert(J.bobPayoffDue(st({ bobArc = true, hq = 4 })) == true, "due at hq 4 with the arc")
 end)
 
+test("bob's door waits while you carry a recruit or sit in a car", function()
+	assert(J.bobDoorBusy({ carrying = true }) == "Drop off your recruit first", "carrying")
+	assert(J.bobDoorBusy({ seated = true }) == "Get out of the car first", "seated")
+	assert(J.bobDoorBusy({ carrying = true, seated = true }) == "Drop off your recruit first", "carrying wins")
+	assert(J.bobDoorBusy({}) == nil, "free to walk in")
+end)
+
 return T

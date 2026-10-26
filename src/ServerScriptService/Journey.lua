@@ -151,6 +151,14 @@ function J.bobPayoffDue(st)
 	return st.bobArc == true and st.bobPaid ~= true and st.seriesA ~= true and (st.hq or 1) >= 4
 end
 
+-- why Bob's door can't play the payoff right now, or nil: the scene freezes you for 20 s, which would
+-- lose a carried recruit to the headhunters or leave a car driving itself (review minor, 26 Oct)
+function J.bobDoorBusy(who)
+	if who.carrying then return "Drop off your recruit first" end
+	if who.seated then return "Get out of the car first" end
+	return nil
+end
+
 -- the goal card's Bob framing, or nil; keeps the replaced milestone's cost/unlock (one card, spec 3d)
 function J.bobGoal(st)
 	if st.bobArc ~= true or st.bobPaid == true then return nil end

@@ -4154,6 +4154,15 @@ do
 			end
 			return
 		end
+		local hum = hit.Parent:FindFirstChildOfClass("Humanoid")
+		local busy = Journey.bobDoorBusy({ carrying = player:GetAttribute("Carrying") ~= nil, seated = hum ~= nil and hum.SeatPart ~= nil })
+		if busy then
+			if os.clock() - (tapedAt[player] or -1e9) > 10 then
+				tapedAt[player] = os.clock()
+				toast:FireClient(player, busy)
+			end
+			return
+		end
 		paying[player] = true
 		s.jr.bobPaid = true
 		s.jr.seriesA = true

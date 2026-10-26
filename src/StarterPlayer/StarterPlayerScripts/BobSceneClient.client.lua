@@ -760,7 +760,22 @@ local function play(name, info)
 	local tapAt, tapPos
 	local c1 = UserInputService.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.Touch then tapAt, tapPos = os.clock(), input.Position end
+		if input.UserInputType.Name:find("^Gamepad") and BobScript.skipsOn(input.KeyCode.Name) then skipped = true end
 	end)
+	-- the B glyph beside SKIP, only while a gamepad is what you last touched
+	local padGlyph = Instance.new("ImageLabel")
+	padGlyph.Name = "PadB"
+	padGlyph.BackgroundTransparency = 1
+	padGlyph.AnchorPoint = Vector2.new(1, 0.5)
+	padGlyph.Position = UDim2.new(0, -8, 0.5, 0)
+	padGlyph.Size = UDim2.fromOffset(32, 32)
+	pcall(function() padGlyph.Image = UserInputService:GetImageForKeyCode(Enum.KeyCode.ButtonB) end)
+	padGlyph.Parent = skip
+	local function showGlyph()
+		padGlyph.Visible = UserInputService:GetLastInputType().Name:find("^Gamepad") ~= nil and padGlyph.Image ~= ""
+	end
+	showGlyph()
+	local c3 = UserInputService.LastInputTypeChanged:Connect(showGlyph)
 	local c2 = UserInputService.InputEnded:Connect(function(input)
 		if input.UserInputType ~= Enum.UserInputType.Touch or not tapAt then return end
 		if os.clock() - tapAt < 0.4 and (input.Position - tapPos).Magnitude < 12 then skipped = true end
@@ -913,7 +928,7 @@ local function play(name, info)
 	local function finish(wasSkipped)
 		if finished then return end
 		finished = true
-		c0:Disconnect(); c1:Disconnect(); c2:Disconnect(); cPeople:Disconnect()
+		c0:Disconnect(); c1:Disconnect(); c2:Disconnect(); c3:Disconnect(); cPeople:Disconnect()
 		local endT = os.clock() - t0
 		-- a skipped intro still ends where the story ends: you at your laptop
 		if name == "intro" and char and char.PrimaryPart and A.garage then

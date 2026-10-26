@@ -470,7 +470,13 @@ function Probes.bobscene(args)
 	local cam = workspace.CurrentCamera
 	local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
 	local lost = {}
-	for g in pairs(before) do if g.Parent and not g.Enabled then table.insert(lost, g.Name) end end
+	-- the Guide steps aside on purpose while a menu is open (GuideClient: Enabled = ... and not menu); on a
+	-- fresh join the Daily reward opens as the intro ends. Measured 26 Oct: Guide back 0.05 s after Daily
+	-- closed. So it is lost only if it is off with no menu up. Every other GUI must be back regardless.
+	local menuUp = require(game:GetService("ReplicatedStorage"):WaitForChild("UIKit")).menuOpen()
+	for g in pairs(before) do
+		if g.Parent and not g.Enabled and not (g.Name == "Guide" and menuUp) then table.insert(lost, g.Name) end
+	end
 	local checks = {
 		{ name = "bob " .. name .. ": started", ok = started, measured = started, expected = true },
 		{ name = "bob " .. name .. ": camera Custom after", ok = cam.CameraType == Enum.CameraType.Custom, measured = tostring(cam.CameraType), expected = "Custom" },

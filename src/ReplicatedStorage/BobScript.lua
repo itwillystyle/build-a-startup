@@ -605,4 +605,10 @@ function BobScript.sounding(name, t)
 	return out
 end
 
+-- spec 5b-1: keys never skip (a stray key would end the story). A gamepad has no cursor for the
+-- SKIP button, so ONE deliberate button does: B, the console's "back" (review minor, 26 Oct)
+function BobScript.skipsOn(keyName)
+	return keyName == "ButtonB"
+end
+
 return BobScript
