@@ -86,6 +86,29 @@ test("a batch whose write failed goes back into the next one under the same name
 	assert(e.n == 3 and e.first == 100 and e.last == 150, "counts and times merged")
 end)
 
+test("stored text is plain printable ASCII, so DataStore never rejects a batch (review I-1)", function()
+	local p = B.batch()
+	local long = string.rep("a", 239) .. "é" .. " \255 bad"
+	local sig = B.note(p, "client", long, "stack \255", 1)
+	assert(utf8.len(sig) and not sig:find("[^\32-\126]"), "signature not ASCII")
+	local e = p.sigs[sig]
+	assert(utf8.len(e.sample) and not e.sample:find("[^\32-\126]"), "sample not ASCII")
+end)
+
+test("client reports cannot crowd server errors out (review I-2)", function()
+	local p = B.batch()
+	for i = 1, 200 do B.note(p, "client", ("junk %d"):format(i), "", 1) end
+	assert(B.note(p, "server", "Core:9: a real bug", "", 2) ~= nil, "server error refused after a client flood")
+	local clients = 0
+	for _, e in p.sigs do if e.side == "client" then clients += 1 end end
+	assert(clients <= B.CLIENT_MAX, "client kinds " .. clients)
+	local rec = B.merge(nil, p, 1, 3)
+	local server = false
+	for _, k in B.summary(rec) do if k.side == "server" then server = true end end
+	assert(server, "the server error survived the merge")
+	assert(#B.summary(rec)[1].sample <= B.SAMPLE_LEN, "sample bounded")
+end)
+
 test("a player can report 10 client errors a minute, then waits", function()
 	local bucket = {}
 	for i = 1, 10 do assert(B.allow(bucket, i * 0.1), "report " .. i) end

@@ -29,6 +29,12 @@ test("summary: the numbers that tell two saves apart", function()
 	assert(R.summary(nil) == nil and R.summary("x") == nil, "junk")
 end)
 
+test("a save written in the last 200 s is a live session: restore waits (review I-4)", function()
+	assert(R.live({ lastSeen = 1000 }, 1100) == true, "100 s old")
+	assert(R.live({ lastSeen = 1000 }, 1300) == false, "300 s old")
+	assert(R.live(nil, 1300) == false, "no save")
+end)
+
 test("restore needs the exact confirm words for that player", function()
 	assert(R.confirmed(1688749216, "restore 1688749216") == true, "exact")
 	assert(R.confirmed(1688749216, "restore 1") == false, "other id")

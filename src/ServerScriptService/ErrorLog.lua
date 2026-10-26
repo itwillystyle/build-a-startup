@@ -13,8 +13,10 @@
 local ErrorLog = {}
 
 -- by service, not script.Parent: the Edit reader is a parentless :Clone() (docs/ROLLBACK.md step 2)
-local Book = require(game:GetService("ServerScriptService"):WaitForChild("ErrorBook"))
+-- (a timeout: a missing sibling must fail this init, not hang the boot thread; review M-4)
+local Book = require(game:GetService("ServerScriptService"):WaitForChild("ErrorBook", 10))
 local FLUSH = 60
+local GIVE_UP = 3   -- failed writes in a row before a batch is dropped (a poisoned batch must not stop the log)
 
 function ErrorLog.init(a)
 	local studio = game:GetService("RunService"):IsStudio()
@@ -32,13 +34,14 @@ function ErrorLog.init(a)
 		if type(message) ~= "string" or type(stack) ~= "string" then return end
 		buckets[player] = buckets[player] or {}
 		if not Book.allow(buckets[player], os.clock()) then return end
-		pcall(Book.note, pending, "client", message:sub(1, 400), stack:sub(1, 400), os.time())
+		pcall(Book.note, pending, "client", message:sub(1, 300), stack:sub(1, 300), os.time())
 		if a.telemetry then pcall(a.telemetry, player, "script_error") end
 	end)
 	game:GetService("Players").PlayerRemoving:Connect(function(p) buckets[p] = nil end)
 
+	local fails = 0
 	local function flush()
-		if busy or pending.count == 0 then return end
+		if busy or (pending.count == 0 and pending.dropped == 0) then return end   -- (dropped-only batches too: M-5)
 		busy = true
 		local batch = pending
 		pending = Book.batch()
@@ -46,19 +49,32 @@ function ErrorLog.init(a)
 		local ok, err = pcall(function()
 			store:UpdateAsync(Book.key(now, studio), function(old) return Book.merge(old, batch, game.PlaceVersion, now) end)
 		end)
-		if not ok then
-			Book.absorb(pending, batch)   -- keep them for the next minute rather than lose them
-			warn("[SV] error log write failed, retrying next minute: " .. tostring(err))
+		if ok then
+			fails = 0
+		else
+			fails += 1
+			if fails < GIVE_UP then
+				pcall(Book.absorb, pending, batch)   -- keep them for the next minute rather than lose them
+			else
+				fails = 0                            -- a batch that never writes is dropped, so the log goes on
+			end
+			warn("[SV] error log write failed (" .. fails .. "): " .. tostring(err))
 		end
 		busy = false
 	end
 	task.spawn(function()
+		task.wait(math.random() * 10)   -- servers out of step, so they don't all hit the day key together (M-7)
 		while true do
 			task.wait(FLUSH)
-			flush()
+			pcall(flush)
+			busy = false                 -- a flush that threw can never leave the log stuck (M-2)
 		end
 	end)
-	game:BindToClose(flush)
+	game:BindToClose(function()
+		local t0 = os.clock()
+		while busy and os.clock() - t0 < 5 do task.wait(0.1) end   -- let a write in flight finish first (M-1)
+		pcall(flush)
+	end)
 	ErrorLog.flush = flush   -- Studio proof: flush now instead of waiting a minute
 end
 

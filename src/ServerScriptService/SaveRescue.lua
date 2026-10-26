@@ -32,6 +32,13 @@ function SaveRescue.summary(data)
 		lastSeen = data.lastSeen, name = data.name, bobPaid = jr.bobPaid == true }
 end
 
+-- a save written in the last LIVE_S seconds belongs to a live session (autosave is every 120 s):
+-- a restore now would be saved over (review I-4)
+SaveRescue.LIVE_S = 200
+function SaveRescue.live(data, now)
+	return type(data) == "table" and type(data.lastSeen) == "number" and now - data.lastSeen < SaveRescue.LIVE_S
+end
+
 function SaveRescue.confirmed(userId, words)
 	return words == ("restore %d"):format(userId)
 end
@@ -60,7 +67,8 @@ function SaveRescue.peek(userId, version)
 	return { ok = true, summary = SaveRescue.summary(data) }
 end
 
-function SaveRescue.restore(userId, version, words)
+-- force = true skips the "looks online" guard (only when you know the player has left)
+function SaveRescue.restore(userId, version, words, force)
 	if not SaveRescue.confirmed(userId, words) then
 		return { ok = false, err = ("say exactly: restore %d"):format(userId) }
 	end
@@ -69,12 +77,28 @@ function SaveRescue.restore(userId, version, words)
 	if not okOld or type(old) ~= "table" then return { ok = false, err = "could not read that version: " .. tostring(old) } end
 	local okNow, now = pcall(function() return store(SaveRescue.STORE):GetAsync(key) end)
 	if not okNow then return { ok = false, err = "could not read the current save, nothing changed: " .. tostring(now) } end
+	if not force and SaveRescue.live(now, os.time()) then
+		return { ok = false, err = ("the save was written %d s ago: the player looks online, and their next autosave would undo this. Wait until it is over %d s, or pass force = true"):format(os.time() - now.lastSeen, SaveRescue.LIVE_S) }
+	end
 	local backupKey = ("%s/%d"):format(key, os.time())
 	local okB, errB = pcall(function() store(SaveRescue.BACKUP):SetAsync(backupKey, { at = os.time(), rec = now }) end)
 	if not okB then return { ok = false, err = "backup failed, nothing changed: " .. tostring(errB) } end
+	-- compare and swap: write only if the save is still the one just backed up (review I-4)
+	local seen = type(now) == "table" and now.lastSeen or nil
+	local changed = false
 	old.lastSeen = os.time()
-	local okW, errW = pcall(function() store(SaveRescue.STORE):SetAsync(key, old) end)
-	if not okW then return { ok = false, err = "write failed (the backup is at " .. backupKey .. "): " .. tostring(errW) } end
+	local okW, errW = pcall(function()
+		store(SaveRescue.STORE):UpdateAsync(key, function(cur)
+			local curSeen = type(cur) == "table" and cur.lastSeen or nil
+			if curSeen ~= seen then
+				changed = true
+				return nil   -- someone saved since: leave it
+			end
+			return old
+		end)
+	end)
+	if not okW then return { ok = false, err = "write failed, nothing changed (backup at " .. backupKey .. "): " .. tostring(errW) } end
+	if changed then return { ok = false, err = "the save changed while restoring (a live session?): nothing written. Try again once they are offline" } end
 	return { ok = true, backup = backupKey, restored = SaveRescue.summary(old), was = SaveRescue.summary(now) }
 end
 
