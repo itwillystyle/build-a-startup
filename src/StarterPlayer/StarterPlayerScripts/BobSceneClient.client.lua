@@ -662,8 +662,10 @@ local function play(name, info)
 	local char = player.Character
 	local cam = workspace.CurrentCamera
 	local fov0 = cam.FieldOfView
+	local listeners = {}   -- input/attribute hooks: putBack drops them even when setup fails (review round 1)
 	local function putBack()
 		if conn then conn:Disconnect() end
+		for _, c in ipairs(listeners) do c:Disconnect() end
 		-- sounds still ringing (the victory sting, the street) fade out over the game instead of
 		-- stopping dead with the scene (25 Oct: the sting was cut off at 20.0 s)
 		for _, s in ipairs(bank:GetChildren()) do
@@ -758,9 +760,11 @@ local function play(name, info)
 		if player:GetAttribute("BobSkipNow") == true then skipped = true end
 	end)
 	local tapAt, tapPos
+	local padFrom = os.clock() + 0.5
 	local c1 = UserInputService.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.Touch then tapAt, tapPos = os.clock(), input.Position end
-		if input.UserInputType.Name:find("^Gamepad") and BobScript.skipsOn(input.KeyCode.Name) then skipped = true end
+		-- B is also the chase sprint: a press already on its way as the scene opens does not count
+		if input.UserInputType.Name:find("^Gamepad") and BobScript.skipsOn(input.KeyCode.Name) and os.clock() >= padFrom then skipped = true end
 	end)
 	-- the B glyph beside SKIP, only while a gamepad is what you last touched
 	local padGlyph = Instance.new("ImageLabel")
@@ -781,6 +785,7 @@ local function play(name, info)
 		if os.clock() - tapAt < 0.4 and (input.Position - tapPos).Magnitude < 12 then skipped = true end
 		tapAt = nil
 	end)
+	table.insert(listeners, c0); table.insert(listeners, c1); table.insert(listeners, c2); table.insert(listeners, c3)
 	local money
 	if name == "payoff" then
 		money = Instance.new("TextLabel")
@@ -923,6 +928,7 @@ local function play(name, info)
 	local people = {}
 	for _, d in ipairs(workspace:GetDescendants()) do if d:IsA("Humanoid") then people[d] = true end end
 	local cPeople = workspace.DescendantAdded:Connect(function(d) if d:IsA("Humanoid") then people[d] = true end end)
+	table.insert(listeners, cPeople)
 	local length = BobScript.length(name)
 
 	local function finish(wasSkipped)

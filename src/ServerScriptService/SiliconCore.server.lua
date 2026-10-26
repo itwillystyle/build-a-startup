@@ -4155,7 +4155,8 @@ do
 			return
 		end
 		local hum = hit.Parent:FindFirstChildOfClass("Humanoid")
-		local busy = Journey.bobDoorBusy({ carrying = player:GetAttribute("Carrying") ~= nil, seated = hum ~= nil and hum.SeatPart ~= nil })
+		local seat = hum and hum.SeatPart
+		local busy = Journey.bobDoorBusy({ carrying = player:GetAttribute("Carrying") ~= nil, seated = seat ~= nil, car = seat ~= nil and seat:IsA("VehicleSeat") })
 		if busy then
 			if os.clock() - (tapedAt[player] or -1e9) > 10 then
 				tapedAt[player] = os.clock()

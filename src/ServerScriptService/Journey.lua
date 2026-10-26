@@ -155,7 +155,7 @@ end
 -- lose a carried recruit to the headhunters or leave a car driving itself (review minor, 26 Oct)
 function J.bobDoorBusy(who)
 	if who.carrying then return "Drop off your recruit first" end
-	if who.seated then return "Get out of the car first" end
+	if who.seated then return who.car and "Get out of the car first" or "Stand up first" end
 	return nil
 end
 

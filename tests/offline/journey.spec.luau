@@ -337,8 +337,9 @@ end)
 
 test("bob's door waits while you carry a recruit or sit in a car", function()
 	assert(J.bobDoorBusy({ carrying = true }) == "Drop off your recruit first", "carrying")
-	assert(J.bobDoorBusy({ seated = true }) == "Get out of the car first", "seated")
-	assert(J.bobDoorBusy({ carrying = true, seated = true }) == "Drop off your recruit first", "carrying wins")
+	assert(J.bobDoorBusy({ seated = true, car = true }) == "Get out of the car first", "in a car")
+	assert(J.bobDoorBusy({ seated = true }) == "Stand up first", "on any other seat (review round 1)")
+	assert(J.bobDoorBusy({ carrying = true, seated = true, car = true }) == "Drop off your recruit first", "carrying wins")
 	assert(J.bobDoorBusy({}) == nil, "free to walk in")
 end)
 

@@ -28,7 +28,11 @@ end
 
 local function apply()
 	local bc = building()
-	if not bc or player:GetAttribute("BobPaid") ~= true or player:GetAttribute("BobScenePlaying") == true then return end
+	-- not while a scene loads either: BobPaid lands in the same frame as the payoff starts loading, and the scene
+	-- reads the door as it finds it (review round 1; measured 26 Oct: door 3.06 studs open at the payoff's start)
+	local state = player:GetAttribute("BobSceneState")
+	if not bc or player:GetAttribute("BobPaid") ~= true or player:GetAttribute("BobScenePlaying") == true
+		or state == "loading" or state == "playing" then return end
 	local door, tape = bc:FindFirstChild("Door"), bc:FindFirstChild("Tape")
 	if tape then
 		for _, p in ipairs(tape:GetChildren()) do if p:IsA("BasePart") then p.LocalTransparencyModifier = 1 end end
@@ -127,6 +131,11 @@ end)
 
 player:GetAttributeChangedSignal("BobPaid"):Connect(function()
 	if player:GetAttribute("BobPaid") == true then apply() else unapply() end
+end)
+-- the scene's state reaches done/failed just after BobScenePlaying clears: apply then too
+player:GetAttributeChangedSignal("BobSceneState"):Connect(function()
+	local state = player:GetAttribute("BobSceneState")
+	if state == "done" or state == "failed" then applied = false; apply() end
 end)
 player:GetAttributeChangedSignal("BobScenePlaying"):Connect(function()
 	if player:GetAttribute("BobScenePlaying") ~= true then
