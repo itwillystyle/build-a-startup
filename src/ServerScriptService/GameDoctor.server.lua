@@ -57,10 +57,20 @@ local remote = Instance.new("RemoteEvent")
 remote.Name = "DoctorResult"
 remote.Parent = ReplicatedStorage
 
-local pending = {}
+local pending, late = {}, {}
+local clientErrors = {}
 remote.OnServerEvent:Connect(function(player, nonce, data)
 	if player.UserId ~= 1688749216 and player.UserId >= 0 then return end   -- Wilz or a local test player
-	if type(nonce) == "string" and pending[nonce] == false then pending[nonce] = data end
+	if type(nonce) ~= "string" then return end
+	if pending[nonce] == false then
+		pending[nonce] = data
+	elseif late[nonce] then
+		-- 27 Oct: a probe that answers after its timeout still brings the client errors it saw
+		late[nonce] = nil
+		if type(data) == "table" and type(data.clientErrors) == "table" then
+			for _, e in ipairs(data.clientErrors) do if type(e) == "string" then table.insert(clientErrors, e) end end
+		end
+	end
 end)
 
 local serverErrors = {}
@@ -94,7 +104,6 @@ local function step(name, fn)
 end
 
 -- ask the client to measure something; nil after `timeout` seconds
-local clientErrors = {}
 local function probe(player, name, args, timeout)
 	local nonce = HttpService:GenerateGUID(false)
 	pending[nonce] = false
@@ -103,6 +112,7 @@ local function probe(player, name, args, timeout)
 	while pending[nonce] == false and os.clock() - t0 < (timeout or 30) do task.wait(0.1) end
 	local res = pending[nonce]
 	pending[nonce] = nil
+	if res == false then late[nonce] = true end
 	player:SetAttribute("DoctorProbe", nil)
 	if type(res) == "table" then
 		for _, e in ipairs(res.clientErrors or {}) do table.insert(clientErrors, e) end
@@ -645,7 +655,7 @@ local function run()
 		local r = sv:Invoke("scenario", player, "bob:intro")
 		check("bob: intro scenario", r and r.ok, "BUG", r and (r.ok and "ok" or tostring(r.err)) or "no answer", "ok")
 		-- 27 Oct: a scene that breaks while loading lets go (the intro below must then still start)
-		local broken = probe(player, "bobbroken", {}, 30)   -- three breaks: 4 + 12 + 4 s at most
+		local broken = probe(player, "bobbroken", {}, 40)   -- three breaks: 4 + 20 + 4 s at most
 		for _, c in ipairs(broken and broken.checks or {}) do check(c.name, c.ok, "BUG", c.measured, c.expected) end
 		if not broken or broken.error then check("bob broken probe answered", false, "BUG", broken and broken.error or "no answer", "answer") end
 		for _, args in ipairs({ { name = "intro" }, { name = "intro", skipAt = 3 } }) do
@@ -710,6 +720,20 @@ local function run()
 		for _, c in ipairs(res.checks or {}) do
 			check(c.name, c.ok, "BUG", c.measured, c.expected)
 		end
+	end)
+
+	-- 27 Oct: the doctor checks itself. A probe that runs past its timeout still sends its result later,
+	-- with the client errors it saw; those were thrown away with the late result (review round 2). The
+	-- self-test probe prints an error on purpose and answers after 3 s, against a 1 s timeout
+	step("doctor", function()
+		local res = probe(player, "selftest", { hold = 3 }, 1)
+		check("doctor self-test: the probe ran past its timeout", res == nil, "BUG", res == nil and "timed out" or "answered", "timed out")
+		task.wait(4)
+		local kept = false
+		for i = #clientErrors, 1, -1 do
+			if clientErrors[i]:find("[doctor self-test]", 1, true) then kept = true table.remove(clientErrors, i) end
+		end
+		check("doctor: a late probe's client errors reach the report", kept, "BUG", kept and "kept" or "lost", "kept")
 	end)
 
 	step("errors", function()
