@@ -1172,7 +1172,7 @@ local function cmdCheckupPublish()
 	end
 	local pass = true
 	for _, c in checks do if not c.ok then pass = false end end
-	local untilAt = os.date("%H:%M", os.time() + PublishLib.MAX_AGE)
+	local untilAt = os.date("%H:%M", PublishLib.validUntil(okFp and type(fp.at) == "number" and fp.at or os.time()))
 	return result("checkup publish", checks, { pass = pass, verdict = pass
 		and ("SAFE to Alt+P until " .. untilAt .. ", and only if nothing touches Studio before then (Rojo stays stopped)")
 		or "NOT safe to publish" })

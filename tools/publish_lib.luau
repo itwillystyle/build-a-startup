@@ -114,7 +114,8 @@ function P.audit(files, studio)
 			local s = have[1]
 			if s.h ~= SourceHash.hash(f.text) then table.insert(a.changed, f.inst) end
 			if s.c ~= (f.class or "ModuleScript") then table.insert(a.wrongType, ("%s (Studio %s, main %s)"):format(f.inst, tostring(s.c), tostring(f.class))) end
-			if s.r ~= nil and s.r ~= "Legacy" then   -- Rojo makes Legacy; anything else was set by hand
+			local isScript = s.c == "Script" or s.c == "LocalScript"
+			if isScript and s.r ~= "Legacy" then   -- Rojo makes Legacy; anything else (or nothing recorded) is not proven
 				table.insert(a.wrongType, ("%s (RunContext %s)"):format(f.inst, tostring(s.r)))
 			end
 			if s.e == false then table.insert(a.disabled, f.inst) end
@@ -156,6 +157,11 @@ function P.describe(a, max)
 		end
 	end
 	return lines
+end
+
+-- when a PASS on a fingerprint taken at `at` stops being proof
+function P.validUntil(at)
+	return at + P.MAX_AGE
 end
 
 -- is a fingerprint taken at `at` proof of what Alt+P will ship now?

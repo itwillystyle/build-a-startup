@@ -19,7 +19,9 @@ local NESTED = { { dir = "Packages/_Index/littensy_ripple@0.10.2/ripple", sub = 
 
 -- a Studio entry: what the fingerprint snippet records for one script
 local function S(text, class, enabled)
-	return { h = H.hash(text), c = class or "ModuleScript", e = enabled == nil and true or enabled }
+	class = class or "ModuleScript"
+	local r = (class == "Script" or class == "LocalScript") and "Legacy" or nil   -- what Rojo makes
+	return { h = H.hash(text), c = class, e = enabled == nil and true or enabled, r = r }
 end
 
 test("mounts come from the project tree, deepest instance path kept", function()
@@ -139,6 +141,17 @@ test("audit: a Script whose RunContext was changed by hand fails (review round 2
 	legacy.r = "Legacy"
 	assert(P.clean(P.audit(files({ ["ServerScriptService/A"] = { "x()", "Script" } }), { ["ServerScriptService/A"] = { legacy } })),
 		"Legacy is what Rojo makes")
+	local unknown = S("x()", "LocalScript")   -- no r: an old snippet, or the read failed (round 3, M4)
+	unknown.r = nil
+	local b = P.audit(files({ ["StarterPlayer/StarterPlayerScripts/C"] = { "x()", "LocalScript" } }),
+		{ ["StarterPlayer/StarterPlayerScripts/C"] = { unknown } })
+	assert(#b.wrongType == 1, "a script with no RunContext recorded is not proven Legacy")
+	assert(P.clean(P.audit(files({ ["ReplicatedStorage/M"] = "return 1" }), { ["ReplicatedStorage/M"] = { S("return 1") } })),
+		"a ModuleScript has no RunContext")
+end)
+
+test("a PASS holds until the fingerprint is 10 minutes old, not 10 minutes from now (round 3, M5)", function()
+	assert(P.validUntil(1000) == 1000 + P.MAX_AGE, "from the fingerprint's own time")
 end)
 
 test("summary lines: one per kind, capped, empty when clean", function()
