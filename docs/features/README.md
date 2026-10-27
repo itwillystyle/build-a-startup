@@ -25,6 +25,7 @@ This is shared memory for agents and for you. Code wins when a page and the code
 | [player-loop](player-loop.md) | analytics (the HQ-ladder funnel, recruit runs, cash flows) and the TELL US box |
 | [phone](phone.md) | investor texts, Series A |
 | [bob](bob.md) | Bob, the first boss investor: the story intro, PROVE BOB WRONG, the payoff, the trophy |
+| [safety-net](safety-net.md) | live error log, the kill switch (flags), save rescue; what to do: docs/ROLLBACK.md |
 | [daily-bag](daily-bag.md) | daily reward, the bag, items |
 | [valley](valley.md) | the shared server, the market bell |
 | [ranks](ranks.md) | leaderboards |

@@ -3012,6 +3012,20 @@ if Econ then
 			if not ok then warn("[SV] Feedback init failed: " .. tostring(err)) end
 		end
 	end
+	-- 26 Oct safety net (docs/ROLLBACK.md): the kill switch, and every live error counted per day
+	do
+		local Fl = tryRequire(ServerScriptService, "Flags")
+		if Fl and Fl.init then
+			local ok, err = pcall(Fl.init)
+			if not ok then warn("[SV] Flags init failed: " .. tostring(err)) end
+		end
+		local El = tryRequire(ServerScriptService, "ErrorLog")
+		if El and El.init then
+			local ok, err = pcall(El.init, { remote = remote,
+				telemetry = function(p, name) if Telemetry and Telemetry.event then Telemetry.event(p, name) end end })
+			if not ok then warn("[SV] ErrorLog init failed: " .. tostring(err)) end
+		end
+	end
 	-- v4.6 THE WAFERS (docs/superpowers/specs/2026-09-30-wafers-hq-design.md): the one-building HQ
 	Econ.Wafers = tryRequire(ServerScriptService, "Wafers")
 	if Econ.Wafers and Econ.Wafers.init and Econ.V3 then
