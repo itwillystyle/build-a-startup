@@ -1002,10 +1002,15 @@ local function cmdCheckupPr()
 	local sha = git({ "rev-parse", "HEAD" })
 	local branch = git({ "rev-parse", "--abbrev-ref", "HEAD" })
 	run("git", { "fetch", "-q", "origin", "main" })
-	local changed = git({ "diff", "--name-only", "origin/main...HEAD" }) or "src/?"
+	local changed = git({ "-c", "core.quotePath=false", "diff", "--name-only", "origin/main...HEAD" }) or "src/?"
+	local proj = readJson("default.project.json")
+	local synced = { "default.project.json" }
+	for _, m in require("./publish_lib").mounts(proj and proj.tree or {}) do table.insert(synced, m.dir .. "/") end
 	local gameCode = false   -- anything Rojo syncs into Studio is game code (27 Oct: Packages, the project file too)
 	for _, l in lines(changed) do
-		if l:find("^src/") or l:find("^Packages/") or l == "default.project.json" then gameCode = true end
+		for _, pre in synced do
+			if l == pre or l:sub(1, #pre) == pre then gameCode = true end
+		end
 	end
 	local pass, summary
 	if not gameCode then
@@ -1122,6 +1127,23 @@ local function cmdCheckupPublish()
 	local dirty = git(statusArgs) or "?"
 	add("clean", dirty == "", dirty == "" and "nothing uncommitted, untracked or ignored where Rojo syncs"
 		or ("not main: " .. dirty:sub(1, 160)))
+	-- git hides an edit marked skip-worktree / assume-unchanged from status (round 2, M3)
+	local flagged = {}
+	local lsArgs = { "ls-files", "-v", "--" }
+	for _, m in mounts do table.insert(lsArgs, m.dir) end
+	for _, l in lines(git(lsArgs) or "?") do
+		local tag = l:sub(1, 1)
+		if tag == "S" or tag:match("%l") then table.insert(flagged, l) end
+	end
+	add("no hidden edits", #flagged == 0, #flagged == 0 and "no file marked skip-worktree or assume-unchanged"
+		or ("git is told to ignore edits to: " .. table.concat(flagged, ", "):sub(1, 160)))
+	local port = (project and project.servePort) or 34872
+	local up = pcall(function()
+		local r = net.request({ url = ("http://localhost:%d/api/rojo"):format(port), method = "GET" })
+		assert(r.ok, "Rojo answered with an error")
+	end)
+	add("Rojo stopped", not up, up and ("a Rojo server answers on port " .. port .. ": stop it, so nothing syncs before Alt+P")
+		or ("nothing answers on port " .. port))
 	local paths, nested, odd = syncedFiles(mounts)
 	add("only scripts", #odd == 0, #odd == 0 and "no synced file of a kind this cannot check"
 		or ("cannot check these synced files: " .. table.concat(odd, ", "):sub(1, 200)))
@@ -1150,7 +1172,10 @@ local function cmdCheckupPublish()
 	end
 	local pass = true
 	for _, c in checks do if not c.ok then pass = false end end
-	return result("checkup publish", checks, { pass = pass, verdict = pass and "SAFE to Alt+P" or "NOT safe to publish" })
+	local untilAt = os.date("%H:%M", os.time() + PublishLib.MAX_AGE)
+	return result("checkup publish", checks, { pass = pass, verdict = pass
+		and ("SAFE to Alt+P until " .. untilAt .. ", and only if nothing touches Studio before then (Rojo stays stopped)")
+		or "NOT safe to publish" })
 end
 
 local function cmdCheckup()

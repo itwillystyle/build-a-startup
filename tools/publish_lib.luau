@@ -114,6 +114,9 @@ function P.audit(files, studio)
 			local s = have[1]
 			if s.h ~= SourceHash.hash(f.text) then table.insert(a.changed, f.inst) end
 			if s.c ~= (f.class or "ModuleScript") then table.insert(a.wrongType, ("%s (Studio %s, main %s)"):format(f.inst, tostring(s.c), tostring(f.class))) end
+			if s.r ~= nil and s.r ~= "Legacy" then   -- Rojo makes Legacy; anything else was set by hand
+				table.insert(a.wrongType, ("%s (RunContext %s)"):format(f.inst, tostring(s.r)))
+			end
 			if s.e == false then table.insert(a.disabled, f.inst) end
 		end
 	end

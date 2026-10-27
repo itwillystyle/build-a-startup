@@ -10,4 +10,6 @@ class H(http.server.BaseHTTPRequestHandler):
         open(out, "wb").write(body)
         self.send_response(200); self.end_headers(); self.wfile.write(b"ok %d" % len(body))
         raise SystemExit
-http.server.HTTPServer(("127.0.0.1", 34999), H).handle_request()
+srv = http.server.HTTPServer(("127.0.0.1", 34999), H)
+srv.timeout = 300   # no POST in 5 minutes: give up instead of waiting forever
+srv.handle_request()

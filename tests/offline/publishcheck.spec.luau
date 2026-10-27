@@ -130,6 +130,17 @@ test("audit: same text, wrong script type or switched off, fails (review I8)", f
 	assert(#b.disabled == 1 and not P.clean(b), "a script switched off by hand")
 end)
 
+test("audit: a Script whose RunContext was changed by hand fails (review round 2, M2)", function()
+	local client = S("x()", "Script")
+	client.r = "Client"
+	local a = P.audit(files({ ["ServerScriptService/A"] = { "x()", "Script" } }), { ["ServerScriptService/A"] = { client } })
+	assert(#a.wrongType == 1 and a.wrongType[1]:find("RunContext Client", 1, true), "a server Script running on the client")
+	local legacy = S("x()", "Script")
+	legacy.r = "Legacy"
+	assert(P.clean(P.audit(files({ ["ServerScriptService/A"] = { "x()", "Script" } }), { ["ServerScriptService/A"] = { legacy } })),
+		"Legacy is what Rojo makes")
+end)
+
 test("summary lines: one per kind, capped, empty when clean", function()
 	local a = P.emptyAudit()
 	for i = 1, 12 do table.insert(a.extra, "ReplicatedStorage/X" .. i) end

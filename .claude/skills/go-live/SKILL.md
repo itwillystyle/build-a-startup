@@ -21,9 +21,11 @@ checks are memory, not proof: every step below is a command whose output decides
   the ONLY merge it lets through is
   `gh pr merge <N> -R itwillystyle/build-a-startup --squash --match-head-commit <sha>`
   as its own command, and only when check, smoke AND doctor are SUCCESS on that head. It refuses
-  --admin, --auto, wrapped commands, GraphQL/REST merges, aliases and pushes to main.
-  Side effect: a command that only MENTIONS "pr merge" (a grep, a commit message) is refused
-  too. Use `git commit -F <file>` and search with the Grep tool.
+  --admin, --auto, wrapped or quoted commands, GraphQL/REST merges, aliases, any `gh api` or
+  curl write to the game repo (so a doctor status can only come from bas), and any push that
+  lands on main (including a bare `git push` while on main).
+  Side effect: a shell command that only MENTIONS "pr merge" (a grep, a commit message, a
+  heredoc) is refused too. Use `git commit -F <file>`, the Grep tool, and the Write tool.
 - GitHub's wall (Luke's settings): `doctor` required on main + "Do not allow bypassing".
   Until both are on, a merge made outside Claude is not checked.
 
@@ -62,10 +64,10 @@ checks are memory, not proof: every step below is a command whose output decides
        			local ok2, isScript = pcall(function() return d:IsA("LuaSourceContainer") end)
        			if ok2 and isScript then
        				local p = pathOf(d)
-       				local e = true
-       				pcall(function() if d:IsA("BaseScript") then e = d.Enabled end end)
+       				local e, r = true, nil
+       				pcall(function() if d:IsA("BaseScript") then e = d.Enabled; r = d.RunContext.Name end end)
        				out[p] = out[p] or {}
-       				table.insert(out[p], { h = H.hash(d.Source), c = d.ClassName, e = e })
+       				table.insert(out[p], { h = H.hash(d.Source), c = d.ClassName, e = e, r = r })
        			end
        		end
        	end
@@ -74,7 +76,8 @@ checks are memory, not proof: every step below is a command whose output decides
        return HS:PostAsync("http://127.0.0.1:34999/", HS:JSONEncode({ kind = "publish", v = 2, at = os.time(), scripts = out }))
 
 4. From `game/`: `lune run tools/bas checkup publish ../doctor/fingerprint-publish.json`
-   (it uses the file up; a re-check needs a new fingerprint).
+   (it uses the file up; a re-check needs a new fingerprint). It also fails while any Rojo
+   server answers on the project's port, and on files git is told to ignore edits to.
    - PASS: tell Luke "SAFE to Alt+P" with the commit's short sha, and that Rojo stays stopped
      until he has published.
    - FAIL extra: scripts in Studio that main does not have, anywhere in the place. Show Luke the
