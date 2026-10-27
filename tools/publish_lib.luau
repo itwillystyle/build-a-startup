@@ -1,16 +1,22 @@
 --[[ publish_lib -- the pure half of `bas checkup publish` (27 Oct 2026): is Studio exactly main?
 
-	Before Alt+P, every script Rojo manages must be in Studio once, with main's code, and
-	nothing else may sit in the folders Rojo manages. On 27 Oct Rojo served main while 7 Bob
-	scripts from another branch stayed in Studio ($ignoreUnknownInstances keeps what Rojo
-	does not know) and SourceHash.compare passed, because it only checks file -> Studio.
+	Before Alt+P, every script Rojo manages must be in Studio once, with main's code, as the
+	script type main says, switched on, and nothing else may be anywhere in the place. On 27 Oct
+	Rojo served main while 7 Bob scripts from another branch stayed in Studio
+	($ignoreUnknownInstances keeps what Rojo does not know) and SourceHash.compare passed, because
+	it only checks file -> Studio. v2 (same day, after review): the fingerprint covers every
+	service, records class and enabled state, and files this check cannot verify fail it.
 
-	Both sides are keyed by instance path ("ServerScriptService/HQMeta/Dome", names joined
-	with "/"), so two scripts with one name in different folders never mix.
-	No fs, no net: tables in, tables out (tests/offline/publishcheck.spec.luau). ]]
+	Both sides are keyed by instance path ("ServerScriptService/HQMeta/Dome", names joined with
+	"/"), so two scripts with one name in different folders never mix. A Studio entry is
+	{ h = hash, c = ClassName, e = enabled }. No fs, no net: tables in, tables out
+	(tests/offline/publishcheck.spec.luau). ]]
 local SourceHash = require("../src/ReplicatedStorage/SourceHash")
 
 local P = {}
+
+P.MAX_AGE = 10 * 60   -- a fingerprint older than this is not proof of what Alt+P will ship
+P.SKEW = 60           -- seconds of clock difference allowed for a fingerprint "from the future"
 
 local function norm(p) return (string.gsub(p, "\\", "/")) end
 
@@ -31,6 +37,15 @@ function P.mounts(tree)
 	return out
 end
 
+local INIT = { ["init.lua"] = true, ["init.luau"] = true, ["init.server.lua"] = true, ["init.server.luau"] = true,
+	["init.client.lua"] = true, ["init.client.luau"] = true }
+
+-- Rojo's name for a script file: Foo.server.lua -> Foo, Foo.Bar.lua -> Foo.Bar
+local function stemOf(file)
+	return string.match(file, "^(.-)%.server%.luau?$") or string.match(file, "^(.-)%.client%.luau?$")
+		or string.match(file, "^(.-)%.luau?$")
+end
+
 -- a file path -> the instance path Rojo gives it, or nil when no mount syncs it.
 -- nested: { { dir, sub } } for folders holding their own default.project.json ($path = sub)
 function P.instancePath(path, mounts, nested)
@@ -46,24 +61,47 @@ function P.instancePath(path, mounts, nested)
 		local pre = m.dir .. "/"
 		if string.sub(path, 1, #pre) == pre then
 			local rest = string.sub(path, #pre + 1)
-			local name = SourceHash.nameOf(rest)
-			local dir = string.match(rest, "^(.*)/[^/]+$")
-			local stem = string.match(rest, "([^/]+)$")
-			local isInit = string.match(stem, "^init%.") ~= nil
-			local parentDir = dir
-			if isInit then parentDir = string.match(dir or "", "^(.*)/[^/]+$") end   -- init.lua IS its folder
+			local dir, file = string.match(rest, "^(.*)/([^/]+)$")
+			file = file or rest
 			local parts = { m.inst }
-			if parentDir and parentDir ~= "" then table.insert(parts, parentDir) end
-			if name then table.insert(parts, name) end
+			if INIT[file] then   -- init.* IS its folder
+				if dir then table.insert(parts, dir) end
+			else
+				if dir then table.insert(parts, dir) end
+				local stem = stemOf(file)
+				if not stem then return nil end
+				table.insert(parts, stem)
+			end
 			return table.concat(parts, "/")
 		end
 	end
 	return nil
 end
 
--- files { { inst, text } } vs Studio { [inst] = { hash, ... } } -> what does not match
+-- the class Rojo makes from a script file's name
+function P.classOf(path)
+	if string.match(path, "%.server%.luau?$") then return "Script" end
+	if string.match(path, "%.client%.luau?$") then return "LocalScript" end
+	return "ModuleScript"
+end
+
+-- files Rojo turns into instances (some with scripts or properties inside) that this check does
+-- not read: their presence fails it instead of passing unchecked
+function P.unverifiable(path)
+	path = string.lower(path)
+	for _, ext in { "%.json$", "%.toml$", "%.rbxm$", "%.rbxmx$", "%.ya?ml$" } do
+		if string.match(path, ext) then return true end
+	end
+	return false
+end
+
+function P.emptyAudit()
+	return { changed = {}, missing = {}, extra = {}, doubled = {}, wrongType = {}, disabled = {} }
+end
+
+-- files { { inst, text, class } } vs Studio { [inst] = { { h, c, e }, ... } } -> what does not match
 function P.audit(files, studio)
-	local a = { changed = {}, missing = {}, extra = {}, doubled = {} }
+	local a = P.emptyAudit()
 	local known = {}
 	for _, f in files do
 		known[f.inst] = true
@@ -72,8 +110,11 @@ function P.audit(files, studio)
 			table.insert(a.missing, f.inst)
 		elseif #have > 1 then
 			table.insert(a.doubled, f.inst)
-		elseif have[1] ~= SourceHash.hash(f.text) then
-			table.insert(a.changed, f.inst)
+		else
+			local s = have[1]
+			if s.h ~= SourceHash.hash(f.text) then table.insert(a.changed, f.inst) end
+			if s.c ~= (f.class or "ModuleScript") then table.insert(a.wrongType, ("%s (Studio %s, main %s)"):format(f.inst, tostring(s.c), tostring(f.class))) end
+			if s.e == false then table.insert(a.disabled, f.inst) end
 		end
 	end
 	for inst in studio do
@@ -84,14 +125,19 @@ function P.audit(files, studio)
 end
 
 function P.clean(a)
-	return #a.changed == 0 and #a.missing == 0 and #a.extra == 0 and #a.doubled == 0
+	for _, l in a do
+		if #l > 0 then return false end
+	end
+	return true
 end
 
 local WHAT = {
 	{ "changed", "changed (Studio has different code)" },
 	{ "missing", "missing (in main, not in Studio)" },
-	{ "extra", "extra (in Studio, not in main: delete them)" },
+	{ "extra", "extra (in Studio, not in main)" },
 	{ "doubled", "doubled (two copies: one Rojo plugin too many)" },
+	{ "wrongType", "the wrong script type" },
+	{ "disabled", "switched off in Studio" },
 }
 
 -- one line per kind that has entries, naming up to `max` of them
@@ -107,6 +153,15 @@ function P.describe(a, max)
 		end
 	end
 	return lines
+end
+
+-- is a fingerprint taken at `at` proof of what Alt+P will ship now?
+function P.fresh(at, now, commitAt)
+	if type(at) ~= "number" then return false, "the fingerprint has no time" end
+	if at > now + P.SKEW then return false, "the fingerprint is from the future" end
+	if at < commitAt then return false, "the fingerprint is older than the commit" end
+	if now - at > P.MAX_AGE then return false, ("the fingerprint is %d min old (max %d)"):format(math.floor((now - at) / 60), P.MAX_AGE / 60) end
+	return true, ("taken %d min ago"):format(math.floor((now - at) / 60))
 end
 
 return P

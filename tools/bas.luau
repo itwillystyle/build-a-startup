@@ -1001,11 +1001,15 @@ local function cmdCheckupPr()
 	local function add(name, ok, detail) table.insert(checks, { name = name, ok = ok, ms = 0, detail = detail }) end
 	local sha = git({ "rev-parse", "HEAD" })
 	local branch = git({ "rev-parse", "--abbrev-ref", "HEAD" })
-	local changed = git({ "diff", "--name-only", "origin/main...HEAD" }) or ""
-	local gameCode = changed:find("src/", 1, true) ~= nil
+	run("git", { "fetch", "-q", "origin", "main" })
+	local changed = git({ "diff", "--name-only", "origin/main...HEAD" }) or "src/?"
+	local gameCode = false   -- anything Rojo syncs into Studio is game code (27 Oct: Packages, the project file too)
+	for _, l in lines(changed) do
+		if l:find("^src/") or l:find("^Packages/") or l == "default.project.json" then gameCode = true end
+	end
 	local pass, summary
 	if not gameCode then
-		pass, summary = true, "not needed: this branch changes no game code (nothing under src/)"
+		pass, summary = true, "not needed: this branch changes nothing Rojo syncs (src/, Packages/, default.project.json)"
 		add("game code", true, summary)
 	else
 		local dirty = git({ "status", "--porcelain", "--", "src" }) or "?"
@@ -1066,17 +1070,20 @@ end
 
 --[[ v4 (27 Oct): `checkup publish` -- is Studio exactly main, before Luke's Alt+P?
 	  lune run tools/bas checkup publish <fingerprint.json>
-	The fingerprint is taken in Studio's Edit datamodel (the go-live skill has the snippet):
-	{ kind = "publish", at = os.time(), scripts = { ["ServerScriptService/Foo"] = { hash, ... } } }
-	for every script under the folders default.project.json syncs. Passes only when this
-	folder is main, up to date and clean, the fingerprint is newer than the commit and under
-	30 minutes old, and every script is in Studio once with main's code and nothing else is. ]]
+	The fingerprint is taken in Studio's Edit datamodel with Rojo stopped (the go-live skill has
+	the snippet): { kind = "publish", v = 2, at = os.time(), scripts = { ["ServerScriptService/Foo"]
+	= { { h = hash, c = ClassName, e = enabled }, ... } } } for every script in EVERY service.
+	Passes only when this folder is main, up to date, and has nothing uncommitted, untracked or
+	ignored under a synced folder (so the files read here ARE main); no file Rojo syncs is of a
+	kind this cannot verify; the fingerprint is under 10 minutes old and newer than the commit;
+	and every script is in Studio once, same code, same type, switched on, with nothing else
+	anywhere. The fingerprint file is used up by the check (renamed .used), so an old PASS can
+	never be read twice. v2 after review the same day: see tools/publish_lib.luau. ]]
 local PublishLib = require("./publish_lib")
-local PUBLISH_MAX_AGE = 30 * 60
 
 local function syncedFiles(mounts)
-	local files, nested = {}, {}
-	local function walk(dir)
+	local files, nested, odd = {}, {}, {}
+	local function walkSynced(dir)
 		local proj = dir .. "/default.project.json"
 		if fs.isFile(proj) then   -- a package with its own project: only its $path is synced
 			local p = readJson(proj)
@@ -1088,14 +1095,15 @@ local function syncedFiles(mounts)
 		end
 		for _, name in fs.readDir(dir) do
 			local path = dir .. "/" .. name
-			if fs.isDir(path) then walk(path)
-			elseif name:match("%.luau?$") then table.insert(files, path) end
+			if fs.isDir(path) then walkSynced(path)
+			elseif name:match("%.luau?$") then table.insert(files, path)
+			elseif PublishLib.unverifiable(path) then table.insert(odd, path) end
 		end
 	end
 	for _, m in mounts do
-		if fs.isDir(m.dir) then walk(m.dir) end
+		if fs.isDir(m.dir) then walkSynced(m.dir) end
 	end
-	return files, nested
+	return files, nested, odd
 end
 
 local function cmdCheckupPublish()
@@ -1107,31 +1115,38 @@ local function cmdCheckupPublish()
 	local head, remote = git({ "rev-parse", "HEAD" }), git({ "rev-parse", "origin/main" })
 	add("up to date", fetched and head ~= nil and head == remote, fetched and ("HEAD " .. tostring(head):sub(1, 7)
 		.. ", origin/main " .. tostring(remote):sub(1, 7)) or "could not fetch origin/main")
-	local dirty = git({ "status", "--porcelain", "--", "src", "Packages", "default.project.json" }) or "?"
-	add("clean", dirty == "", dirty == "" and "nothing uncommitted Rojo could sync" or ("uncommitted: " .. dirty:sub(1, 160)))
+	local project = readJson("default.project.json")
+	local mounts = PublishLib.mounts(project and project.tree or {})
+	local statusArgs = { "status", "--porcelain", "--ignored", "--untracked-files=all", "--", "default.project.json" }
+	for _, m in mounts do table.insert(statusArgs, m.dir) end
+	local dirty = git(statusArgs) or "?"
+	add("clean", dirty == "", dirty == "" and "nothing uncommitted, untracked or ignored where Rojo syncs"
+		or ("not main: " .. dirty:sub(1, 160)))
+	local paths, nested, odd = syncedFiles(mounts)
+	add("only scripts", #odd == 0, #odd == 0 and "no synced file of a kind this cannot check"
+		or ("cannot check these synced files: " .. table.concat(odd, ", "):sub(1, 200)))
 
-	local fp = pos[3] and readJson(pos[3])
-	local okFp = type(fp) == "table" and fp.kind == "publish" and type(fp.scripts) == "table"
-	add("fingerprint", okFp, okFp and tostring(pos[3])
-		or ("no publish fingerprint at " .. tostring(pos[3]) .. " (kind must be \"publish\"; see the go-live skill)"))
+	local fpPath = pos[3]
+	local fp = fpPath and readJson(fpPath)
+	if fpPath and fs.isFile(fpPath) then
+		pcall(fs.move, fpPath, fpPath .. ".used", true)   -- used up: an old PASS can never be read twice
+	end
+	local okFp = type(fp) == "table" and fp.kind == "publish" and fp.v == 2 and type(fp.scripts) == "table"
+	add("fingerprint", okFp, okFp and tostring(fpPath)
+		or ("no v2 publish fingerprint at " .. tostring(fpPath) .. " (take a new one: go-live skill)"))
 	if okFp then
 		local commitAt = tonumber(git({ "log", "-1", "--format=%ct" }) or "") or 0
-		local age = os.time() - (fp.at or 0)
-		add("fresh", (fp.at or 0) >= commitAt and age <= PUBLISH_MAX_AGE, ("taken %s, %d min ago; commit %s"):format(
-			os.date("%H:%M", fp.at or 0), math.floor(age / 60), os.date("%H:%M", commitAt)))
-		local project = readJson("default.project.json")
-		local mounts = PublishLib.mounts(project and project.tree or {})
-		local paths, nested = syncedFiles(mounts)
+		local ok, why = PublishLib.fresh(fp.at, os.time(), commitAt)
+		add("fresh", ok, why)
 		local files = {}
 		for _, p in paths do
 			local inst = PublishLib.instancePath(p, mounts, nested)
-			if inst then table.insert(files, { inst = inst, text = fs.readFile(p) }) end
+			if inst then table.insert(files, { inst = inst, text = fs.readFile(p), class = PublishLib.classOf(p) }) end
 		end
 		local a = PublishLib.audit(files, fp.scripts)
 		local clean = PublishLib.clean(a)
-		local why = PublishLib.describe(a, 8)
-		add("Studio is exactly main", clean, clean and ("all " .. #files .. " scripts match, nothing extra or doubled")
-			or table.concat(why, "; "))
+		add("Studio is exactly main", clean, clean and ("all " .. #files .. " scripts match: same code, type and on; nothing extra anywhere")
+			or table.concat(PublishLib.describe(a, 8), "; "))
 	end
 	local pass = true
 	for _, c in checks do if not c.ok then pass = false end end
