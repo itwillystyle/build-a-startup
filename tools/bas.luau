@@ -13,6 +13,7 @@
     lune run tools/bas playtest list | prep <video>|--new | done <video>   review a screen recording
     lune run tools/bas checkup report <json> | post   judge a game-doctor run, post it to Discord
     lune run tools/bas checkup pr <report> <fingerprint> [--post]   the doctor as a gate on a pull request
+    lune run tools/bas checkup publish <fingerprint>   before Alt+P: Studio is exactly main
     lune run tools/bas risk [base] [--label]   which changed files need Luke (tools/risk_lib.luau)
 	Add --json to any command for one machine-readable object on stdout.
 	Add --save to check / sim / baseline diff to file the result in the current evidence folder.
@@ -1000,11 +1001,20 @@ local function cmdCheckupPr()
 	local function add(name, ok, detail) table.insert(checks, { name = name, ok = ok, ms = 0, detail = detail }) end
 	local sha = git({ "rev-parse", "HEAD" })
 	local branch = git({ "rev-parse", "--abbrev-ref", "HEAD" })
-	local changed = git({ "diff", "--name-only", "origin/main...HEAD" }) or ""
-	local gameCode = changed:find("src/", 1, true) ~= nil
+	run("git", { "fetch", "-q", "origin", "main" })
+	local changed = git({ "-c", "core.quotePath=false", "diff", "--name-only", "origin/main...HEAD" }) or "src/?"
+	local proj = readJson("default.project.json")
+	local synced = { "default.project.json" }
+	for _, m in require("./publish_lib").mounts(proj and proj.tree or {}) do table.insert(synced, m.dir .. "/") end
+	local gameCode = false   -- anything Rojo syncs into Studio is game code (27 Oct: Packages, the project file too)
+	for _, l in lines(changed) do
+		for _, pre in synced do
+			if l == pre or l:sub(1, #pre) == pre then gameCode = true end
+		end
+	end
 	local pass, summary
 	if not gameCode then
-		pass, summary = true, "not needed: this branch changes no game code (nothing under src/)"
+		pass, summary = true, "not needed: this branch changes nothing Rojo syncs (src/, Packages/, default.project.json)"
 		add("game code", true, summary)
 	else
 		local dirty = git({ "status", "--porcelain", "--", "src" }) or "?"
@@ -1063,6 +1073,111 @@ local function cmdCheckupPr()
 	return result("checkup pr", checks, { pass = pass, file = out })
 end
 
+--[[ v4 (27 Oct): `checkup publish` -- is Studio exactly main, before Luke's Alt+P?
+	  lune run tools/bas checkup publish <fingerprint.json>
+	The fingerprint is taken in Studio's Edit datamodel with Rojo stopped (the go-live skill has
+	the snippet): { kind = "publish", v = 2, at = os.time(), scripts = { ["ServerScriptService/Foo"]
+	= { { h = hash, c = ClassName, e = enabled }, ... } } } for every script in EVERY service.
+	Passes only when this folder is main, up to date, and has nothing uncommitted, untracked or
+	ignored under a synced folder (so the files read here ARE main); no file Rojo syncs is of a
+	kind this cannot verify; the fingerprint is under 10 minutes old and newer than the commit;
+	and every script is in Studio once, same code, same type, switched on, with nothing else
+	anywhere. The fingerprint file is used up by the check (renamed .used), so an old PASS can
+	never be read twice. v2 after review the same day: see tools/publish_lib.luau. ]]
+local PublishLib = require("./publish_lib")
+
+local function syncedFiles(mounts)
+	local files, nested, odd = {}, {}, {}
+	local function walkSynced(dir)
+		local proj = dir .. "/default.project.json"
+		if fs.isFile(proj) then   -- a package with its own project: only its $path is synced
+			local p = readJson(proj)
+			local sub = p and p.tree and p.tree["$path"]
+			if type(sub) == "string" then
+				table.insert(nested, { dir = dir, sub = sub })
+				dir = dir .. "/" .. sub
+			end
+		end
+		for _, name in fs.readDir(dir) do
+			local path = dir .. "/" .. name
+			if fs.isDir(path) then walkSynced(path)
+			elseif name:match("%.luau?$") then table.insert(files, path)
+			elseif PublishLib.unverifiable(path) then table.insert(odd, path) end
+		end
+	end
+	for _, m in mounts do
+		if fs.isDir(m.dir) then walkSynced(m.dir) end
+	end
+	return files, nested, odd
+end
+
+local function cmdCheckupPublish()
+	local checks = {}
+	local function add(name, ok, detail) table.insert(checks, { name = name, ok = ok, ms = 0, detail = detail }) end
+	local branch = git({ "rev-parse", "--abbrev-ref", "HEAD" })
+	add("on main", branch == "main", "this folder is on " .. tostring(branch) .. " (Rojo serves this folder)")
+	local fetched = run("git", { "fetch", "-q", "origin", "main" }).ok
+	local head, remote = git({ "rev-parse", "HEAD" }), git({ "rev-parse", "origin/main" })
+	add("up to date", fetched and head ~= nil and head == remote, fetched and ("HEAD " .. tostring(head):sub(1, 7)
+		.. ", origin/main " .. tostring(remote):sub(1, 7)) or "could not fetch origin/main")
+	local project = readJson("default.project.json")
+	local mounts = PublishLib.mounts(project and project.tree or {})
+	local statusArgs = { "status", "--porcelain", "--ignored", "--untracked-files=all", "--", "default.project.json" }
+	for _, m in mounts do table.insert(statusArgs, m.dir) end
+	local dirty = git(statusArgs) or "?"
+	add("clean", dirty == "", dirty == "" and "nothing uncommitted, untracked or ignored where Rojo syncs"
+		or ("not main: " .. dirty:sub(1, 160)))
+	-- git hides an edit marked skip-worktree / assume-unchanged from status (round 2, M3)
+	local flagged = {}
+	local lsArgs = { "ls-files", "-v", "--" }
+	for _, m in mounts do table.insert(lsArgs, m.dir) end
+	for _, l in lines(git(lsArgs) or "?") do
+		local tag = l:sub(1, 1)
+		if tag == "S" or tag:match("%l") then table.insert(flagged, l) end
+	end
+	add("no hidden edits", #flagged == 0, #flagged == 0 and "no file marked skip-worktree or assume-unchanged"
+		or ("git is told to ignore edits to: " .. table.concat(flagged, ", "):sub(1, 160)))
+	local port = (project and project.servePort) or 34872
+	local up = pcall(function()
+		local r = net.request({ url = ("http://localhost:%d/api/rojo"):format(port), method = "GET" })
+		assert(r.ok, "Rojo answered with an error")
+	end)
+	add("Rojo stopped", not up, up and ("a Rojo server answers on port " .. port .. ": stop it, so nothing syncs before Alt+P")
+		or ("nothing answers on port " .. port))
+	local paths, nested, odd = syncedFiles(mounts)
+	add("only scripts", #odd == 0, #odd == 0 and "no synced file of a kind this cannot check"
+		or ("cannot check these synced files: " .. table.concat(odd, ", "):sub(1, 200)))
+
+	local fpPath = pos[3]
+	local fp = fpPath and readJson(fpPath)
+	if fpPath and fs.isFile(fpPath) then
+		pcall(fs.move, fpPath, fpPath .. ".used", true)   -- used up: an old PASS can never be read twice
+	end
+	local okFp = type(fp) == "table" and fp.kind == "publish" and fp.v == 2 and type(fp.scripts) == "table"
+	add("fingerprint", okFp, okFp and tostring(fpPath)
+		or ("no v2 publish fingerprint at " .. tostring(fpPath) .. " (take a new one: go-live skill)"))
+	if okFp then
+		local commitAt = tonumber(git({ "log", "-1", "--format=%ct" }) or "") or 0
+		local ok, why = PublishLib.fresh(fp.at, os.time(), commitAt)
+		add("fresh", ok, why)
+		local files = {}
+		for _, p in paths do
+			local inst = PublishLib.instancePath(p, mounts, nested)
+			if inst then table.insert(files, { inst = inst, text = fs.readFile(p), class = PublishLib.classOf(p) }) end
+		end
+		local a = PublishLib.audit(files, fp.scripts)
+		local clean = PublishLib.clean(a)
+		add("Studio is exactly main", clean, clean and ("all " .. #files .. " scripts match: same code, type and on; nothing extra anywhere")
+			or table.concat(PublishLib.describe(a, 8), "; "))
+	end
+	local pass = true
+	for _, c in checks do if not c.ok then pass = false end end
+	local untilAt = os.date("%H:%M", PublishLib.validUntil(okFp and type(fp.at) == "number" and fp.at or os.time()))
+	return result("checkup publish", checks, { pass = pass, verdict = pass
+		and ("SAFE to Alt+P until " .. untilAt .. ", and only if nothing touches Studio before then (Rojo stays stopped)")
+		or "NOT safe to publish" })
+end
+
 local function cmdCheckup()
 	local sub = pos[2]
 	if sub == "report" then
@@ -1100,6 +1215,8 @@ local function cmdCheckup()
 			detail = fine and detail or (detail .. "; the doctor's memory did not move, so tomorrow still reports these as new") } })
 	elseif sub == "pr" then
 		return cmdCheckupPr()
+	elseif sub == "publish" then
+		return cmdCheckupPublish()
 	end
 	return nil
 end
@@ -1234,6 +1351,7 @@ bas -- one command for every check this game has. Run from the game folder.
   lune run tools/bas playtest done <name> [--skip] [--note "..."]   file it as reviewed
   lune run tools/bas checkup report <report.json>   judge a game-doctor run -> ../DOCTOR.md
   lune run tools/bas checkup post          post the summary to Discord (../.discord-webhook)
+  lune run tools/bas checkup publish <fingerprint.json>   before Alt+P: is Studio exactly main?
   lune run tools/bas risk [base] [--label]  what kind of change this branch is; does Luke need to look
   lune run tools/chase_tune -- --minutes N  the chase tuner (judge: chase.spec + chasecam.spec + the design spec)
   lune run tools/bas tune post [--dry]     post the newest finished chase tuning to Discord
