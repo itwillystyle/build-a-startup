@@ -13,6 +13,7 @@
     lune run tools/bas playtest list | prep <video>|--new | done <video>   review a screen recording
     lune run tools/bas checkup report <json> | post   judge a game-doctor run, post it to Discord
     lune run tools/bas checkup pr <report> <fingerprint> [--post]   the doctor as a gate on a pull request
+    lune run tools/bas checkup publish <fingerprint>   before Alt+P: Studio is exactly main
     lune run tools/bas risk [base] [--label]   which changed files need Luke (tools/risk_lib.luau)
 	Add --json to any command for one machine-readable object on stdout.
 	Add --save to check / sim / baseline diff to file the result in the current evidence folder.
@@ -1063,6 +1064,80 @@ local function cmdCheckupPr()
 	return result("checkup pr", checks, { pass = pass, file = out })
 end
 
+--[[ v4 (27 Oct): `checkup publish` -- is Studio exactly main, before Luke's Alt+P?
+	  lune run tools/bas checkup publish <fingerprint.json>
+	The fingerprint is taken in Studio's Edit datamodel (the go-live skill has the snippet):
+	{ kind = "publish", at = os.time(), scripts = { ["ServerScriptService/Foo"] = { hash, ... } } }
+	for every script under the folders default.project.json syncs. Passes only when this
+	folder is main, up to date and clean, the fingerprint is newer than the commit and under
+	30 minutes old, and every script is in Studio once with main's code and nothing else is. ]]
+local PublishLib = require("./publish_lib")
+local PUBLISH_MAX_AGE = 30 * 60
+
+local function syncedFiles(mounts)
+	local files, nested = {}, {}
+	local function walk(dir)
+		local proj = dir .. "/default.project.json"
+		if fs.isFile(proj) then   -- a package with its own project: only its $path is synced
+			local p = readJson(proj)
+			local sub = p and p.tree and p.tree["$path"]
+			if type(sub) == "string" then
+				table.insert(nested, { dir = dir, sub = sub })
+				dir = dir .. "/" .. sub
+			end
+		end
+		for _, name in fs.readDir(dir) do
+			local path = dir .. "/" .. name
+			if fs.isDir(path) then walk(path)
+			elseif name:match("%.luau?$") then table.insert(files, path) end
+		end
+	end
+	for _, m in mounts do
+		if fs.isDir(m.dir) then walk(m.dir) end
+	end
+	return files, nested
+end
+
+local function cmdCheckupPublish()
+	local checks = {}
+	local function add(name, ok, detail) table.insert(checks, { name = name, ok = ok, ms = 0, detail = detail }) end
+	local branch = git({ "rev-parse", "--abbrev-ref", "HEAD" })
+	add("on main", branch == "main", "this folder is on " .. tostring(branch) .. " (Rojo serves this folder)")
+	local fetched = run("git", { "fetch", "-q", "origin", "main" }).ok
+	local head, remote = git({ "rev-parse", "HEAD" }), git({ "rev-parse", "origin/main" })
+	add("up to date", fetched and head ~= nil and head == remote, fetched and ("HEAD " .. tostring(head):sub(1, 7)
+		.. ", origin/main " .. tostring(remote):sub(1, 7)) or "could not fetch origin/main")
+	local dirty = git({ "status", "--porcelain", "--", "src", "Packages", "default.project.json" }) or "?"
+	add("clean", dirty == "", dirty == "" and "nothing uncommitted Rojo could sync" or ("uncommitted: " .. dirty:sub(1, 160)))
+
+	local fp = pos[3] and readJson(pos[3])
+	local okFp = type(fp) == "table" and fp.kind == "publish" and type(fp.scripts) == "table"
+	add("fingerprint", okFp, okFp and tostring(pos[3])
+		or ("no publish fingerprint at " .. tostring(pos[3]) .. " (kind must be \"publish\"; see the go-live skill)"))
+	if okFp then
+		local commitAt = tonumber(git({ "log", "-1", "--format=%ct" }) or "") or 0
+		local age = os.time() - (fp.at or 0)
+		add("fresh", (fp.at or 0) >= commitAt and age <= PUBLISH_MAX_AGE, ("taken %s, %d min ago; commit %s"):format(
+			os.date("%H:%M", fp.at or 0), math.floor(age / 60), os.date("%H:%M", commitAt)))
+		local project = readJson("default.project.json")
+		local mounts = PublishLib.mounts(project and project.tree or {})
+		local paths, nested = syncedFiles(mounts)
+		local files = {}
+		for _, p in paths do
+			local inst = PublishLib.instancePath(p, mounts, nested)
+			if inst then table.insert(files, { inst = inst, text = fs.readFile(p) }) end
+		end
+		local a = PublishLib.audit(files, fp.scripts)
+		local clean = PublishLib.clean(a)
+		local why = PublishLib.describe(a, 8)
+		add("Studio is exactly main", clean, clean and ("all " .. #files .. " scripts match, nothing extra or doubled")
+			or table.concat(why, "; "))
+	end
+	local pass = true
+	for _, c in checks do if not c.ok then pass = false end end
+	return result("checkup publish", checks, { pass = pass, verdict = pass and "SAFE to Alt+P" or "NOT safe to publish" })
+end
+
 local function cmdCheckup()
 	local sub = pos[2]
 	if sub == "report" then
@@ -1100,6 +1175,8 @@ local function cmdCheckup()
 			detail = fine and detail or (detail .. "; the doctor's memory did not move, so tomorrow still reports these as new") } })
 	elseif sub == "pr" then
 		return cmdCheckupPr()
+	elseif sub == "publish" then
+		return cmdCheckupPublish()
 	end
 	return nil
 end
@@ -1234,6 +1311,7 @@ bas -- one command for every check this game has. Run from the game folder.
   lune run tools/bas playtest done <name> [--skip] [--note "..."]   file it as reviewed
   lune run tools/bas checkup report <report.json>   judge a game-doctor run -> ../DOCTOR.md
   lune run tools/bas checkup post          post the summary to Discord (../.discord-webhook)
+  lune run tools/bas checkup publish <fingerprint.json>   before Alt+P: is Studio exactly main?
   lune run tools/bas risk [base] [--label]  what kind of change this branch is; does Luke need to look
   lune run tools/chase_tune -- --minutes N  the chase tuner (judge: chase.spec + chasecam.spec + the design spec)
   lune run tools/bas tune post [--dry]     post the newest finished chase tuning to Discord
