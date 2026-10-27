@@ -396,8 +396,12 @@ function Probes.bobscene(args)
 		pops     poses switched in one frame (sitting to standing, 1.2 studs and 85 degrees at once): no
 		         on-screen body jumps over 1 stud, no joint over 45 degrees (the snaps were 85-128; Bob's
 		         kick, fast on purpose, turns 26), in a frame, out of near-stillness (3x its last frame's
-		         move: a fall is fast but not a jump). A cut is where the camera jumps. Frames slower than
-		         1/30 s are not judged (Studio runs at 2-3 FPS while it is the focused window)
+		         move: a fall is fast but not a jump). A cut is where the camera jumps. Only STEADY frames
+		         are judged: under 1/40 s and within 1.5x of the frame before (27 Oct: the gate failed once
+		         on the hero spinning through the air, 2.30 studs at 6.87 s, not a snap. Measured: the
+		         spin swings his root between 12 and 45 studs/s, so with uneven frames one frame's move is
+		         3x the last; every other frame 13 ms late gave 3 false snaps. And the kick turns 47 in
+		         a 0.03 s frame). Studio runs at 2-3 FPS while it is the focused window
 		ambience the valley's birds sang under the boardroom (0.22): silent while a scene plays ]]
 	local SS, RunService = game:GetService("SoundService"), game:GetService("RunService")
 	local BobScript = require(game:GetService("ReplicatedStorage"):WaitForChild("BobScript"))
@@ -421,6 +425,7 @@ function Probes.bobscene(args)
 	end
 	local folder, cam = workspace:FindFirstChild("BobScene"), workspace.CurrentCamera
 	local last, lastCam, cutAt, pops = {}, nil, 0, {}
+	local lastDt, steady = nil, 0
 	local ambience = 0
 	local conn = RunService.RenderStepped:Connect(function(dt)
 		local t = os.clock() - tStart
@@ -428,7 +433,10 @@ function Probes.bobscene(args)
 		local c = cam.CFrame
 		if lastCam and ((c.Position - lastCam.Position).Magnitude > 3 or c.LookVector:Dot(lastCam.LookVector) < 0.94) then cutAt = t end
 		lastCam = c
-		local settled = t - cutAt > 0.05 and t > 0.2 and dt < 1 / 30   -- (a cut moves everything at once)
+		local even = lastDt ~= nil and dt < 1 / 40 and dt < lastDt * 1.5 and lastDt < dt * 1.5
+		lastDt = dt
+		local settled = t - cutAt > 0.05 and t > 0.2 and even   -- (a cut moves everything at once)
+		if settled then steady += 1 end
 		for _, m in ipairs(folder:GetChildren()) do
 			if m:IsA("Model") and m.PrimaryPart then
 				local _, onScreen = cam:WorldToViewportPoint(m.PrimaryPart.Position)
@@ -492,11 +500,14 @@ function Probes.bobscene(args)
 		-- (a skipped scene plays only its first sounds; a check that saw none proves nothing)
 		{ name = "bob " .. name .. ": every sound plays on its cue", ok = played >= (args.skipAt and 1 or 10) and #stuck == 0,
 			measured = #stuck == 0 and (played .. " played, all moving") or table.concat(stuck, ", "), expected = "all moving" },
-		{ name = "bob " .. name .. ": nothing snaps inside a shot", ok = #pops == 0,
-			measured = #pops == 0 and "none" or (#pops .. ": " .. table.concat(pops, "; ", 1, math.min(#pops, 3))), expected = "none" },
+		-- (a run with almost no steady frames proves nothing: say so, never pass it; a skipped scene is short)
+		{ name = "bob " .. name .. ": nothing snaps inside a shot", ok = #pops == 0 and steady >= (args.skipAt and 30 or 200),
+			measured = #pops > 0 and (#pops .. ": " .. table.concat(pops, "; ", 1, math.min(#pops, 3)))
+				or (steady < (args.skipAt and 30 or 200) and ("only " .. steady .. " steady frames to judge (Studio lagging)") or "none"),
+			expected = "none" },
 		{ name = "bob " .. name .. ": the valley's ambience is silent under it", ok = ambience < 0.01, measured = ambience, expected = 0 },
 	}
-	return { checks = checks, ran = math.floor(ran * 100) / 100 }
+	return { checks = checks, ran = math.floor(ran * 100) / 100, steady = steady }
 end
 
 --[[ 27 Oct: a scene that breaks while it loads (here: a name BobScript has no scene for) must still
@@ -523,7 +534,8 @@ function Probes.bobbroken()
 		return player:GetAttribute("BobSceneState")
 	end
 	local unknown = breakOne("doctor-no-such-scene", nil, 4)
-	local late = breakOne("intro", "bubbles", 12)
+	-- 20 s: the fault sits after the cast wait and the sound preload (up to 4 s, more on a cold join)
+	local late = breakOne("intro", "bubbles", 20)
 	local hit = player:GetAttribute("BobSceneFailHit") == true
 	player:SetAttribute("BobSceneFailHit", nil)
 	local bankLeft = SS:FindFirstChild("BobSceneSounds") ~= nil
@@ -533,7 +545,9 @@ function Probes.bobbroken()
 		{ name = "bob broken scene: a late break lets go", ok = hit and late == "failed",
 			measured = (hit and "fault hit, " or "fault NOT reached, ") .. tostring(late), expected = "fault hit, failed" },
 		{ name = "bob broken scene: no sound bank left behind", ok = not bankLeft, measured = bankLeft, expected = false },
-		{ name = "bob broken scene: a scene can start after", ok = again == "failed", measured = tostring(again), expected = "failed" },
+		-- (only a late break that really happened proves `playing` let go: else this is not judged, and fails)
+		{ name = "bob broken scene: a scene can start after", ok = hit and late == "failed" and again == "failed",
+			measured = (hit and late == "failed") and tostring(again) or "not judged: the late break did not happen", expected = "failed" },
 	} }
 end
 
@@ -549,11 +563,17 @@ function Probes.bobdoor()
 	local t0 = os.clock()
 	while player:GetAttribute("BobSceneState") == "playing" and os.clock() - t0 < 30 do task.wait(0.2) end
 	task.wait(1)
-	local ang = math.deg(math.acos(math.clamp(door.CFrame.LookVector:Dot(shut.LookVector), -1, 1)))
 	local want = player:GetAttribute("BobPaid") == true and 100 or 0
+	-- 27 Oct: the whole pose, not the turn alone (a door shoved off its hinge, or tipped, read as right):
+	-- where BobDoorClient puts it, about the hinge at its left edge, and how far it is from there
+	local hinge = shut * CFrame.new(-door.Size.X / 2, 0, 0)
+	local should = want == 0 and shut or hinge * CFrame.Angles(0, math.rad(-want), 0) * CFrame.new(door.Size.X / 2, 0, 0)
+	local off = should:ToObjectSpace(door.CFrame)
+	local _, angle = off:ToAxisAngle()
+	local studs, deg = off.Position.Magnitude, math.deg(math.abs(angle))
 	return { checks = {
-		{ name = "bob door: " .. (want == 100 and "open" or "shut") .. " as it should be", ok = math.abs(ang - want) < 3,
-			measured = math.floor(ang + 0.5), expected = want },
+		{ name = "bob door: " .. (want == 100 and "open" or "shut") .. " as it should be", ok = studs < 0.1 and deg < 3,
+			measured = ("%.2f studs, %d deg off"):format(studs, math.floor(deg + 0.5)), expected = "under 0.1 studs, 3 deg" },
 	} }
 end
 
@@ -630,6 +650,14 @@ end
 	reduced-motion check, FINAL.md point 9: the server cannot hold a button, so the layer itself is
 	driven here). Forces ForceReducedMotion for the run and puts it back. Every number is read
 	from the real instances UIKit.tween moved. ]]
+-- 27 Oct: the doctor's own self-test (GameDoctor step "doctor"): an error printed on purpose, then an
+-- answer only after `hold` seconds, so the server's probe times out first
+function Probes.selftest(args)
+	task.spawn(error, "[doctor self-test] a late client error, on purpose")
+	task.wait(args.hold or 3)
+	return { held = args.hold or 3 }
+end
+
 function Probes.motion()
 	local Players = game:GetService("Players")
 	local RunService = game:GetService("RunService")
