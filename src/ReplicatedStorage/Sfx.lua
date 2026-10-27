@@ -47,6 +47,52 @@ Sfx.ID = {
 	-- uploaded (no asset uploads on this pass), so it REUSES keyTap's id, the closest soft short
 	-- click in the library; the last three ticks play it higher. Swap the id here for a real tick.
 	clientTick = 9113145647,    -- = keyTap (Apple Keyboard 72, 0.40s)
+
+	-- P-5 (25 Oct): Bob's cutscenes (BobSceneClient plays them at BobScript's cues). Creator Store
+	-- audio only (spec 4). Pro Sound Effects / APM are Roblox's licensed libraries; the two marked
+	-- "Creator Store upload" are free public uploads (no partner library had a boing or coins).
+	bobLaugh = 9116452672,      -- Pro Sound Effects, "Male Laugh 3 (SFX)", 3.0s
+	boing = 2772396665,         -- Creator Store upload (Dizzota), "Cartoon Jump Sound [HQ] - BOING"
+	thud = 9113480917,          -- Pro Sound Effects, "Body Fall Thud 1 (SFX)", 0.5s
+	money = 1319346243,         -- Creator Store upload (codes4breakfast), "Money, Coins, Drop In Cash Register"
+	victory = 115889148511042,  -- APM, "To the Victor (Sting)"
+
+	-- 25 Oct (Luke: "add the sounds"), redone the same day ("sloppy and very general": a bike horn for
+	-- the gasp, a synth boink for "huh?", a library desk with conveyor clunks for the office, a disco
+	-- stab for the cliffhanger). All Pro Sound Effects (PSE) or APM, each picked by role and then
+	-- MEASURED from its file (BobScript.SOUND has where each starts, how long, how loud)
+	bobMusic = 9045130736,      -- APM, Red Handed - 15, 17s: mischievous, sneaky pizzicato and a funky beat
+	bobOffice = 9112744171,     -- PSE, Bank Ambience 1, 36s loop: carpet, voices, printer, typing, distant phones
+	bobStreet = 9112874053,     -- PSE, Small Town Ambience 1, 36s loop (birds, light cars)
+	bobRain = 9118033254,       -- PSE, Rain On Umbrella Small Needle Drops 1, 62s: close patter, not a room's drizzle
+	bobDizzy = 9116394756,      -- PSE, Magic Glows Soft Clusters Of Chiming Hits 3, 3.9s (seeing stars)
+	bobPop = 9119669618,        -- PSE, Suction Pop 6 (toy pop), 0.5s: a bubble appearing
+	bobWahA = 1840568121,       -- APM, Trumpet Wah-Wah (A): the talking, muted trumpet (Charlie Brown's grown-ups)
+	bobWahN = 1840568386,       -- APM, Trumpet Wah-Wah (N)
+	bobWahQ = 1840568433,       -- APM, Trumpet Wah-Wah (Q)
+	bobWahS = 1840568564,       -- APM, Trumpet Wah-Wah (S)
+	bobTrumpetTalk = 1841456899, -- APM, Trumpet Talk: three trumpet wah-wah links (KPM, MUSIC FOR COMEDY)
+	bobLaughBig = 9116452512,   -- PSE, Male Laugh 1, 2.5s: the deepest of the library's laughs (Bob)
+	bobChuckleDeep = 9116452741, -- PSE, Male Laugh Reaction 1: closed-mouth laughs (Bob, at you)
+	bobInvLaughA = 9116452494,  -- PSE, Male Laugh 2 (an investor)
+	bobInvLaughB = 9116452853,  -- PSE, Male Laugh Reaction 3 (the other)
+	bobInvLaughC = 9116455856,  -- PSE, Males Laughing Hooting Cracking Up 1
+	bobHuh = 9119198150,        -- PSE, Slide Whistle 6: a slide UP, a cartoon "huh?"
+	bobWhoosh = 9126047581,     -- PSE, Synth Air Whoosh Cheesy Karate Style Swishes 13, 0.4s
+	bobKick = 9113564643,       -- PSE, Boxing Hits 1: one hard whump (the old one was a montage of hits)
+	bobFly = 9119198140,        -- PSE, Slide Whistle 4 (classic cartoon riffs), 1.4s: tumbling through the air
+	bobBoing = 9113854388,      -- PSE, Comic Boinks 3 (springy cartoon), 1.0s: licensed, replaces the upload
+	bobDoorSlam = 9114153398,   -- PSE, Door Slams 7, 1.2s
+	bobDoorBreak = 9113647302,  -- PSE, Bust Door Open 3, 2.1s: the door kicked in
+	bobSad = 1842248431,        -- APM, Linking Trombone (1), 3s: descending sad trombone
+	bobTbc = 1842342980,        -- APM, Shock Horror (c), "horrible discovery", 2s: DUN DUN DUNNN
+	bobShock = 1841061158,      -- APM, Shock Horror (A), "melodramatic exclamation" (KPM, CLASSIC COMEDY)
+	bobLaptop = 9113140784,     -- PSE, Apple Keyboard 4, 0.3s
+	bobRiser = 9120733055,      -- PSE, Whoosh Rising Swish Airy Various Pitches 1, 1.7s: the line shooting up
+	bobDing = 9126073001,       -- PSE, Synth Sparkle Tone High Pitch Bell Tone Ding 4, 1.2s: +312%
+	bobScratch = 9118090423,    -- PSE, Record Scratch Variety Pack 4, 0.9s: everything stops
+	bobCrickets = 9112764546,   -- PSE, Crickets Night 1, 36s loop (a second of it)
+	bobBills = 9113726379,      -- PSE, Cash Drop 1, 1.3s
 }
 
 function Sfx.url(key)

@@ -283,4 +283,64 @@ test("home suggestion never outranks the level's own story task, and old callers
 	end
 end)
 
+-- ---------------------------------------------------------------- P-5 Bob (25 Oct)
+-- spec: docs/superpowers/specs/2026-10-25-bob-first-boss-investor-design.md (3d, 3e, 5b-3, 5b-4)
+test("bob flags survive cleanFlags", function()
+	local f = J.cleanFlags({ bobArc = true, bobPaid = true, junk = true })
+	assert(f.bobArc == true and f.bobPaid == true, "bob flags kept")
+	assert(f.junk == nil, "junk dropped")
+end)
+
+test("goal card reads PROVE BOB WRONG on floor 7", function()
+	local m = J.milestone(st({ bobArc = true, level = 7, hq = 2, msLevel = 9, msCost = 1000 }))
+	assert(m.title == "PROVE BOB WRONG", tostring(m.title))
+	assert(m.sub == "Floor 7 of 13 · his door opens at 13", tostring(m.sub))
+	assert(math.abs(m.bob - 7 / 13) < 1e-9, tostring(m.bob))
+	assert(m.cost == 1000, "keeps the milestone's cost: " .. tostring(m.cost))
+end)
+
+test("no Bob goal without the arc", function()
+	local m = J.milestone(st({ level = 7, hq = 2, msLevel = 9, msCost = 1000 }))
+	assert(m.title:sub(1, 5) == "LEVEL", tostring(m.title))
+	assert(m.bob == nil, "no bar")
+end)
+
+test("no Bob goal once paid", function()
+	local m = J.milestone(st({ bobArc = true, bobPaid = true, level = 7, hq = 2, msLevel = 9, msCost = 1000 }))
+	assert(m.title:sub(1, 5) == "LEVEL", tostring(m.title))
+end)
+
+test("no Bob goal from floor 13", function()
+	local m = J.milestone(st({ bobArc = true, level = 13, hq = 4, msLevel = 18, msCost = 1000 }))
+	assert(m.title ~= "PROVE BOB WRONG", tostring(m.title))
+end)
+
+test("floor-13 task is Go to Bob's office", function()
+	local t = J.task(st({ bobArc = true, hq = 4, level = 13 }))
+	assert(t and t.key == "bob", t and t.key)
+	assert(t.title == "Go to Bob's office", t.title)
+	assert(t.target == "bob", t.target)
+end)
+
+test("after a spin-off a paid save gets the phone Series A", function()
+	local t = J.task(st({ bobArc = true, bobPaid = true, hq = 4, level = 13 }))
+	assert(t and t.key == "seriesa", t and t.key)
+end)
+
+test("bob payoff is due only with the arc, at HQ 4, unpaid", function()
+	assert(J.bobPayoffDue(st({ bobArc = true, bobPaid = true, hq = 4 })) == false, "not once paid")
+	assert(J.bobPayoffDue(st({ hq = 4 })) == false, "not without the arc")
+	assert(J.bobPayoffDue(st({ bobArc = true, hq = 3 })) == false, "not below floor 13 (hq 3)")
+	assert(J.bobPayoffDue(st({ bobArc = true, hq = 4, seriesA = true })) == false, "not after a Series A")
+	assert(J.bobPayoffDue(st({ bobArc = true, hq = 4 })) == true, "due at hq 4 with the arc")
+end)
+
+test("bob's door waits while you carry a recruit or sit in a car", function()
+	assert(J.bobDoorBusy({ carrying = true }) == "Drop off your recruit first", "carrying")
+	assert(J.bobDoorBusy({ seated = true, car = true }) == "Get out of the car first", "in a car")
+	assert(J.bobDoorBusy({ seated = true }) == "Stand up first", "on any other seat (review round 1)")
+	assert(J.bobDoorBusy({ carrying = true, seated = true, car = true }) == "Drop off your recruit first", "carrying wins")
+	assert(J.bobDoorBusy({}) == nil, "free to walk in")
+end)
+
 return T

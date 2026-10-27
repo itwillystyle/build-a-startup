@@ -261,6 +261,10 @@ function UIKit.onColor(c) return UIKit.luminance(c) > 0.5 and UIKit.INK or UIKit
 UIKit.HEAD = Enum.Font.FredokaOne                                        -- the voice
 UIKit.BODY = Font.new("rbxasset://fonts/families/Nunito.json", Enum.FontWeight.ExtraBold)   -- for reading
 UIKit.BOLD = Font.new("rbxasset://fonts/families/Nunito.json", Enum.FontWeight.Heavy)
+-- cutscene lettering only (Bob's scenes, 25 Oct: Luke on FredokaOne bubbles: "sans serif, sloppish").
+-- Comic speech in Bangers, sound effects (BOING!) in Luckiest Guy. Never on the HUD or menus.
+UIKit.COMIC = Font.new("rbxasset://fonts/families/Bangers.json")
+UIKit.IMPACT = Font.new("rbxasset://fonts/families/LuckiestGuy.json")
 UIKit.TYPE = { caption = 14, body = 16, label = 18, title = 22, headline = 28, display = 36, money = 44 }
 UIKit.RADIUS = { sm = 8, md = 12, lg = 16, xl = 24, pill = 999 }   -- xl: a device's outline (the phone); pill: fully round
 

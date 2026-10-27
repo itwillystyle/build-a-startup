@@ -103,6 +103,22 @@ function P.capWindfall(kind, amount, nextGoal, day)
 	return P.niceDown(cap)
 end
 
+-- round money to two significant figures (was Phone's local; shared so Bob's payout matches it)
+function P.niceMoney(n)
+	if n < 1000 then return math.floor(n / 10 + 0.5) * 10 end
+	local mag = 10 ^ (math.floor(math.log10(n)) - 1)
+	return math.floor(n / mag + 0.5) * mag
+end
+
+--[[ P-5: Bob's payoff pays the best Series A the phone could have given (spec 5b-2): an
+interest-8 term sheet (Phone.makeOffer), x3 for a Series A, pushed once ("Can you do
+better?" x1.5), under the seriesPush cap, plus the frontpage item interest 8 earns. ]]
+P.BOB_INTEREST = 8
+function P.bobPayout(rate, hq, nextGoal)
+	local offer = P.niceMoney(math.max(200 * (hq or 1), (rate or 0) * (20 + 12 * P.BOB_INTEREST)) * 3)
+	return P.capWindfall("seriesPush", P.niceMoney(offer * 1.5), nextGoal), "frontpage"
+end
+
 -- ---------------------------------------------------------------- apartments
 P.APARTMENTS = {
 	{ id = 1, key = "studio", name = "STUDIO", minHQ = 2,

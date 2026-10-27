@@ -356,6 +356,12 @@ function Downtown.build(world)
 		part(f, { Name = "BenchBase", Size = Vector3.new(5, 1.2, 1.2), CFrame = CFrame.new(p[1], PLAZA_Y + 0.6, p[2]), Color = CHARCOAL })
 		local _ = bench
 	end
+	-- P-5 (25 Oct): Bob Capital, next door to The Residences (BobBuilding.lua). A failure
+	-- here must never take the rest of downtown with it.
+	local okB, err = pcall(function()
+		require(script.Parent:WaitForChild("BobBuilding")).build(world)
+	end)
+	if not okB then warn("[Downtown] Bob Capital not built: " .. tostring(err)) end
 	return f
 end
 

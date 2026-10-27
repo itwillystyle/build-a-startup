@@ -37,7 +37,7 @@ end
 -- 24 Oct (F-6): and under a coach tip, until GOT IT (the tip's card had landed on the goal pill)
 -- 24 Oct: and under a phone banner, until it leaves (the banner sat on the goal pill at hq:5)
 function OneVoice.folds(voice)
-	return voice == "verb" or voice == "launch" or voice == "tip" or voice == "phone"
+	return voice == "verb" or voice == "launch" or voice == "tip" or voice == "phone" or voice == "scene"
 end
 
 -- 24 Oct (live): may a milestone button (GO PUBLIC!) show? Only on a calm screen or while the goal
@@ -83,11 +83,13 @@ function OneVoice.holdBanner(held, key, item)
 	return held
 end
 
--- st = { verb, carrying, midJob, recruit, launch, phone, ring, tip, goal } (launch: an app waits; phone: a phone
+-- st = { scene, verb, carrying, midJob, recruit, launch, phone, ring, tip, goal } (scene: a Bob cutscene, BobScenePlaying; launch: an app waits; phone: a phone
 -- banner is on screen, PhoneClient's PhoneBannerShowing; ring: an incoming call is on screen, PhoneClient's
 -- PhoneRingShowing (24 Oct); tip: a coach tip is on screen, CoachClient's CoachShowing; goal: the card has a goal)
 -- -> { voice, verb, goal = "words"|"icon"|"hidden", launch = "button"|"chip"|nil, marker }
 function OneVoice.pick(st)
+	-- P-5 (25 Oct): Bob's cutscene owns the screen; everything else is hidden or waits
+	if st.scene then return { voice = "scene", goal = "hidden", launch = nil, marker = false } end
 	local voice
 	if st.verb then voice = "verb"
 	elseif st.carrying or st.midJob or st.recruit then voice = "job"

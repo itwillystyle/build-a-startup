@@ -57,10 +57,20 @@ local remote = Instance.new("RemoteEvent")
 remote.Name = "DoctorResult"
 remote.Parent = ReplicatedStorage
 
-local pending = {}
+local pending, late = {}, {}
+local clientErrors = {}
 remote.OnServerEvent:Connect(function(player, nonce, data)
 	if player.UserId ~= 1688749216 and player.UserId >= 0 then return end   -- Wilz or a local test player
-	if type(nonce) == "string" and pending[nonce] == false then pending[nonce] = data end
+	if type(nonce) ~= "string" then return end
+	if pending[nonce] == false then
+		pending[nonce] = data
+	elseif late[nonce] then
+		-- 27 Oct: a probe that answers after its timeout still brings the client errors it saw
+		late[nonce] = nil
+		if type(data) == "table" and type(data.clientErrors) == "table" then
+			for _, e in ipairs(data.clientErrors) do if type(e) == "string" then table.insert(clientErrors, e) end end
+		end
+	end
 end)
 
 local serverErrors = {}
@@ -94,7 +104,6 @@ local function step(name, fn)
 end
 
 -- ask the client to measure something; nil after `timeout` seconds
-local clientErrors = {}
 local function probe(player, name, args, timeout)
 	local nonce = HttpService:GenerateGUID(false)
 	pending[nonce] = false
@@ -103,6 +112,7 @@ local function probe(player, name, args, timeout)
 	while pending[nonce] == false and os.clock() - t0 < (timeout or 30) do task.wait(0.1) end
 	local res = pending[nonce]
 	pending[nonce] = nil
+	if res == false then late[nonce] = true end
 	player:SetAttribute("DoctorProbe", nil)
 	if type(res) == "table" then
 		for _, e in ipairs(res.clientErrors or {}) do table.insert(clientErrors, e) end
@@ -638,6 +648,69 @@ local function run()
 	end)
 
 	-- 23 Oct: the motion layer, Reduce Motion forced on for the probe (DoctorProbes.motion)
+	-- P-5 (25 Oct): Bob. The intro end to end, the intro skipped at 3 s (both must land in the
+	-- same state), then the payoff at his door: it pays, it sets BobPaid, and a second walk-in
+	-- pays nothing. The money is the server's; the client only shows it.
+	step("bob", function()
+		local r = sv:Invoke("scenario", player, "bob:intro")
+		check("bob: intro scenario", r and r.ok, "BUG", r and (r.ok and "ok" or tostring(r.err)) or "no answer", "ok")
+		-- 27 Oct: a scene that breaks while loading lets go (the intro below must then still start)
+		local broken = probe(player, "bobbroken", {}, 40)   -- three breaks: 4 + 20 + 4 s at most
+		for _, c in ipairs(broken and broken.checks or {}) do check(c.name, c.ok, "BUG", c.measured, c.expected) end
+		if not broken or broken.error then check("bob broken probe answered", false, "BUG", broken and broken.error or "no answer", "answer") end
+		for _, args in ipairs({ { name = "intro" }, { name = "intro", skipAt = 3 } }) do
+			local res = probe(player, "bobscene", args, 40)
+			if not res or res.error then
+				check("bob probe answered", false, "BUG", res and res.error or "no answer", "answer")
+				return
+			end
+			for _, c in ipairs(res.checks or {}) do
+				check(c.name .. (args.skipAt and " (skipped at 3 s)" or ""), c.ok, "BUG", c.measured, c.expected)
+			end
+			if args.skipAt then
+				check("bob intro: SKIP lands at once", res.ran < args.skipAt + 1, "BUG", res.ran, "under " .. (args.skipAt + 1) .. " s")
+			else
+				check("bob intro: 15 to 17 s", res.ran >= 15 and res.ran <= 17.5, "FEEL", res.ran, "15-17 s")
+			end
+		end
+		local due = sv:Invoke("scenario", player, "bob:due")
+		check("bob: due scenario", due and due.ok, "BUG", due and (due.ok and ("hq " .. tostring(due.hq)) or tostring(due.err)) or "no answer", "ok")
+		if not (due and due.ok and due.door and due.outside) then return end
+		-- payouts are counted by the server (BobPayouts): a cash delta also holds passive income
+		local function walkIn()
+			local before = player:GetAttribute("BobPayouts") or 0
+			char:PivotTo(CFrame.new(due.outside))
+			task.wait(0.5)
+			char:PivotTo(CFrame.new(due.door))
+			task.wait(2.5)
+			return (player:GetAttribute("BobPayouts") or 0) - before
+		end
+		local first = walkIn()
+		check("bob payoff: pays", first == 1, "BLOCKER", first, 1)
+		check("bob payoff: BobPaid set", player:GetAttribute("BobPaid") == true, "BUG", player:GetAttribute("BobPaid"), true)
+		task.wait(18)   -- the payoff scene plays on the client
+		local function door(after)
+			local d = probe(player, "bobdoor", {}, 40)
+			if not d or d.error then check("bob door probe answered", false, "BUG", d and d.error or "no answer", "answer") return end
+			for _, c in ipairs(d.checks or {}) do check(c.name .. after, c.ok, "BUG", c.measured, c.expected) end
+		end
+		door(" (after the payoff)")
+		local second = walkIn()
+		check("bob payoff: pays once", second == 0, "BLOCKER", second, "0 more payouts")
+		-- 27 Oct: replay the payoff on the client with the door already open; it must end open, not 160
+		local replay = probe(player, "bobscene", { name = "payoff" }, 40)
+		if not replay or replay.error then check("bob payoff replay answered", false, "BUG", replay and replay.error or "no answer", "answer") end
+		-- what the replay puts back (review round 1: these were thrown away); its sound and pop checks are
+		-- the intro's job, so a replay does not report them twice
+		local RESTORE = { started = true, ["camera Custom after"] = true, ["camera on the humanoid"] = true,
+			["nothing left behind"] = true, ["HUD back"] = true, ["playing flag cleared"] = true }
+		for _, c in ipairs(replay and replay.checks or {}) do
+			if RESTORE[c.name:gsub("^bob payoff: ", "")] then check(c.name .. " (replay)", c.ok, "BUG", c.measured, c.expected) end
+		end
+		door(" (after a replay)")
+		-- (whether the payoff scene ended cleanly is the client's to say: the bobscene probe checks it)
+	end)
+
 	step("motion", function()
 		local res = probe(player, "motion", {}, 20)
 		if not res or res.error then
@@ -647,6 +720,20 @@ local function run()
 		for _, c in ipairs(res.checks or {}) do
 			check(c.name, c.ok, "BUG", c.measured, c.expected)
 		end
+	end)
+
+	-- 27 Oct: the doctor checks itself. A probe that runs past its timeout still sends its result later,
+	-- with the client errors it saw; those were thrown away with the late result (review round 2). The
+	-- self-test probe prints an error on purpose and answers after 3 s, against a 1 s timeout
+	step("doctor", function()
+		local res = probe(player, "selftest", { hold = 3 }, 1)
+		check("doctor self-test: the probe ran past its timeout", res == nil, "BUG", res == nil and "timed out" or "answered", "timed out")
+		task.wait(4)
+		local kept = false
+		for i = #clientErrors, 1, -1 do
+			if clientErrors[i]:find("[doctor self-test]", 1, true) then kept = true table.remove(clientErrors, i) end
+		end
+		check("doctor: a late probe's client errors reach the report", kept, "BUG", kept and "kept" or "lost", "kept")
 	end)
 
 	step("errors", function()

@@ -410,6 +410,7 @@ local function syncCode()
 		hands, else LAUNCH!, else the goal. The pick goes out as the client-local attribute OneVoice:
 		GuideClient folds the goal card to its icon, PromptClient hides prompts, CoachClient waits. ]]
 	local pick = OneVoice.pick({
+		scene = player:GetAttribute("BobScenePlaying") == true,   -- P-5: Bob's cutscene owns the screen
 		verb = codeBtn.Visible and verb or nil, carrying = carrying,
 		midJob = player:GetAttribute("MidJob") == true, recruit = player:GetAttribute("Carrying") ~= nil,
 		launch = launchState ~= nil, goal = goalShown(),
@@ -460,7 +461,7 @@ player:GetAttributeChangedSignal("BuildModeOpen"):Connect(syncCode)
 player:GetAttributeChangedSignal("NamingOpen"):Connect(syncCode)
 for _, a in ipairs({ "CarryingApp", "CanGive", "JobWaiting", "AtLaptop" }) do player:GetAttributeChangedSignal(a):Connect(syncCode) end
 -- 24 Oct (one voice): a started job, a recruit in your arms and the goal's words change the pick too
-for _, a in ipairs({ "MidJob", "Carrying", "ObjectiveText", "CoachShowing", "PhoneBannerShowing", "PhoneRingShowing" }) do player:GetAttributeChangedSignal(a):Connect(syncCode) end
+for _, a in ipairs({ "MidJob", "Carrying", "ObjectiveText", "CoachShowing", "PhoneBannerShowing", "PhoneRingShowing", "BobScenePlaying" }) do player:GetAttributeChangedSignal(a):Connect(syncCode) end
 UIKit.onMenuChange(function() syncCode() end)   -- menus are other scripts' guis: one shared watch
 -- v4.2: in a car the speedometer owns the bottom centre (it sat on top of WRITE CODE)
 local function watchSeat(char)

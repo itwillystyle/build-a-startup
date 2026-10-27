@@ -360,6 +360,34 @@ bigFill.BorderSizePixel = 0
 bigFill.Size = UDim2.new(0, 0, 1, 0)
 bigFill.Parent = bigBar
 Instance.new("UICorner", bigFill).CornerRadius = UDim.new(1, 0)
+--[[ P-5 (25 Oct): PROVE BOB WRONG. A save with Bob's story shows him here until floor 13
+	(spec 3d, 5b-4): his face, "Floor N of 13", and a bar that fills with every floor. It is the
+	footer the card already had (hidden since mock 4A), so it stays ONE card. ]]
+local bobIcon = Instance.new("Frame")
+bobIcon.Name = "BobIcon"
+bobIcon.BackgroundColor3 = Color3.fromRGB(233, 180, 140)   -- world colour (Bob's skin, as in BobCast)
+bobIcon.BorderSizePixel = 0
+bobIcon.Position = UDim2.new(0, 0, 0, 10)
+bobIcon.Size = UDim2.new(0, 30, 0, 30)
+bobIcon.Visible = false
+bobIcon.Parent = footer
+Instance.new("UICorner", bobIcon).CornerRadius = UDim.new(0, UIKit.RADIUS.sm)
+do
+	local glasses = Instance.new("Frame")
+	glasses.BackgroundColor3 = UIKit.INK
+	glasses.BorderSizePixel = 0
+	glasses.Position = UDim2.new(0.1, 0, 0.3, 0)
+	glasses.Size = UDim2.new(0.8, 0, 0.24, 0)
+	glasses.Parent = bobIcon
+	local pick = Instance.new("Frame")
+	pick.BackgroundColor3 = UIKit.GOLD
+	pick.BorderSizePixel = 0
+	pick.Position = UDim2.new(0.55, 0, 0.72, 0)
+	pick.Size = UDim2.new(0.45, 0, 0.08, 0)
+	pick.Rotation = -18
+	pick.Parent = bobIcon
+end
+local function bobProgress() return tonumber(player:GetAttribute("MilestoneBob")) end
 
 -- the whole card is a button: tap it and the camera turns to face the goal
 local hit = Instance.new("TextButton")
@@ -534,7 +562,7 @@ local function applySub()
 	sub.Text = ""
 	sub.Visible = false
 	meter.Visible = false
-	footer.Visible = false
+	footer.Visible = bobProgress() ~= nil   -- P-5: only Bob's line, never the old BIG GOAL footer
 	layout()
 end
 
@@ -549,9 +577,23 @@ local function readBig()
 	if #bits == 0 then table.insert(bits, player:GetAttribute("MilestoneSub") or "") end
 	bigSub.Text = table.concat(bits, "  ·  ")
 	bigBar.Visible = c ~= nil and c > 0
+	local bob = bobProgress()
+	bobIcon.Visible = bob ~= nil
+	local x = bob and 38 or 0
+	bigTitle.Position = UDim2.new(0, x, 0, 8)
+	bigTitle.Size = UDim2.new(1, -x - (bob and 64 or 0), 0, 18)
+	bigSub.Position = UDim2.new(0, x, 0, 26)
+	bigSub.Size = UDim2.new(1, -x, 0, 18)
+	if bob then
+		bigTitle.Text = t or ""
+		bigSub.Text = player:GetAttribute("MilestoneSub") or ""
+		bigBar.Visible = true
+		bigFill.Size = UDim2.new(math.clamp(bob, 0, 1), 0, 1, 0)
+		bigFill.BackgroundColor3 = UIKit.GOLD
+	end
 	applySub()
 end
-for _, a in ipairs({ "MilestoneTitle", "MilestoneSub", "MilestoneCost", "MilestoneUnlock", "NamingOpen", "HQLevel", "IncomeRooms" }) do
+for _, a in ipairs({ "MilestoneTitle", "MilestoneSub", "MilestoneCost", "MilestoneUnlock", "MilestoneBob", "NamingOpen", "HQLevel", "IncomeRooms" }) do
 	player:GetAttributeChangedSignal(a):Connect(readBig)
 end
 
@@ -833,7 +875,7 @@ RunService.RenderStepped:Connect(function()
 
 	-- the big goal's bar
 	local bc = tonumber(player:GetAttribute("MilestoneCost"))
-	if footer.Visible and bc and bc > 0 then
+	if footer.Visible and bc and bc > 0 and not bobProgress() then   -- P-5: Bob's bar is floors, set in readBig
 		local pb = math.clamp(cashNow() / bc, 0, 1)
 		bigFill.Size = UDim2.new(pb, 0, 1, 0)
 		bigFill.BackgroundColor3 = pb >= 1 and UIKit.GREEN or UIKit.BLUE

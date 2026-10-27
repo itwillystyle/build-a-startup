@@ -107,7 +107,10 @@ function J.task(st)
 	if hq >= 5 and not st.listed and st.atCap ~= false then   -- v4.6: the Wafers go public at the top of the blueprint
 		return { key = "gopublic", title = "GO PUBLIC!", sub = "Tap GO PUBLIC and ring the bell", target = "gopublic" }
 	end
-	-- HQ 4: the Series A pitch
+	-- HQ 4: the Series A pitch. P-5: a save with Bob's story goes to Bob's office instead
+	if J.bobPayoffDue(st) and hq == 4 then
+		return { key = "bob", title = "Go to Bob's office", sub = "He wants to talk. Bring your numbers.", target = "bob" }
+	end
 	if hq == 4 and not st.seriesA then
 		return { key = "seriesa", title = "Close your Series A", sub = "Open your PHONE: a big investor texted", target = "phone" }
 	end
@@ -139,7 +142,42 @@ end
 
 -- ---------------------------------------------------------------- the big goal
 -- { title, sub, cost } always: what the whole run is working toward next
+--[[ P-5 BOB, THE FIRST BOSS INVESTOR (spec docs/superpowers/specs/2026-10-25-bob-first-boss-investor-design.md).
+A new save's intro shows Bob laughing you out; until floor 13 (the HQ 4 stage, WaferPlan.STAGE_AT[3])
+the big goal is "PROVE BOB WRONG", and at HQ 4 his office replaces the phone Series A. ]]
+J.BOB_FLOOR = 13
+
+function J.bobPayoffDue(st)
+	return st.bobArc == true and st.bobPaid ~= true and st.seriesA ~= true and (st.hq or 1) >= 4
+end
+
+-- why Bob's door can't play the payoff right now, or nil: the scene freezes you for 20 s, which would
+-- lose a carried recruit to the headhunters or leave a car driving itself (review minor, 26 Oct)
+function J.bobDoorBusy(who)
+	if who.carrying then return "Drop off your recruit first" end
+	if who.seated then return who.car and "Get out of the car first" or "Stand up first" end
+	return nil
+end
+
+-- the goal card's Bob framing, or nil; keeps the replaced milestone's cost/unlock (one card, spec 3d)
+function J.bobGoal(st)
+	if st.bobArc ~= true or st.bobPaid == true then return nil end
+	local floor = st.level or 1
+	if floor >= J.BOB_FLOOR or (st.hq or 1) >= 4 then return nil end
+	return { title = "PROVE BOB WRONG", sub = ("Floor %d of %d · his door opens at %d"):format(floor, J.BOB_FLOOR, J.BOB_FLOOR),
+		bob = floor / J.BOB_FLOOR }
+end
+
 function J.milestone(st)
+	local m = J.milestoneBase(st)
+	local b = J.bobGoal(st)
+	if b and m then
+		return { title = b.title, sub = b.sub, bob = b.bob, cost = m.cost, unlock = m.unlock }
+	end
+	return m
+end
+
+function J.milestoneBase(st)
 	local hq = st.hq or 1
 	-- v4.6 THE WAFERS: the big goal is the next milestone LEVEL (5 / 9 / 13 / 18, then the top of the blueprint)
 	if st.msLevel then
@@ -216,7 +254,9 @@ function J.tipById(id)
 end
 
 -- the flags we save (anything else in a save is dropped on load)
-J.FLAGS = { "drove", "res", "launched", "genius", "seriesA" }
+-- P-5 (25 Oct): bobArc = this save got Bob's intro (new saves only); bobPaid = Bob's payoff
+-- happened. Neither is cleared by a spin-off (spec 5b-3).
+J.FLAGS = { "drove", "res", "launched", "genius", "seriesA", "bobArc", "bobPaid" }
 
 function J.cleanFlags(raw)
 	local out = {}

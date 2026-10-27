@@ -287,7 +287,30 @@ local function runIntro()
 	table.insert(shots, { pos = P(50, 30, 78), look = hq, t = hero and 1.2 or 2.0 })
 	table.insert(shots, { pos = P(6, 6.5, 6), look = laptop, t = hero and 1.1 or 1.3, title = "START HERE",
 		sub = isTouch and "Tap the laptop to write your first app." or "Click the laptop to write your first app." })
-	local ok = Cine.play(shots, { fov = 60, hold = 0.4 })
+	local ok
+	-- P-5 (25 Oct): a new save meets Bob instead of the flyover (spec 3a, option A). The server
+	-- marks a brand-new save (BobArc); BobSceneClient plays it and hands the camera back at the laptop.
+	-- review I-4: the server marks a save it loaded as new (BobNew); the scene says how it went
+	-- (BobSceneState), and if it could not play the player still gets the flyover
+	local bob = player:GetAttribute("BobNew") == true and player.PlayerGui:WaitForChild("SVBobScene", 5)
+	local state
+	if bob then
+		player:SetAttribute("BobSceneState", nil)
+		bob:Fire("intro")
+		local t1 = os.clock()
+		repeat task.wait(0.1); state = player:GetAttribute("BobSceneState")
+		until (state ~= nil and state ~= "loading") or os.clock() - t1 > 15
+		if state == "playing" then
+			if ghost then ghost:Destroy(); ghost = nil end
+			local t2 = os.clock()
+			while player:GetAttribute("BobSceneState") == "playing" and os.clock() - t2 < 30 do task.wait(0.1) end
+		end
+	end
+	if state == "playing" or state == "done" then
+		ok = true
+	else
+		ok = Cine.play(shots, { fov = 60, hold = 0.4 })
+	end
 	if ghost then
 		-- fade it out as the camera arrives, so it never stands over the real lot
 		task.spawn(function()

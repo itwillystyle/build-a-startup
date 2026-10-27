@@ -372,6 +372,211 @@ end
 	frame (SiliconCore buildShell: GarageFloor sits at g(0, -2, 0); the desk at z -9,
 	the door at z +14.5). C1 matches Luke's 21 Oct shot from beside the laptop; C2 is
 	the garage-outside mock's view of the forecourt. C3/C4 belong to plans 3 and 4. ]]
+--[[ P-5 (25 Oct): one Bob cutscene, end to end, on this client. args = { name = "intro"|"payoff",
+	skipAt = seconds or nil }. Measures what the spec promises: it starts, it ends (or skips) into
+	the same state -- camera Custom on the humanoid, no BobScene folder or BobSceneGui left, every
+	ScreenGui that was on is on again, BobScenePlaying false -- and how long it ran. ]]
+function Probes.bobscene(args)
+	local player = game:GetService("Players").LocalPlayer
+	local ev = player.PlayerGui:FindFirstChild("SVBobScene")
+	if not ev then return { error = "no SVBobScene (BobSceneClient not running)" } end
+	local before = {}
+	for _, g in ipairs(player.PlayerGui:GetChildren()) do
+		if g:IsA("ScreenGui") and g.Enabled then before[g] = true end
+	end
+	local name = args.name or "intro"
+	ev:Fire(name, { amount = 0 })
+	local t0 = os.clock()
+	while player:GetAttribute("BobScenePlaying") ~= true and os.clock() - t0 < 3 do task.wait() end
+	local started = player:GetAttribute("BobScenePlaying") == true
+	local tStart = os.clock()
+	--[[ 25 Oct guards: each is a mistake that reached Luke's screen that day, measured live.
+		sounds   a Sound made at its cue was still loading 0.12 s later (late or silent): every scene
+		         sound is loaded before the scene starts, and each one's playhead moves on its cue
+		pops     poses switched in one frame (sitting to standing, 1.2 studs and 85 degrees at once): no
+		         on-screen body jumps over 1 stud, no joint over 45 degrees (the snaps were 85-128; Bob's
+		         kick, fast on purpose, turns 26), in a frame, out of near-stillness (3x its last frame's
+		         move: a fall is fast but not a jump). A cut is where the camera jumps. Only STEADY frames
+		         are judged: under 1/40 s and within 1.5x of the frame before (27 Oct: the gate failed once
+		         on the hero spinning through the air, 2.30 studs at 6.87 s, not a snap. Measured: the
+		         spin swings his root between 12 and 45 studs/s, so with uneven frames one frame's move is
+		         3x the last; every other frame 13 ms late gave 3 false snaps. And the kick turns 47 in
+		         a 0.03 s frame). Studio runs at 2-3 FPS while it is the focused window
+		ambience the valley's birds sang under the boardroom (0.22): silent while a scene plays ]]
+	local SS, RunService = game:GetService("SoundService"), game:GetService("RunService")
+	local BobScript = require(game:GetService("ReplicatedStorage"):WaitForChild("BobScript"))
+	-- a jump the script asks for (an actor moved to another set: the hero to Bob's door at 6.3 s) is
+	-- not a pop. (The probe's clock runs a frame or two off the scene's, so look 0.1 s either side)
+	local function moved(id, t)
+		local function at(x) local a = BobScript.at(name, math.clamp(x, 0, BobScript.length(name) - 0.01), true).actors[id] return a and a.anchor end
+		return at(t - 0.1) ~= at(t + 0.1)
+	end
+	local bank = SS:FindFirstChild("BobSceneSounds")
+	local banked = bank and #bank:GetChildren() or 0
+	local notLoaded, stuck, played = 0, {}, 0
+	for _, s in ipairs(bank and bank:GetChildren() or {}) do
+		if not s.IsLoaded then notLoaded += 1 end
+		s.Played:Connect(function()
+			played += 1
+			local p0 = s.TimePosition
+			task.wait(0.12)
+			if s.Parent and s.IsPlaying and s.TimePosition < p0 + 0.05 then table.insert(stuck, s.Name) end
+		end)
+	end
+	local folder, cam = workspace:FindFirstChild("BobScene"), workspace.CurrentCamera
+	local last, lastCam, cutAt, pops = {}, nil, 0, {}
+	local lastDt, steady = nil, 0
+	local ambience = 0
+	local conn = RunService.RenderStepped:Connect(function(dt)
+		local t = os.clock() - tStart
+		if not (folder and folder.Parent) then return end
+		local c = cam.CFrame
+		if lastCam and ((c.Position - lastCam.Position).Magnitude > 3 or c.LookVector:Dot(lastCam.LookVector) < 0.94) then cutAt = t end
+		lastCam = c
+		local even = lastDt ~= nil and dt < 1 / 40 and dt < lastDt * 1.5 and lastDt < dt * 1.5
+		lastDt = dt
+		local settled = t - cutAt > 0.05 and t > 0.2 and even   -- (a cut moves everything at once)
+		if settled then steady += 1 end
+		for _, m in ipairs(folder:GetChildren()) do
+			if m:IsA("Model") and m.PrimaryPart then
+				local _, onScreen = cam:WorldToViewportPoint(m.PrimaryPart.Position)
+				local j = {}
+				for _, mo in ipairs(m:GetDescendants()) do if mo:IsA("Motor6D") then j[mo.Name] = mo.Transform end end
+				local L = last[m]
+				local d, turn = 0, {}
+				if L then
+					d = (m.PrimaryPart.Position - L.pos).Magnitude
+					for jn, cf in pairs(j) do
+						local o = L.j[jn]
+						turn[jn] = o and math.deg(math.acos(math.clamp(cf.LookVector:Dot(o.LookVector), -1, 1))) or 0
+					end
+					if L.onScreen and onScreen and settled and not moved(m.Name, t) then
+						if d > 1 and d > 3 * L.d then table.insert(pops, ("%.2f s %s moved %.2f studs"):format(t, m.Name, d)) end
+						for jn, deg in pairs(turn) do
+							if deg > 45 and deg > 3 * (L.turn[jn] or 0) then table.insert(pops, ("%.2f s %s %s %.0f deg"):format(t, m.Name, jn, deg)) end
+						end
+					end
+				end
+				last[m] = { pos = m.PrimaryPart.Position, j = j, onScreen = onScreen, d = d, turn = turn }
+			end
+		end
+		if t > 1 then
+			for _, n in ipairs({ "ValleyBirds", "ValleyCrickets" }) do
+				local s = SS:FindFirstChild(n)
+				if s and s.IsPlaying then ambience = math.max(ambience, s.Volume) end
+			end
+		end
+	end)
+	while player:GetAttribute("BobScenePlaying") == true and os.clock() - tStart < 30 do
+		if args.skipAt and os.clock() - tStart >= args.skipAt then player:SetAttribute("BobSkipNow", true) end
+		task.wait()
+	end
+	conn:Disconnect()
+	local ran = os.clock() - tStart
+	player:SetAttribute("BobSkipNow", nil)
+	task.wait(0.3)
+	local cam = workspace.CurrentCamera
+	local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	local lost = {}
+	-- the Guide steps aside on purpose while a menu is open (GuideClient: Enabled = ... and not menu); on a
+	-- fresh join the Daily reward opens as the intro ends. Measured 26 Oct: Guide back 0.05 s after Daily
+	-- closed. So it is lost only if it is off with no menu up. Every other GUI must be back regardless.
+	local menuUp = require(game:GetService("ReplicatedStorage"):WaitForChild("UIKit")).menuOpen()
+	for g in pairs(before) do
+		if g.Parent and not g.Enabled and not (g.Name == "Guide" and menuUp) then table.insert(lost, g.Name) end
+	end
+	local checks = {
+		{ name = "bob " .. name .. ": started", ok = started, measured = started, expected = true },
+		{ name = "bob " .. name .. ": camera Custom after", ok = cam.CameraType == Enum.CameraType.Custom, measured = tostring(cam.CameraType), expected = "Custom" },
+		{ name = "bob " .. name .. ": camera on the humanoid", ok = hum ~= nil and cam.CameraSubject == hum, measured = cam.CameraSubject and cam.CameraSubject.ClassName or "nil", expected = "Humanoid" },
+		-- (the payoff's toast keeps its gui 3 s on purpose; the actors and props must still be gone)
+		{ name = "bob " .. name .. ": nothing left behind", ok = workspace:FindFirstChild("BobScene") == nil
+			and (name == "payoff" or player.PlayerGui:FindFirstChild("BobSceneGui") == nil),
+			measured = tostring(workspace:FindFirstChild("BobScene") ~= nil), expected = "false" },
+		{ name = "bob " .. name .. ": HUD back", ok = #lost == 0, measured = #lost == 0 and 0 or table.concat(lost, ", "), expected = 0 },
+		{ name = "bob " .. name .. ": playing flag cleared", ok = player:GetAttribute("BobScenePlaying") ~= true, measured = player:GetAttribute("BobScenePlaying"), expected = false },
+		{ name = "bob " .. name .. ": every sound loaded before it starts", ok = banked > 0 and notLoaded == 0,
+			measured = banked == 0 and "no sound bank" or (notLoaded .. " of " .. banked .. " not loaded"), expected = "0 not loaded" },
+		-- (a skipped scene plays only its first sounds; a check that saw none proves nothing)
+		{ name = "bob " .. name .. ": every sound plays on its cue", ok = played >= (args.skipAt and 1 or 10) and #stuck == 0,
+			measured = #stuck == 0 and (played .. " played, all moving") or table.concat(stuck, ", "), expected = "all moving" },
+		-- (a run with almost no steady frames proves nothing: say so, never pass it; a skipped scene is short)
+		{ name = "bob " .. name .. ": nothing snaps inside a shot", ok = #pops == 0 and steady >= (args.skipAt and 30 or 200),
+			measured = #pops > 0 and (#pops .. ": " .. table.concat(pops, "; ", 1, math.min(#pops, 3)))
+				or (steady < (args.skipAt and 30 or 200) and ("only " .. steady .. " steady frames to judge (Studio lagging)") or "none"),
+			expected = "none" },
+		{ name = "bob " .. name .. ": the valley's ambience is silent under it", ok = ambience < 0.01, measured = ambience, expected = 0 },
+	}
+	return { checks = checks, ran = math.floor(ran * 100) / 100, steady = steady }
+end
+
+--[[ 27 Oct: a scene that breaks while it loads (here: a name BobScript has no scene for) must still
+	let go. Before the fix the setup ran outside the scene's pcall, so a throw there left "loading" and
+	`playing` on for good: Bob's door never came back and no Bob scene could play again that session. ]]
+-- Three breaks: a scene name BobScript does not know (it throws at once); the Studio-only fault
+-- BobSceneFailAt = "bubbles" (it throws with the sound bank already in SoundService, so a bank left
+-- behind is caught; the cast is not in the world yet at that point, so it is not checked); then an
+-- unknown name again, which only reaches "failed" if `playing` let go (a stuck scene returns early).
+-- The fault clears itself and sets BobSceneFailHit, so a pass proves it was reached (review round 2).
+function Probes.bobbroken()
+	local player = game:GetService("Players").LocalPlayer
+	local ev = player.PlayerGui:FindFirstChild("SVBobScene")
+	if not ev then return { error = "no SVBobScene (BobSceneClient not running)" } end
+	local SS = game:GetService("SoundService")
+	local function breakOne(name, failAt, wait)
+		player:SetAttribute("BobSceneState", nil)   -- a stale "failed" would pass at once (review round 1)
+		player:SetAttribute("BobSceneFailHit", nil)
+		player:SetAttribute("BobSceneFailAt", failAt)
+		ev:Fire(name, { amount = 0 })
+		local t0 = os.clock()
+		while player:GetAttribute("BobSceneState") ~= "failed" and os.clock() - t0 < wait do task.wait() end
+		player:SetAttribute("BobSceneFailAt", nil)   -- in case it was never reached
+		return player:GetAttribute("BobSceneState")
+	end
+	local unknown = breakOne("doctor-no-such-scene", nil, 4)
+	-- 20 s: the fault sits after the cast wait and the sound preload (up to 4 s, more on a cold join)
+	local late = breakOne("intro", "bubbles", 20)
+	local hit = player:GetAttribute("BobSceneFailHit") == true
+	player:SetAttribute("BobSceneFailHit", nil)
+	local bankLeft = SS:FindFirstChild("BobSceneSounds") ~= nil
+	local again = breakOne("doctor-no-such-scene", nil, 4)
+	return { checks = {
+		{ name = "bob broken scene: an unknown scene lets go", ok = unknown == "failed", measured = tostring(unknown), expected = "failed" },
+		{ name = "bob broken scene: a late break lets go", ok = hit and late == "failed",
+			measured = (hit and "fault hit, " or "fault NOT reached, ") .. tostring(late), expected = "fault hit, failed" },
+		{ name = "bob broken scene: no sound bank left behind", ok = not bankLeft, measured = bankLeft, expected = false },
+		-- (only a late break that really happened proves `playing` let go: else this is not judged, and fails)
+		{ name = "bob broken scene: a scene can start after", ok = hit and late == "failed" and again == "failed",
+			measured = (hit and late == "failed") and tostring(again) or "not judged: the late break did not happen", expected = "failed" },
+	} }
+end
+
+--[[ 27 Oct: after you beat Bob your door stands open (BobDoorClient: 100 degrees about its hinge).
+	Measured from the server's shut door (the door's ClosedCF), never from where the door is now:
+	before the fix a replayed payoff read the open door as shut and left it at 160 degrees. ]]
+function Probes.bobdoor()
+	local player = game:GetService("Players").LocalPlayer
+	local sv = workspace:FindFirstChild("SiliconValley")
+	local door = sv and sv:FindFirstChild("BobCapital") and sv.BobCapital:FindFirstChild("Door")
+	local shut = door and door:GetAttribute("ClosedCF")
+	if not shut then return { error = door and "the door has no ClosedCF" or "no Bob Capital door" } end
+	local t0 = os.clock()
+	while player:GetAttribute("BobSceneState") == "playing" and os.clock() - t0 < 30 do task.wait(0.2) end
+	task.wait(1)
+	local want = player:GetAttribute("BobPaid") == true and 100 or 0
+	-- 27 Oct: the whole pose, not the turn alone (a door shoved off its hinge, or tipped, read as right):
+	-- where BobDoorClient puts it, about the hinge at its left edge, and how far it is from there
+	local hinge = shut * CFrame.new(-door.Size.X / 2, 0, 0)
+	local should = want == 0 and shut or hinge * CFrame.Angles(0, math.rad(-want), 0) * CFrame.new(door.Size.X / 2, 0, 0)
+	local off = should:ToObjectSpace(door.CFrame)
+	local _, angle = off:ToAxisAngle()
+	local studs, deg = off.Position.Magnitude, math.deg(math.abs(angle))
+	return { checks = {
+		{ name = "bob door: " .. (want == 100 and "open" or "shut") .. " as it should be", ok = studs < 0.1 and deg < 3,
+			measured = ("%.2f studs, %d deg off"):format(studs, math.floor(deg + 0.5)), expected = "under 0.1 studs, 3 deg" },
+	} }
+end
+
 Probes.LOOK_CAMS = {
 	C1 = { eye = Vector3.new(-5.5, 7.5, -13.5), at = Vector3.new(9, 3.5, 5) },
 	C2 = { eye = Vector3.new(0, 9, 52), at = Vector3.new(0, 5, 10) },
@@ -445,6 +650,14 @@ end
 	reduced-motion check, FINAL.md point 9: the server cannot hold a button, so the layer itself is
 	driven here). Forces ForceReducedMotion for the run and puts it back. Every number is read
 	from the real instances UIKit.tween moved. ]]
+-- 27 Oct: the doctor's own self-test (GameDoctor step "doctor"): an error printed on purpose, then an
+-- answer only after `hold` seconds, so the server's probe times out first
+function Probes.selftest(args)
+	task.spawn(error, "[doctor self-test] a late client error, on purpose")
+	task.wait(args.hold or 3)
+	return { held = args.hold or 3 }
+end
+
 function Probes.motion()
 	local Players = game:GetService("Players")
 	local RunService = game:GetService("RunService")

@@ -70,7 +70,8 @@ local current = 0
 local function muted() return player:GetAttribute("MenuMuted") == true end
 
 local function applyVolume()
-	sound.Volume = muted() and 0 or VOLUME
+	-- P-5 (25 Oct): quiet while a Bob cutscene plays its own music
+	sound.Volume = (muted() or player:GetAttribute("BobScenePlaying") == true) and 0 or VOLUME
 	if UIKit.ART and UIKit.ART.musicOn then
 		-- v3.6: the rendered headphones; muted = faded, not a different glyph
 		btnIcon.Image = UIKit.ART.musicOn
@@ -112,6 +113,7 @@ player:GetAttributeChangedSignal("MenuMuted"):Connect(function()
 	applyVolume()
 	setMuted:FireServer(muted())
 end)
+player:GetAttributeChangedSignal("BobScenePlaying"):Connect(applyVolume)
 player:GetAttributeChangedSignal("MusicTrack"):Connect(function()
 	local i = player:GetAttribute("MusicTrack")
 	if type(i) == "number" and i ~= current then play(i) end
