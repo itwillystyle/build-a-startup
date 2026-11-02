@@ -32,6 +32,7 @@ local LabelLook = require(game:GetService("ReplicatedStorage"):WaitForChild("Lab
 -- 24 Oct: a client who ran out of patience (Mood "sad", ClientsServer) walks off slumped
 local ClientMood = require(game:GetService("ReplicatedStorage"):WaitForChild("ClientMood"))
 local Seating = require(game:GetService("ReplicatedStorage"):WaitForChild("Seating"))
+local RigJoints = require(game:GetService("ReplicatedStorage"):WaitForChild("RigJoints"))
 local UIKit = require(game:GetService("ReplicatedStorage"):WaitForChild("UIKit"))
 --[[ The slump (references: a sad walk has a forward lean, drooping arms with no swing, the head
 	down; CLIENT-TIMER-OPTIONS.md ref 6). Radians, on the sign convention below (+X swings a limb
@@ -149,10 +150,6 @@ local rigs = {}                -- model -> state
 local hidden = {}              -- model -> true while culled by distance (v3.5)
 local KEEP = { TierRing = true, TierPillar = true }
 
-local function motor(parent, name)
-	return parent and parent:FindFirstChild(name)
-end
-
 local function add(model)
 	if rigs[model] then return end
 	if not model:IsDescendantOf(workspace) then return end   -- v3.5: a UI portrait copy is not a staff member
@@ -166,15 +163,7 @@ local function add(model)
 			lS = torso:WaitForChild("LeftShoulder", 5),
 			rS = torso:WaitForChild("RightShoulder", 5),
 			neck = torso:WaitForChild("Neck", 5),
-			-- StaffRig parents each Motor6D to its Part0: Root lives on the HumanoidRootPart
-			root = motor(hrp, "Root") or motor(lower, "Root"),
-			-- v3.0.3 elbows and knees (older rigs without them still animate their shoulders)
-			lE = motor(model:FindFirstChild("LeftUpperArm"), "LeftElbow"),
-			rE = motor(model:FindFirstChild("RightUpperArm"), "RightElbow"),
-			lH = motor(lower, "LeftHip"), rH = motor(lower, "RightHip"),
-			waist = motor(lower, "Waist") or motor(torso, "Waist"),   -- 24 Oct: the slump's lean
-			lK = motor(model:FindFirstChild("LeftUpperLeg"), "LeftKnee"),
-			rK = motor(model:FindFirstChild("RightUpperLeg"), "RightKnee"),
+			-- root, elbows, hips, knees and waist: RigJoints.resolve below, and again as each one lands
 			seed = math.random() * 100,
 			cheerAt = model:GetAttribute("CheerAt") or 0,
 			-- wander state machine: idle -> out -> hold -> back -> idle
@@ -185,6 +174,9 @@ local function add(model)
 			t0 = 0,
 		}
 		if not (st.lS and st.rS and st.neck) then return end
+		--[[ 2 Nov: a rig reaches this client in pieces. Looked up once, a hip or knee still on its way stayed
+			nil all session and the idle track bent it (5 of 144 arrivals; Ada perched over her chair). ]]
+		RigJoints.resolve(model, st)
 		model:GetAttributeChangedSignal("CheerAt"):Connect(function()
 			st.cheerAt = model:GetAttribute("CheerAt") or 0
 			if hidden[model] or (hrp.Position - camera.CFrame.Position).Magnitude > RANGE then return end
@@ -209,6 +201,7 @@ local function add(model)
 		-- a halo or accessory added while the body is culled stays hidden with it
 		model.DescendantAdded:Connect(function(d)
 			if hidden[model] and d:IsA("BasePart") and not KEEP[d.Name] then d.LocalTransparencyModifier = 1 end
+			if d:IsA("Motor6D") then RigJoints.resolve(model, st) end
 		end)
 		rigs[model] = st
 	end)

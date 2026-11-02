@@ -17,14 +17,32 @@
 	                 before the server had loaded the save (MenuDone does not wait for GetAsync), so
 	                 a returning player could get the new-player fly-over and a new one never met
 	                 Bob. A join script waits for SaveLoaded before it reads what the save says.
-	A rule is a line rule (`find`, run on every line of src) or a file rule (`files` + `scan`, which
-	gets a file's text and returns the 1-based lines that break it). ]]
+	  joint-once     2 Nov: a seated staff member perched over her chair, one run in two. StaffAnimClient
+	                 looked each joint up once, when the rig registered (`lH = motor(lower, "LeftHip")`);
+	                 a rig reaches the client in pieces, so a hip still on its way stayed nil all session
+	                 and the idle track bent it (5 of 144 arrivals). A client script keeps a rig's joints
+	                 through RigJoints.resolve, called again when a Motor6D lands, not a one-shot
+	                 FindFirstChild of a joint by name.
+	A rule is a line rule (`find`, run on every line of src, or only on the paths matching `only`) or a
+	file rule (`files` + `scan`, which gets a file's text and returns the 1-based lines that break it). ]]
 local fs = require("@lune/fs")
 
 local T = {}
 local function test(name, fn) table.insert(T, { name = name, fn = fn }) end
 
 local PROPS = { "Enabled", "Visible", "Transparency", "LocalTransparencyModifier" }
+local JOINT = { "Hip", "Knee", "Elbow", "Shoulder", "Neck", "Waist", "Root", "Ankle", "Wrist" }
+
+-- a joint looked up by name, once, and kept: `x = <...>FindFirstChild("LeftHip")` or `x = motor(p, "Root")`
+local function jointOnce(line)
+	if not line:match("[%w_]+%s*=%s*") then return false end
+	for _, j in JOINT do
+		if line:match("FindFirstChild%(%s*\"%a*" .. j .. "\"%s*%)") or line:match("motor%([^\n]-\"%a*" .. j .. "\"%s*%)") then
+			return true
+		end
+	end
+	return false
+end
 
 local RULES = {
 	{
@@ -61,7 +79,20 @@ local RULES = {
 		new = 'while player:GetAttribute("SaveLoaded") ~= true do task.wait(0.1) end\nlocal returning = player:GetAttribute("Returning") == true',
 		allow = {},
 	},
+	{
+		id = "joint-once",
+		only = "%.client%.lua$",   -- the server builds a rig whole; only a client sees one arrive in pieces
+		find = jointOnce,
+		old = "\t\t\tlH = motor(lower, \"LeftHip\"), rH = motor(lower, \"RightHip\"),",
+		new = "\t\tRigJoints.resolve(model, st)",
+		allow = {},
+	},
 }
+
+local function rule(id)
+	for _, r in RULES do if r.id == id then return r end end
+	error("no rule " .. id)
+end
 
 local function walk(dir, out)
 	for _, name in fs.readDir(dir) do
@@ -102,6 +133,7 @@ local function hits(rule)
 		return out
 	end
 	for _, file in walk("src", {}) do
+		if rule.only and not file:match(rule.only) then continue end
 		local n = 0
 		for line in (fs.readFile(file) .. "\n"):gmatch("([^\n]*)\n") do
 			n += 1
@@ -136,12 +168,26 @@ for _, rule in RULES do
 end
 
 test("remember-once: other look properties count too, and a lowercase local does not", function()
-	local find = RULES[1].find
+	local find = rule("remember-once").find
 	assert(find("saved[f] = f.Visible"), "Visible")
 	assert(find("was[p] = p.LocalTransparencyModifier"), "LocalTransparencyModifier")
 	assert(not find("memo[gui] = enabled"), "a plain local is how the helper itself stores")
 	assert(not find("x.Enabled = saved[x]"), "restoring is fine")
 	assert(not find("t[k] = v.EnabledAt"), "a longer name is a different field")
+end)
+
+test("joint-once: every one-shot shape of the old lookup, and none of the safe ones", function()
+	local find = rule("joint-once").find
+	assert(find("\t\t\troot = motor(hrp, \"Root\") or motor(lower, \"Root\"),"), "Root through the helper")
+	assert(find("\t\t\tlK = motor(model:FindFirstChild(\"LeftUpperLeg\"), \"LeftKnee\"),"), "a knee through a part lookup")
+	assert(find("local neck = torso:FindFirstChild(\"Neck\")"), "a direct FindFirstChild")
+	assert(not find("local leg = model:FindFirstChild(\"LeftUpperLeg\")"), "a part, not a joint")
+	assert(not find("set(\"RightHip\", CFrame.Angles(R(80), 0, 0))"), "looked up fresh each frame (BobSceneClient)")
+	assert(not find("lS = torso:WaitForChild(\"LeftShoulder\", 5),"), "WaitForChild waits for it")
+	-- the rule walks client scripts only
+	local only = rule("joint-once").only
+	assert(only and ("src/StarterPlayer/StarterPlayerScripts/StaffAnimClient.client.lua"):match(only), "StaffAnimClient is walked")
+	assert(not ("src/ServerScriptService/StaffRig.lua"):match(only), "the server builds a rig whole")
 end)
 
 return T
