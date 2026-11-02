@@ -33,7 +33,7 @@ local function setHidden(room, on)
 			for _, g in ipairs(part:GetDescendants()) do
 				if g:IsA("SurfaceGui") then
 					if on then
-						room.guis[g] = g.Enabled
+						OL.cullRemember(room.guis, g, g.Enabled)
 						g.Enabled = false
 					elseif room.guis[g] ~= nil then
 						g.Enabled = room.guis[g]
@@ -61,7 +61,7 @@ local function consider(part)
 	if room.hidden then   -- a part that arrives in a hidden room (a re-dress) hides at once
 		part.LocalTransparencyModifier = 1
 		for _, g in ipairs(part:GetDescendants()) do
-			if g:IsA("SurfaceGui") then room.guis[g] = g.Enabled; g.Enabled = false end
+			if g:IsA("SurfaceGui") then OL.cullRemember(room.guis, g, g.Enabled); g.Enabled = false end
 		end
 	end
 end

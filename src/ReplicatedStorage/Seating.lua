@@ -61,4 +61,12 @@ function Seating.rooms(people, homes)
 	return out
 end
 
+--[[ 2 Nov (Luke: staff "squatting on top of the chair"): the leg Transforms StaffAnimClient writes. The sit bend
+	lives in the hip and knee C0 (StaffRig.setSeated), so a seated rig's Transform is flat; it must still be
+	WRITTEN, or the server's R15 idle track bends the legs another +24 / -39 deg every frame (measured live). ]]
+function Seating.legs(seated, hip, knee)
+	if seated then return { 0, 0 }, { 0, 0 } end
+	return hip, knee
+end
+
 return Seating

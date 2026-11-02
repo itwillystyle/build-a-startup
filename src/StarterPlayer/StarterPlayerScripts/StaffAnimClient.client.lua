@@ -31,6 +31,7 @@ local HunterRun = require(game:GetService("ReplicatedStorage"):WaitForChild("Hun
 local LabelLook = require(game:GetService("ReplicatedStorage"):WaitForChild("LabelLook"))   -- 24 Oct: label rules (L3)
 -- 24 Oct: a client who ran out of patience (Mood "sad", ClientsServer) walks off slumped
 local ClientMood = require(game:GetService("ReplicatedStorage"):WaitForChild("ClientMood"))
+local Seating = require(game:GetService("ReplicatedStorage"):WaitForChild("Seating"))
 local UIKit = require(game:GetService("ReplicatedStorage"):WaitForChild("UIKit"))
 --[[ The slump (references: a sad walk has a forward lean, drooping arms with no swing, the head
 	down; CLIENT-TIMER-OPTIONS.md ref 6). Radians, on the sign convention below (+X swings a limb
@@ -437,12 +438,12 @@ RunService.PreSimulation:Connect(function()
 			local armR = CFrame.Angles(sh[2], 0, -out)
 			if st.lE and not keyed then st.lE.Transform = CFrame.Angles(el[1], 0, 0) end
 			if st.rE and not keyed then st.rE.Transform = CFrame.Angles(el[2], 0, 0) end
-			if not seated then
-				if st.lH then st.lH.Transform = CFrame.Angles(hip[1], 0, 0) end
-				if st.rH then st.rH.Transform = CFrame.Angles(hip[2], 0, 0) end
-				if st.lK then st.lK.Transform = CFrame.Angles(knee[1], 0, 0) end
-				if st.rK then st.rK.Transform = CFrame.Angles(knee[2], 0, 0) end
-			end
+			-- 2 Nov: seated legs are written too (flat; the sit is in C0), or the idle track squats them
+			hip, knee = Seating.legs(seated, hip, knee)
+			if st.lH then st.lH.Transform = CFrame.Angles(hip[1], 0, 0) end
+			if st.rH then st.rH.Transform = CFrame.Angles(hip[2], 0, 0) end
+			if st.lK then st.lK.Transform = CFrame.Angles(knee[1], 0, 0) end
+			if st.rK then st.rK.Transform = CFrame.Angles(knee[2], 0, 0) end
 			if not keyed then
 				st.lS.Transform = armL
 				st.rS.Transform = armR

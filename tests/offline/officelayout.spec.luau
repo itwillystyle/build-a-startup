@@ -319,6 +319,20 @@ test("cullNext: hides past far, shows inside near, and holds its state in the ba
 	assert(OL.cullNext(true, (C.near + C.far) / 2) == true and OL.cullNext(false, (C.near + C.far) / 2) == false, "the band holds")
 end)
 
+-- 2 Nov (Luke: "monitors are still like, there's no screen on them"). Measured live: the server had 9 of 9
+-- ScreenFace guis on, the client 1 of 9. A monitor and its ScreenFace child are both SVRoomKit parts, so a
+-- hide met each screen twice: the first visit kept "on" and switched it off, the second kept that "off", and
+-- the show put "off" back. The first value seen in a hide is the one to restore.
+test("cullRemember: a gui met twice in one hide is restored to how it was before the hide", function()
+	local memo, g = {}, {}
+	OL.cullRemember(memo, g, true)    -- the monitor's pass: the screen is on, then switched off
+	OL.cullRemember(memo, g, false)   -- the ScreenFace's own pass sees it off
+	assert(memo[g] == true, "the show must put the screen back ON")
+	local off = {}
+	OL.cullRemember(memo, off, false)
+	assert(memo[off] == false, "a gui that was off before the hide stays off")
+end)
+
 -- 24 Oct (Task 6, round 3): after the navy ceiling (round 1) and a warmer floor (round 2) the T_ finish
 -- still read sat 0.28 (target 0.32): the floor is the biggest thing in the C3 frame and it is grey.
 -- The mock's navy rug covers most of the desk floor; ours was a 7.5-stud strip by the window
