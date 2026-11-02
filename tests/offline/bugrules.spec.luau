@@ -12,7 +12,13 @@
 	                 saved each screen's Enabled into a table every time it met that screen; met
 	                 twice in one hide, the second save read the "off" it had just written, and the
 	                 room came back with its screens off. Save a value to restore later with a
-	                 remember-once helper (OfficeLayout.cullRemember), not a bare assignment. ]]
+	                 remember-once helper (OfficeLayout.cullRemember), not a bare assignment.
+	  save-first     2 Nov, the TLA+ join model (models/tla): IntroClient read Returning and BobNew
+	                 before the server had loaded the save (MenuDone does not wait for GetAsync), so
+	                 a returning player could get the new-player fly-over and a new one never met
+	                 Bob. A join script waits for SaveLoaded before it reads what the save says.
+	A rule is a line rule (`find`, run on every line of src) or a file rule (`files` + `scan`, which
+	gets a file's text and returns the 1-based lines that break it). ]]
 local fs = require("@lune/fs")
 
 local T = {}
@@ -36,6 +42,25 @@ local RULES = {
 				why = "runs once: inside 'if not shotState then', so a second shot never saves again" },
 		},
 	},
+	{
+		id = "save-first",
+		files = { "src/StarterPlayer/StarterPlayerScripts/IntroClient.client.lua" },
+		scan = function(src)
+			local waited, out, n = false, {}, 0
+			for line in (src .. "\n"):gmatch("([^\n]*)\n") do
+				n += 1
+				local code = line:gsub("%-%-.*$", "")
+				if code:find('GetAttribute("SaveLoaded")', 1, true) then waited = true end
+				if not waited and (code:find('GetAttribute("Returning")', 1, true) or code:find('GetAttribute("BobNew")', 1, true)) then
+					table.insert(out, n)
+				end
+			end
+			return out
+		end,
+		old = 'local returning = player:GetAttribute("Returning") == true',
+		new = 'while player:GetAttribute("SaveLoaded") ~= true do task.wait(0.1) end\nlocal returning = player:GetAttribute("Returning") == true',
+		allow = {},
+	},
 }
 
 local function walk(dir, out)
@@ -57,9 +82,25 @@ local function allowed(rule, file, line)
 	return false
 end
 
+local function lineRule(rule) return rule.find ~= nil end
+local function flags(rule, text)
+	if lineRule(rule) then return rule.find(text) end
+	return #rule.scan(text) > 0
+end
+
 -- -> list of "file:line: rule-id: text"
 local function hits(rule)
 	local out = {}
+	if not lineRule(rule) then
+		for _, file in rule.files do
+			local src = fs.readFile(file)
+			local lines = src:split("\n")
+			for _, n in rule.scan(src) do
+				table.insert(out, ("%s:%d: %s: %s"):format(file, n, rule.id, ((lines[n] or ""):gsub("^%s+", ""))))
+			end
+		end
+		return out
+	end
 	for _, file in walk("src", {}) do
 		local n = 0
 		for line in (fs.readFile(file) .. "\n"):gmatch("([^\n]*)\n") do
@@ -80,8 +121,9 @@ for _, rule in RULES do
 	end)
 
 	test(rule.id .. ": the rule catches the line that had the bug, and passes its fix", function()
-		assert(rule.find(rule.old), "the rule misses the old line: " .. rule.old)
-		assert(not rule.find(rule.new), "the rule flags the fixed line: " .. rule.new)
+		assert(flags(rule, rule.old), "the rule misses the old line: " .. rule.old)
+		assert(not flags(rule, rule.new), "the rule flags the fixed line: " .. rule.new)
+		for _, file in rule.files or {} do assert(fs.isFile(file), "the rule's file is gone: " .. file) end
 	end)
 
 	test(rule.id .. ": every allowed place still exists (a stale allow hides nothing)", function()

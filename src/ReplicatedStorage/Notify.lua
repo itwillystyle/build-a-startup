@@ -271,7 +271,7 @@ local function realEnv(player)
 			return {
 				driving = seat ~= nil and seat:IsA("VehicleSeat"),
 				carrying = player:GetAttribute("Carrying") ~= nil,
-				cutscene = okC and Cine and Cine.busy() or false,
+				cutscene = okC and Cine and Cine.screenTaken() or false,   -- 2 Nov: a Bob scene too (model break 3)
 				menu = menu,
 			}
 		end,

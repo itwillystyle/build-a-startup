@@ -438,6 +438,9 @@ return function(core)
 			if s then s.newSave = true end
 			player:SetAttribute("BobNew", true)
 		end
+		-- 2 Nov: Returning / BobNew are final now, failed read or not. IntroClient waits for this
+		-- before it reads them (the TLA+ join model's breaks 4 + 5)
+		player:SetAttribute("SaveLoaded", true)
 		if Econ and Econ.Inv then pcall(Econ.Inv.load, player, sessions[player.UserId], data and data.items) end
 		if Econ and Econ.Daily and Econ.Daily.refresh then pcall(Econ.Daily.refresh, player) end
 	end

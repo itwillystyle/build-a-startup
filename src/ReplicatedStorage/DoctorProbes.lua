@@ -402,7 +402,13 @@ function Probes.bobscene(args)
 		         spin swings his root between 12 and 45 studs/s, so with uneven frames one frame's move is
 		         3x the last; every other frame 13 ms late gave 3 false snaps. And the kick turns 47 in
 		         a 0.03 s frame). Studio runs at 2-3 FPS while it is the focused window
-		ambience the valley's birds sang under the boardroom (0.22): silent while a scene plays ]]
+		ambience the valley's birds sang under the boardroom (0.22): silent while a scene plays
+	2 Nov guards, from the TLA+ join model (models/tla/JoinScreen.tla), each failed on main b075433 first:
+		over     a gui that turns itself on during the scene (Guide does, when the one-voice flips to
+		         "scene") is hidden again within 2 frames; before, one already on the scene's list stayed
+		popup    a popup asked for mid-scene (Notify P0, like the phone's call card) waits for the end;
+		         before, Notify only counted Cine shots as cutscenes
+		shot     a Cine camera shot cannot start over the scene; before, both wrote the camera each frame ]]
 	local SS, RunService = game:GetService("SoundService"), game:GetService("RunService")
 	local BobScript = require(game:GetService("ReplicatedStorage"):WaitForChild("BobScript"))
 	-- a jump the script asks for (an actor moved to another set: the hero to Bob's door at 6.3 s) is
@@ -427,8 +433,32 @@ function Probes.bobscene(args)
 	local last, lastCam, cutAt, pops = {}, nil, 0, {}
 	local lastDt, steady = nil, 0
 	local ambience = 0
+	local overRun, overMax, overNames = {}, 0, {}
+	local probeOpened, shotResult, shotAsked = nil, nil, false
+	local full = started and not args.skipAt
+	if full then
+		task.delay(1.5, function()
+			local Notify = require(game:GetService("ReplicatedStorage"):WaitForChild("Notify"))
+			Notify.show({ lane = "top", priority = 0, key = "doctorPopupProbe", ttl = 40,
+				open = function(done) probeOpened = os.clock(); task.defer(done) end })
+		end)
+		task.delay(2.5, function()
+			local Cine = require(game:GetService("ReplicatedStorage"):WaitForChild("Cine"))
+			local c = workspace.CurrentCamera.CFrame
+			shotAsked = true
+			shotResult = Cine.play({ { pos = c.Position + Vector3.new(0, 20, 0), look = c.Position, t = 0 },
+				{ pos = c.Position + Vector3.new(20, 20, 0), look = c.Position, t = 0.5 } }, { hold = 0 })
+		end)
+	end
 	local conn = RunService.RenderStepped:Connect(function(dt)
 		local t = os.clock() - tStart
+		for _, g in ipairs(player.PlayerGui:GetChildren()) do
+			if g:IsA("ScreenGui") and g.Name ~= "BobSceneGui" then
+				if g.Enabled then overRun[g] = (overRun[g] or 0) + 1 else overRun[g] = 0 end
+				if overRun[g] > overMax then overMax = overRun[g] end
+				if overRun[g] > 2 then overNames[g.Name] = true end
+			end
+		end
 		if not (folder and folder.Parent) then return end
 		local c = cam.CFrame
 		if lastCam and ((c.Position - lastCam.Position).Magnitude > 3 or c.LookVector:Dot(lastCam.LookVector) < 0.94) then cutAt = t end
@@ -472,6 +502,7 @@ function Probes.bobscene(args)
 		task.wait()
 	end
 	conn:Disconnect()
+	local tEnd = os.clock()
 	local ran = os.clock() - tStart
 	player:SetAttribute("BobSkipNow", nil)
 	task.wait(0.3)
@@ -506,7 +537,22 @@ function Probes.bobscene(args)
 				or (steady < (args.skipAt and 30 or 200) and ("only " .. steady .. " steady frames to judge (Studio lagging)") or "none"),
 			expected = "none" },
 		{ name = "bob " .. name .. ": the valley's ambience is silent under it", ok = ambience < 0.01, measured = ambience, expected = 0 },
+		{ name = "bob " .. name .. ": nothing else shows over it", ok = overMax <= 2,
+			measured = overMax <= 2 and ("at most " .. overMax .. " frames") or (function()
+				local n = {} for k in pairs(overNames) do table.insert(n, k) end table.sort(n)
+				return table.concat(n, ", ") .. " on for " .. overMax .. " frames" end)(),
+			expected = "at most 2 frames" },
+		{ name = "save loaded before the intro reads it", ok = player:GetAttribute("SaveLoaded") == true,
+			measured = tostring(player:GetAttribute("SaveLoaded")), expected = "true" },
 	}
+	if full then
+		local waited = probeOpened == nil or probeOpened >= tEnd
+		table.insert(checks, { name = "bob " .. name .. ": a popup waits for the end", ok = waited,
+			measured = probeOpened == nil and "not shown yet" or ("shown %.1f s %s the end"):format(math.abs(probeOpened - tEnd), probeOpened >= tEnd and "after" or "before"),
+			expected = "after the end" })
+		table.insert(checks, { name = "bob " .. name .. ": a camera shot cannot start over it", ok = shotAsked and shotResult == false,
+			measured = not shotAsked and "not asked" or tostring(shotResult), expected = "false (refused)" })
+	end
 	return { checks = checks, ran = math.floor(ran * 100) / 100, steady = steady }
 end
 

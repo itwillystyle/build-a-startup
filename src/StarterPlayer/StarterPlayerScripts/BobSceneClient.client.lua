@@ -31,6 +31,7 @@ local BobScript = require(RS:WaitForChild("BobScript"))
 local BobFace = require(RS:WaitForChild("BobFace"))
 local BobClips = require(RS:WaitForChild("BobClips"))
 local Sfx = require(RS:WaitForChild("Sfx"))
+local Cine = require(RS:WaitForChild("Cine"))   -- 2 Nov: wait out a running shot before taking the screen
 local isTouch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
 local SOUND = BobScript.SOUND   -- a scene's sound names -> { Sfx.ID key, at, len, gain }
@@ -726,6 +727,11 @@ local function play(name, info)
 		playing = false
 	end
 
+	-- 2 Nov (model break 1): a Cine shot (the fly-over, a welcome back) finishes before the scene takes the
+	-- screen; the two used to run together, both writing the camera every frame. Shots run a few seconds
+	local tCine = os.clock()
+	while Cine.busy() and os.clock() - tCine < 15 do task.wait(0.1) end
+
 	local okRun, result = pcall(function()
 	player:SetAttribute("BobScenePlaying", true)
 	player:SetAttribute("BobSceneState", "playing")
@@ -1022,10 +1028,12 @@ local function play(name, info)
 				end
 			end
 		end
+		-- 2 Nov (model break 2): hide ANY gui that turned itself on, listed or not. Guide re-enables
+		-- itself when the one-voice flips to "scene"; it was already listed, so it stayed on top
 		for _, g in ipairs(player.PlayerGui:GetChildren()) do
-			if g:IsA("ScreenGui") and g.Enabled and g ~= gui and not table.find(hidden, g) then
+			if g:IsA("ScreenGui") and g.Enabled and g ~= gui then
 				g.Enabled = false
-				table.insert(hidden, g)
+				if not table.find(hidden, g) then table.insert(hidden, g) end
 			end
 		end
 		local t = os.clock() - t0
