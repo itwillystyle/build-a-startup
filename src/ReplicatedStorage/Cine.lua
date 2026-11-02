@@ -112,6 +112,10 @@ end
 
 function Cine.busy() return playing end
 
+-- 2 Nov (TLA+ join model, models/tla): a Bob scene owns the screen too, and nothing but OneVoice knew.
+-- Anything that waits for a cutscene (Notify, the phone's ring) asks this, not busy()
+function Cine.screenTaken() return playing or player:GetAttribute("BobScenePlaying") == true end
+
 function Cine.fade(toBlack, seconds)
 	ensure()
 	TweenService:Create(fade, TweenInfo.new(seconds or 0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
@@ -166,7 +170,8 @@ Cine.handBack = handBack
 function Cine.play(shots, opts)
 	opts = opts or {}
 	ensure()
-	if playing or #shots < 2 then return false end
+	-- 2 Nov: never over a Bob scene (both write the camera every frame; the model's break 1)
+	if Cine.screenTaken() or #shots < 2 then return false end
 	playing = true
 	skipped = false
 	shownTitle = nil

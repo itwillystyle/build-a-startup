@@ -32,6 +32,7 @@ local VoiceChatService = game:GetService("VoiceChatService")
 local player = Players.LocalPlayer
 local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
 local Notify = require(ReplicatedStorage:WaitForChild("Notify"))
+local Cine = require(ReplicatedStorage:WaitForChild("Cine"))   -- 2 Nov: the ring waits out a scene
 local OneVoice = require(ReplicatedStorage:WaitForChild("OneVoice"))   -- 24 Oct: one voice (rule A): a banner waits under a button or the job
 local Items = require(ReplicatedStorage:WaitForChild("Items"))
 local remotes = ReplicatedStorage:WaitForChild("SVRemotes")
@@ -1203,7 +1204,10 @@ local function ring(on)
 	if not on then return end
 	task.spawn(function()
 		while ringing do
-			UIKit.sfx("ding", 1.2, 0.5); task.wait(0.18); UIKit.sfx("ding", 1.5, 0.5)
+			-- 2 Nov (model break 3): the call card waits out a scene in Notify; its tones wait with it
+			if not Cine.screenTaken() then
+				UIKit.sfx("ding", 1.2, 0.5); task.wait(0.18); UIKit.sfx("ding", 1.5, 0.5)
+			end
 			task.wait(1.4)
 		end
 	end)
