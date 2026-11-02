@@ -117,6 +117,26 @@ Fires junk at every client->server remote and watches what moves. Wilz only, in 
    spammer) must deliver with no teleport_flag.
 Not covered: anything that needs two players (the poach gate is in, but untested live).
 
+## When Luke says something on his screen looks wrong (2 Nov)
+A complaint about the look ("no screen on the monitors", "they squat on the chair") is a BUG HUNT first,
+and an art question only once the hunt finds nothing. Both 2 Nov bugs sat in plain sight for weeks:
+- "monitors have a block on them" (27 Oct) went into the glossy-look redesign as an ART problem; the spec
+  said monitors had no screen, from reading the code. Measured on 2 Nov: every monitor HAS a screen; the
+  client switched it off (OfficeCullClient, since 24 Oct #81). The art work could never have fixed it.
+- the squat came from the R15 idle track on the client; sitting was measured once, 24 Sep, on the old
+  block rigs, and never again after the avatar rigs (27 Sep).
+The hunt, in order:
+1. Measure in the CLIENT datamodel, where Luke looks, and the same thing on the SERVER. A difference is
+   the bug (server 9 of 9 screens on, client 1). Server-only numbers say nothing about what he sees.
+2. Do a round trip: walk far away (rooms hide past `OfficeLayout.CULL.far`) and back, sit and stand, open
+   and close. State that breaks on the way back never shows on a fresh load.
+3. Read the joint's `Transform`, not its `C0`: animations write Transform every frame.
+4. Re-measure after any swap underneath (a new rig, a new mesh, a new culling or LOD pass): an old
+   measurement is for the old thing.
+5. Find the cause in numbers, prove it by switching it off live, THEN fix (measure the cause before the fix).
+6. Every bug found this way becomes a doctor check that FAILS on the old code before it passes on the new
+   one (the doctor's `rooms` step: seated legs, screens after a hide; Probes.rooms).
+
 ## The report Luke gets
 - the evidence folder path
 - what passed (numbers, not adjectives)

@@ -658,6 +658,64 @@ function Probes.selftest(args)
 	return { held = args.hold or 3 }
 end
 
+--[[ 2 Nov: two bugs that reached Luke's screen and no step saw, because both live only on the player's machine,
+	and one only after a room hides and comes back (measured: the server had 9 of 9 screens on, the client 1).
+	legs     seated rigs near the camera: hip and knee Transform flat (the sit is in C0; the idle track had them
+	         at +24 / -39 deg, perched over the cushion)
+	screens  a trip far enough to hide every room and back, then every screen in a room the client shows again
+	         (centre inside CULL.near) must be on ]]
+function Probes.rooms()
+	local player = game:GetService("Players").LocalPlayer
+	local char = player.Character
+	local plotNo = player:GetAttribute("Plot")
+	local plot = plotNo and workspace:FindFirstChild("SiliconValley") and workspace.SiliconValley.Plots:FindFirstChild("Plot" .. plotNo)
+	if not (char and plot) then return { ok = false, why = "no character or plot" } end
+	local staff, wafers = plot:FindFirstChild("Staff"), plot:FindFirstChild("Wafers")
+	local OL = require(script.Parent:WaitForChild("OfficeLayout")).with(require(script.Parent:WaitForChild("TowerPlan")), require(script.Parent:WaitForChild("ServerRack")))
+	local home = char:GetPivot()
+	-- stand beside a seated rig: StaffAnimClient poses only rigs near the camera
+	for _, m in ipairs(staff and staff:GetChildren() or {}) do
+		if m:GetAttribute("Seated") and m:FindFirstChild("HumanoidRootPart") then
+			char:PivotTo(m.HumanoidRootPart.CFrame * CFrame.new(4, 1, 4))
+			break
+		end
+	end
+	task.wait(1.5)
+	local cam = workspace.CurrentCamera.CFrame.Position
+	local worst, seated = 0, 0
+	for _, m in ipairs(staff and staff:GetChildren() or {}) do
+		local hrp, lower, thighL, thighR = m:FindFirstChild("HumanoidRootPart"), m:FindFirstChild("LowerTorso"), m:FindFirstChild("LeftUpperLeg"), m:FindFirstChild("RightUpperLeg")
+		if m:GetAttribute("Seated") and hrp and lower and (hrp.Position - cam).Magnitude < 60 then
+			seated += 1
+			for _, j in ipairs({ lower:FindFirstChild("LeftHip"), lower:FindFirstChild("RightHip"),
+				thighL and thighL:FindFirstChild("LeftKnee"), thighR and thighR:FindFirstChild("RightKnee") }) do
+				if j and j:IsA("Motor6D") then worst = math.max(worst, math.abs(math.deg((j.Transform:ToEulerAnglesXYZ())))) end
+			end
+		end
+	end
+	-- away (every room hides) and back (the near ones show again)
+	local here = char:GetPivot()
+	char:PivotTo(here + Vector3.new(0, 0, 400))
+	task.wait(2.5)
+	char:PivotTo(here)
+	task.wait(2.5)
+	local eye = workspace.CurrentCamera.CFrame.Position
+	local near, off = 0, 0
+	for _, d in ipairs(wafers and wafers:GetDescendants() or {}) do
+		if d:IsA("SurfaceGui") and d.Name == "Screen" then
+			local room = d:FindFirstAncestorWhichIsA("Model")
+			while room and not room.Name:match("^L%d+_segment") do room = room:FindFirstAncestorWhichIsA("Model") end
+			local c = room and room:GetAttribute("RoomCentre")
+			if typeof(c) == "Vector3" and (c - eye).Magnitude < OL.CULL.near then
+				near += 1
+				if not d.Enabled then off += 1 end
+			end
+		end
+	end
+	char:PivotTo(home)
+	return { ok = true, seated = seated, worstLegDeg = math.floor(worst * 10) / 10, near = near, nearOff = off }
+end
+
 function Probes.motion()
 	local Players = game:GetService("Players")
 	local RunService = game:GetService("RunService")

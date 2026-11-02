@@ -458,6 +458,27 @@ local function run()
 		end)
 	end
 
+	-- 2 Nov: the rooms as the player sees them (Probes.rooms): seated legs, and screens after a room hides
+	step("rooms", function()
+		local on, total = 0, 0
+		local wf = plotFolder and plotFolder:FindFirstChild("Wafers")
+		for _, d in ipairs(wf and wf:GetDescendants() or {}) do
+			if d:IsA("SurfaceGui") and d.Name == "Screen" then total += 1; if d.Enabled then on += 1 end end
+		end
+		info("room screens on the server", ("%d of %d on"):format(on, total))
+		local r = probe(player, "rooms", {}, 30)
+		if not (r and r.ok) then
+			check("rooms probe answered", false, "BUG", r and r.why or "no answer", "answer")
+			return
+		end
+		check("seated staff sit in the chair", r.seated > 0 and r.worstLegDeg <= 5, "BUG",
+			("%s deg, %d seated"):format(tostring(r.worstLegDeg), r.seated), "<= 5 deg, more than 0 seated",
+			"a hip or knee bent on top of the sit pose perches them over the cushion")
+		check("screens back on after a room hides", r.near > 0 and r.nearOff == 0, "BUG",
+			("%d of %d off"):format(r.nearOff, r.near), "0 off, more than 0 checked",
+			"a near room's monitor left dark after the player walked away and back")
+	end)
+
 	-- v9 (15 Oct, HQ part 1b): ride the lift at the top level (the loop above ends at hq:100)
 	step("lift:ride", function()
 		local LiftCab = require(SSS:WaitForChild("LiftCab"))

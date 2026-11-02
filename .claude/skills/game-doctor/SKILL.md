@@ -69,4 +69,7 @@ First live use, PR #48: the gate failed the garage on a non-solid meeting table
 BLOCKER = the loop breaks. BUG = wrong, playable. MISSING = an animation, sound or
 feedback is not there. FEEL = works, feels janky. Thresholds marked provisional in
 GameDoctor (camera cuts 0.5/s) are guesses to tune, not rules.
-Not checked: cars, phones, two players, and how anything LOOKS.
+Not checked: cars, phones, two players, and how anything LOOKS. The `rooms` step (2 Nov) covers two
+looks that Luke caught by eye: seated staff perched over the chair (leg Transform), and monitor screens
+left dark after a room hides and shows again. A new look bug Luke finds becomes a check here the same way
+(verify-game, "When Luke says something on his screen looks wrong").
