@@ -688,9 +688,14 @@ function Probes.rooms(args)
 	local OL = require(script.Parent:WaitForChild("OfficeLayout")).with(require(script.Parent:WaitForChild("TowerPlan")), require(script.Parent:WaitForChild("ServerRack")))
 	local home = char:GetPivot()
 	-- stand beside each seated rig in turn (StaffAnimClient poses only rigs near the camera), then read its legs
+	--[[ the camera trails the character: measured 2 Nov, a quick sweep left it 100+ studs behind, and a rig
+		the camera is not near is not posed, so it read as bent. Wait for the camera, then one more frame. ]]
 	local function beside(m)
-		char:PivotTo(m.HumanoidRootPart.CFrame * CFrame.new(4, 1, 4))
-		task.wait(0.2)
+		local hrp = m.HumanoidRootPart
+		char:PivotTo(hrp.CFrame * CFrame.new(4, 1, 4))
+		local t0 = os.clock()
+		repeat task.wait() until (workspace.CurrentCamera.CFrame.Position - hrp.Position).Magnitude < 30 or os.clock() - t0 > 2
+		task.wait(0.1)
 		return legDeg(m)
 	end
 	local worst, seated, worstWho, first = 0, 0, nil, nil
