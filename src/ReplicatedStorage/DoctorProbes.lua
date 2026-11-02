@@ -663,8 +663,22 @@ end
 	legs     seated rigs near the camera: hip and knee Transform flat (the sit is in C0; the idle track had them
 	         at +24 / -39 deg, perched over the cushion)
 	screens  a trip far enough to hide every room and back, then every screen in a room the client shows again
-	         (centre inside CULL.near) must be on ]]
-function Probes.rooms()
+	         (centre inside CULL.near) must be on
+	2 Nov later: the legs half was a coin flip. It read only the rigs within 60 studs of ONE seated rig, and a
+	rig went bent only when its leg joints reached this client after StaffAnimClient registered it (measured:
+	5 of 144 arrivals). Now it stands beside EVERY seated rig in turn, and args.late names a folder where the
+	doctor's server put a rig whose leg joints arrive a second late, so the race happens on every run. ]]
+local function legDeg(m)
+	local lower, thighL, thighR = m:FindFirstChild("LowerTorso"), m:FindFirstChild("LeftUpperLeg"), m:FindFirstChild("RightUpperLeg")
+	local worst = 0
+	for _, j in ipairs({ lower and lower:FindFirstChild("LeftHip"), lower and lower:FindFirstChild("RightHip"),
+		thighL and thighL:FindFirstChild("LeftKnee"), thighR and thighR:FindFirstChild("RightKnee") }) do
+		if j and j:IsA("Motor6D") then worst = math.max(worst, math.abs(math.deg((j.Transform:ToEulerAnglesXYZ())))) end
+	end
+	return worst
+end
+
+function Probes.rooms(args)
 	local player = game:GetService("Players").LocalPlayer
 	local char = player.Character
 	local plotNo = player:GetAttribute("Plot")
@@ -673,26 +687,27 @@ function Probes.rooms()
 	local staff, wafers = plot:FindFirstChild("Staff"), plot:FindFirstChild("Wafers")
 	local OL = require(script.Parent:WaitForChild("OfficeLayout")).with(require(script.Parent:WaitForChild("TowerPlan")), require(script.Parent:WaitForChild("ServerRack")))
 	local home = char:GetPivot()
-	-- stand beside a seated rig: StaffAnimClient poses only rigs near the camera
+	-- stand beside each seated rig in turn (StaffAnimClient poses only rigs near the camera), then read its legs
+	local function beside(m)
+		char:PivotTo(m.HumanoidRootPart.CFrame * CFrame.new(4, 1, 4))
+		task.wait(0.2)
+		return legDeg(m)
+	end
+	local worst, seated, worstWho, first = 0, 0, nil, nil
 	for _, m in ipairs(staff and staff:GetChildren() or {}) do
 		if m:GetAttribute("Seated") and m:FindFirstChild("HumanoidRootPart") then
-			char:PivotTo(m.HumanoidRootPart.CFrame * CFrame.new(4, 1, 4))
-			break
-		end
-	end
-	task.wait(1.5)
-	local cam = workspace.CurrentCamera.CFrame.Position
-	local worst, seated = 0, 0
-	for _, m in ipairs(staff and staff:GetChildren() or {}) do
-		local hrp, lower, thighL, thighR = m:FindFirstChild("HumanoidRootPart"), m:FindFirstChild("LowerTorso"), m:FindFirstChild("LeftUpperLeg"), m:FindFirstChild("RightUpperLeg")
-		if m:GetAttribute("Seated") and hrp and lower and (hrp.Position - cam).Magnitude < 60 then
 			seated += 1
-			for _, j in ipairs({ lower:FindFirstChild("LeftHip"), lower:FindFirstChild("RightHip"),
-				thighL and thighL:FindFirstChild("LeftKnee"), thighR and thighR:FindFirstChild("RightKnee") }) do
-				if j and j:IsA("Motor6D") then worst = math.max(worst, math.abs(math.deg((j.Transform:ToEulerAnglesXYZ())))) end
-			end
+			first = first or m
+			local d = beside(m)
+			if d > worst then worst, worstWho = d, m.Name end
 		end
 	end
+	local lateFolder = args and args.late and workspace:FindFirstChild(args.late)
+	local lateRig = lateFolder and lateFolder:FindFirstChildWhichIsA("Model")
+	local lateDeg = lateRig and lateRig:FindFirstChild("HumanoidRootPart") and beside(lateRig) or nil
+	-- the screens half starts where it always did: beside the first seated rig
+	if first then char:PivotTo(first.HumanoidRootPart.CFrame * CFrame.new(4, 1, 4)) end
+	task.wait(1.5)
 	-- away (every room hides) and back (the near ones show again)
 	local here = char:GetPivot()
 	char:PivotTo(here + Vector3.new(0, 0, 400))
@@ -713,7 +728,8 @@ function Probes.rooms()
 		end
 	end
 	char:PivotTo(home)
-	return { ok = true, seated = seated, worstLegDeg = math.floor(worst * 10) / 10, near = near, nearOff = off }
+	return { ok = true, seated = seated, worstLegDeg = math.floor(worst * 10) / 10, worstWho = worstWho,
+		lateLegDeg = lateDeg and math.floor(lateDeg * 10) / 10, near = near, nearOff = off }
 end
 
 function Probes.motion()

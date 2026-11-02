@@ -458,6 +458,53 @@ local function run()
 		end)
 	end
 
+	--[[ 2 Nov later: a seated rig whose leg joints reach the client AFTER the rig does. Measured live
+		(144 rig arrivals): 5 registered in StaffAnimClient before their hips or knees had replicated, kept
+		nil for those joints, and the server's idle track bent exactly those legs for the rest of the
+		session. Which rigs it hits is luck, so this rig makes it happen on every run: a copy of a seated
+		rig with its hips and knees held back for a second (every part anchored meanwhile, so nothing falls),
+		the idle track playing as on the real staff. ]]
+	local LATE_LEGS = "DoctorLateLegs"
+	local function lateLegsRig()
+		local staff = plotFolder and plotFolder:FindFirstChild("Staff")
+		local src
+		for _, m in ipairs(staff and staff:GetChildren() or {}) do
+			if m:GetAttribute("Seated") and m:FindFirstChild("HumanoidRootPart") then src = m break end
+		end
+		if not src then return nil end
+		local rig = src:Clone()
+		rig:SetAttribute("StaffId", nil)      -- the TEAM screen finds staff by id: this copy is nobody
+		rig:SetAttribute("StaffOwner", nil)
+		local held, anchored = {}, {}
+		for _, name in ipairs({ "LeftHip", "RightHip", "LeftKnee", "RightKnee" }) do
+			local j = rig:FindFirstChild(name, true)
+			if j and j:IsA("Motor6D") then
+				table.insert(held, { j = j, parent = j.Parent })
+				j.Parent = nil
+			end
+		end
+		for _, p in ipairs(rig:GetDescendants()) do
+			if p:IsA("BasePart") then anchored[p] = p.Anchored; p.Anchored = true end
+		end
+		local folder = Instance.new("Folder")
+		folder.Name = LATE_LEGS
+		rig.Parent = folder
+		folder.Parent = workspace
+		local hum = rig:FindFirstChildOfClass("Humanoid")
+		local animator = hum and hum:FindFirstChildOfClass("Animator")
+		if animator then
+			local a = Instance.new("Animation")
+			a.AnimationId = "rbxassetid://507766666"   -- StaffRig's idle (ANIM.idle)
+			local track = animator:LoadAnimation(a)
+			track.Looped = true
+			track:Play()
+		end
+		task.wait(1)
+		for _, h in ipairs(held) do h.j.Parent = h.parent end
+		for p, was in pairs(anchored) do p.Anchored = was end
+		return folder
+	end
+
 	-- 2 Nov: the rooms as the player sees them (Probes.rooms): seated legs, and screens after a room hides
 	step("rooms", function()
 		local on, total = 0, 0
@@ -466,14 +513,20 @@ local function run()
 			if d:IsA("SurfaceGui") and d.Name == "Screen" then total += 1; if d.Enabled then on += 1 end end
 		end
 		info("room screens on the server", ("%d of %d on"):format(on, total))
-		local r = probe(player, "rooms", {}, 30)
-		if not (r and r.ok) then
-			check("rooms probe answered", false, "BUG", r and r.why or "no answer", "answer")
+		local late = lateLegsRig()
+		local ok, r = pcall(probe, player, "rooms", { late = LATE_LEGS }, 40)
+		if late then late:Destroy() end
+		if not (ok and r and r.ok) then
+			check("rooms probe answered", false, "BUG", ok and r and r.why or (not ok and tostring(r)) or "no answer", "answer")
 			return
 		end
 		check("seated staff sit in the chair", r.seated > 0 and r.worstLegDeg <= 5, "BUG",
-			("%s deg, %d seated"):format(tostring(r.worstLegDeg), r.seated), "<= 5 deg, more than 0 seated",
+			("%s deg (%s), %d seated, every one visited"):format(tostring(r.worstLegDeg), tostring(r.worstWho or "-"), r.seated),
+			"<= 5 deg, more than 0 seated",
 			"a hip or knee bent on top of the sit pose perches them over the cushion")
+		check("a rig whose leg joints arrive late still sits flat", r.lateLegDeg ~= nil and r.lateLegDeg <= 5, "BUG",
+			r.lateLegDeg and ("%s deg"):format(tostring(r.lateLegDeg)) or "no late rig measured", "<= 5 deg",
+			"StaffAnimClient registered the rig before its legs replicated and never wrote them; the idle track bent them")
 		check("screens back on after a room hides", r.near > 0 and r.nearOff == 0, "BUG",
 			("%d of %d off"):format(r.nearOff, r.near), "0 off, more than 0 checked",
 			"a near room's monitor left dark after the player walked away and back")
