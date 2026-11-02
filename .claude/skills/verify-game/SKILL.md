@@ -136,6 +136,10 @@ The hunt, in order:
 5. Find the cause in numbers, prove it by switching it off live, THEN fix (measure the cause before the fix).
 6. Every bug found this way becomes a doctor check that FAILS on the old code before it passes on the new
    one (the doctor's `rooms` step: seated legs, screens after a hide; Probes.rooms).
+7. If the cause is a line you could have spotted by reading, it also gets a rule in
+   `tests/offline/bugrules.spec.luau` (poteto's habit: every bug becomes a lint rule). The rule's `old`
+   sample is the line that had the bug, and the rule must flag it; places that look the same but are
+   safe go in `allow` with a reason. First rule: remember-once (the 2 Nov screens).
 
 ## The report Luke gets
 - the evidence folder path
