@@ -142,6 +142,11 @@ local function runIntro()
 	char:WaitForChild("Humanoid", 5)
 	local t1 = os.clock()
 	while player:GetAttribute("MenuDone") ~= true and os.clock() - t1 < 600 do task.wait(0.1) end
+	-- 2 Nov (model breaks 4 + 5): MenuDone does not wait for the save, so Returning and BobNew could
+	-- still be unset here: a returning player got the new-player fly-over, a new one never met Bob.
+	-- SaveLoad sets SaveLoaded after every load, failed reads too (tests/offline/bugrules: save-first)
+	local tSave = os.clock()
+	while player:GetAttribute("SaveLoaded") ~= true and os.clock() - tSave < 20 do task.wait(0.1) end
 	task.wait(0.3)
 
 	local P = function(x, y, z) return pivot:PointToWorldSpace(Vector3.new(x, y, z)) end
@@ -298,8 +303,11 @@ local function runIntro()
 		player:SetAttribute("BobSceneState", nil)
 		bob:Fire("intro")
 		local t1 = os.clock()
+		-- 2 Nov (model break 1): no answer in 3 s = the scene refused (it sets "loading" at once
+		-- otherwise). Its loading ends by itself (cast 10 s + sounds 6 s + a running shot 15 s), so wait
+		-- that out: giving up at 15 s started the fly-over under a scene that was about to play
 		repeat task.wait(0.1); state = player:GetAttribute("BobSceneState")
-		until (state ~= nil and state ~= "loading") or os.clock() - t1 > 15
+		until (state ~= nil and state ~= "loading") or (state == nil and os.clock() - t1 > 3) or os.clock() - t1 > 40
 		if state == "playing" then
 			if ghost then ghost:Destroy(); ghost = nil end
 			local t2 = os.clock()
