@@ -3,6 +3,19 @@ local Seat = require("../../src/ReplicatedStorage/Seating")
 local T = {}
 local function test(name, fn) table.insert(T, { name = name, fn = fn }) end
 
+-- 2 Nov (Luke: "squatting on top of the chair instead of actually sitting in the chair"). Measured live: every
+-- seated rig's hip Transform read +24 deg and its knee -39 deg, written each frame by the server's R15 idle
+-- track, because StaffAnimClient wrote no leg pose for a seated rig. Zeroed, the thigh met the cushion
+-- (thigh bottom 2.85, seat top 2.85). The sit bend lives in the joints' C0 (StaffRig.setSeated); the
+-- Transform on a seated rig's legs must be written, and be zero.
+test("legs: a seated rig's hips and knees are written, and flat (the sit is in C0)", function()
+	local hip, knee = Seat.legs(true, { 0.42, 0.42 }, { -0.68, -0.68 })
+	assert(hip and knee, "a seated rig's legs must be written, or the idle track bends them")
+	assert(hip[1] == 0 and hip[2] == 0 and knee[1] == 0 and knee[2] == 0, "seated legs are flat on top of the C0 sit")
+	local wh, wk = Seat.legs(false, { 0.5, -0.5 }, { -0.7, 0 })
+	assert(wh[1] == 0.5 and wh[2] == -0.5 and wk[1] == -0.7 and wk[2] == 0, "a walking rig keeps its stride")
+end)
+
 -- Lune has no Roblox Random: Park-Miller, as savefuzz.spec
 local R = {}; R.__index = R
 local function rng(seed) return setmetatable({ s = (seed % 2147483646) + 1 }, R) end

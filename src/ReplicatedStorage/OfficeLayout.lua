@@ -237,6 +237,11 @@ function OfficeLayout.with(T, SR)
 		if hidden and dist < OL.CULL.near then return false end
 		return hidden
 	end
+	-- 2 Nov: a hide meets a screen once per tagged part above it (a monitor AND its ScreenFace), so only the
+	-- first value is kept; the second visit sees the screen already off (officelayout.spec)
+	function OL.cullRemember(memo, gui, enabled)
+		if memo[gui] == nil then memo[gui] = enabled end
+	end
 
 	-- ------------------------------------------------------------ the checks
 	-- an axis box from a centre, a local box and a yaw in degrees (CFrame.Angles(0, yaw, 0))
