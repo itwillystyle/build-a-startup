@@ -91,7 +91,8 @@ BLOCKER = the loop breaks. BUG = wrong, playable. MISSING = an animation, sound 
 feedback is not there. FEEL = works, feels janky. Thresholds marked provisional in
 GameDoctor (camera cuts 0.5/s) are guesses to tune, not rules.
 `input` (3 Nov): each rail screen opens on a real click and Q shuts it; a click that opens nothing
-names what it landed on (a cover over the button). Not checked there: touch, held buttons.
+names what it landed on (a cover over the button). TELL US opens with the cursor in its box (Luke's
+call), so there Q must type and the panel stay open: "Q types into FEEDBACK's box". Not checked there: touch, held buttons.
 Not checked: cars, phones, two players, and how anything LOOKS. The `rooms` step (2 Nov) covers two
 looks that Luke caught by eye: seated staff perched over the chair (leg Transform), and monitor screens
 left dark after a room hides and shows again. A new look bug Luke finds becomes a check here the same way

@@ -184,6 +184,27 @@ test("input: the last round's late Q arriving first is out of order, not this ro
 	assert(ok == true, "click then Q, as planned, arrived")
 end)
 
+-- 3 Nov (Luke's call): TELL US opens with the cursor in its box, so there Q is a letter, not a close.
+-- The doctor checks that Q went to the box and the panel stayed; Q closing it mid-sentence, or Q
+-- doing nothing with the cursor elsewhere (the box lost it, or no Q key), is a FEEL.
+test("input: on a typing screen Q goes into the box and the panel stays, and that passes", function()
+	local FB = { label = "FEEDBACK", path = "Rail.Tray.FeedbackButton", tray = true, types = true }
+	local tray = with(HUD, { FB.path })
+	local open = with(tray, { "Feedback.Panel.Header.Close", "Feedback.Panel.Send" })
+	local typed = { kind = "key", key = "Q", sig = open, typing = true }
+	local checks, left = P.judgeHands(FB, P.handsPlan(FB, tray), tray, { C(open, FB.path), typed })
+	assert(find(checks, "Q types into FEEDBACK's box").ok, "the Q went to the box and the panel stayed")
+	assert(find(checks, "Q closes FEEDBACK") == nil, "no close verdict on a typing screen")
+	assert(#left == 2, "still open, so the cleanup clicks its Close")
+	local shut = { kind = "key", key = "Q", sig = tray, typing = true }
+	local c = find((P.judgeHands(FB, P.handsPlan(FB, tray), tray, { C(open, FB.path), shut })), "Q types into FEEDBACK's box")
+	assert(not c.ok and c.severity == "FEEL", "Q shut the panel while the player was typing")
+	local astray = { kind = "key", key = "Q", sig = open, typing = false }
+	c = find((P.judgeHands(FB, P.handsPlan(FB, tray), tray, { C(open, FB.path), astray })), "Q types into FEEDBACK's box")
+	assert(not c.ok and c.severity == "FEEL", "the cursor was not in the box, and Q did not close it either")
+	assert(P.HANDS[7].label == "FEEDBACK" and P.HANDS[7].types == true, "TELL US is marked a typing screen")
+end)
+
 -- 24 Oct (art pass 4, Task 1): the C3 review room is built to order, so every entry must be a room
 -- that department may really have at that level, and the camera must stand inside every room
 local TP = require("../../src/ReplicatedStorage/TowerPlan")
