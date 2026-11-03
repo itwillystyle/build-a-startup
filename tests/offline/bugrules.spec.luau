@@ -23,6 +23,10 @@
 	                 and the idle track bent it (5 of 144 arrivals). A client script keeps a rig's joints
 	                 through RigJoints.resolve, called again when a Motor6D lands, not a one-shot
 	                 FindFirstChild of a joint by name.
+	  q-closes       3 Nov, PR #91: the doctor's real-input step pressed Q on every rail screen and
+	                 TELL US stayed open; FeedbackClient was the one panel with a Close button and no
+	                 Q key, so Q did nothing there. A client script that wires a Close button to
+	                 setOpen(false) also shuts on Q.
 	A rule is a line rule (`find`, run on every line of src, or only on the paths matching `only`) or a
 	file rule (`files` + `scan`, which gets a file's text and returns the 1-based lines that break it). ]]
 local fs = require("@lune/fs")
@@ -85,6 +89,34 @@ local RULES = {
 		find = jointOnce,
 		old = "\t\t\tlH = motor(lower, \"LeftHip\"), rH = motor(lower, \"RightHip\"),",
 		new = "\t\tRigJoints.resolve(model, st)",
+		allow = {},
+	},
+	{
+		id = "q-closes",
+		files = (function()   -- every client script, so a new panel is checked without adding it here
+			local dir, out = "src/StarterPlayer/StarterPlayerScripts", {}
+			for _, name in fs.readDir(dir) do
+				if name:match("%.client%.lua$") then table.insert(out, dir .. "/" .. name) end
+			end
+			table.sort(out)
+			return out
+		end)(),
+		scan = function(src)
+			local closes, hasQ, n = {}, false, 0
+			for line in (src .. "\n"):gmatch("([^\n]*)\n") do
+				n += 1
+				local code = line:gsub("%-%-.*$", "")
+				if code:find("MouseButton1Click:Connect(function() setOpen(false)", 1, true) then table.insert(closes, n) end
+				if code:find("Enum.KeyCode.Q", 1, true) then hasQ = true end
+			end
+			return hasQ and {} or closes
+		end,
+		old = "if closeBtn then closeBtn.MouseButton1Click:Connect(function() setOpen(false) end) end",
+		new = "if closeBtn then closeBtn.MouseButton1Click:Connect(function() setOpen(false) end) end\n"
+			.. "UserInputService.InputBegan:Connect(function(input, processed)\n"
+			.. "\tif processed then return end\n"
+			.. "\tif input.KeyCode == Enum.KeyCode.Q and gui.Enabled then setOpen(false) end\n"
+			.. "end)",
 		allow = {},
 	},
 }

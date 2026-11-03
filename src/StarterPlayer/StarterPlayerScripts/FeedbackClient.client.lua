@@ -7,6 +7,7 @@
 	PINK because it is the one accent no other tile uses (UIKit.railButton). ]]
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
@@ -130,4 +131,8 @@ end)
 
 UIKit.onRailPress(railBtn, function() setOpen(not gui.Enabled) end)   -- a click, a tap or its number key
 if closeBtn then closeBtn.MouseButton1Click:Connect(function() setOpen(false) end) end
+UserInputService.InputBegan:Connect(function(input, processed)
+	if processed then return end   -- a Q typed into the box is a letter, not a close
+	if input.KeyCode == Enum.KeyCode.Q and gui.Enabled then setOpen(false) end
+end)
 UIKit.bindRail(railBtn, gui)
