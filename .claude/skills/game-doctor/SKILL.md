@@ -23,9 +23,30 @@ account's save. The doctor changes Wilz's save; it is ALWAYS restored at the end
    "Studio was busy (in Play), the doctor did not run" and stop.
 3. `start_stop_play` true. Server datamodel: wait until a player, a character and
    `ServerScriptService.SiliconCore.SVDev` exist (up to 45 s), wait 5 s more, then
-   `game.ServerScriptService.GameDoctor:SetAttribute("Request", "full/" .. os.clock())`.
-4. Poll `GameDoctor:GetAttribute("Status")` in calls of ~110 s (`task.wait(1)` loop)
-   until "done" (a full run is about 4 minutes; give up after 15 and go to 6).
+   `game.ServerScriptService.GameDoctor:SetAttribute("Request", "full+hands/" .. os.clock())`.
+   (`full/` skips the input step; `hands/` runs only setup, input and errors, about a minute.)
+4. Poll in the Server datamodel, calls of ~110 s, until "done" (a full run is about 5 minutes;
+   give up after 15 and go to 6). The poll also returns when the doctor wants hands:
+
+       local gd = game.ServerScriptService.GameDoctor
+       local t0 = os.clock()
+       while os.clock() - t0 < 110 do
+       	if gd:GetAttribute("Status") == "done" then return "done" end
+       	local h = gd:GetAttribute("Hands")
+       	if h and h ~= gd:GetAttribute("HandsSeen") then gd:SetAttribute("HandsSeen", h) return "HANDS " .. h end
+       	task.wait(0.5)
+       end
+       return gd:GetAttribute("Status")
+
+   **HANDS** (the `input` step, 3 Nov): `{ nonce, label, actions }`. Do the actions in order,
+   nothing else, in the Client datamodel: a `click` is `user_mouse_input` with
+   `moveTo` `instance_path = "LocalPlayer.PlayerGui." .. click`, `mouseButtonClick` left, `wait` 700 ms
+   (several clicks in a row can go in one call); a `key` is `user_keyboard_input` `keyPress`, `wait` 700 ms.
+   A failed action is not retried. Then, Server datamodel, at the top of the next poll:
+   `game.Players:GetPlayers()[1]:SetAttribute("DoctorHandsDone", "<nonce>")`.
+   Never click anything the doctor did not ask for (Claim, Buy, a world click in build mode).
+   About 9 rounds; each waits 90 s for you. If you miss one, the doctor stops the input step and
+   lists it under "not checked" (not a BUG): say so in the reply.
 5. Read `game.ServerStorage.DoctorReport.Value` and Write it, exactly, to
    `C:\Users\lukex\Downloads\silicon-startup\doctor\report-<YYYY-MM-DD>.json`.
 6. `start_stop_play` false. Edit datamodel, after `task.wait(2)`:
@@ -69,6 +90,8 @@ First live use, PR #48: the gate failed the garage on a non-solid meeting table
 BLOCKER = the loop breaks. BUG = wrong, playable. MISSING = an animation, sound or
 feedback is not there. FEEL = works, feels janky. Thresholds marked provisional in
 GameDoctor (camera cuts 0.5/s) are guesses to tune, not rules.
+`input` (3 Nov): each rail screen opens on a real click and Q shuts it; a click that opens nothing
+names what it landed on (a cover over the button). Not checked there: touch, held buttons.
 Not checked: cars, phones, two players, and how anything LOOKS. The `rooms` step (2 Nov) covers two
 looks that Luke caught by eye: seated staff perched over the chair (leg Transform), and monitor screens
 left dark after a room hides and shows again. A new look bug Luke finds becomes a check here the same way

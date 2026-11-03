@@ -64,6 +64,126 @@ test("a camera cut and a hunter hitch, frame by frame", function()
 	assert(not P.isStutter(0.3, 0.4), "steady running is not a hitch")
 end)
 
+-- 3 Nov: the `input` step. The routine clicks each button by name through Studio's real input path and
+-- presses Q; the client lists the visible buttons after each input. These rules turn that into verdicts.
+local function with(list, extra)
+	local out = table.clone(list)
+	for _, v in ipairs(extra) do table.insert(out, v) end
+	return out
+end
+local HUD = { "Hud.RateHit", "Rail.Column.BagButton", "Rail.Column.MoreButton", "Rail.Column.PhoneButton", "Quest.Holder.Quest.Hit" }
+local TRAY = { "Rail.Tray.TeamButton", "Rail.Tray.IndexButton", "Rail.Tray.DailyButton" }
+local BAG = { label = "BAG", path = "Rail.Column.BagButton" }
+local TEAM = { label = "TEAM", path = "Rail.Tray.TeamButton", tray = true }
+local function C(sig, top) return { kind = "click", sig = sig, top = top } end   -- one input the client saw
+local function K(sig) return { kind = "key", key = "Q", sig = sig } end
+local function find(checks, name)
+	for _, c in ipairs(checks) do if c.name == name then return c end end
+	return nil
+end
+
+test("input: the plan opens the tray first only when a tray button is hidden, and always ends on Q", function()
+	local p = P.handsPlan(BAG, HUD)
+	assert(#p == 2 and p[1].click == "Rail.Column.BagButton" and p[2].key == "Q", "BAG: click it, then Q")
+	p = P.handsPlan(TEAM, HUD)
+	assert(#p == 3 and p[1].click == "Rail.Column.MoreButton" and p[2].click == TEAM.path and p[3].key == "Q",
+		"TEAM with the tray shut: MORE, TEAM, Q")
+	p = P.handsPlan(TEAM, with(HUD, TRAY))
+	assert(#p == 2 and p[1].click == TEAM.path, "TEAM with the tray already open: no MORE (it would shut the tray)")
+end)
+
+test("input: a button that opens its screen and Q that shuts it pass", function()
+	local opened = with(HUD, { "Bag.Panel.Close", "Bag.Panel.Grid.Item_coffee" })
+	local checks, left = P.judgeHands(BAG, P.handsPlan(BAG, HUD), HUD, { C(opened, BAG.path), K(HUD) })
+	assert(find(checks, "BAG opens its screen").ok, "BAG opened two buttons")
+	assert(find(checks, "Q closes BAG").ok, "Q took them away again")
+	assert(#left == 0, "nothing left open")
+end)
+
+test("input: a covered button is a BUG that names what took the click", function()
+	local checks = P.judgeHands(BAG, P.handsPlan(BAG, HUD), HUD,
+		{ C(HUD, "TrialBlocker.TextButton"), K(HUD) })
+	local c = find(checks, "BAG opens its screen")
+	assert(c and not c.ok and c.severity == "BUG", "nothing opened: BUG")
+	assert(c.detail and c.detail:find("TrialBlocker", 1, true), "the detail names what the click landed on")
+	assert(find(checks, "Q closes BAG") == nil, "no Q verdict when nothing opened")
+end)
+
+test("input: Q that leaves the screen open is a FEEL, and the open buttons are handed back for cleanup", function()
+	local opened = with(HUD, { "Bag.Panel.Close" })
+	local checks, left = P.judgeHands(BAG, P.handsPlan(BAG, HUD), HUD, { C(opened, BAG.path), K(opened) })
+	local c = find(checks, "Q closes BAG")
+	assert(c and not c.ok and c.severity == "FEEL", "still open after Q: FEEL")
+	assert(#left == 1 and left[1] == "Bag.Panel.Close", "the cleanup gets the button still open")
+end)
+
+test("input: through the tray, MORE opens it and the tray's own buttons do not count as TEAM's screen", function()
+	local trayOpen = with(HUD, TRAY)
+	local team = with(HUD, { "Team.Panel.Close", "Team.Panel.List.Row1" })
+	local checks = P.judgeHands(TEAM, P.handsPlan(TEAM, HUD), HUD,
+		{ C(trayOpen, P.MORE), C(team, TEAM.path), K(HUD) })
+	assert(find(checks, "MORE opens the tray").ok, "the tray buttons appeared after MORE")
+	local c = find(checks, "TEAM opens its screen")
+	assert(c.ok and c.measured == 2, ("TEAM opened 2 buttons of its own, measured %s"):format(tostring(c.measured)))
+	assert(find(checks, "Q closes TEAM").ok, "Q shut it")
+	local onlyTray = P.judgeHands(TEAM, P.handsPlan(TEAM, HUD), HUD, { C(trayOpen, P.MORE), C(trayOpen, TEAM.path), K(HUD) })
+	assert(not find(onlyTray, "TEAM opens its screen").ok, "the tray staying open is not TEAM opening")
+end)
+
+-- live run 3 Nov: the quest card steps aside while the tray is open and comes back with BUILD's screen;
+-- it was counted as BUILD's own button, so "Q closes BUILD" failed with only the quest card "still open"
+test("input: a button that was on screen before the round is never the screen's own", function()
+	local noQuest = {}
+	for _, v in ipairs(with(HUD, TRAY)) do if v ~= "Quest.Holder.Quest.Hit" then table.insert(noQuest, v) end end
+	local build = with(HUD, { "BuildMode.CatalogBar.Header.Close" })
+	local checks, left = P.judgeHands(TEAM, P.handsPlan(TEAM, HUD), HUD,
+		{ C(noQuest, P.MORE), C(build, TEAM.path .. ".Icon"), K(HUD) })
+	local c = find(checks, "TEAM opens its screen")
+	assert(c.ok and c.measured == 1, ("only the catalog's button is new, measured %s"):format(tostring(c.measured)))
+	assert(find(checks, "Q closes TEAM").ok and #left == 0, "the quest card coming back is not the screen left open")
+end)
+
+-- review round 1: a slow routine is the harness, not the game. It must not be a BUG (the PR gate fails
+-- on a BUG main lacks), and the step must stop: a late input would land in the next round
+-- gate run 3 Nov: after the doctor's fresh save the tray hides TEAM and BUILD, and DAILY and FEEDBACK
+-- sit where they were. A click aimed at hidden TEAM opened DAILY and passed as "TEAM opens its screen"
+test("input: a click that landed on another button fails, even when a screen opened", function()
+	local trayOpen = with(HUD, TRAY)
+	local daily = with(HUD, { "Daily.Panel.Header.Close", "Daily.Panel.Body.Claim" })
+	local checks = P.judgeHands(TEAM, P.handsPlan(TEAM, HUD), HUD,
+		{ C(trayOpen, P.MORE), C(daily, "Rail.Tray.DailyButton"), K(HUD) })
+	local c = find(checks, "TEAM opens its screen")
+	assert(c and not c.ok and c.severity == "BUG", "DAILY's screen is not TEAM's")
+	assert(c.detail:find("Rail.Tray.DailyButton", 1, true), "the detail names the button it landed on")
+end)
+
+-- review round 2: the cleanup clicked Close by name seconds after it was last seen; a panel that closed
+-- itself by then leaves that spot to another button (the TEAM -> DAILY mistake again)
+test("input: a button is only clicked while it is on screen, and a click counts only on that button", function()
+	local shown = with(HUD, { "Feedback.Panel.Header.Close" })
+	assert(P.canClick("Feedback.Panel.Header.Close", shown, {}), "on screen and switched on: click it")
+	assert(not P.canClick("Feedback.Panel.Header.Close", HUD, {}), "gone from the screen: do not click its spot")
+	assert(not P.canClick("Feedback.Panel.Header.Close", shown, { "Feedback.Panel.Header.Close" }), "switched off: do not click")
+	assert(P.landedOn("Rail.Tray.TeamButton.Icon", "Rail.Tray.TeamButton"), "its icon is the button")
+	assert(not P.landedOn("Rail.Tray.TeamButtonX", "Rail.Tray.TeamButton"), "a name that only starts the same is not")
+	assert(not P.landedOn(nil, "Rail.Tray.TeamButton"), "nothing under the mouse is not the button")
+end)
+
+test("input: inputs that did not all arrive stop the step as not checked, never as a game BUG", function()
+	local checks, _, arrived = P.judgeHands(TEAM, P.handsPlan(TEAM, HUD), HUD, { C(with(HUD, TRAY)) })
+	assert(arrived == false, "1 of 3 inputs is not a round that arrived")
+	local c = find(checks, "the clicks and keys reached the game")
+	assert(c and c.ok and c.info and c.severity == nil and c.measured == "1 of 3", "an info row, 1 of 3, no severity")
+	assert(find(checks, "TEAM opens its screen") == nil, "no verdict on a click that never arrived")
+end)
+
+test("input: the last round's late Q arriving first is out of order, not this round's click", function()
+	local _, _, arrived = P.judgeHands(BAG, P.handsPlan(BAG, HUD), HUD, { K(HUD), C(HUD) })
+	assert(arrived == false, "a key where the plan has a click means the inputs are out of step")
+	local _, _, ok = P.judgeHands(BAG, P.handsPlan(BAG, HUD), HUD, { C(with(HUD, { "Bag.Panel.Close" }), BAG.path), K(HUD) })
+	assert(ok == true, "click then Q, as planned, arrived")
+end)
+
 -- 24 Oct (art pass 4, Task 1): the C3 review room is built to order, so every entry must be a room
 -- that department may really have at that level, and the camera must stand inside every room
 local TP = require("../../src/ReplicatedStorage/TowerPlan")
