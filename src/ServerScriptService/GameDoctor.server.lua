@@ -25,8 +25,13 @@
 	(`bas checkup`) judges the report, compares it with the last run and writes
 	DOCTOR.md and the Discord summary.
 
+	  input   (3 Nov, mode "full+hands" or "hands") the routine clicks each rail button for real and
+	          presses Q: does its screen open, does Q shut it, what took the click if not
+
 	RUN (Studio, Play, SERVER datamodel, Wilz only):
 	    game.ServerScriptService.GameDoctor:SetAttribute("Request", "full/" .. os.clock())
+	    -- "full+hands/<n>" adds the input step; "hands/<n>" runs setup, input, errors only.
+	    -- Both need the routine answering the `Hands` attribute (.claude/skills/game-doctor)
 	    -- poll game.ServerScriptService.GameDoctor:GetAttribute("Status") until "done"
 	    -- read game.ServerStorage.DoctorReport.Value (JSON)
 	It changes the test save (HQ level, staff): take the snapshot first (it refuses
@@ -44,6 +49,7 @@ local SSS = game:GetService("ServerScriptService")
 local WH = require(SSS:WaitForChild("WorldHealth"))
 local HQF = require(SSS:WaitForChild("HQFloors"))
 local WalkLanes = require(ReplicatedStorage:WaitForChild("WalkLanes"))   -- 20 Oct: the pedestrians' lanes
+local Probes = require(ReplicatedStorage:WaitForChild("DoctorProbes"))   -- 3 Nov: the input step's plan and rules
 
 local LEVELS = { 5, 9, 13, 18, 43, 100 }   -- v9 (14 Oct): the tower is checked at its top too (spec §8.2)
 local TIERS = { "skilled", "star", "genius" }
@@ -103,11 +109,12 @@ local function step(name, fn)
 	table.insert(report.steps, current)
 end
 
--- ask the client to measure something; nil after `timeout` seconds
-local function probe(player, name, args, timeout)
+-- ask the client to measure something; nil after `timeout` seconds. `after` runs alongside, once asked
+local function probe(player, name, args, timeout, after)
 	local nonce = HttpService:GenerateGUID(false)
 	pending[nonce] = false
 	player:SetAttribute("DoctorProbe", HttpService:JSONEncode({ name = name, nonce = nonce, args = args or {} }))
+	if after then task.spawn(after) end
 	local t0 = os.clock()
 	while pending[nonce] == false and os.clock() - t0 < (timeout or 30) do task.wait(0.1) end
 	local res = pending[nonce]
@@ -224,11 +231,58 @@ local function walkerSweep()
 	return hits
 end
 
+--[[ 3 Nov: real input. A player clicks; every other step calls the game's code. Here the game-doctor
+	routine clicks each rail button by name and presses Q, through Studio's player-input tools (the real
+	input path: in the trial a cover on top of PHONE took the click). The doctor posts what it wants on
+	its `Hands` attribute ({ nonce, label, actions = { { click = path } | { key = "Q" } } }); the routine
+	does it and sets the player's DoctorHandsDone = nonce; the `hands` probe saw what each input did.
+	Only with a Request mode containing "hands" (the routine is there to answer). ]]
+local HANDS_WAIT = 45   -- s the routine gets to perform one round
+
+local function hands(player, plan, label)
+	local nonce = HttpService:GenerateGUID(false)
+	local res = probe(player, "hands", { n = #plan, nonce = nonce, timeout = HANDS_WAIT }, HANDS_WAIT + 5, function()
+		task.wait(1)   -- the client is listening before the routine acts
+		script:SetAttribute("Hands", HttpService:JSONEncode({ nonce = nonce, label = label, actions = plan }))
+	end)
+	script:SetAttribute("Hands", nil)
+	return res
+end
+
+local function stepInput(player)
+	step("input", function()
+		hands(player, { { key = "Q" } }, "prep")   -- shut whatever a popup left open (the daily reward)
+		for _, target in ipairs(Probes.HANDS) do
+			local now = probe(player, "buttons", {}, 10)
+			local sig = now and now.sig or {}
+			if not (table.find(sig, target.path) or (target.tray and table.find(sig, Probes.MORE))) then
+				info(target.label .. " not on screen", "skipped", target.path)
+				continue
+			end
+			local plan = Probes.handsPlan(target, sig)
+			local res = hands(player, plan, target.label)
+			if not res or #res.events == 0 then
+				check("the routine's hands answered", false, "BUG", res and "0 inputs" or "no answer", "inputs",
+					"no clicks arrived for " .. target.label .. "; the rest of the step was skipped (Request mode without the routine?)")
+				return
+			end
+			local checks, left = Probes.judgeHands(target, plan, res.before, res.events)
+			for _, c in ipairs(checks) do table.insert(current.checks, c) end
+			for _, v in ipairs(left) do
+				if v:match("Close$") then hands(player, { { click = v } }, target.label .. " close") break end   -- Q did not shut it
+			end
+		end
+	end)
+end
+
 -- ---------------------------------------------------------------- the journey
-local function run()
-	report = { version = 1, startedAt = os.time(), placeId = game.PlaceId, steps = {}, notChecked = {
+local stepErrors   -- defined below run (it reads what the run collected)
+local function run(mode)
+	local withHands = mode:find("hands", 1, true) ~= nil
+	report = { version = 1, mode = mode, startedAt = os.time(), placeId = game.PlaceId, steps = {}, notChecked = {
 		"cars (driving, parking, getting out at speed)", "phones and small screens", "two players (poaching, shared streets)",
 		"how anything LOOKS (no screenshots yet): the doctor measures, it does not see",
+		withHands and "touch input and held buttons (HOLD TO CODE)" or "real clicks and keys (Request mode without \"hands\")",
 	} }
 	collecting, serverErrors, clientErrors = true, {}, {}
 	local player = Players:GetPlayers()[1]
@@ -251,6 +305,11 @@ local function run()
 		report.start = { hqLevel = st.hqLevel, staff = st.staff, plot = st.plot }
 	end)
 	if report.steps[1].checks[1] and not report.steps[1].checks[1].ok then report.aborted = "no snapshot" return end
+	if mode == "hands" then   -- the input step alone (about a minute)
+		stepInput(player)
+		stepErrors()
+		return
+	end
 
 	step("world", function()
 		local h = sv:Invoke("scenario", player, "health")
@@ -810,6 +869,11 @@ local function run()
 		check("doctor: a late probe's client errors reach the report", kept, "BUG", kept and "kept" or "lost", "kept")
 	end)
 
+	if withHands then stepInput(player) end
+	stepErrors()
+end
+
+stepErrors = function()   -- the last step of every run: every script error the run printed
 	step("errors", function()
 		task.wait(1)
 		local seen, uniq = {}, {}
@@ -833,8 +897,9 @@ script:GetAttributeChangedSignal("Request"):Connect(function()
 	box.Name = "DoctorReport"
 	box.Value = ""
 	box.Parent = ServerStorage
+	local mode = tostring(script:GetAttribute("Request")):match("^([^/]*)") or "full"   -- full, full+hands, hands
 	task.spawn(function()
-		local ok, err = pcall(run)
+		local ok, err = pcall(run, mode)
 		if not ok then report = report or { steps = {} } report.crashed = tostring(err) end
 		report.finishedAt = os.time()
 		box.Value = HttpService:JSONEncode(report)

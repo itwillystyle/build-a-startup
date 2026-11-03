@@ -41,6 +41,84 @@ function Probes.isStutter(prevStep, step)
 	return math.abs(step - prevStep) > Probes.STUTTER
 end
 
+--[[ 3 Nov: the `input` step. The game cannot click for itself, so the game-doctor routine does it
+	with Studio's player-input tools (aimed at a button by name, through the real input path: a
+	trial the same night showed a cover on top of PHONE took the click and the phone stayed shut).
+	Each round: open the tray if the button lives there, click the button, press Q. A "sig" is the
+	list of visible buttons (PlayerGui paths) the client saw after one input. ]]
+Probes.MORE = "Rail.Column.MoreButton"
+Probes.HANDS_SETTLE = 0.6     -- s after an input before its screen is read (the menus open in 0.2-0.3 s)
+Probes.HANDS = {              -- the screens a player opens from the rail; the tray ones last, BUILD last of all
+	{ label = "BAG", path = "Rail.Column.BagButton" },
+	{ label = "PHONE", path = "Rail.Column.PhoneButton" },
+	{ label = "RANKS", path = "RanksCorner.RanksButton" },
+	{ label = "TEAM", path = "Rail.Tray.TeamButton", tray = true },
+	{ label = "INDEX", path = "Rail.Tray.IndexButton", tray = true },
+	{ label = "DAILY", path = "Rail.Tray.DailyButton", tray = true },
+	{ label = "FEEDBACK", path = "Rail.Tray.FeedbackButton", tray = true },
+	{ label = "BUILD", path = "Rail.Tray.BuildToggle", tray = true },
+}
+
+local function has(list, name)
+	for _, v in ipairs(list) do if v == name then return true end end
+	return false
+end
+
+-- buttons in `after` that were not in `before`, leaving out the rail's own (the tray opening is not a screen)
+local function own(before, after)
+	local out = {}
+	for _, v in ipairs(after) do
+		if not has(before, v) and v:sub(1, 5) ~= "Rail." then table.insert(out, v) end
+	end
+	return out
+end
+
+local function trayOpen(sig)
+	for _, v in ipairs(sig) do if v:sub(1, 10) == "Rail.Tray." then return true end end
+	return false
+end
+
+-- the inputs for one button: MORE first only when the tray is shut (MORE again would shut it)
+function Probes.handsPlan(target, sig)
+	local plan = {}
+	if target.tray and not trayOpen(sig) then table.insert(plan, { click = Probes.MORE }) end
+	table.insert(plan, { click = target.path })
+	table.insert(plan, { key = "Q" })
+	return plan
+end
+
+--[[ -> checks ({ name, ok, severity, measured, expected, detail }), and the buttons the round left open
+	(for the cleanup click). events[i] = { sig, top } for plan[i]; `top` is what a click landed on. ]]
+function Probes.judgeHands(target, plan, before, events)
+	local checks, left = {}, {}
+	local function check(name, ok, severity, measured, expected, detail)
+		table.insert(checks, { name = name, ok = ok, severity = (not ok) and severity or nil,
+			measured = measured, expected = expected, detail = (not ok) and detail or nil })
+	end
+	local arrived = #events >= #plan
+	check("the clicks and keys reached the game", arrived, "BUG", ("%d of %d"):format(#events, #plan), "all",
+		target.label .. ": the game saw fewer inputs than the routine sent")
+	if not arrived then return checks, events[#events] and own(before, events[#events].sig) or left end
+	local i, prev = 1, before
+	if plan[1].click == Probes.MORE then
+		local tray = trayOpen(events[1].sig) and not trayOpen(before)
+		check("MORE opens the tray", tray, "BUG", tray and "opened" or "shut", "opened",
+			"the click landed on " .. tostring(events[1].top or "nothing"))
+		i, prev = 2, events[1].sig
+	end
+	local opened = {}   -- new since the input before, and not on screen when the round began (the quest card
+	for _, v in ipairs(own(prev, events[i].sig)) do   -- steps aside while the tray is open, then comes back)
+		if not has(before, v) then table.insert(opened, v) end
+	end
+	check(target.label .. " opens its screen", #opened > 0, "BUG", #opened, ">= 1",
+		"no new buttons; the click landed on " .. tostring(events[i].top or "nothing"))
+	if #opened > 0 then
+		for _, v in ipairs(opened) do if has(events[i + 1].sig, v) then table.insert(left, v) end end
+		check("Q closes " .. target.label, #left == 0, "FEEL", #left, 0, "still open: " .. table.concat(left, ", ", 1, math.min(#left, 3)))
+	end
+	return checks, left
+end
+
 -- ---------------------------------------------------------------- runtime (client)
 local function standIns()
 	local list = {}
@@ -973,6 +1051,60 @@ function Probes.motion()
 	if not ok2 then add("the motion-on half ran", false, tostring(err2), "no error") end
 	if not ok3 then add("the background-transparency part ran", false, tostring(err3), "no error") end
 	return { checks = checks }
+end
+
+-- every button a player could see right now: visible, and every frame and screen above it shown
+local function visibleButtons(pg)
+	local out = {}
+	for _, d in ipairs(pg:GetDescendants()) do
+		if d:IsA("GuiButton") then
+			local vis, p = d.Visible, d.Parent
+			while vis and p and p ~= pg do
+				if (p:IsA("GuiObject") and not p.Visible) or (p:IsA("LayerCollector") and not p.Enabled) then vis = false end
+				p = p.Parent
+			end
+			if vis then table.insert(out, (d:GetFullName():gsub("^.-PlayerGui%.", ""))) end
+		end
+	end
+	table.sort(out)
+	return out
+end
+
+function Probes.buttons()
+	return { sig = visibleButtons(game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")) }
+end
+
+--[[ 3 Nov, the `input` step: listen while the routine clicks and presses keys for real, and after
+	each input read the visible buttons (HANDS_SETTLE later). Ends after args.n inputs, when the
+	routine sets the player attribute DoctorHandsDone = args.nonce, or after args.timeout s. ]]
+function Probes.hands(args)
+	local UIS = game:GetService("UserInputService")
+	local GuiService = game:GetService("GuiService")
+	local player = game:GetService("Players").LocalPlayer
+	local pg = player:WaitForChild("PlayerGui")
+	local before = visibleButtons(pg)
+	local events = {}
+	local conn = UIS.InputBegan:Connect(function(input)
+		local key = input.UserInputType == Enum.UserInputType.Keyboard
+		if not key and input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+		local ev = { kind = key and "key" or "click", key = key and input.KeyCode.Name or nil }
+		if not key then
+			local at = UIS:GetMouseLocation() - GuiService:GetGuiInset()
+			for _, o in ipairs(pg:GetGuiObjectsAtPosition(at.X, at.Y)) do
+				if o:IsA("GuiButton") or o.Active then ev.top = (o:GetFullName():gsub("^.-PlayerGui%.", "")) break end
+			end
+		end
+		table.insert(events, ev)
+		task.delay(Probes.HANDS_SETTLE, function() ev.sig = visibleButtons(pg) end)
+	end)
+	local t0 = os.clock()
+	repeat task.wait(0.1)
+	until #events >= args.n or player:GetAttribute("DoctorHandsDone") == args.nonce or os.clock() - t0 > (args.timeout or 45)
+	task.wait(Probes.HANDS_SETTLE + 0.2)
+	conn:Disconnect()
+	local now = visibleButtons(pg)
+	for _, ev in ipairs(events) do ev.sig = ev.sig or now end
+	return { before = before, events = events }
 end
 
 return Probes
