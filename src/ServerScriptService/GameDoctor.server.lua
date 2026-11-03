@@ -237,7 +237,7 @@ end
 	its `Hands` attribute ({ nonce, label, actions = { { click = path } | { key = "Q" } } }); the routine
 	does it and sets the player's DoctorHandsDone = nonce; the `hands` probe saw what each input did.
 	Only with a Request mode containing "hands" (the routine is there to answer). ]]
-local HANDS_WAIT = 45   -- s the routine gets to perform one round
+local HANDS_WAIT = 90   -- s the routine gets to perform one round (a few model turns, each a few seconds)
 
 local function hands(player, plan, label)
 	local nonce = HttpService:GenerateGUID(false)
@@ -251,7 +251,16 @@ end
 
 local function stepInput(player)
 	step("input", function()
-		hands(player, { { key = "Q" } }, "prep")   -- shut whatever a popup left open (the daily reward)
+		-- the routine is the harness, not the game: when it does not answer, the rest is not checked (never a BUG)
+		local function stop(why)
+			info("input step stopped", why)
+			table.insert(report.notChecked, "real clicks and keys: " .. why)
+		end
+		local prep = hands(player, { { key = "Q" } }, "prep")   -- shut whatever a popup left open (the daily reward)
+		if not (prep and prep.events and #prep.events > 0) then
+			stop("the routine's hands did not answer (a Request mode with \"hands\" needs the game-doctor routine)")
+			return
+		end
 		for _, target in ipairs(Probes.HANDS) do
 			local now = probe(player, "buttons", {}, 10)
 			local sig = now and now.sig or {}
@@ -261,13 +270,16 @@ local function stepInput(player)
 			end
 			local plan = Probes.handsPlan(target, sig)
 			local res = hands(player, plan, target.label)
-			if not res or #res.events == 0 then
-				check("the routine's hands answered", false, "BUG", res and "0 inputs" or "no answer", "inputs",
-					"no clicks arrived for " .. target.label .. "; the rest of the step was skipped (Request mode without the routine?)")
+			if not (res and res.events) then
+				stop(target.label .. ": " .. (res and tostring(res.error) or "no answer from the hands probe"))
 				return
 			end
-			local checks, left = Probes.judgeHands(target, plan, res.before, res.events)
+			local checks, left, arrived = Probes.judgeHands(target, plan, res.before, res.events)
 			for _, c in ipairs(checks) do table.insert(current.checks, c) end
+			if not arrived then
+				stop(target.label .. " and after: the inputs did not all arrive in order")
+				return
+			end
 			for _, v in ipairs(left) do
 				if v:match("Close$") then hands(player, { { click = v } }, target.label .. " close") break end   -- Q did not shut it
 			end

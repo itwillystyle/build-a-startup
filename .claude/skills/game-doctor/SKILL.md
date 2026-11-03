@@ -45,7 +45,8 @@ account's save. The doctor changes Wilz's save; it is ALWAYS restored at the end
    A failed action is not retried. Then, Server datamodel, at the top of the next poll:
    `game.Players:GetPlayers()[1]:SetAttribute("DoctorHandsDone", "<nonce>")`.
    Never click anything the doctor did not ask for (Claim, Buy, a world click in build mode).
-   About 9 rounds; each waits 45 s for you, so answer promptly.
+   About 9 rounds; each waits 90 s for you. If you miss one, the doctor stops the input step and
+   lists it under "not checked" (not a BUG): say so in the reply.
 5. Read `game.ServerStorage.DoctorReport.Value` and Write it, exactly, to
    `C:\Users\lukex\Downloads\silicon-startup\doctor\report-<YYYY-MM-DD>.json`.
 6. `start_stop_play` false. Edit datamodel, after `task.wait(2)`:

@@ -87,18 +87,28 @@ function Probes.handsPlan(target, sig)
 	return plan
 end
 
---[[ -> checks ({ name, ok, severity, measured, expected, detail }), and the buttons the round left open
-	(for the cleanup click). events[i] = { sig, top } for plan[i]; `top` is what a click landed on. ]]
+--[[ -> checks ({ name, ok, severity, measured, expected, detail }), the buttons the round left open
+	(for the cleanup click), and whether the inputs arrived as planned. events[i] = { kind, key, sig, top }
+	for plan[i]; `top` is what a click landed on. Inputs missing or out of order (a late Q from the last
+	round) are the routine's, not the game's: an info row and arrived = false, and the step stops. ]]
 function Probes.judgeHands(target, plan, before, events)
 	local checks, left = {}, {}
 	local function check(name, ok, severity, measured, expected, detail)
 		table.insert(checks, { name = name, ok = ok, severity = (not ok) and severity or nil,
 			measured = measured, expected = expected, detail = (not ok) and detail or nil })
 	end
-	local arrived = #events >= #plan
-	check("the clicks and keys reached the game", arrived, "BUG", ("%d of %d"):format(#events, #plan), "all",
-		target.label .. ": the game saw fewer inputs than the routine sent")
-	if not arrived then return checks, events[#events] and own(before, events[#events].sig) or left end
+	local arrived = #events == #plan
+	for i, want in ipairs(plan) do
+		local ev = events[i]
+		local kind: string = want.click and "click" or "key"
+		if ev and (ev.kind ~= kind or (want.key ~= nil and ev.key ~= want.key)) then arrived = false end
+	end
+	if not arrived then
+		table.insert(checks, { name = "the clicks and keys reached the game", ok = true, info = true,
+			measured = ("%d of %d"):format(#events, #plan),
+			detail = target.label .. ": missing or out of order, so the rest of the input step was not checked" })
+		return checks, left, false
+	end
 	local i, prev = 1, before
 	if plan[1].click == Probes.MORE then
 		local tray = trayOpen(events[1].sig) and not trayOpen(before)
@@ -116,7 +126,7 @@ function Probes.judgeHands(target, plan, before, events)
 		for _, v in ipairs(opened) do if has(events[i + 1].sig, v) then table.insert(left, v) end end
 		check("Q closes " .. target.label, #left == 0, "FEEL", #left, 0, "still open: " .. table.concat(left, ", ", 1, math.min(#left, 3)))
 	end
-	return checks, left
+	return checks, left, true
 end
 
 -- ---------------------------------------------------------------- runtime (client)
