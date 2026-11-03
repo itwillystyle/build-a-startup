@@ -94,7 +94,7 @@ end)
 
 test("input: a button that opens its screen and Q that shuts it pass", function()
 	local opened = with(HUD, { "Bag.Panel.Close", "Bag.Panel.Grid.Item_coffee" })
-	local checks, left = P.judgeHands(BAG, P.handsPlan(BAG, HUD), HUD, { C(opened), K(HUD) })
+	local checks, left = P.judgeHands(BAG, P.handsPlan(BAG, HUD), HUD, { C(opened, BAG.path), K(HUD) })
 	assert(find(checks, "BAG opens its screen").ok, "BAG opened two buttons")
 	assert(find(checks, "Q closes BAG").ok, "Q took them away again")
 	assert(#left == 0, "nothing left open")
@@ -111,7 +111,7 @@ end)
 
 test("input: Q that leaves the screen open is a FEEL, and the open buttons are handed back for cleanup", function()
 	local opened = with(HUD, { "Bag.Panel.Close" })
-	local checks, left = P.judgeHands(BAG, P.handsPlan(BAG, HUD), HUD, { C(opened), K(opened) })
+	local checks, left = P.judgeHands(BAG, P.handsPlan(BAG, HUD), HUD, { C(opened, BAG.path), K(opened) })
 	local c = find(checks, "Q closes BAG")
 	assert(c and not c.ok and c.severity == "FEEL", "still open after Q: FEEL")
 	assert(#left == 1 and left[1] == "Bag.Panel.Close", "the cleanup gets the button still open")
@@ -121,12 +121,12 @@ test("input: through the tray, MORE opens it and the tray's own buttons do not c
 	local trayOpen = with(HUD, TRAY)
 	local team = with(HUD, { "Team.Panel.Close", "Team.Panel.List.Row1" })
 	local checks = P.judgeHands(TEAM, P.handsPlan(TEAM, HUD), HUD,
-		{ C(trayOpen), C(team), K(HUD) })
+		{ C(trayOpen, P.MORE), C(team, TEAM.path), K(HUD) })
 	assert(find(checks, "MORE opens the tray").ok, "the tray buttons appeared after MORE")
 	local c = find(checks, "TEAM opens its screen")
 	assert(c.ok and c.measured == 2, ("TEAM opened 2 buttons of its own, measured %s"):format(tostring(c.measured)))
 	assert(find(checks, "Q closes TEAM").ok, "Q shut it")
-	local onlyTray = P.judgeHands(TEAM, P.handsPlan(TEAM, HUD), HUD, { C(trayOpen), C(trayOpen), K(HUD) })
+	local onlyTray = P.judgeHands(TEAM, P.handsPlan(TEAM, HUD), HUD, { C(trayOpen, P.MORE), C(trayOpen, TEAM.path), K(HUD) })
 	assert(not find(onlyTray, "TEAM opens its screen").ok, "the tray staying open is not TEAM opening")
 end)
 
@@ -137,7 +137,7 @@ test("input: a button that was on screen before the round is never the screen's 
 	for _, v in ipairs(with(HUD, TRAY)) do if v ~= "Quest.Holder.Quest.Hit" then table.insert(noQuest, v) end end
 	local build = with(HUD, { "BuildMode.CatalogBar.Header.Close" })
 	local checks, left = P.judgeHands(TEAM, P.handsPlan(TEAM, HUD), HUD,
-		{ C(noQuest), C(build), K(HUD) })
+		{ C(noQuest, P.MORE), C(build, TEAM.path .. ".Icon"), K(HUD) })
 	local c = find(checks, "TEAM opens its screen")
 	assert(c.ok and c.measured == 1, ("only the catalog's button is new, measured %s"):format(tostring(c.measured)))
 	assert(find(checks, "Q closes TEAM").ok and #left == 0, "the quest card coming back is not the screen left open")
@@ -145,6 +145,18 @@ end)
 
 -- review round 1: a slow routine is the harness, not the game. It must not be a BUG (the PR gate fails
 -- on a BUG main lacks), and the step must stop: a late input would land in the next round
+-- gate run 3 Nov: after the doctor's fresh save the tray hides TEAM and BUILD, and DAILY and FEEDBACK
+-- sit where they were. A click aimed at hidden TEAM opened DAILY and passed as "TEAM opens its screen"
+test("input: a click that landed on another button fails, even when a screen opened", function()
+	local trayOpen = with(HUD, TRAY)
+	local daily = with(HUD, { "Daily.Panel.Header.Close", "Daily.Panel.Body.Claim" })
+	local checks = P.judgeHands(TEAM, P.handsPlan(TEAM, HUD), HUD,
+		{ C(trayOpen, P.MORE), C(daily, "Rail.Tray.DailyButton"), K(HUD) })
+	local c = find(checks, "TEAM opens its screen")
+	assert(c and not c.ok and c.severity == "BUG", "DAILY's screen is not TEAM's")
+	assert(c.detail:find("Rail.Tray.DailyButton", 1, true), "the detail names the button it landed on")
+end)
+
 test("input: inputs that did not all arrive stop the step as not checked, never as a game BUG", function()
 	local checks, _, arrived = P.judgeHands(TEAM, P.handsPlan(TEAM, HUD), HUD, { C(with(HUD, TRAY)) })
 	assert(arrived == false, "1 of 3 inputs is not a round that arrived")
@@ -156,7 +168,7 @@ end)
 test("input: the last round's late Q arriving first is out of order, not this round's click", function()
 	local _, _, arrived = P.judgeHands(BAG, P.handsPlan(BAG, HUD), HUD, { K(HUD), C(HUD) })
 	assert(arrived == false, "a key where the plan has a click means the inputs are out of step")
-	local _, _, ok = P.judgeHands(BAG, P.handsPlan(BAG, HUD), HUD, { C(with(HUD, { "Bag.Panel.Close" })), K(HUD) })
+	local _, _, ok = P.judgeHands(BAG, P.handsPlan(BAG, HUD), HUD, { C(with(HUD, { "Bag.Panel.Close" }), BAG.path), K(HUD) })
 	assert(ok == true, "click then Q, as planned, arrived")
 end)
 

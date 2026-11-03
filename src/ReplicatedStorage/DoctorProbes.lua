@@ -120,10 +120,13 @@ function Probes.judgeHands(target, plan, before, events)
 	for _, v in ipairs(own(prev, events[i].sig)) do   -- steps aside while the tray is open, then comes back)
 		if not has(before, v) then table.insert(opened, v) end
 	end
-	check(target.label .. " opens its screen", #opened > 0, "BUG", #opened, ">= 1",
-		"no new buttons; the click landed on " .. tostring(events[i].top or "nothing"))
-	if #opened > 0 then
-		for _, v in ipairs(opened) do if has(events[i + 1].sig, v) then table.insert(left, v) end end
+	-- the click must land on the button itself (or its icon): one at the same spot opens a different screen
+	local top = events[i].top
+	local landed = top ~= nil and (top == target.path or top:sub(1, #target.path + 1) == target.path .. ".")
+	check(target.label .. " opens its screen", landed and #opened > 0, "BUG", #opened, ">= 1",
+		(landed and "no new buttons; " or "") .. "the click landed on " .. tostring(top or "nothing"))
+	for _, v in ipairs(opened) do if has(events[i + 1].sig, v) then table.insert(left, v) end end   -- still shown after Q
+	if landed and #opened > 0 then   -- (a screen another button opened is not this one's to judge; the cleanup shuts it)
 		check("Q closes " .. target.label, #left == 0, "FEEL", #left, 0, "still open: " .. table.concat(left, ", ", 1, math.min(#left, 3)))
 	end
 	return checks, left, true
@@ -1080,8 +1083,18 @@ local function visibleButtons(pg)
 	return out
 end
 
-function Probes.buttons()
-	return { sig = visibleButtons(game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")) }
+-- + `off`: the asked paths whose own Visible is false. A tray button is hidden while the tray is shut,
+-- so the sig cannot tell "shut tray" from "switched off" (after a fresh save TEAM and BUILD are off,
+-- and a click aimed at them lands on DAILY and FEEDBACK, which sit in their place)
+function Probes.buttons(args)
+	local pg = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+	local off = {}
+	for _, path in ipairs(args and args.paths or {}) do
+		local b = pg
+		for part in path:gmatch("[^%.]+") do b = b and b:FindFirstChild(part) end
+		if not (b and b:IsA("GuiObject") and b.Visible) then table.insert(off, path) end
+	end
+	return { sig = visibleButtons(pg), off = off }
 end
 
 --[[ 3 Nov, the `input` step: listen while the routine clicks and presses keys for real, and after

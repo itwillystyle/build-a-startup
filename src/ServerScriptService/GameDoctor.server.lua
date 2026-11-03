@@ -262,9 +262,10 @@ local function stepInput(player)
 			return
 		end
 		for _, target in ipairs(Probes.HANDS) do
-			local now = probe(player, "buttons", {}, 10)
+			local now = probe(player, "buttons", { paths = { target.path } }, 10)
 			local sig = now and now.sig or {}
-			if not (table.find(sig, target.path) or (target.tray and table.find(sig, Probes.MORE))) then
+			local off = now and now.off and table.find(now.off, target.path)   -- switched off, not just in a shut tray
+			if off or not (table.find(sig, target.path) or (target.tray and table.find(sig, Probes.MORE))) then
 				info(target.label .. " not on screen", "skipped", target.path)
 				continue
 			end
