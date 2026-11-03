@@ -281,8 +281,20 @@ local function stepInput(player)
 				stop(target.label .. " and after: the inputs did not all arrive in order")
 				return
 			end
-			for _, v in ipairs(left) do
-				if v:match("Close$") then hands(player, { { click = v } }, target.label .. " close") break end   -- Q did not shut it
+			-- Q did not shut it: click its Close, if Close is still on screen right now (review round 2: seconds
+			-- have passed since the round read it; a panel that shut itself leaves that spot to another button)
+			local close
+			for _, v in ipairs(left) do if v:match("Close$") then close = v break end end
+			if close then
+				local now2 = probe(player, "buttons", { paths = { close } }, 10)
+				if now2 and Probes.canClick(close, now2.sig or {}, now2.off) then
+					local cleanup = hands(player, { { click = close } }, target.label .. " close")
+					local ev = cleanup and cleanup.events and cleanup.events[1]
+					if not (ev and #cleanup.events == 1 and Probes.landedOn(ev.top, close)) then
+						stop(target.label .. " close: the cleanup click did not land on " .. close .. " (landed on " .. tostring(ev and ev.top) .. ")")
+						return
+					end
+				end
 			end
 		end
 	end)

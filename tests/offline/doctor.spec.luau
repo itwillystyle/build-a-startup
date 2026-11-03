@@ -157,6 +157,18 @@ test("input: a click that landed on another button fails, even when a screen ope
 	assert(c.detail:find("Rail.Tray.DailyButton", 1, true), "the detail names the button it landed on")
 end)
 
+-- review round 2: the cleanup clicked Close by name seconds after it was last seen; a panel that closed
+-- itself by then leaves that spot to another button (the TEAM -> DAILY mistake again)
+test("input: a button is only clicked while it is on screen, and a click counts only on that button", function()
+	local shown = with(HUD, { "Feedback.Panel.Header.Close" })
+	assert(P.canClick("Feedback.Panel.Header.Close", shown, {}), "on screen and switched on: click it")
+	assert(not P.canClick("Feedback.Panel.Header.Close", HUD, {}), "gone from the screen: do not click its spot")
+	assert(not P.canClick("Feedback.Panel.Header.Close", shown, { "Feedback.Panel.Header.Close" }), "switched off: do not click")
+	assert(P.landedOn("Rail.Tray.TeamButton.Icon", "Rail.Tray.TeamButton"), "its icon is the button")
+	assert(not P.landedOn("Rail.Tray.TeamButtonX", "Rail.Tray.TeamButton"), "a name that only starts the same is not")
+	assert(not P.landedOn(nil, "Rail.Tray.TeamButton"), "nothing under the mouse is not the button")
+end)
+
 test("input: inputs that did not all arrive stop the step as not checked, never as a game BUG", function()
 	local checks, _, arrived = P.judgeHands(TEAM, P.handsPlan(TEAM, HUD), HUD, { C(with(HUD, TRAY)) })
 	assert(arrived == false, "1 of 3 inputs is not a round that arrived")

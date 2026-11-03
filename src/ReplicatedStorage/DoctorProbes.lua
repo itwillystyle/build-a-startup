@@ -78,6 +78,16 @@ local function trayOpen(sig)
 	return false
 end
 
+-- a click aimed by name lands on whatever sits at that spot, so only click a button that is on screen
+-- and switched on (`off` from the buttons probe), and only count a click that landed on it (or its icon)
+function Probes.canClick(path, sig, off)
+	return has(sig, path) and not has(off or {}, path)
+end
+
+function Probes.landedOn(top, path)
+	return top ~= nil and (top == path or top:sub(1, #path + 1) == path .. ".")
+end
+
 -- the inputs for one button: MORE first only when the tray is shut (MORE again would shut it)
 function Probes.handsPlan(target, sig)
 	local plan = {}
@@ -122,7 +132,7 @@ function Probes.judgeHands(target, plan, before, events)
 	end
 	-- the click must land on the button itself (or its icon): one at the same spot opens a different screen
 	local top = events[i].top
-	local landed = top ~= nil and (top == target.path or top:sub(1, #target.path + 1) == target.path .. ".")
+	local landed = Probes.landedOn(top, target.path)
 	check(target.label .. " opens its screen", landed and #opened > 0, "BUG", #opened, ">= 1",
 		(landed and "no new buttons; " or "") .. "the click landed on " .. tostring(top or "nothing"))
 	for _, v in ipairs(opened) do if has(events[i + 1].sig, v) then table.insert(left, v) end end   -- still shown after Q
