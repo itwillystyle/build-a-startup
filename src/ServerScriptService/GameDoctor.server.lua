@@ -27,6 +27,7 @@
 
 	  input   (3 Nov, mode "full+hands" or "hands") the routine clicks each rail button for real and
 	          presses Q: does its screen open, does Q shut it, what took the click if not
+	          (TELL US opens typing: there Q must go into its box and the panel stay open)
 
 	RUN (Studio, Play, SERVER datamodel, Wilz only):
 	    game.ServerScriptService.GameDoctor:SetAttribute("Request", "full/" .. os.clock())

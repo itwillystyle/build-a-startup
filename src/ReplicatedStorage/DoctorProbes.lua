@@ -55,7 +55,7 @@ Probes.HANDS = {              -- the screens a player opens from the rail; the t
 	{ label = "TEAM", path = "Rail.Tray.TeamButton", tray = true },
 	{ label = "INDEX", path = "Rail.Tray.IndexButton", tray = true },
 	{ label = "DAILY", path = "Rail.Tray.DailyButton", tray = true },
-	{ label = "FEEDBACK", path = "Rail.Tray.FeedbackButton", tray = true },
+	{ label = "FEEDBACK", path = "Rail.Tray.FeedbackButton", tray = true, types = true },   -- opens with the cursor in its box
 	{ label = "BUILD", path = "Rail.Tray.BuildToggle", tray = true },
 }
 
@@ -99,7 +99,7 @@ end
 
 --[[ -> checks ({ name, ok, severity, measured, expected, detail }), the buttons the round left open
 	(for the cleanup click), and whether the inputs arrived as planned. events[i] = { kind, key, sig, top }
-	for plan[i]; `top` is what a click landed on. Inputs missing or out of order (a late Q from the last
+	for plan[i]; `top` is what a click landed on, `typing` whether a key went to a text box. Inputs missing or out of order (a late Q from the last
 	round) are the routine's, not the game's: an info row and arrived = false, and the step stops. ]]
 function Probes.judgeHands(target, plan, before, events)
 	local checks, left = {}, {}
@@ -136,7 +136,12 @@ function Probes.judgeHands(target, plan, before, events)
 	check(target.label .. " opens its screen", landed and #opened > 0, "BUG", #opened, ">= 1",
 		(landed and "no new buttons; " or "") .. "the click landed on " .. tostring(top or "nothing"))
 	for _, v in ipairs(opened) do if has(events[i + 1].sig, v) then table.insert(left, v) end end   -- still shown after Q
-	if landed and #opened > 0 then   -- (a screen another button opened is not this one's to judge; the cleanup shuts it)
+	if landed and #opened > 0 and target.types then   -- a typing screen: Q is a letter in its box (Luke, 3 Nov)
+		local typed = events[i + 1].typing == true
+		check("Q types into " .. target.label .. "'s box", typed and #left > 0, "FEEL",
+			typed and "typed" or "cursor elsewhere", "typed, panel open",
+			#left == 0 and "Q shut the panel while the cursor was in its box" or "the cursor was not in the box and Q did not close it")
+	elseif landed and #opened > 0 then   -- (a screen another button opened is not this one's to judge; the cleanup shuts it)
 		check("Q closes " .. target.label, #left == 0, "FEEL", #left, 0, "still open: " .. table.concat(left, ", ", 1, math.min(#left, 3)))
 	end
 	return checks, left, true
@@ -1120,7 +1125,8 @@ function Probes.hands(args)
 	local conn = UIS.InputBegan:Connect(function(input)
 		local key = input.UserInputType == Enum.UserInputType.Keyboard
 		if not key and input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
-		local ev = { kind = key and "key" or "click", key = key and input.KeyCode.Name or nil }
+		local ev = { kind = key and "key" or "click", key = key and input.KeyCode.Name or nil,
+			typing = key and UIS:GetFocusedTextBox() ~= nil or nil }   -- the key went to a text box
 		if not key then
 			local at = UIS:GetMouseLocation() - GuiService:GetGuiInset()
 			for _, o in ipairs(pg:GetGuiObjectsAtPosition(at.X, at.Y)) do
