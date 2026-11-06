@@ -49,13 +49,26 @@ account's save. The doctor changes Wilz's save; it is ALWAYS restored at the end
    lists it under "not checked" (not a BUG): say so in the reply.
 5. Read `game.ServerStorage.DoctorReport.Value` and Write it, exactly, to
    `C:\Users\lukex\Downloads\silicon-startup\doctor\report-<YYYY-MM-DD>.json`.
-6. `start_stop_play` false. Edit datamodel, after `task.wait(2)`:
-   `return require(game.ServerScriptService.DevScenarios:Clone()).restore(1688749216)`
-   It must return ok. If not, say so first, loudly.
+   Studio 0.746 (6 Nov): code run from the Studio tools can no longer reach the DataStore from
+   the EDIT datamodel ("API Services rejected request ... Access forbidden") or post to
+   127.0.0.1. The Play SERVER can still do both stores, so steps 6 and 8 run there, before the stop.
+6. Still in Play, Server datamodel: live errors first (step 8 reads this), then put the save back:
+
+       local errs = require(game.ServerScriptService.ErrorLog:Clone()).read(2)
+       local p = game.Players:GetPlayers()[1]
+       if not p or p.UserId ~= 1688749216 then return "not Wilz: no restore" end
+       p:Kick("doctor done")   -- its save-on-leave writes now, not at the stop
+       local t0 = os.clock()
+       repeat task.wait(0.5) until #game.Players:GetPlayers() == 0 or os.clock() - t0 > 20
+       task.wait(6)            -- the leave save and the ticker write finish
+       local D = require(game.ServerScriptService.DevScenarios:Clone())
+       return game:GetService("HttpService"):JSONEncode({ errors = errs, restore = D.restore(1688749216), compare = D.compareSnapshot(1688749216) })
+
+   `restore.ok` must be true and `compare.differs` empty. If not, say so first, loudly.
+   Then `start_stop_play` false (no player is left, so the stop saves nothing).
 7. `bash /c/Users/lukex/Downloads/silicon-startup/game-health/tools/routine.sh checkup-report /c/Users/lukex/Downloads/silicon-startup/doctor/report-<date>.json`
    then `... routine.sh checkup-post` (no webhook yet: say so, it is not a failure).
-8. Live errors (26 Oct, the safety net). Edit datamodel:
-   `return require(game.ServerScriptService.ErrorLog:Clone()).read(2)`
+8. Live errors (26 Oct, the safety net): the `errors` from step 6.
    Today and yesterday on LIVE servers and players' clients. Any kind whose `v0` is the
    newest place version came with the last publish: that is the first thing to report.
    If a feature with a flag is breaking players, say so and point at docs/ROLLBACK.md step 1
