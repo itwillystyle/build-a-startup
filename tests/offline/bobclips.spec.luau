@@ -60,6 +60,39 @@ test("the kick snaps: the hip goes from behind to high in under 0.15 s", functio
 	assert(math.deg(back) < -30 and math.deg(up) > 90, ("%.0f -> %.0f"):format(math.deg(back), math.deg(up)))
 end)
 
+-- 6 Nov: the doctor's "nothing snaps inside a shot" failed on 28 Oct, 30 Oct, 3 Nov and 6 Nov, every time
+-- "6.44 s bob RightHip 46-48 deg": the kick's snap began at full speed (ease "out") straight out of the
+-- held wind-up, so at 60 fps a frame that landed on 0.2 s turned the leg 46 deg out of stillness. The same
+-- rule as DoctorProbes (over 45 deg in one frame and 3x the frame before), at 60 fps, at every phase.
+test("no clip turns a joint over 45 deg in one 60 fps frame out of near-stillness (the doctor's snap rule)", function()
+	local dt, bad = 1 / 60, {}
+	local function turn(a, b) return math.deg(math.acos(math.clamp(a.LookVector:Dot(b.LookVector), -1, 1))) end
+	for name, clip in pairs(B.CLIPS) do
+		local span = clip.loop and clip.length * 2 or clip.length + 0.1
+		for phase = 0, 19 do
+			local t, prev, lastTurn = phase * dt / 20, nil, {}
+			while t <= span do
+				local s = B.sample(name, t)
+				if prev then
+					for joint, cf in pairs(s) do
+						local o = prev[joint]
+						local deg = o and turn(cf, o) or 0
+						if deg > 45 and deg > 3 * (lastTurn[joint] or 0) then
+							bad[name .. " " .. joint] = math.max(bad[name .. " " .. joint] or 0, deg)
+						end
+						lastTurn[joint] = deg
+					end
+				end
+				prev, t = s, t + dt
+			end
+		end
+	end
+	local list = {}
+	for k, deg in pairs(bad) do table.insert(list, ("%s %.0f deg"):format(k, deg)) end
+	table.sort(list)
+	assert(#list == 0, table.concat(list, "; "))
+end)
+
 test("sampling past the end of a one-shot holds its last pose", function()
 	local a = B.sample("hero_vow", 4.2).RightShoulder
 	local b = B.sample("hero_vow", 9).RightShoulder

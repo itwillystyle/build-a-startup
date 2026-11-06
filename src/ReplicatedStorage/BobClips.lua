@@ -163,7 +163,9 @@ BobClips.IPAD_IN_HAND, BobClips.IPAD_HELD = 0.35, 0.95   -- the tablet's beats i
 C.hero_kick = { length = 0.45, keys = {
 	{ t = 0, RightHip = { 0, 0, 0 }, RightKnee = { 0, 0, 0 }, Waist = { 0, 0, 0 } },
 	{ t = 0.12, ease = "out", RightHip = { -35, 0, 0 }, RightKnee = { -70, 0, 0 }, Waist = { 8, 0, 0 }, RightShoulder = { 30, 0, -40 }, LeftShoulder = { -20, 0, 40 } },
-	{ t = 0.2, ease = "out", RightHip = { 95, 0, 0 }, RightKnee = { 0, 0, 0 }, Waist = { -18, 0, 0 }, RightShoulder = { -20, 0, -60 }, LeftShoulder = { 30, 0, 60 } },
+	-- (6 Nov: the snap is linear. Eased "out" it began at full speed right out of the held wind-up: half the
+	-- 130 deg swing, 65 deg, in the first 60 fps frame, the doctor's snap rule. Same poses, same 0.08 s)
+	{ t = 0.2, ease = "linear", RightHip = { 95, 0, 0 }, RightKnee = { 0, 0, 0 }, Waist = { -18, 0, 0 }, RightShoulder = { -20, 0, -60 }, LeftShoulder = { 30, 0, 60 } },
 	{ t = 0.34, RightHip = { 92, 0, 0 } },
 	{ t = 0.45, ease = "inout", RightHip = { 20, 0, 0 }, RightKnee = { -20, 0, 0 }, Waist = { -4, 0, 0 } },
 } }
@@ -209,7 +211,9 @@ C.bob_laughdie = { length = 1.4, keys = {
 C.bob_kick = { length = 0.55, keys = {
 	{ t = 0, Root = { 0, 0, 0 }, RightHip = { 0, 0, 0 }, RightShoulder = { 30, 0, -28 }, LeftShoulder = { 30, 0, 28 } },
 	{ t = 0.2, ease = "out", Root = { 10, 0, 0 }, RightHip = { -40, 0, 0 }, RightShoulder = { -10, 0, -55 }, LeftShoulder = { 40, 0, 50 } },
-	{ t = 0.3, ease = "out", Root = { -22, 0, 0 }, RightHip = { 100, 0, 0 }, RightShoulder = { -30, 0, -70 }, LeftShoulder = { 20, 0, 70 }, Neck = { -15, 0, 0 } },
+	-- (6 Nov: the snap is linear. Eased "out" it began at full speed right out of the held wind-up: 46 deg in
+	-- the first 60 fps frame, the doctor's "6.44 s bob RightHip 46 deg" on 28 Oct, 30 Oct, 3 and 6 Nov)
+	{ t = 0.3, ease = "linear", Root = { -22, 0, 0 }, RightHip = { 100, 0, 0 }, RightShoulder = { -30, 0, -70 }, LeftShoulder = { 20, 0, 70 }, Neck = { -15, 0, 0 } },
 	{ t = 0.43, Root = { -20, 0, 0 }, RightHip = { 96, 0, 0 } },
 	{ t = 0.55, ease = "inout", Root = { -8, 0, 0 }, RightHip = { 10, 0, 0 }, RightShoulder = { 40, 0, -30 }, LeftShoulder = { 30, 0, 40 } },
 } }
