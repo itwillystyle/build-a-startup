@@ -55,13 +55,15 @@ Then, with the Roblox Studio MCP tools:
    Any error or warning from our scripts fails the run.
 8. UI changed? Client datamodel: `return require(game.ReplicatedStorage.SVCheck).run()`.
    File the result.
-9. `start_stop_play` with is_start false.
-10. Restore the save **after** the stop. The stop's save-on-leave would overwrite an earlier
-    restore. In the Edit datamodel:
-    `return require(game.ServerScriptService.DevScenarios).restore(1688749216)`
-11. Prove the restore (Edit):
-    `return require(game.ServerScriptService.DevScenarios).compareSnapshot(1688749216)`
+9. Restore the save **after** the player has left: the save-on-leave would overwrite an
+    earlier restore. Studio 0.746 (6 Nov) refuses the DataStore from the Edit datamodel, so do
+    it on the Play SERVER: kick Wilz, wait until no player is left plus 6 s, then
+    `require(game.ServerScriptService.DevScenarios:Clone()).restore(1688749216)`
+    (the game-doctor skill, step 6, has the whole call).
+10. Prove the restore, same server:
+    `require(game.ServerScriptService.DevScenarios:Clone()).compareSnapshot(1688749216)`
     It must return `ok = true, differs = {}`. File the result as a note.
+11. `start_stop_play` with is_start false (no player left, so the stop saves nothing).
     Then leave Studio in **Edit**. `get_studio_state` must say so.
 12. `lune run tools/bas evidence note "not verified: <everything you did not check>"`
 13. `lune run tools/bas evidence done` must pass.

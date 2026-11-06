@@ -50,9 +50,9 @@ checks are memory, not proof: every step below is a command whose output decides
    plugin sync (Connected, one Rojo plugin only).
 2. **Stop Rojo** (stop that background task). From here until Luke's Alt+P nothing may sync
    into Studio, so what the check sees is what ships.
-3. Fingerprint, Studio EDIT datamodel. Start the receiver first (interactive sessions only;
-   never in a routine): `python -I tools/recv_once.py ../doctor/fingerprint-publish.json`
-   in the background, then `execute_luau` (Edit):
+3. Fingerprint, Studio EDIT datamodel, `execute_luau` (Edit). It returns the JSON; Write it,
+   exactly, to `../doctor/fingerprint-publish.json`. (Before Studio 0.746 a receiver,
+   `tools/recv_once.py`, took a PostAsync to 127.0.0.1; 0.746 refuses that address, 6 Nov.)
 
        local H = require(game.ReplicatedStorage.SourceHash:Clone())
        local function pathOf(i) local t = {} while i and i ~= game do table.insert(t, 1, i.Name); i = i.Parent end return table.concat(t, "/") end
@@ -72,8 +72,7 @@ checks are memory, not proof: every step below is a command whose output decides
        		end
        	end
        end
-       local HS = game:GetService("HttpService")
-       return HS:PostAsync("http://127.0.0.1:34999/", HS:JSONEncode({ kind = "publish", v = 2, at = os.time(), scripts = out }))
+       return game:GetService("HttpService"):JSONEncode({ kind = "publish", v = 2, at = os.time(), scripts = out })
 
 4. From `game/`: `lune run tools/bas checkup publish ../doctor/fingerprint-publish.json`
    (it uses the file up; a re-check needs a new fingerprint). It also fails while any Rojo
