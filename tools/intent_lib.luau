@@ -56,10 +56,12 @@ function I.parse(body)
 		if label then
 			current = label
 			out[label] = rest
-		elseif current and trim(line) ~= "" and not line:match("^%s*#") then
-			out[current] = trim(out[current] .. " " .. trim(line))
-		elseif line:match("^%s*#") then
+		elseif trim(line) == "" or line:match("^%s*#") then
+			-- a blank line or a heading ends the field: a later paragraph (the attribution line
+			-- every PR ends with) must not fill an empty Undo (review round 1, 7 Nov)
 			current = nil
+		elseif current then
+			out[current] = trim(out[current] .. " " .. trim(line))
 		end
 	end
 	return out
@@ -78,7 +80,9 @@ end
 function I.check(body, risk)
 	local f = I.parse(body)
 	local problems = {}
-	local game = risk and risk.counts and ((risk.counts.gameplay or 0) > 0) or false
+	-- game code = anything under src/: gameplay, and the save and economy files risk_lib splits out
+	local c = (risk and risk.counts) or {}
+	local game = ((c.gameplay or 0) + (c.save or 0) + (c.economy or 0)) > 0
 	for _, label in I.FIELDS do
 		local v = f[label:lower()]
 		if OPTIONAL_UNLESS_GAME[label] and not game and (v == nil or isPlaceholder(v)) then

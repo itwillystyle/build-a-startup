@@ -121,4 +121,19 @@ test("the PR template in the repo is exactly what the check refuses until filled
 	end
 end)
 
+test("text after a blank line does not fill an empty field (the attribution line, review round 1)", function()
+	local body = FULL:gsub("%*%*Undo:%*%*[^\n]*", "**Undo:** <!-- a flag, a revert, or a place version -->")
+		.. "\n\nGenerated with [Claude Code](https://claude.com/claude-code)\n"
+	local r = I.check(body, GAMEPLAY)
+	assert(not r.ok and has(r.problems, "undo"), table.concat(r.problems, "; "))
+end)
+
+test("a save-only or economy-only change still needs Evidence (review round 1)", function()
+	local body = FULL:gsub("%*%*Evidence:%*%*[^\n]*\n", "")
+	for _, kind in { "save", "economy" } do
+		local r = I.check(body, { needsLuke = true, counts = { [kind] = 1 } })
+		assert(not r.ok and has(r.problems, "evidence"), kind .. ": " .. table.concat(r.problems, "; "))
+	end
+end)
+
 return T
