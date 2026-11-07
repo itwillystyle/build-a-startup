@@ -162,11 +162,11 @@ the card and looks at the Evidence, not the diff.
    Still finding new real bugs after round 2? Stop and rethink the approach; a third round
    is Luke's call. Never fix a nit just because a reviewer listed it: that is how a 50-line
    change becomes 800.
-3. Write the card: copy `.github/pull_request_template.md` to `../doctor/pr-<slug>.md`, fill
+3. Write the card: copy `.github/pull_request_template.md` to `../doctor/card-<slug>.md` (not `pr-`: `bas checkup pr` writes there), fill
    every line (Review = rounds, findings, fixed, answered; Risk = the bas risk verdict;
    Undo = a flag, "revert this PR" or a place version), then
-   `lune run tools/bas intent --body-file ../doctor/pr-<slug>.md` until it passes.
-4. `gh pr create --body-file ../doctor/pr-<slug>.md` (gh does not use the template by itself).
+   `lune run tools/bas intent --body-file ../doctor/card-<slug>.md` until it passes.
+4. `gh pr create --body-file ../doctor/card-<slug>.md` (gh does not use the template by itself).
    The Intent workflow re-runs on every push and every edit of the description.
 
 ## Known traps (each one has cost a session; add new ones here)
