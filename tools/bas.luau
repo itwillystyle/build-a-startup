@@ -15,6 +15,7 @@
     lune run tools/bas checkup pr <report> <fingerprint> [--post]   the doctor as a gate on a pull request
     lune run tools/bas checkup publish <fingerprint>   before Alt+P: Studio is exactly main
     lune run tools/bas risk [base] [--label]   which changed files need Luke (tools/risk_lib.luau)
+    lune run tools/bas intent [base] [--body-file f]   the PR's intent card is filled and agrees with risk
 	Add --json to any command for one machine-readable object on stdout.
 	Add --save to check / sim / baseline diff to file the result in the current evidence folder.
 	Exit codes: 0 ok, 1 a check failed, 2 usage error.
@@ -36,7 +37,7 @@ local A = {}
 for _, a in process.args do
 	if a ~= "--" then table.insert(A, a) end
 end
-local VALUE_FLAGS = { ["--n"] = true, ["--tol"] = true, ["--kind"] = true, ["--log"] = true, ["--dir"] = true, ["--note"] = true, ["--days"] = true }
+local VALUE_FLAGS = { ["--n"] = true, ["--tol"] = true, ["--kind"] = true, ["--log"] = true, ["--dir"] = true, ["--note"] = true, ["--days"] = true, ["--body-file"] = true }
 local JSON = table.find(A, "--json") ~= nil
 local SAVE = table.find(A, "--save") ~= nil
 local function flag(name)
@@ -113,6 +114,13 @@ local function result(command, checks, extra)
 	local out = { ok = ok, command = command, checks = checks, ms = total }
 	for k, v in extra or {} do out[k] = v end
 	return out
+end
+
+-- ============ finding streaks (7 Nov 2026) ============
+-- runs in a row each doctor / health finding has been open; docs/KNOWN-FINDINGS.md holds the reasons
+local Streak = require("./streak_lib")
+local function knownFindings()
+	return fs.isFile(Streak.KNOWN_FILE) and Streak.parseKnown(fs.readFile(Streak.KNOWN_FILE)) or {}
 end
 
 -- ============ evidence (used by --save) ============
@@ -714,6 +722,12 @@ local function cmdHealth()
 		end
 	end
 	local prev = readJson(HEALTH_LAST)
+	-- runs in a row each FAIL has been open (tools/streak_lib.luau): 3+ with no reason is listed
+	local failKeys = {}
+	for _, c in all do
+		if not c.ok and c.level ~= "warn" then table.insert(failKeys, c.section .. " / " .. c.name) end
+	end
+	local streaks = Streak.advance(prev and prev.streaks, failKeys)
 	local seen = {}
 	for _, c in (prev and prev.checks) or {} do seen[c.section .. "/" .. c.name .. "/" .. tostring(c.detail)] = true end
 	local function mark(c) return c.ok and "PASS" or (c.level == "warn" and "WARN" or "FAIL") end
@@ -756,10 +770,12 @@ local function cmdHealth()
 	end
 	if open == 0 then table.insert(md, "- none") end
 	table.insert(md, "")
+	table.insert(md, Streak.markdown(streaks, knownFindings()))
+	table.insert(md, "")
 	table.insert(md, "Report only: this run never commits, pushes or publishes. Not checked here: how the game")
 	table.insert(md, "feels, anything that needs Studio open, and WHICH commit is live (only when it was published).")
 	fs.writeFile(HEALTH_MD, table.concat(md, "\n") .. "\n")
-	writeJson(HEALTH_LAST, { at = os.time(), checks = all })
+	writeJson(HEALTH_LAST, { at = os.time(), checks = all, streaks = streaks })
 	return result("health", { { name = "HEALTH.md", ok = ok, ms = 0,
 		detail = ("%s, %d open finding(s), written to %s"):format(ok and "GREEN" or "RED", open, HEALTH_MD) } })
 end
@@ -1192,11 +1208,19 @@ local function cmdCheckup()
 		local prev = readJson(DOCTOR_LAST)
 		local diff = Doctor.diff(prev and prev.keys or {}, findings)
 		local when = os.date("%a %d %b %Y, %H:%M")
-		fs.writeFile(DOCTOR_MD, Doctor.markdown(report, findings, infos, diff, when))
-		fs.writeFile(DOCTOR_TXT, Doctor.discord(findings, diff, when))
 		local keys = {}
 		for _, f in ipairs(findings) do table.insert(keys, f.key) end
-		writeJson(DOCTOR_PENDING, { at = os.time(), keys = keys })
+		-- runs in a row each finding has been open, counted over POSTED runs like "new" and "fixed"
+		local streaks = Streak.advance(prev and prev.streaks, keys)
+		local known = knownFindings()
+		local stale = Streak.stale(streaks, known)
+		fs.writeFile(DOCTOR_MD, Doctor.markdown(report, findings, infos, diff, when) .. "\n" .. Streak.markdown(streaks, known) .. "\n")
+		local txt = Doctor.discord(findings, diff, when)
+		if #stale > 0 then
+			txt ..= ("\n%d open %d+ runs with no reason: fix it or add it to %s"):format(#stale, Streak.THRESHOLD, Streak.KNOWN_FILE)
+		end
+		fs.writeFile(DOCTOR_TXT, txt)
+		writeJson(DOCTOR_PENDING, { at = os.time(), keys = keys, streaks = streaks })
 		local c = Doctor.counts(findings)
 		return result("checkup report", { { name = "DOCTOR.md", ok = c.BLOCKER == 0, ms = 0,
 			detail = ("%d BLOCKER, %d BUG, %d MISSING, %d FEEL; %d new, %d fixed -> %s"):format(c.BLOCKER, c.BUG, c.MISSING, c.FEEL,
@@ -1280,8 +1304,8 @@ end
 -- meaning"). Compares against origin/main by default, plus anything uncommitted.
 --   lune run tools/bas risk [base] [--label]   --label: tag the branch's open PR "needs-luke"
 local Risk = require("./risk_lib")
-local function cmdRisk()
-	local base = pos[2] or "origin/main"
+-- every file this branch changes vs base (committed, uncommitted, untracked); nil when git cannot diff
+local function changedPaths(base)
 	local paths, seen = {}, {}
 	local function addAll(text)
 		for _, l in lines(text) do
@@ -1292,13 +1316,20 @@ local function cmdRisk()
 	-- --no-renames: with rename detection git lists only the NEW path, so a test moved
 	-- out of tests/ (it silently stops running) read as "tooling" (review of #52)
 	local committed = git({ "diff", "--name-only", "--no-renames", base .. "...HEAD" })
-	if committed == nil then
-		return result("risk", { { name = "base", ok = false, detail = "git cannot diff against " .. base } })
-	end
+	if committed == nil then return nil end
 	addAll(committed)
 	addAll(git({ "diff", "--name-only", "--no-renames", "HEAD" }) or "")   -- uncommitted, tracked
 	for _, l in lines(git({ "status", "--porcelain" }) or "") do      -- untracked
 		if l:sub(1, 2) == "??" then addAll(l:sub(4)) end
+	end
+	return paths
+end
+
+local function cmdRisk()
+	local base = pos[2] or "origin/main"
+	local paths = changedPaths(base)
+	if paths == nil then
+		return result("risk", { { name = "base", ok = false, detail = "git cannot diff against " .. base } })
 	end
 	local r = Risk.classify(paths)
 	local checks = {}
@@ -1329,6 +1360,44 @@ local function cmdRisk()
 	return result("risk", checks, { needsLuke = r.needsLuke, counts = r.counts })
 end
 
+-- ============ intent (7 Nov 2026) ============
+-- CONSTRAINTS.md rule 6, as a check: the PR description carries the intent card
+-- (.github/pull_request_template.md) and its Risk line agrees with `bas risk`.
+-- The body comes from --body-file, else $PR_BODY (CI, .github/workflows/intent.yml), else the
+-- branch's open PR via gh. The body is someone's text (rule 16): parsed, never run.
+local Intent = require("./intent_lib")
+local function cmdIntent()
+	local base = pos[2] or "origin/main"
+	local body, from
+	local file = flag("--body-file")
+	if file then
+		if not fs.isFile(file) then
+			return result("intent", { { name = "body", ok = false, detail = "no file at " .. file } })
+		end
+		body, from = fs.readFile(file), file
+	elseif process.env.PR_BODY ~= nil then
+		body, from = process.env.PR_BODY, "$PR_BODY"
+	else
+		local r = run("gh", { "pr", "view", "--json", "body", "-q", ".body" })
+		if not r.ok then
+			return result("intent", { { name = "body", ok = false, detail = "no open PR for this branch (or pass --body-file): " .. trim(r.stderr) } })
+		end
+		body, from = r.stdout, "the open PR"
+	end
+	local paths = changedPaths(base)
+	if paths == nil then
+		return result("intent", { { name = "base", ok = false, detail = "git cannot diff against " .. base } })
+	end
+	local risk = Risk.classify(paths)
+	local c = Intent.check(body, risk)
+	return result("intent", { {
+		name = "intent card", ok = c.ok,
+		detail = c.ok and ("filled, read from " .. from .. "; risk " .. (risk.needsLuke and "needs Luke" or "routine"))
+			or (#c.problems .. " problem(s) in " .. from),
+		text = (not c.ok) and ("    " .. table.concat(c.problems, "\n    ")) or nil,
+	} })
+end
+
 local HELP = [[
 bas -- one command for every check this game has. Run from the game folder.
 
@@ -1353,6 +1422,7 @@ bas -- one command for every check this game has. Run from the game folder.
   lune run tools/bas checkup post          post the summary to Discord (../.discord-webhook)
   lune run tools/bas checkup publish <fingerprint.json>   before Alt+P: is Studio exactly main?
   lune run tools/bas risk [base] [--label]  what kind of change this branch is; does Luke need to look
+  lune run tools/bas intent [base] [--body-file f]   the PR's intent card is filled; Risk agrees with risk
   lune run tools/chase_tune -- --minutes N  the chase tuner (judge: chase.spec + chasecam.spec + the design spec)
   lune run tools/bas tune post [--dry]     post the newest finished chase tuning to Discord
 
@@ -1431,6 +1501,8 @@ elseif cmd == "tune" then
 	res = cmdTune()
 elseif cmd == "risk" then
 	res = cmdRisk()
+elseif cmd == "intent" then
+	res = cmdIntent()
 end
 
 if not res then

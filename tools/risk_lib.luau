@@ -43,6 +43,8 @@ local RULES = {
 		"^tools/fuzz_[%w_]*%.luau$", "^tools/cloud_smoke%.luau$", "^tools/smoke_[%w_]*%.luau$",
 		"/GameDoctor[%w_.]*%.lua$", "/DoctorProbes%.lua$", "/DoctorClient[%w_.]*%.lua$",
 		"/SVCheck%.lua$", "/SourceHash%.lua$", "^CONSTRAINTS%.md$",
+		-- a reason in KNOWN-FINDINGS silences a doctor or health finding (7 Nov): as serious as editing the check
+		"^docs/KNOWN%-FINDINGS%.md$",
 		-- the seeded sims `bas sim` and `baseline diff` judge, and the Studio audits
 		"^tools/chase_threat%.luau$", "^tools/late_game%.luau$", "^tools/chase_sim%.luau$",
 		"^tools/curve_check%.luau$", "^tools/algo_check%.luau$", "^tools/world_overlap%.luau$",
