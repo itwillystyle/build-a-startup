@@ -151,6 +151,24 @@ The hunt, in order:
 
 Feel (camera, fun, readability) is never "verified" by these tools. Say so.
 
+## Before opening a PR (7 Nov: CONSTRAINTS.md rules 5-6 as checks)
+Luke does not read Luau, so this review is the only code review the change gets. Luke reads
+the card and looks at the Evidence, not the diff.
+1. `lune run tools/bas risk` and keep the verdict line.
+2. **Fresh-context review, at most 2 rounds.** Run `/code-review medium` on the branch (or a
+   fresh subagent given the diff, CONSTRAINTS.md and the task, never your conclusions). Each
+   finding must name a concrete failure (rule 6), else drop it. Fix it (test first if it is a
+   bug), or answer it in one line on the card. A round 2 only re-reads the diff since round 1.
+   Still finding new real bugs after round 2? Stop and rethink the approach; a third round
+   is Luke's call. Never fix a nit just because a reviewer listed it: that is how a 50-line
+   change becomes 800.
+3. Write the card: copy `.github/pull_request_template.md` to `../doctor/card-<slug>.md` (not `pr-`: `bas checkup pr` writes there), fill
+   every line (Review = rounds, findings, fixed, answered; Risk = the bas risk verdict;
+   Undo = a flag, "revert this PR" or a place version), then
+   `lune run tools/bas intent --body-file ../doctor/card-<slug>.md` until it passes.
+4. `gh pr create --body-file ../doctor/card-<slug>.md` (gh does not use the template by itself).
+   The Intent workflow re-runs on every push and every edit of the description.
+
 ## Known traps (each one has cost a session; add new ones here)
 - `require()` from `execute_luau` returns a **fresh copy** of a module, so changes land on an
   unused copy. Drive the game through SVDev (`scenario` or its raw actions), never around it

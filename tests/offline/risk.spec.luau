@@ -14,6 +14,9 @@ local CASES = {
 	{ "src/ReplicatedStorage/SourceHash.lua", "judge" },
 	{ "src/ReplicatedStorage/SVCheck.lua", "judge" },
 	{ "CONSTRAINTS.md", "judge" },
+	-- a reason here silences a doctor or health finding: as serious as editing the check (7 Nov)
+	{ "docs/KNOWN-FINDINGS.md", "judge" },
+	{ ".github/pull_request_template.md", "ci" },
 	-- what runs the judges
 	{ ".github/workflows/ci.yml", "ci" },
 	{ "hooks/pre-commit", "ci" },

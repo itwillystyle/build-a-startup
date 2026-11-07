@@ -1,0 +1,42 @@
+name: Intent
+
+# CONSTRAINTS.md rule 6: every PR opens with the intent card, and its Risk line agrees with
+# `bas risk`. A separate workflow from CI so editing the PR description re-runs only this
+# check, never `check` (a skipped re-run of a required check would read as passing).
+# The description is someone's text (rule 16): it reaches the script as an environment
+# variable and is only parsed, never run or interpolated into the shell.
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  intent:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rokit
+        env:
+          GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/rojo-rbx/rokit/main/scripts/install.sh | bash
+          echo "$HOME/.rokit/bin" >> "$GITHUB_PATH"
+
+      - name: Install pinned tools
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          rokit authenticate github --token "$GITHUB_TOKEN"
+          rokit install --no-trust-check
+
+      - name: Intent card
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          BASE_REF: ${{ github.base_ref }}
+        run: lune run tools/bas intent "origin/$BASE_REF"

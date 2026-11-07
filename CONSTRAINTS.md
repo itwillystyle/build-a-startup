@@ -19,8 +19,10 @@ became saying "no". These are ours, short enough to check every time.
    If a judge is wrong, change it in its own PR and say why (ImpossibleBench: models do this).
 5. **No auto-merge for gameplay, look, economy, save, judge or CI changes.** `bas risk` says
    which a branch is. Luke merges those after reading the PR's intent card.
-6. **Every PR opens with the intent card** (should do / must not break / measured / not
-   measured), and every review finding names a concrete failure, or it is dropped.
+6. **Every PR opens with the intent card** (`.github/pull_request_template.md`: should do /
+   must not break / measured / not measured / evidence / review / risk / undo), and every
+   review finding names a concrete failure, or it is dropped. A check, not a promise (7 Nov,
+   after 0 of #65-#94 carried it): the Intent workflow runs `bas intent` on every PR.
 7. **Measure, don't assert.** Every report marks what was verified by running something and
    what was not. A screenshot or a number, not "should work".
 
