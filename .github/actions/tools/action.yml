@@ -10,14 +10,14 @@ runs:
   using: composite
   steps:
     - name: Install Rokit
-      # The install script is read at a release tag, not from main, so a change on rokit's main branch cannot run
-      # here unseen (it gets the run's token). Signed in: an anonymous download shares one rate limit with every
+      # Script and program both pinned to v1.2.0 (the argument makes the script fetch that tag, not the latest
+      # release), so a new rokit release or a change on rokit's main branch cannot run here unseen with the token. Signed in: an anonymous download shares one rate limit with every
       # other runner and failed with 403 on main (run 38024438705, 10 Oct).
       shell: bash
       env:
         GITHUB_PAT: ${{ inputs.token }}
       run: |
-        curl -fsSL https://raw.githubusercontent.com/rojo-rbx/rokit/v1.2.0/scripts/install.sh | bash
+        curl -fsSL https://raw.githubusercontent.com/rojo-rbx/rokit/v1.2.0/scripts/install.sh | bash -s -- 1.2.0
         echo "$HOME/.rokit/bin" >> "$GITHUB_PATH"
 
     - name: Install pinned tools
@@ -25,6 +25,5 @@ runs:
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
       run: |
-        export PATH="$HOME/.rokit/bin:$PATH"
         rokit authenticate github --token "$GITHUB_TOKEN"
         rokit install --no-trust-check
