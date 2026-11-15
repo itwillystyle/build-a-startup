@@ -11,8 +11,9 @@ runs:
   steps:
     - name: Install Rokit
       # Script and program both pinned to v1.2.0 (the argument makes the script fetch that tag, not the latest
-      # release), so a new rokit release or a change on rokit's main branch cannot run here unseen with the token. Signed in: an anonymous download shares one rate limit with every
-      # other runner and failed with 403 on main (run 38024438705, 10 Oct).
+      # release), so a new rokit release or a change on rokit's main branch cannot run here unseen with the token.
+      # Signed in: an anonymous download shares one rate limit with every other runner and failed with 403 on main
+      # (run 38024438705, 10 Oct).
       shell: bash
       env:
         GITHUB_PAT: ${{ inputs.token }}
