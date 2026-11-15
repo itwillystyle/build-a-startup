@@ -21,19 +21,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install Rokit
-        env:
-          GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          curl -fsSL https://raw.githubusercontent.com/rojo-rbx/rokit/main/scripts/install.sh | bash
-          echo "$HOME/.rokit/bin" >> "$GITHUB_PATH"
-
-      - name: Install pinned tools
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          rokit authenticate github --token "$GITHUB_TOKEN"
-          rokit install --no-trust-check
+      - uses: ./.github/actions/tools
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Intent card
         env:

@@ -1,9 +1,10 @@
 name: CI
 
-# The same two checks the local pre-commit hook runs, moved somewhere a stranger
-# can see them pass. selene catches the forward-reference bug class that bit this
-# codebase seven times (a local function called above its definition reads as
-# `undefined_variable`), and the Lune suite covers the pure modules.
+# The pre-commit hook's UTF-8 check, selene, the offline Lune suite and the type check, where a
+# stranger can see them pass. selene catches the forward-reference bug class that bit this codebase seven times (a local function
+# called above its definition reads as `undefined_variable`); the Lune suite covers the pure modules.
+# No formatting step: `stylua --check src` wanted 167 files changed on every run and could never
+# fail the build, so it was noise, not a check. Add it back as a gate after the `stylua src` commit.
 
 on:
   push:
@@ -17,21 +18,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rokit
-        # signed in with the run's own token: an anonymous download shares one rate limit with
-        # every other runner and failed with 403 on main (run 38024438705, 10 Oct)
-        env:
-          GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          curl -fsSL https://raw.githubusercontent.com/rojo-rbx/rokit/main/scripts/install.sh | bash
-          echo "$HOME/.rokit/bin" >> "$GITHUB_PATH"
+      - uses: ./.github/actions/tools
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install pinned tools
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          rokit authenticate github --token "$GITHUB_TOKEN"
-          rokit install --no-trust-check
+      - name: UTF-8
+        # the pre-commit hook's check, for commits that skipped the hook (--no-verify, a web edit). A Latin-1 byte
+        # renders garbled and can stop Rojo syncing the file.
+        run: git ls-files -- '*.lua' '*.luau' | grep -v '^Packages/' | python3 hooks/check_utf8.py
 
       - name: Generate the Roblox std for selene
         # selene.toml sets std = "roblox", which needs roblox.yml. It is generated
@@ -53,9 +47,3 @@ jobs:
         # raises a count in tests/types-baseline.txt should say why. Green is not "no type bugs":
         # src/ is nonstrict (see the top of tools/typecheck.luau for what it misses).
         run: lune run tools/typecheck
-
-      - name: Formatting
-        # Informational for now: `stylua src` has never been run on this codebase,
-        # so failing the build on it would just be noise. Flip --check to a real
-        # gate once the formatting commit lands.
-        run: stylua --check src || echo "::warning::stylua would reformat files (not gating)"
