@@ -1,0 +1,30 @@
+name: Pinned tools
+description: Rokit, then every tool rokit.toml pins (rojo, selene, StyLua, luau-lsp, lune, wally). One copy for all workflows.
+
+inputs:
+  token:
+    description: the run's GITHUB_TOKEN
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install Rokit
+      # The install script is read at a release tag, not from main, so a change on rokit's main branch cannot run
+      # here unseen (it gets the run's token). Signed in: an anonymous download shares one rate limit with every
+      # other runner and failed with 403 on main (run 38024438705, 10 Oct).
+      shell: bash
+      env:
+        GITHUB_PAT: ${{ inputs.token }}
+      run: |
+        curl -fsSL https://raw.githubusercontent.com/rojo-rbx/rokit/v1.2.0/scripts/install.sh | bash
+        echo "$HOME/.rokit/bin" >> "$GITHUB_PATH"
+
+    - name: Install pinned tools
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+      run: |
+        export PATH="$HOME/.rokit/bin:$PATH"
+        rokit authenticate github --token "$GITHUB_TOKEN"
+        rokit install --no-trust-check
